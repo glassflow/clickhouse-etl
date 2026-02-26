@@ -63,8 +63,12 @@ function mapBackendClickhouseDestinationToStore(sink: any, schemaFields?: any[])
     backendMapping = sink.table_mapping
   } else if (Array.isArray(schemaFields) && schemaFields.length > 0) {
     // V2 format: mapping is in schema.fields
-    // Transform V2 schema.fields to the same format as V1 table_mapping
-    backendMapping = schemaFields.map((field: any) => ({
+    // Only include fields that are mapped to the sink (have column_name and column_type) to avoid
+    // duplicating raw topic fields that are already represented as transform outputs.
+    const mappedFields = schemaFields.filter(
+      (field: any) => field.column_name && field.column_type,
+    )
+    backendMapping = mappedFields.map((field: any) => ({
       source_id: field.source_id,
       field_name: field.name, // In V2, 'name' is the Kafka field name
       column_name: field.column_name,
@@ -227,8 +231,11 @@ export async function hydrateClickhouseDestination(pipelineConfig: any) {
     backendMapping = sink.table_mapping
   } else if (Array.isArray(pipelineConfig?.schema?.fields) && pipelineConfig.schema.fields.length > 0) {
     // V2 format: mapping is in schema.fields
-    // Transform V2 schema.fields to the same format as V1 table_mapping
-    backendMapping = pipelineConfig.schema.fields.map((field: any) => ({
+    // Only include fields that are mapped to the sink (have column_name and column_type).
+    const mappedFields = pipelineConfig.schema.fields.filter(
+      (field: any) => field.column_name && field.column_type,
+    )
+    backendMapping = mappedFields.map((field: any) => ({
       source_id: field.source_id,
       field_name: field.name, // In V2, 'name' is the Kafka field name
       column_name: field.column_name,

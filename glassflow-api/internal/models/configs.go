@@ -444,6 +444,7 @@ type PipelineConfig struct {
 	Filter                  FilterComponentConfig    `json:"filter"`
 	StatelessTransformation StatelessTransformation  `json:"stateless_transformation,omitempty"`
 	SchemaVersions          map[string]SchemaVersion `json:"schema_versions,omitempty"`
+	PipelineResources       PipelineResources        `json:"pipeline_resources,omitempty"`
 
 	CreatedAt time.Time        `json:"created_at"`
 	Metadata  PipelineMetadata `json:"metadata"`

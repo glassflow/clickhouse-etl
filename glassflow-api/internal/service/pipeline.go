@@ -219,6 +219,34 @@ func (p *PipelineService) GetPipelineResources(ctx context.Context, pid string) 
 	return row, nil
 }
 
+func (p *PipelineService) UpdatePipelineResources(ctx context.Context, pid string, resources models.PipelineResources) error {
+	pipeline, err := p.db.GetPipeline(ctx, pid)
+	if err != nil {
+		if errors.Is(err, ErrPipelineNotExists) {
+			return ErrPipelineNotExists
+		}
+		return fmt.Errorf("get pipeline for resource update: %w", err)
+	}
+
+	if pipeline.Status.OverallStatus != internal.PipelineStatusStopped &&
+		pipeline.Status.OverallStatus != internal.PipelineStatusFailed {
+		return status.NewPipelineNotStoppedForEditError(pipeline.Status.OverallStatus)
+	}
+
+	pipeline.PipelineResources = resources
+
+	err = p.orchestrator.EditPipeline(ctx, pid, pipeline)
+	if err != nil {
+		return fmt.Errorf("edit pipeline: %w", err)
+	}
+
+	if _, err := p.db.UpsertPipelineResources(ctx, pid, resources); err != nil {
+		return fmt.Errorf("upsert pipeline resources: %w", err)
+	}
+
+	return nil
+}
+
 // GetPipelines implements PipelineService.
 func (p *PipelineService) GetPipelines(ctx context.Context) ([]models.ListPipelineConfig, error) {
 	pipelines, err := p.db.GetPipelines(ctx)

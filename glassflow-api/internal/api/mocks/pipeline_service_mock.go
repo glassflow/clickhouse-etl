@@ -240,3 +240,17 @@ func (mr *MockPipelineServiceMockRecorder) UpdatePipelineName(ctx, id, name any)
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdatePipelineName", reflect.TypeOf((*MockPipelineService)(nil).UpdatePipelineName), ctx, id, name)
 }
+
+// UpdatePipelineResources mocks base method.
+func (m *MockPipelineService) UpdatePipelineResources(ctx context.Context, pid string, resources models.PipelineResources) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdatePipelineResources", ctx, pid, resources)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdatePipelineResources indicates an expected call of UpdatePipelineResources.
+func (mr *MockPipelineServiceMockRecorder) UpdatePipelineResources(ctx, pid, resources any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdatePipelineResources", reflect.TypeOf((*MockPipelineService)(nil).UpdatePipelineResources), ctx, pid, resources)
+}

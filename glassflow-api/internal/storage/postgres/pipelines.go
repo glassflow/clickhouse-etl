@@ -9,12 +9,13 @@ import (
 	"maps"
 	"time"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 )
 
 const (
@@ -71,6 +72,14 @@ func (s *PostgresStorage) GetPipeline(ctx context.Context, id string) (*models.P
 	err = s.loadConfigsAndSchemaVersions(ctx, pCfg)
 	if err != nil {
 		return nil, fmt.Errorf("load configs and schema versions: %w", err)
+	}
+
+	row, err := s.GetPipelineResources(ctx, id)
+	if err != nil && !errors.Is(err, service.ErrPipelineNotExists) {
+		return nil, fmt.Errorf("get pipeline resources: %w", err)
+	}
+	if row != nil {
+		pCfg.PipelineResources = row.Resources
 	}
 
 	return pCfg, nil

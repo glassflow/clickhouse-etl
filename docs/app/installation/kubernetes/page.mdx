@@ -110,6 +110,14 @@ kubectl port-forward service/glassflow-api 8081:8081 -n glassflow
 ```
 The GlassFlow API service runs on port 8081. The command above forwards it to port 8081 on your machine. You can modify this port if needed.
 
+### API documentation (Swagger)
+The API deployment includes **Swagger (OpenAPI) documentation** so you can explore and call endpoints interactively. After port-forwarding the API (see above), open:
+
+- **Swagger UI** (interactive docs): [http://localhost:8081/api/v1/docs](http://localhost:8081/api/v1/docs)
+- **OpenAPI spec** (JSON): [http://localhost:8081/api/v1/openapi.json](http://localhost:8081/api/v1/openapi.json)
+
+Use the Swagger UI to view all API endpoints, request/response schemas, and try out requests. If you expose the API via ingress, the same paths are available under your API base URL (e.g. `https://your-domain.com/api/v1/docs`).
+
 ### Go to GlassFlow UI  
 Open http://localhost:8080 in your browser to access the GlassFlow UI. You can now start creating pipelines.
 For help with your first pipeline, see the [Usage Guide](/usage-guide).
