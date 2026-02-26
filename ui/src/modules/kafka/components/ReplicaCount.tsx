@@ -55,7 +55,7 @@ export default function ReplicaCount({
           <TooltipContent
             side="right"
             align="start"
-            className="max-w-[300px] bg-gray-800 text-gray-100 border border-gray-700 rounded-lg p-3 shadow-lg"
+            className="max-w-[300px] bg-[var(--surface-bg)] text-[var(--surface-fg)] border border-[var(--surface-border)] rounded-lg p-3 shadow-lg"
           >
             <p className="text-sm leading-relaxed">
               Decreasing the number of replicas will result in slower performance, but it will reduce resource usage
@@ -91,7 +91,7 @@ export default function ReplicaCount({
             }
           }}
           disabled={readOnly || isLoading || partitionCount === 0}
-          className="px-3 py-2 input-regular input-border-regular rounded-md text-sm focus:outline-none focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed w-24"
+          className="px-3 py-2 rounded-md text-sm w-24"
           placeholder="1"
         />
         <span className="text-sm text-content">

@@ -3,13 +3,6 @@ import { cn } from '@/src/utils/common.client'
 import Loader from '@/src/images/loader-small.svg'
 import Image from 'next/image'
 
-const actionTypeClasses = {
-  primary: 'btn-primary',
-  secondary: 'btn-secondary',
-  tertiary: 'btn-tertiary',
-  destructive: 'btn-destructive',
-}
-
 function FormActionButton({
   children,
   isSuccess = false,
@@ -41,15 +34,11 @@ function FormActionButton({
 }) {
   return (
     <Button
-      className={cn(className, {
-        [actionTypeClasses[actionType]]: true,
-        'btn-text': true,
-        'opacity-50': isLoading,
-      })}
-      type="button"
-      variant={actionType === 'secondary' ? 'secondary' : 'gradient'}
       size="custom"
-      onClick={onClick || (() => {})}
+      className={cn(className, isLoading && 'opacity-50')}
+      type="button"
+      variant={actionType === 'destructive' ? 'destructive' : actionType}
+      onClick={onClick || (() => { })}
       disabled={disabled}
     >
       {isLoading && showLoadingIcon && (

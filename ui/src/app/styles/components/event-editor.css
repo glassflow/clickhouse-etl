@@ -1,7 +1,7 @@
 /* ================== Event Editor utilities ================== */
 .event-preview-container {
   position: relative;
-  background-color: #1e1e1f;
+  background-color: var(--color-black-300);
   border-radius: 6px;
   display: flex;
   flex-direction: column;
@@ -28,7 +28,7 @@
 }
 
 .ace_gutter {
-  background-color: rgba(30, 30, 31, 0.8) !important;
+  background-color: color-mix(in srgb, var(--color-black-300) 80%, transparent) !important;
 }
 
 .ace_content {

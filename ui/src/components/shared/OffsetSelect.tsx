@@ -1,6 +1,4 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select'
-import { cn } from '@/src/utils/common.client'
-import { useState } from 'react'
 
 export function OffsetSelect({
   value,
@@ -25,7 +23,6 @@ export function OffsetSelect({
   standalone?: boolean
   label?: string
 }) {
-  const [isFocused, setIsFocused] = useState(false)
   return (
     <div className="relative w-full">
       <div className="flex items-center gap-2 mb-2">
@@ -39,24 +36,13 @@ export function OffsetSelect({
           onChange(value as 'earliest' | 'latest')
           onBlur()
         }}
-        onOpenChange={(open) => {
-          setIsFocused(open)
-        }}
+        onOpenChange={onOpenChange}
       >
         <SelectTrigger
-          className={cn(
-            'w-full',
-            'input-regular',
-            'input-border-regular',
-            'transition-all duration-200 ease-in-out',
-            'text-content',
-            error && 'input-border-error',
-            isFocused && 'input-active',
-          )}
-          onFocus={() => setIsFocused(true)}
+          error={!!error}
+          className="w-full transition-all duration-200 ease-in-out text-content"
           onBlur={() => {
             if (!document.querySelector('[data-state="open"]')) {
-              setIsFocused(false)
               onBlur()
             }
           }}

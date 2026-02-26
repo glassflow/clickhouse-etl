@@ -7,6 +7,7 @@ import { ArrowUpTrayIcon } from '@heroicons/react/24/outline'
 import { useStore } from '@/src/store'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { cn } from '@/src/utils/common.client'
+import { Card } from '@/src/components/ui/card'
 import { useState, useEffect } from 'react'
 import CreatePipelineModal from '@/src/components/home/CreatePipelineModal'
 import { UploadPipelineModal } from '@/src/components/home/UploadPipelineModal'
@@ -256,7 +257,7 @@ export default function HomePageClient() {
             Choose a pipeline type based on the number of streams you want to ingest
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 w-full">
-            <div className={cn('btn-card', topicCount === 1 && 'active', 'h-16 sm:h-20 lg:h-24 w-full')}>
+            <Card variant="selectable" className={cn(topicCount === 1 && 'active', 'h-16 sm:h-20 lg:h-24 w-full')}>
               <button
                 className="flex items-center justify-center px-4 sm:px-6 w-full h-full"
                 onClick={() => handleTopicCountClick(1)}
@@ -266,8 +267,8 @@ export default function HomePageClient() {
                   Single-Topic Pipeline
                 </span>
               </button>
-            </div>
-            <div className={cn('btn-card', topicCount === 2 && 'active', 'h-16 sm:h-20 lg:h-24 w-full')}>
+            </Card>
+            <Card variant="selectable" className={cn(topicCount === 2 && 'active', 'h-16 sm:h-20 lg:h-24 w-full')}>
               <button
                 className="flex items-center justify-center px-4 sm:px-6 w-full h-full"
                 onClick={() => handleTopicCountClick(2)}
@@ -277,7 +278,7 @@ export default function HomePageClient() {
                   Multi-Topic Pipeline
                 </span>
               </button>
-            </div>
+            </Card>
           </div>
         </section>
 
@@ -291,14 +292,14 @@ export default function HomePageClient() {
           <p className="subtitle-3 text-xs sm:text-sm -mt-1">
             Import a prepared pipeline configuration from a file or paste it directly
           </p>
-          <div className={cn('btn-card', 'h-16 sm:h-20 lg:h-24 w-full max-w-md')}>
+          <Card variant="selectable" className="h-16 sm:h-20 lg:h-24 w-full max-w-md">
             <button className="flex items-center justify-center px-4 sm:px-6 w-full h-full" onClick={handleUploadClick}>
               <ArrowUpTrayIcon className="w-6 h-6 sm:w-9 sm:h-9 text-[var(--color-orange-300)]" />
               <span className="ml-3 sm:ml-4 text-sm sm:text-lg font-medium text-muted-foreground">
                 Import Configuration
               </span>
             </button>
-          </div>
+          </Card>
         </section>
 
         {/* <OrSeparator /> */}

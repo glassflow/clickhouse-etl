@@ -255,7 +255,7 @@ export function DeduplicationConfigurator({
             isLoadingEvent={false}
             eventError={''}
             isEmptyTopic={false}
-            onManualEventChange={() => {}}
+            onManualEventChange={() => { }}
             isEditingEnabled={false}
             readOnly={readOnly}
           />
@@ -285,9 +285,8 @@ export function DeduplicationConfigurator({
         {/* Skip button - only shown in creation mode (not standalone/edit mode) */}
         {!standalone && (
           <Button
-            variant="ghost"
             onClick={handleSkip}
-            className="text-[var(--color-foreground-neutral-faded)] hover:text-[var(--color-foreground-neutral)] btn-tertiary"
+            variant="tertiary" className="text-[var(--color-foreground-neutral-faded)] hover:text-[var(--color-foreground-neutral)]"
           >
             Skip Deduplication
           </Button>

@@ -131,8 +131,7 @@ export function PipelineActionsMenu({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
-          variant="outline"
-          className="group btn-action !px-2 !py-1.5 h-auto text-sm"
+          variant="ghost" className="group !px-2 !py-1.5 h-auto text-sm"
           title="More actions"
         >
           <div className="flex items-center gap-1">

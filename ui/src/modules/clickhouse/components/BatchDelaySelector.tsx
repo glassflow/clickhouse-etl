@@ -73,7 +73,7 @@ export function BatchDelaySelector({
               }
             }
           }}
-          className="text-sm text-content input-regular input-border-regular"
+          className="text-sm text-content"
           disabled={readOnly}
         />
       </div>
@@ -95,7 +95,7 @@ export function BatchDelaySelector({
               }
             }
           }}
-          className="text-sm text-content input-regular input-border-regular"
+          className="text-sm text-content"
           disabled={readOnly}
         />
       </div>
@@ -107,7 +107,7 @@ export function BatchDelaySelector({
           onChange={(value) => {
             setMaxDelayTimeUnitLocal(value)
           }}
-          className="text-sm text-content input-regular input-border-regular"
+          className="text-sm text-content"
           disabled={readOnly}
         />
       </div>

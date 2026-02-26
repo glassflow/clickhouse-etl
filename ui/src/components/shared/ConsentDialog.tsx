@@ -23,19 +23,17 @@ export function ConsentDialog({ showConsent, onConsentClick }: ConsentDialogProp
 
       <div className="w-full flex items-center justify-end gap-4">
         <Button
-          className="btn-tertiary"
+          variant="tertiary"
           type="button"
-          variant="outline"
           size="custom"
           onClick={() => onConsentClick(false)}
         >
           Do Not Consent
         </Button>
         <Button
-          className="btn-primary"
-          type="button"
-          variant="gradient"
+          variant="primary"
           size="custom"
+          type="button"
           onClick={() => onConsentClick(true)}
         >
           Confirm

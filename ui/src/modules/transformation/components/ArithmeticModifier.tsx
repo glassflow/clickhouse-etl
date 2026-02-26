@@ -93,7 +93,7 @@ export function ArithmeticModifier({
           <div className="w-48">
             <Label className="text-xs text-[var(--text-secondary)] mb-1 block">Operator</Label>
             <Select value={expression?.operator || '*'} onValueChange={handleOperatorChange} disabled={disabled}>
-              <SelectTrigger className="input-regular input-border-regular w-full">
+              <SelectTrigger error={!!error} className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="select-content-custom">
@@ -115,7 +115,8 @@ export function ArithmeticModifier({
               onChange={(e) => handleOperandChange(e.target.value)}
               placeholder="Enter number"
               disabled={disabled}
-              className={cn('input-regular input-border-regular', error && 'border-[var(--color-border-critical)]')}
+              error={!!error}
+              className="flex-1"
             />
           </div>
         </div>

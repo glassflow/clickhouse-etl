@@ -94,10 +94,8 @@ export function RawExpressionEditor({
           placeholder='Enter expression (e.g., toInt(getQueryParam(field, "param")) != 0 ? value1 : value2)'
           disabled={disabled}
           rows={3}
-          className={cn(
-            'input-regular input-border-regular font-mono text-sm resize-y',
-            error && 'border-[var(--color-border-critical)]',
-          )}
+          error={!!error}
+          className="font-mono text-sm resize-y"
         />
         {error && <p className="text-xs text-[var(--color-foreground-critical)] mt-1">{error}</p>}
       </div>
@@ -106,7 +104,7 @@ export function RawExpressionEditor({
       {expression && (
         <div className="space-y-1">
           <Label className="text-xs text-[var(--text-secondary)] block">Preview</Label>
-          <code className="block text-xs font-mono p-2 bg-[var(--surface-bg-sunken)] rounded-[var(--radius-medium)] border border-[var(--surface-border)] break-all max-h-20 overflow-auto">
+          <code className="block text-xs font-mono p-2 bg-[var(--surface-bg-sunken)] rounded-[var(--radius-md)] border border-[var(--surface-border)] break-all max-h-20 overflow-auto">
             {expression}
           </code>
         </div>
@@ -115,11 +113,11 @@ export function RawExpressionEditor({
       {/* Reference sections */}
       <div className="space-y-2">
         {/* Available fields reference */}
-        <div className="card-outline rounded-[var(--radius-medium)]">
+        <div className="card-outline rounded-[var(--radius-md)]">
           <button
             type="button"
             onClick={() => setShowFieldsRef(!showFieldsRef)}
-            className="w-full flex items-center justify-between p-2 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-bg-hover)]"
+            className="w-full flex items-center justify-between p-2 text-xs text-[var(--text-secondary)] hover:bg-[var(--interactive-hover-bg)]"
           >
             <span>Available Fields ({availableFields.length})</span>
             {showFieldsRef ? <ChevronUpIcon className="h-4 w-4" /> : <ChevronDownIcon className="h-4 w-4" />}
@@ -150,11 +148,11 @@ export function RawExpressionEditor({
         </div>
 
         {/* Available functions reference */}
-        <div className="card-outline rounded-[var(--radius-medium)]">
+        <div className="card-outline rounded-[var(--radius-md)]">
           <button
             type="button"
             onClick={() => setShowFunctionsRef(!showFunctionsRef)}
-            className="w-full flex items-center justify-between p-2 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-bg-hover)]"
+            className="w-full flex items-center justify-between p-2 text-xs text-[var(--text-secondary)] hover:bg-[var(--interactive-hover-bg)]"
           >
             <span>Available Functions ({TRANSFORMATION_FUNCTIONS.length})</span>
             {showFunctionsRef ? <ChevronUpIcon className="h-4 w-4" /> : <ChevronDownIcon className="h-4 w-4" />}

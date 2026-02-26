@@ -1783,10 +1783,9 @@ export function ClickhouseMapper({
                   You can download the configuration to save your work and try again later.
                 </span>
                 <Button
-                  variant="outline"
                   size="sm"
                   onClick={handleDownloadFailedConfig}
-                  className="group flex items-center gap-2 whitespace-nowrap btn-action !px-3 !py-2 text-sm h-auto"
+                  variant="ghost" className="group flex items-center gap-2 whitespace-nowrap !px-3 !py-2 text-sm h-auto"
                 >
                   <Image
                     src={DownloadIconWhite}

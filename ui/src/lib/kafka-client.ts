@@ -249,7 +249,7 @@ export interface TrackedConsumer {
 export class ConsumerTracker {
   private consumers: Map<string, TrackedConsumer> = new Map()
   private readonly maxAge: number = 60000 // 60 seconds max age for orphaned consumers
-  private cleanupInterval: NodeJS.Timeout | null = null
+  private cleanupInterval: ReturnType<typeof setInterval> | null = null
 
   constructor() {
     // Start periodic cleanup
@@ -310,10 +310,9 @@ export class ConsumerTracker {
       this.cleanupOrphanedConsumers()
     }, 30000) // Run cleanup every 30 seconds
 
-    // Ensure cleanup doesn't prevent process exit
-    if (this.cleanupInterval.unref) {
-      this.cleanupInterval.unref()
-    }
+    // Ensure cleanup doesn't prevent process exit (Node.js only; no-op in browser)
+    const interval = this.cleanupInterval as unknown as NodeJS.Timeout | null
+    if (interval?.unref) interval.unref()
   }
 
   /**
@@ -857,7 +856,7 @@ export class KafkaClient {
     let consumer: Consumer | null = null
     let consumerId: string | null = null
     let groupJoinUnsubscribe: (() => void) | null = null
-    let timeoutId: NodeJS.Timeout | null = null
+    let timeoutId: ReturnType<typeof setTimeout> | null = null
 
     // Create internal abort controller that can be triggered by external signal or timeout
     const internalAbortController = new AbortController()

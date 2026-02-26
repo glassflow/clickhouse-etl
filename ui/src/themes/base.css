@@ -13,78 +13,64 @@
   /* Typography scales */
   --font-size-title-1: 2rem;
   --line-height-title-1: 3.25rem;
-  --font-family-title-1: var(--font-family-title);
   --font-weight-title-1: var(--font-weight-bold);
   --letter-spacing-title-1: normal;
 
   --font-size-title-2: 1.75rem;
   --line-height-title-2: 2.75rem;
-  --font-family-title-2: var(--font-family-title);
   --font-weight-title-2: var(--font-weight-bold);
   --letter-spacing-title-2: normal;
 
   --font-size-title-3: 1.5rem;
   --line-height-title-3: 2.25rem;
-  --font-family-title-3: var(--font-family-title);
   --font-weight-title-3: var(--font-weight-medium);
   --letter-spacing-title-3: normal;
 
   --font-size-title-4: 1.25rem;
   --line-height-title-4: 1.75rem;
-  --font-family-title-4: var(--font-family-title);
   --font-weight-title-4: var(--font-weight-medium);
   --letter-spacing-title-4: normal;
 
   --font-size-title-5: 1.125rem;
   --line-height-title-5: 1.5rem;
-  --font-family-title-5: var(--font-family-title);
   --font-weight-title-5: var(--font-weight-bold);
   --letter-spacing-title-5: normal;
 
   --font-size-title-6: 1rem;
   --line-height-title-6: 1.25rem;
-  --font-family-title-6: var(--font-family-title);
   --font-weight-title-6: var(--font-weight-bold);
   --letter-spacing-title-6: normal;
 
   --font-size-featured-1: 2rem;
   --line-height-featured-1: 2.5rem;
-  --font-family-featured-1: var(--font-family-body);
   --letter-spacing-featured-1: normal;
 
   --font-size-featured-2: 1.5rem;
   --line-height-featured-2: 2rem;
-  --font-family-featured-2: var(--font-family-body);
   --letter-spacing-featured-2: normal;
 
   --font-size-featured-3: 1.25rem;
   --line-height-featured-3: 1.75rem;
-  --font-family-featured-3: var(--font-family-body);
   --letter-spacing-featured-3: normal;
 
   --font-size-body-1: 1.125rem;
   --line-height-body-1: 1.75rem;
-  --font-family-body-1: var(--font-family-body);
   --letter-spacing-body-1: normal;
 
   --font-size-body-2: 1rem;
   --line-height-body-2: 1.5rem;
-  --font-family-body-2: var(--font-family-body);
   --letter-spacing-body-2: normal;
 
   --font-size-body-3: 0.875rem;
   --line-height-body-3: 1.25rem;
-  --font-family-body-3: var(--font-family-body);
   --letter-spacing-body-3: normal;
 
   --font-size-caption-1: 0.75rem;
   --line-height-caption-1: 1rem;
-  --font-family-caption-1: var(--font-family-body);
   --letter-spacing-caption-1: normal;
 
   --font-size-caption-2: 0.625rem;
   --line-height-caption-2: 0.75rem;
-  --font-family-caption-2: var(--font-family-body);
   --letter-spacing-caption-2: normal;
 
   /* Spacing */
@@ -99,26 +85,40 @@
   --unit-x8: 32px;
   --unit-x9: 36px;
   --unit-x10: 40px;
-
   /* Border radius */
-  --radius-small: 4px;
-  --radius-medium: 8px;
-  --radius-large: 12px;
-  --radius-extra-large: 16px;
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-3xl: 22px;
+  --radius-4xl: 26px;
   --radius-full: 9999px;
+  --radius-none: 0;
 
   /* 🎨 Color Tokens - Base Values */
   /* These are the raw color values that get referenced in theme files */
   /* Source of truth: Figma colors (colors.css) */
+  /*
+   * Figma design kit mapping (for export/import):
+   * CSS var --color-{name} maps to Figma collection "tw-colors" (or "rdx-colors") key "{name}".
+   * Example: --color-orange-300 → tw-colors / orange-300
+   * Our values override the kit defaults when syncing to Figma (step 2).
+   */
 
   /* Primary Colors */
-  --color-orange-100: #fff4e6; /* Keep existing - missing from Figma */
-  --color-orange-200: #feac5e; /* Figma: orange-200 */
-  --color-orange-300: #ffa24b; /* primary brand color - Figma: orange-300 */
-  --color-orange-400: #ff9933; /* Keep existing - missing from Figma */
-  --color-orange-500: #ff8b1f; /* Figma: orange-500 - NEW */
-  --color-orange-600: #e28024; /* Figma: orange-600 (was orange-700) */
-  --color-orange-700: #e28024; /* Keep existing - missing from Figma */
+  --color-orange-100: #fff4e6;
+  --color-orange-200: #feac5e;
+  --color-orange-300: #ffa24b; /* primary brand color */
+  --color-orange-400: #ff9933;
+  --color-orange-500: #ff8b1f;
+  --color-orange-600: #e28024; /* was also --color-orange-700 (same value) */
+  /* Alpha variants for interactive states */
+  --color-orange-alpha-10: rgba(255, 162, 75, 0.1);
+  --color-orange-alpha-15: rgba(255, 162, 75, 0.15);
+  --color-orange-alpha-20: rgba(255, 162, 75, 0.2);
+  --color-orange-gradient-hover: #ffcda2; /* surface-gradient-border hover color */
 
   /* Brown Colors */
   --color-brown-750: #503319; /* Figma: orange-750 - NEW */
@@ -178,17 +178,15 @@
   --color-blue-950: #141d33; /* NEW */
 
   /* Slate Colors */
-  --color-slate-300: #a5b9e4; /* Figma: slate-300 - NEW */
-  --color-slate-500: #5b667e; /* Figma: slate-500 (also mapped to gray-dark-400) */
-  --color-slate-600: #3d4869; /* Figma: slate-600 (also mapped to blue-300) */
+  --color-slate-200: #c4d1f0; /* card-feedback border hover */
+  --color-slate-300: #a5b9e4;
+  --color-slate-500: #5b667e;
+  --color-slate-600: #3d4869;
+  --color-slate-700: #4a5a80; /* card-content border hover */
 
-  /* Neutral/Gray Colors - Dark Theme Only */
-  --color-white: #ffffff; /* Pure white - on-background text in dark theme */
-  --color-black: #000000; /* Pure black - on-background text in dark theme */
-
-  /* Legacy aliases for backward compatibility (used in dark theme) */
-  --color-gray-50: var(--color-white); /* Alias for white */
-  --color-gray-950: var(--color-black); /* Alias for black */
+  /* Neutral/Gray Colors */
+  --color-white: #ffffff;
+  --color-black: #000000;
 
   /* 
    * Dark Theme Gray Scale (for dark mode backgrounds, borders, text)
@@ -206,34 +204,24 @@
   --color-gray-dark-950: #0e0e10; /* Page background */
 
   /* Gray Colors */
-  --color-gray-100: #e6e6e6; /* Very light gray */
-  --color-gray-200: #b0b0b0; /* Light gray */
+  --color-gray-100: #e6e6e6;
+  --color-gray-200: #b0b0b0;
   --color-gray-250: #a8adb8; /* Label and placeholder text */
-  --color-gray-300: #919191; /* Medium gray */
-  --color-gray-400: #757575; /* Dark gray */
+  --color-gray-300: #919191;
+  --color-gray-350: #393939; /* card-outline border */
+  --color-gray-400: #757575;
   --color-gray-500: #373737; /* Failed/disabled components background */
   --color-gray-600: #242424; /* Used for background in table header, list header */
   --color-gray-700: #1a1a1a; /* Used for background with gradient - start */
   --color-gray-750: #141414; /* Used for background with gradient - end */
 
-  /* 
-   * Light Theme Gray Scale (for light mode backgrounds, borders, text)
-   * These map to standard neutral scale for light themes
-   */
-  --color-gray-light-50: #fafafa; /* Page background */
-  --color-gray-light-100: #f5f5f5; /* Elevation/card backgrounds */
-  --color-gray-light-200: #e5e5e5; /* Borders, dividers */
-  --color-gray-light-300: #d4d4d4; /* Subtle borders */
-  --color-gray-light-400: #a3a3a3; /* Placeholder text, icons */
-  --color-gray-light-500: #737373; /* Secondary text */
-  --color-gray-light-600: #525252; /* Primary text */
-  --color-gray-light-700: #404040; /* Headings */
-  --color-gray-light-800: #262626; /* Strong text */
-  --color-gray-light-900: #171717; /* Maximum contrast text */
-
   /* Gradient Colors for secondary buttons with gradient */
   --color-gradient-grey-100: #bebebe; /* Used for background with gradient - start */
   --color-gradient-grey-200: #a1a1a1; /* Used for background with gradient - end */
+
+  /* Disabled button gradient (used by --button-primary-gradient-disabled-* in theme) */
+  --color-gray-disabled-gradient-start: #9a9a9a;
+  --color-gray-disabled-gradient-end: #6e6e6e;
 
   --color-black-100: #242424; /* used for background in table header, list header */
   --color-black-200: #2d2d2d; /* used for border with gradient - end */
@@ -256,6 +244,10 @@
   --easing-accelerate: cubic-bezier(0.4, 0, 1, 1);
   --easing-decelerate: cubic-bezier(0, 0, 0.2, 1);
 
+  /* Design kit: stroke and border width (mode.stroke-width, mode.border-width) */
+  --stroke-width: 2px;
+  --border-width: 1px;
+
   /* Shadows */
   --shadow-raised: 0px 1px 5px -4px rgba(0, 0, 0, 0.5), 0px 4px 8px 0px rgba(0, 0, 0, 0.05);
   --shadow-overlay: 0px 5px 10px 0px rgba(0, 0, 0, 0.05), 0px 15px 25px 0px rgba(0, 0, 0, 0.07);
@@ -276,13 +268,130 @@
   --breakpoint-lg: 1024px;
   --breakpoint-xl: 1280px;
 
+  /* ================== Component Layout Tokens ================== */
+  /* Theme-independent sizing, spacing, and typography tokens */
+
+  /* Button Layout (all variants share same padding/font/radius) */
+  --button-primary-padding-x: var(--unit-x2);
+  --button-primary-padding-y: var(--unit-x3);
+  --button-primary-font-family: var(--font-family-body);
+  --button-primary-font-size: var(--font-size-body-3);
+  --button-primary-font-weight: var(--font-weight-medium);
+  --button-primary-line-height: var(--line-height-body-3);
+  --button-primary-letter-spacing: var(--letter-spacing-body-3);
+  --button-primary-border-radius: var(--radius-md);
+
+  --button-secondary-padding-x: var(--unit-x2);
+  --button-secondary-padding-y: var(--unit-x3);
+  --button-secondary-font-family: var(--font-family-body);
+  --button-secondary-font-size: var(--font-size-body-3);
+  --button-secondary-font-weight: var(--font-weight-medium);
+  --button-secondary-line-height: var(--line-height-body-3);
+  --button-secondary-letter-spacing: var(--letter-spacing-body-3);
+  --button-secondary-border-radius: var(--radius-md);
+
+  --button-tertiary-padding-x: var(--unit-x2);
+  --button-tertiary-padding-y: var(--unit-x3);
+  --button-tertiary-font-family: var(--font-family-body);
+  --button-tertiary-font-size: var(--font-size-body-3);
+  --button-tertiary-font-weight: var(--font-weight-medium);
+  --button-tertiary-line-height: var(--line-height-body-3);
+  --button-tertiary-letter-spacing: var(--letter-spacing-body-3);
+  --button-tertiary-border-radius: var(--radius-md);
+
+  --button-ghost-padding-x: var(--unit-x2);
+  --button-ghost-padding-y: var(--unit-x3);
+  --button-ghost-font-family: var(--font-family-body);
+  --button-ghost-font-size: var(--font-size-body-3);
+  --button-ghost-font-weight: var(--font-weight-medium);
+  --button-ghost-line-height: var(--line-height-body-3);
+  --button-ghost-letter-spacing: var(--letter-spacing-body-3);
+  --button-ghost-border-radius: var(--radius-md);
+
+  /* Card Button Layout */
+  --button-card-padding-x: var(--unit-x4);
+  --button-card-padding-y: 27px;
+  --button-card-gap: var(--unit-x4);
+  --button-card-font-family: var(--font-family-title);
+  --button-card-font-size: var(--font-size-title-6);
+  --button-card-font-weight: var(--font-weight-regular);
+  --button-card-line-height: var(--line-height-title-6);
+  --button-card-letter-spacing: var(--letter-spacing-title-6);
+  --button-card-border-radius: var(--radius-xl);
+  --button-card-height: 100px;
+  --button-card-min-width: 255px;
+
+  --button-card-secondary-padding-x: var(--unit-x4);
+  --button-card-secondary-padding-y: 27px;
+  --button-card-secondary-gap: var(--unit-x4);
+  --button-card-secondary-font-family: var(--font-family-title);
+  --button-card-secondary-font-size: var(--font-size-title-6);
+  --button-card-secondary-font-weight: var(--font-weight-regular);
+  --button-card-secondary-line-height: var(--line-height-title-6);
+  --button-card-secondary-letter-spacing: var(--letter-spacing-title-6);
+  --button-card-secondary-border-radius: var(--radius-xl);
+  --button-card-secondary-height: 100px;
+  --button-card-secondary-min-width: 255px;
+
+  /* Chip Layout */
+  --chip-padding-x: var(--unit-x2);
+  --chip-padding-y: var(--unit-x1);
+  --chip-gap: 10px;
+  --chip-border-radius: 999px;
+  --chip-font-family: var(--font-family-body);
+  --chip-font-size: var(--font-size-caption-1);
+  --chip-font-weight: var(--font-weight-regular);
+  --chip-line-height: var(--line-height-caption-1);
+  --chip-letter-spacing: var(--letter-spacing-caption-1);
+
+  /* Toggle Layout */
+  --toggle-track-width: 24px;
+  --toggle-track-height: 16px;
+  --toggle-thumb-size: 12px;
+  --toggle-gap: var(--unit-x2);
+  --toggle-font-family: var(--font-family-body);
+  --toggle-font-size: var(--font-size-body-3);
+  --toggle-font-weight: var(--font-weight-regular);
+  --toggle-line-height: var(--line-height-body-3);
+  --toggle-letter-spacing: var(--letter-spacing-body-3);
+  --toggle-border-radius: 999px;
+  --toggle-transition: all var(--duration-fast) var(--easing-standard);
+
+  /* Table Layout */
+  --table-gap: var(--unit-x4);
+  --table-gap-sm: var(--unit-x3);
+  --table-padding: var(--unit-x4);
+  --table-radius: var(--radius-xl);
+  --table-row-radius: var(--radius-md);
+
+  /* Loader Layout */
+  --loader-size: 16px;
+  --loader-track-width: 2px;
+  --loader-animation-duration: 1s;
+  --loader-animation-timing: linear;
+
+  /* Select Content Layout */
+  --select-content-max-height: 200px;
+  --select-content-z-index: 40;
+  --select-content-width: 100%;
+  --select-content-height: 36px;
+  --select-content-top: 0;
+  --select-content-left: 0;
+  --select-content-padding-vertical: var(--unit-x2);
+  --select-content-padding-horizontal: var(--unit-x3);
+  --select-content-margin: var(--unit-x1);
+  --select-content-font-family: var(--font-family-body);
+  --select-content-font-size: var(--font-size-body-3);
+  --select-content-font-weight: var(--font-weight-regular);
+  --select-content-line-height: var(--line-height-body-3);
+
   /* Container Tokens */
   --container-width: 100%;
   --container-max-width: 1200px;
   --container-padding-x: var(--unit-x4);
   --container-padding-y: var(--unit-x4);
   --container-gap: var(--unit-x4);
-  --container-border-radius: var(--radius-large);
+  --container-border-radius: var(--radius-xl);
   --container-border: var(--color-border-neutral);
   --container-shadow: var(--shadow-raised);
   --container-background: var(--color-background-neutral);
@@ -295,7 +404,7 @@
   --page-padding-x: var(--unit-x4);
   --page-padding-y: var(--unit-x4);
   --page-gap: var(--unit-x4);
-  --page-border-radius: var(--radius-large);
+  --page-border-radius: var(--radius-xl);
   --page-border: var(--color-border-neutral);
   --page-shadow: var(--shadow-raised);
   --page-background: var(--color-background-regular);

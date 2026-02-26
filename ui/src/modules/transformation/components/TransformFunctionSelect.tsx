@@ -186,7 +186,7 @@ function TransformFunctionSelect({
                     onChange={(e) => handleArgChange(argIndex, e.target.value, 'literal')}
                     placeholder={argDef.description}
                     disabled={readOnly}
-                    className="flex-1 input-regular input-border-regular h-8 text-sm"
+                    className="flex-1 h-8 text-sm"
                   />
                 </div>
               )}
@@ -291,7 +291,7 @@ function TransformFunctionSelect({
               )}
             </Button>
           </div>
-          <code className="block text-sm font-mono p-3 bg-[var(--color-bg-accent-muted)] text-[var(--text-accent)] rounded-[var(--radius-medium)] border border-[var(--color-border-accent)] break-all">
+          <code className="block text-sm font-mono p-3 bg-[var(--color-bg-accent-muted)] text-[var(--text-accent)] rounded-[var(--radius-md)] border border-[var(--color-border-accent)] break-all">
             {fullExpression}
           </code>
           {field.arithmeticExpression && (

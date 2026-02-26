@@ -1,5 +1,6 @@
 'use client'
 
+import { cn } from '@/src/utils/common.client'
 import { Table, TableHeader, TableBody, TableCell, TableRow, TableHead } from '@/src/components/ui/table'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/src/components/ui/select'
 import { Input } from '@/src/components/ui/input'
@@ -43,7 +44,7 @@ export function FieldTypesTable({
     <div className="flex-[2] min-w-0">
       <Label className="text-lg font-medium text-content mb-4 block">Field Types</Label>
 
-      <div className="p-6 rounded-[var(--radius-large)] overflow-hidden">
+      <div className="p-6 rounded-[var(--radius-xl)] overflow-hidden">
         <Table className="w-full">
           <TableHeader>
             <TableRow className="border-0">
@@ -89,13 +90,7 @@ export function FieldTypesTable({
                     onValueChange={(value) => onTypeChange(field.name, value)}
                     disabled={readOnly || field.isRemoved}
                   >
-                    <SelectTrigger
-                      className={`w-full input-regular input-border-regular ${
-                        field.userType !== field.inferredType && field.inferredType !== '-'
-                          ? 'border-[var(--color-border-primary)]'
-                          : ''
-                      } ${readOnly || field.isRemoved ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    >
+                    <SelectTrigger className={cn('w-full', (readOnly || field.isRemoved) && 'opacity-50 cursor-not-allowed')}>
                       <SelectValue placeholder="Select type" />
                     </SelectTrigger>
                     <SelectContent className="select-content-custom">
@@ -145,9 +140,8 @@ export function FieldTypesTable({
                       onNewFieldErrorClear()
                     }}
                     placeholder="Enter field name..."
-                    className={`input-regular input-border-regular font-mono text-sm ${
-                      newFieldError ? 'border-[var(--color-border-negative)]' : ''
-                    }`}
+                    error={!!newFieldError}
+                    className="font-mono text-sm"
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && newFieldName.trim()) {
                         onAddField()
@@ -161,7 +155,7 @@ export function FieldTypesTable({
                 <TableCell className="py-3 px-4 text-sm text-[var(--text-secondary)]">-</TableCell>
                 <TableCell className="py-3 px-4">
                   <Select value={newFieldType} onValueChange={onNewFieldTypeChange}>
-                    <SelectTrigger className="w-full input-regular input-border-regular">
+                    <SelectTrigger className="w-full">
                       <SelectValue placeholder="Select type" />
                     </SelectTrigger>
                     <SelectContent className="select-content-custom">

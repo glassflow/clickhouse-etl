@@ -7,27 +7,12 @@
 /* Import base variables first, then theme-specific ones */
 /* Note: colors.css is now consolidated into base.css, but kept for reference */
 @import '../themes/base.css';
-@import '../themes/dark/theme.css';
-@import '../themes/light/theme.css';
+@import '../themes/theme.css';
 
 @import './styles/index.css';
 
 @layer base {
   :root {
-    /* Typography */
-    --font-sans: var(--font-family-body);
-    --font-heading: var(--font-family-title);
-
-    /* Animation */
-    --transition-fast: var(--duration-fast);
-    --transition-medium: var(--duration-medium);
-    --transition-slow: var(--duration-slow);
-    --transition-ease: var(--easing-standard);
-
-    /* Shadows */
-    --shadow-sm: var(--shadow-raised);
-    --shadow-md: var(--shadow-overlay);
-
     /* Layout */
     --main-container-width: 1240px;
     --max-content-width: 2560px;
@@ -52,13 +37,13 @@
     border-color: var(--color-border-critical);
   }
   .border-radius-small {
-    border-radius: var(--radius-small);
+    border-radius: var(--radius-sm);
   }
   .border-radius-medium {
-    border-radius: var(--radius-medium);
+    border-radius: var(--radius-md);
   }
   .border-radius-large {
-    border-radius: var(--radius-large);
+    border-radius: var(--radius-xl);
   }
 
   /* Interactive states */

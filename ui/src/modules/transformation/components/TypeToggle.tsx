@@ -38,10 +38,10 @@ function TypeToggle({
   return (
     <div>
       <Label className="text-xs text-[var(--text-secondary)] mb-1 block">Type of Field</Label>
-      <div className="relative inline-flex rounded-[var(--radius-large)] border border-[var(--surface-border)] p-0.5 bg-[var(--surface-bg-sunken)]">
+      <div className="relative inline-flex rounded-[var(--radius-xl)] border border-[var(--surface-border)] p-0.5 bg-[var(--surface-bg-sunken)]">
         {/* Sliding background indicator */}
         <div
-          className="absolute top-0.5 bottom-0.5 rounded-[calc(var(--radius-medium)-2px)] bg-[var(--option-bg-selected)] shadow-sm transition-all duration-500 ease-in-out"
+          className="absolute top-0.5 bottom-0.5 rounded-[calc(var(--radius-md)-2px)] bg-[var(--option-bg-selected)] shadow-sm transition-all duration-500 ease-in-out"
           style={{
             left: isPassthrough ? '0.125rem' : 'calc(50% + 0.125rem)',
             right: isPassthrough ? 'calc(50% + 0.125rem)' : '0.125rem',
@@ -52,7 +52,7 @@ function TypeToggle({
           onClick={() => !readOnly && handleTypeChange('passthrough')}
           disabled={readOnly}
           className={cn(
-            'relative z-10 flex-1 flex items-center justify-center gap-2 px-3 py-1.5 text-sm font-small rounded-[calc(var(--radius-medium)-2px)] transition-colors duration-500 whitespace-nowrap min-w-[140px]',
+            'relative z-10 flex-1 flex items-center justify-center gap-2 px-3 py-1.5 text-sm font-small rounded-[calc(var(--radius-md)-2px)] transition-colors duration-500 whitespace-nowrap min-w-[140px]',
             isPassthrough
               ? 'text-[var(--text-accent)]'
               : 'text-[var(--text-disabled)] hover:text-[var(--text-secondary)]',
@@ -67,7 +67,7 @@ function TypeToggle({
           onClick={() => !readOnly && handleTypeChange('computed')}
           disabled={readOnly}
           className={cn(
-            'relative z-10 flex-1 flex items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium rounded-[calc(var(--radius-medium)-2px)] transition-colors duration-500 whitespace-nowrap min-w-[140px]',
+            'relative z-10 flex-1 flex items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium rounded-[calc(var(--radius-md)-2px)] transition-colors duration-500 whitespace-nowrap min-w-[140px]',
             !isPassthrough
               ? 'text-[var(--text-accent)]'
               : 'text-[var(--text-disabled)] hover:text-[var(--text-secondary)]',

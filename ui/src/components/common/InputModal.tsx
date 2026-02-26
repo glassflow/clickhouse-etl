@@ -9,6 +9,7 @@ import {
 } from '@/src/components/ui/dialog'
 import { Button } from '@/src/components/ui/button'
 import { Input } from '@/src/components/ui/input'
+import { Label } from '@/src/components/ui/label'
 import { Checkbox } from '@/src/components/ui/checkbox'
 import { useState, useEffect } from 'react'
 
@@ -105,8 +106,8 @@ export function InputModal({
         )}
 
         {showSaveOption && shouldSave && (
-          <div className="space-y-2">
-            <label className="modal-input-label">{inputLabel}</label>
+          <div className="grid gap-2">
+            <Label className="text-sm text-[var(--color-foreground-neutral-faded)]">{inputLabel}</Label>
             <Input
               value={inputValue}
               onChange={(e) => {
@@ -114,17 +115,17 @@ export function InputModal({
                 setError(null)
               }}
               placeholder={inputPlaceholder}
-              className={error ? 'input-regular modal-input-error' : 'input-regular input-border-regular'}
+              error={!!error}
             />
-            {error && <p className="text-sm modal-error-text">{error}</p>}
+            {error && <p className="text-sm input-description-error">{error}</p>}
           </div>
         )}
 
         <DialogFooter className="mt-6">
-          <Button variant="outline" className="btn-tertiary" onClick={handleCancel}>
+          <Button variant="tertiary" size="custom" onClick={handleCancel}>
             {cancelButtonText}
           </Button>
-          <Button className="btn-primary" onClick={handleSubmit}>
+          <Button variant="primary" size="custom" onClick={handleSubmit}>
             {submitButtonText}
           </Button>
         </DialogFooter>

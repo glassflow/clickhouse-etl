@@ -373,10 +373,10 @@ function PipelineDetailsHeader({
     return (
       <Button
         key={action}
-        variant="outline"
+        variant={action === 'resume' ? 'primary' : 'ghost'}
+        className="group !px-3 !py-1.5 h-auto text-sm"
         onClick={() => handleActionClick(action)}
         disabled={disabled}
-        className={`group ${action === 'resume' ? 'btn-primary' : 'btn-action'} !px-3 !py-1.5 h-auto text-sm`}
         title={config.disabledReason}
       >
         {actionState.isLoading && actionState.lastAction === action ? (
@@ -515,8 +515,8 @@ function PipelineDetailsHeader({
         <div className="relative">
           <Button
             ref={menuButtonRef}
-            variant="outline"
-            className="group btn-action !px-3 !py-4 text-sm h-auto w-full"
+            variant="ghost"
+            className="group !px-3 !py-4 text-sm h-auto w-full"
             onClick={handleMenuButtonClick}
           >
             <div className="flex items-center gap-2">

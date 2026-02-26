@@ -9,7 +9,8 @@
     "start": "NODE_ENV=production node server.js",
     "lint": "next lint",
     "test": "vitest",
-    "test:run": "vitest run"
+    "test:run": "vitest run",
+    "sync-tokens": "node figma-sync/sync-tokens-to-figma-via-api/sync-tokens-to-figma.mjs"
   },
   "dependencies": {
     "@auth0/nextjs-auth0": "^4.12.0",

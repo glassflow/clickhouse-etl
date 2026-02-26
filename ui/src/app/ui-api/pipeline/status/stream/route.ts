@@ -90,8 +90,8 @@ export async function GET(request: NextRequest) {
   // Create a readable stream for SSE
   const encoder = new TextEncoder()
   let isStreamActive = true
-  let pollIntervalId: NodeJS.Timeout | null = null
-  let heartbeatIntervalId: NodeJS.Timeout | null = null
+  let pollIntervalId: ReturnType<typeof setInterval> | null = null
+  let heartbeatIntervalId: ReturnType<typeof setInterval> | null = null
 
   const stream = new ReadableStream({
     async start(controller) {

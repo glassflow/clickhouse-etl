@@ -135,7 +135,7 @@ function SelectDeduplicateKeys({
         <div className="flex gap-2 w-full">
           <div className="w-[70%]">
             {isLoading ? (
-              <div className="text-sm text-gray-500 p-2 border rounded">Loading available keys...</div>
+              <div className="text-sm text-[var(--color-foreground-neutral-faded)] p-2 border border-[var(--color-border-neutral-faded)] rounded">Loading available keys...</div>
             ) : availableKeys.length > 0 ? (
               <SearchableSelect
                 availableOptions={availableKeys}
@@ -147,7 +147,7 @@ function SelectDeduplicateKeys({
                 error={validationError || undefined}
               />
             ) : (
-              <div className="text-sm text-gray-500 p-2 border rounded">
+              <div className="text-sm text-[var(--color-foreground-neutral-faded)] p-2 border border-[var(--color-border-neutral-faded)] rounded">
                 {error || 'Please select a topic with valid event data.'}
               </div>
             )}

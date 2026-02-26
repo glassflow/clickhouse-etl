@@ -18,14 +18,7 @@ export function TimeUnitSelector({ value, onChange, className, disabled }: TimeU
   return (
     <Select value={value} onValueChange={onChange} disabled={disabled}>
       <SelectTrigger
-        className={cn(
-          'w-full',
-          'input-regular',
-          'input-border-regular',
-          'transition-all duration-200 ease-in-out',
-          'text-content',
-          className,
-        )}
+        className={cn('w-full transition-all duration-200 ease-in-out text-content', className)}
         onFocus={() => setIsFocused(true)}
         onBlur={() => {
           if (!document.querySelector('[data-state="open"]')) {

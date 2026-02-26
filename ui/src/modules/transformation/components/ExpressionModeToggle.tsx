@@ -80,10 +80,10 @@ export function ExpressionModeToggle({ mode, onChange, disabled = false }: Expre
   return (
     <div>
       <Label className="text-xs text-[var(--text-secondary)] mb-1 block">Mode</Label>
-      <div className="relative inline-flex rounded-[var(--radius-large)] border border-[var(--surface-border)] p-0.5 bg-[var(--surface-bg-sunken)]">
+      <div className="relative inline-flex rounded-[var(--radius-xl)] border border-[var(--surface-border)] p-0.5 bg-[var(--surface-bg-sunken)]">
         {/* Sliding background indicator */}
         <div
-          className="absolute top-0.5 bottom-0.5 rounded-[calc(var(--radius-medium)-2px)] bg-[var(--option-bg-selected)] shadow-sm transition-all duration-500 ease-in-out"
+          className="absolute top-0.5 bottom-0.5 rounded-[calc(var(--radius-md)-2px)] bg-[var(--option-bg-selected)] shadow-sm transition-all duration-500 ease-in-out"
           style={{
             left: slidePos.left,
             width: slidePos.width,
@@ -99,7 +99,7 @@ export function ExpressionModeToggle({ mode, onChange, disabled = false }: Expre
               onClick={() => !disabled && onChange(m.value)}
               disabled={disabled}
               className={cn(
-                'relative z-10 flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-small rounded-[calc(var(--radius-medium)-2px)] transition-colors duration-500 whitespace-nowrap min-w-[90px]',
+                'relative z-10 flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-small rounded-[calc(var(--radius-md)-2px)] transition-colors duration-500 whitespace-nowrap min-w-[90px]',
                 isActive
                   ? 'text-[var(--text-accent)]'
                   : 'text-[var(--text-disabled)] hover:text-[var(--text-secondary)]',

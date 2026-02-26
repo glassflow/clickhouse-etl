@@ -106,7 +106,8 @@ function NumericValueInput({
       onChange={(e) => handleValueChange(e.target.value)}
       placeholder={placeholder}
       disabled={disabled}
-      className={cn('h-10 input-regular input-border-regular', hasError && 'input-border-error', className)}
+      error={hasError}
+      className={cn('h-10', className)}
     />
   )
 }
@@ -290,7 +291,8 @@ export function QueryRule({
                 onChange={(e) => handleValueChange(e.target.value)}
                 placeholder="e.g., 1, 2, 3"
                 disabled={readOnly}
-                className={cn('h-10 input-regular input-border-regular', validation?.value && 'input-border-error')}
+                error={!!validation?.value}
+              className="h-10"
               />
               <div className="h-5 mt-0.5">
                 {validation?.value && <p className="input-description-error text-sm">{validation.value}</p>}
@@ -325,7 +327,7 @@ export function QueryRule({
         <div>
           <Label className="text-xs text-content mb-1 block">Value</Label>
           <div className="h-5 mt-0.5">
-            <Input type="text" placeholder="Enter a value" disabled={true} className="h-10 input-regular" />
+            <Input type="text" placeholder="Enter a value" disabled={true} className="h-10" />
           </div>
         </div>
       )
@@ -343,7 +345,8 @@ export function QueryRule({
               onChange={(e) => handleValueChange(e.target.value)}
               placeholder={isNumericType(effectiveFieldType) ? 'e.g., 1, 2, 3' : 'e.g., active, pending'}
               disabled={readOnly}
-              className={cn('h-10 input-regular input-border-regular', validation?.value && 'input-border-error')}
+              error={!!validation?.value}
+              className="h-10"
             />
             {/* Reserve space for error message to prevent layout shift */}
             <div className="h-5 mt-0.5">
@@ -406,7 +409,8 @@ export function QueryRule({
             onChange={(e) => handleValueChange(e.target.value)}
             placeholder="Enter a value"
             disabled={readOnly}
-            className={cn('h-10 input-regular input-border-regular', validation?.value && 'input-border-error')}
+            error={!!validation?.value}
+              className="h-10"
           />
           {/* Reserve space for error message to prevent layout shift */}
           <div className="h-5 mt-0.5">
@@ -423,7 +427,7 @@ export function QueryRule({
   return (
     <div
       className={cn(
-        'card-outline rounded-[var(--radius-large)] p-3',
+        'card-outline rounded-[var(--radius-xl)] p-3',
         rule.not && 'border-[var(--color-border-primary)] bg-[var(--color-background-primary-faded)]/10',
       )}
     >
@@ -519,7 +523,7 @@ export function QueryRule({
                   onSelect={handleFieldChange}
                   placeholder="Select field..."
                   disabled={readOnly}
-                  className={cn(validation?.field && '[&_input]:input-border-error')}
+                  error={validation?.field || ''}
                 />
                 {/* Reserve space for error message to prevent layout shift */}
                 <div className="h-5 mt-0.5">

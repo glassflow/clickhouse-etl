@@ -87,11 +87,11 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
 
             <DialogFooter className="border-[var(--color-border-neutral)] pt-4 mt-0">
               {modal.options.action && (
-                <Button onClick={handleAction} className="btn-primary">
+                <Button onClick={handleAction} variant="primary" size="custom">
                   {modal.options.action.label}
                 </Button>
               )}
-              <Button variant="outline" onClick={dismissModal} className="btn-tertiary">
+              <Button variant="tertiary" size="custom" onClick={dismissModal}>
                 {modal.options.action ? 'Close' : 'OK'}
               </Button>
             </DialogFooter>

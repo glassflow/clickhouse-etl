@@ -5,6 +5,7 @@ bin/
 # dependencies
 */node_modules
 */*/node_modules
+*/figma-sync/**/node_modules
 /.pnp
 .pnp.*
 .yarn/*

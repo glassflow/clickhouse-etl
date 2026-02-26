@@ -10,7 +10,7 @@ interface CacheRefreshButtonProps {
   onRefresh: () => Promise<void>
   className?: string
   size?: 'sm' | 'lg' | 'default'
-  variant?: 'outline' | 'ghost' | 'default'
+  variant?: 'outline' | 'ghost' | 'default' | 'secondary'
   disabled?: boolean
 }
 
@@ -21,7 +21,7 @@ export function CacheRefreshButton({
   onRefresh,
   className,
   size = 'sm',
-  variant = 'outline',
+  variant = 'secondary',
   disabled,
 }: CacheRefreshButtonProps) {
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -49,8 +49,7 @@ export function CacheRefreshButton({
           'text-muted-foreground': disabled && !isRefreshing,
         },
         className,
-        'btn-neutral',
-      )}
+        )}
       title={`Refresh ${type} data`}
     >
       <ArrowPathIcon

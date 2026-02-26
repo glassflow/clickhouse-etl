@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Mail, Eye, EyeOff } from 'lucide-react'
 import { Input } from '@/src/components/ui/input'
+import { Label } from '@/src/components/ui/label'
 import { Switch } from '@/src/components/ui/switch'
 import { cn } from '@/src/utils/common.client'
 import type { EmailChannelConfig } from '@/src/services/notifications-api'
@@ -150,7 +151,7 @@ export function EmailConfigForm({ initialConfig, onChange, disabled }: EmailConf
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3 pb-4 border-b border-[var(--surface-border)]">
-        <div className="p-2 rounded-[var(--radius-medium)] bg-[var(--color-background-primary-faded)]">
+        <div className="p-2 rounded-[var(--radius-md)] bg-[var(--color-background-primary-faded)]">
           <Mail className="h-5 w-5 text-[var(--color-foreground-primary)]" />
         </div>
         <div>
@@ -167,10 +168,10 @@ export function EmailConfigForm({ initialConfig, onChange, disabled }: EmailConf
 
         <div className="grid grid-cols-2 gap-4">
           {/* SMTP Host */}
-          <div className="modal-input-container">
-            <label htmlFor="smtp_host" className="modal-input-label">
+          <div className="grid gap-2">
+            <Label htmlFor="smtp_host" className="text-sm text-[var(--color-foreground-neutral-faded)]">
               SMTP Host <span className="text-[var(--color-foreground-critical)]">*</span>
-            </label>
+            </Label>
             <Input
               id="smtp_host"
               type="text"
@@ -179,21 +180,18 @@ export function EmailConfigForm({ initialConfig, onChange, disabled }: EmailConf
               onBlur={() => handleBlur('smtp_host')}
               placeholder="smtp.gmail.com"
               disabled={disabled}
-              className={cn(
-                'input-regular',
-                showError('smtp_host') ? 'modal-input-error' : 'input-border-regular'
-              )}
+              error={!!showError('smtp_host')}
             />
             {showError('smtp_host') && (
-              <p className="modal-error-text animate-slideDown">{errors.smtp_host}</p>
+              <p className="text-sm input-description-error animate-slideDown">{errors.smtp_host}</p>
             )}
           </div>
 
           {/* SMTP Port */}
-          <div className="modal-input-container">
-            <label htmlFor="smtp_port" className="modal-input-label">
+          <div className="grid gap-2">
+            <Label htmlFor="smtp_port" className="text-sm text-[var(--color-foreground-neutral-faded)]">
               SMTP Port <span className="text-[var(--color-foreground-critical)]">*</span>
-            </label>
+            </Label>
             <Input
               id="smtp_port"
               type="number"
@@ -202,21 +200,18 @@ export function EmailConfigForm({ initialConfig, onChange, disabled }: EmailConf
               onBlur={() => handleBlur('smtp_port')}
               placeholder="587"
               disabled={disabled}
-              className={cn(
-                'input-regular',
-                showError('smtp_port') ? 'modal-input-error' : 'input-border-regular'
-              )}
+              error={!!showError('smtp_port')}
             />
             {showError('smtp_port') && (
-              <p className="modal-error-text animate-slideDown">{errors.smtp_port}</p>
+              <p className="text-sm input-description-error animate-slideDown">{errors.smtp_port}</p>
             )}
           </div>
 
           {/* SMTP Username */}
-          <div className="modal-input-container">
-            <label htmlFor="smtp_username" className="modal-input-label">
+          <div className="grid gap-2">
+            <Label htmlFor="smtp_username" className="text-sm text-[var(--color-foreground-neutral-faded)]">
               SMTP Username <span className="text-[var(--color-foreground-critical)]">*</span>
-            </label>
+            </Label>
             <Input
               id="smtp_username"
               type="text"
@@ -225,21 +220,18 @@ export function EmailConfigForm({ initialConfig, onChange, disabled }: EmailConf
               onBlur={() => handleBlur('smtp_username')}
               placeholder="notifications@example.com"
               disabled={disabled}
-              className={cn(
-                'input-regular',
-                showError('smtp_username') ? 'modal-input-error' : 'input-border-regular'
-              )}
+              error={!!showError('smtp_username')}
             />
             {showError('smtp_username') && (
-              <p className="modal-error-text animate-slideDown">{errors.smtp_username}</p>
+              <p className="text-sm input-description-error animate-slideDown">{errors.smtp_username}</p>
             )}
           </div>
 
           {/* SMTP Password */}
-          <div className="modal-input-container">
-            <label htmlFor="smtp_password" className="modal-input-label">
+          <div className="grid gap-2">
+            <Label htmlFor="smtp_password" className="text-sm text-[var(--color-foreground-neutral-faded)]">
               SMTP Password <span className="text-[var(--color-foreground-critical)]">*</span>
-            </label>
+            </Label>
             <div className="relative">
               <Input
                 id="smtp_password"
@@ -249,10 +241,8 @@ export function EmailConfigForm({ initialConfig, onChange, disabled }: EmailConf
                 onBlur={() => handleBlur('smtp_password')}
                 placeholder="Enter SMTP password or app-specific password"
                 disabled={disabled}
-                className={cn(
-                  'input-regular pr-10',
-                  showError('smtp_password') ? 'modal-input-error' : 'input-border-regular'
-                )}
+                error={!!showError('smtp_password')}
+                className="pr-10"
               />
               <button
                 type="button"
@@ -268,7 +258,7 @@ export function EmailConfigForm({ initialConfig, onChange, disabled }: EmailConf
               </button>
             </div>
             {showError('smtp_password') && (
-              <p className="modal-error-text animate-slideDown">{errors.smtp_password}</p>
+              <p className="text-sm input-description-error animate-slideDown">{errors.smtp_password}</p>
             )}
           </div>
 
@@ -278,10 +268,10 @@ export function EmailConfigForm({ initialConfig, onChange, disabled }: EmailConf
         {/* Use TLS */}
         <div className="flex items-center justify-between py-2">
           <div>
-            <label htmlFor="smtp_use_tls" className="modal-input-label">
+            <Label htmlFor="smtp_use_tls" className="text-sm text-[var(--color-foreground-neutral-faded)]">
               Use TLS
-            </label>
-            <p className="modal-input-helper">Enable TLS encryption for SMTP connection</p>
+            </Label>
+            <p className="text-sm text-[var(--color-foreground-neutral-faded)] mt-0.5">Enable TLS encryption for SMTP connection</p>
           </div>
           <Switch
             id="smtp_use_tls"
@@ -298,10 +288,10 @@ export function EmailConfigForm({ initialConfig, onChange, disabled }: EmailConf
 
         <div className="grid grid-cols-2 gap-4">
           {/* From Address */}
-          <div className="modal-input-container">
-            <label htmlFor="from_address" className="modal-input-label">
+          <div className="grid gap-2">
+            <Label htmlFor="from_address" className="text-sm text-[var(--color-foreground-neutral-faded)]">
               From Address <span className="text-[var(--color-foreground-neutral-faded)]">(optional)</span>
-            </label>
+            </Label>
             <Input
               id="from_address"
               type="email"
@@ -309,15 +299,14 @@ export function EmailConfigForm({ initialConfig, onChange, disabled }: EmailConf
               onChange={(e) => handleChange('from_address', e.target.value)}
               placeholder="noreply@glassflow.io"
               disabled={disabled}
-              className="input-regular input-border-regular"
             />
           </div>
 
           {/* From Name */}
-          <div className="modal-input-container">
-            <label htmlFor="from_name" className="modal-input-label">
+          <div className="grid gap-2">
+            <Label htmlFor="from_name" className="text-sm text-[var(--color-foreground-neutral-faded)]">
               From Name <span className="text-[var(--color-foreground-neutral-faded)]">(optional)</span>
-            </label>
+            </Label>
             <Input
               id="from_name"
               type="text"
@@ -325,7 +314,6 @@ export function EmailConfigForm({ initialConfig, onChange, disabled }: EmailConf
               onChange={(e) => handleChange('from_name', e.target.value)}
               placeholder="GlassFlow Notifier"
               disabled={disabled}
-              className="input-regular input-border-regular"
             />
           </div>
         </div>
@@ -335,10 +323,10 @@ export function EmailConfigForm({ initialConfig, onChange, disabled }: EmailConf
       <div className="space-y-4 pt-4 border-t border-[var(--surface-border)]">
         <h4 className="text-sm font-medium text-[var(--color-foreground-neutral)]">Recipients</h4>
 
-        <div className="modal-input-container">
-          <label htmlFor="to_addresses" className="modal-input-label">
+        <div className="grid gap-2">
+          <Label htmlFor="to_addresses" className="text-sm text-[var(--color-foreground-neutral-faded)]">
             To Addresses <span className="text-[var(--color-foreground-critical)]">*</span>
-          </label>
+          </Label>
           <Input
             id="to_addresses"
             type="text"
@@ -347,15 +335,12 @@ export function EmailConfigForm({ initialConfig, onChange, disabled }: EmailConf
             onBlur={() => handleBlur('to_addresses')}
             placeholder="admin@example.com, alerts@example.com"
             disabled={disabled}
-            className={cn(
-              'input-regular',
-              showError('to_addresses') ? 'modal-input-error' : 'input-border-regular'
-            )}
+            error={!!showError('to_addresses')}
           />
           {showError('to_addresses') && (
-            <p className="modal-error-text animate-slideDown">{errors.to_addresses}</p>
+            <p className="text-sm input-description-error animate-slideDown">{errors.to_addresses}</p>
           )}
-          <p className="modal-input-helper">
+          <p className="text-sm text-[var(--color-foreground-neutral-faded)]">
             Comma-separated list of email addresses to receive notifications
           </p>
         </div>

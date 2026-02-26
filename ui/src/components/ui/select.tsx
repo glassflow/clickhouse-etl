@@ -23,14 +23,17 @@ function SelectTrigger({
   className,
   size = 'default',
   children,
+  error,
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Trigger> & {
   size?: 'sm' | 'default'
+  error?: boolean
 }) {
   return (
     <SelectPrimitive.Trigger
       data-slot="select-trigger"
       data-size={size}
+      aria-invalid={error}
       className={cn(
         'flex w-fit items-center justify-between gap-2 whitespace-nowrap',
         'data-[size=default]:h-9 data-[size=sm]:h-8',

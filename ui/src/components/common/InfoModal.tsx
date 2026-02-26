@@ -50,8 +50,7 @@ export function InfoModal({
         {/* <DialogContent className="modal-description">this is where the content goes</DialogContent> */}
         <DialogFooter className="mt-6">
           <Button
-            variant="outline"
-            className="btn-tertiary"
+            variant="tertiary"
             onClick={() => {
               onComplete(ModalResult.NO, pendingOperation || '')
             }}
@@ -59,7 +58,7 @@ export function InfoModal({
             {cancelButtonText}
           </Button>
           <Button
-            className={criticalOperation ? 'btn-critical' : 'btn-primary'}
+            variant={criticalOperation ? 'destructive' : 'primary'}
             onClick={() => {
               onComplete(ModalResult.YES, pendingOperation || '')
             }}

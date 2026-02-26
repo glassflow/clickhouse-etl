@@ -51,11 +51,11 @@ class PipelineSSEManagerImpl {
 
   // Reconnection state
   private reconnectAttempts = 0
-  private reconnectTimeoutId: NodeJS.Timeout | null = null
+  private reconnectTimeoutId: ReturnType<typeof setTimeout> | null = null
 
   // Heartbeat monitoring
   private lastHeartbeat: number = 0
-  private heartbeatCheckIntervalId: NodeJS.Timeout | null = null
+  private heartbeatCheckIntervalId: ReturnType<typeof setInterval> | null = null
 
   // Fallback flag
   private fallbackToPollingTriggered = false

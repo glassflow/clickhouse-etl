@@ -200,9 +200,8 @@ export function TransformationConfigurator({
       {!standalone && !readOnly && availableFields.length > 0 && (
         <div className="flex justify-start items-center">
           <Button
-            variant="outline"
             onClick={actions.handleSkip}
-            className="flex-shrink-0 border-dashed hover:border-solid btn-tertiary text-primary hover:text-primary-faded"
+            variant="tertiary" className="flex-shrink-0 border-dashed hover:border-solid text-primary hover:text-primary-faded"
           >
             Skip Transformation
           </Button>
@@ -287,7 +286,7 @@ export function TransformationConfigurator({
 
       {/* No fields available message */}
       {!readOnly && availableFields.length === 0 && hasNoTransformation && (
-        <div className="p-4 card-outline rounded-[var(--radius-large)] text-center text-[var(--text-secondary)]">
+        <div className="p-4 card-outline rounded-[var(--radius-xl)] text-center text-[var(--text-secondary)]">
           <p>Waiting for field type verification to configure transformations...</p>
         </div>
       )}
@@ -316,9 +315,8 @@ export function TransformationConfigurator({
         {!standalone && !readOnly && availableFields.length > 0 && (
           <div className="flex justify-start items-center">
             <Button
-              variant="outline"
               onClick={actions.handleSkip}
-              className="flex-shrink-0 border-dashed hover:border-solid btn-tertiary text-primary hover:text-primary-faded"
+              variant="tertiary" className="flex-shrink-0 border-dashed hover:border-solid text-primary hover:text-primary-faded"
             >
               Skip Transformation
             </Button>

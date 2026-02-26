@@ -287,7 +287,7 @@ export function ConcatExpressionBuilder({
         {effectiveSlots.map((slot, index) => (
           <div
             key={slot.id}
-            className="card-outline rounded-[var(--radius-large)] p-3 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]"
+            className="card-outline rounded-[var(--radius-xl)] p-3 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]"
           >
             <div className="flex items-center gap-3">
               {/* Slot number indicator */}
@@ -302,7 +302,7 @@ export function ConcatExpressionBuilder({
                   onValueChange={(v) => handleSlotTypeChange(index, v as ConcatSlotType)}
                   disabled={disabled}
                 >
-                  <SelectTrigger className="input-regular input-border-regular w-28 h-8 text-sm">
+                  <SelectTrigger className="w-28 h-8 text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="select-content-custom">
@@ -333,7 +333,7 @@ export function ConcatExpressionBuilder({
                     onChange={(e) => handleLiteralChange(index, e.target.value)}
                     placeholder='Enter text (e.g., " " for space)'
                     disabled={disabled}
-                    className="input-regular input-border-regular flex-1 h-8 text-sm"
+                    className="flex-1 h-8 text-sm"
                   />
                 )}
               </div>
@@ -356,7 +356,7 @@ export function ConcatExpressionBuilder({
 
       {/* Add slot button */}
       {!disabled && effectiveSlots.length < MAX_SLOTS && (
-        <Button variant="outline" size="sm" onClick={handleAddSlot} className="btn-tertiary text-xs">
+        <Button variant="tertiary" size="sm" onClick={handleAddSlot} className="text-xs">
           <PlusIcon className="h-3 w-3 mr-1" />
           Add Value ({effectiveSlots.length}/{MAX_SLOTS})
         </Button>
@@ -398,7 +398,7 @@ export function ConcatExpressionBuilder({
           {isPostProcessExpanded && (
             <div className="mt-3 ml-6 space-y-3">
               {postProcessChain.length === 0 ? (
-                <div className="text-xs text-[var(--text-secondary)] italic p-2 bg-[var(--surface-bg-sunken)] rounded-[var(--radius-medium)]">
+                <div className="text-xs text-[var(--text-secondary)] italic p-2 bg-[var(--surface-bg-sunken)] rounded-[var(--radius-md)]">
                   No post-processing functions added. Click &quot;Add Function&quot; to transform the concat result.
                 </div>
               ) : (
@@ -423,7 +423,7 @@ export function ConcatExpressionBuilder({
                           </div>
                         )}
 
-                        <div className="card-outline rounded-[var(--radius-large)] p-3 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]">
+                        <div className="card-outline rounded-[var(--radius-xl)] p-3 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]">
                           <div className="flex items-start gap-2">
                             {/* Function number */}
                             <div className="flex-shrink-0 w-6 h-6 rounded-full bg-[var(--color-bg-accent-muted)] flex items-center justify-center text-xs font-medium text-[var(--text-accent)]">
@@ -477,7 +477,7 @@ export function ConcatExpressionBuilder({
                                           }
                                           placeholder={argDef.description}
                                           disabled={disabled}
-                                          className="input-regular input-border-regular h-8 text-sm"
+                                          className="h-8 text-sm"
                                         />
                                       )}
                                     </div>
@@ -508,10 +508,10 @@ export function ConcatExpressionBuilder({
               {/* Add function button */}
               {!disabled && postProcessChain.length < MAX_POST_PROCESS_FUNCTIONS && (
                 <Button
-                  variant="outline"
+                  variant="tertiary"
                   size="sm"
                   onClick={handleAddPostProcessFunction}
-                  className="btn-tertiary text-xs"
+                  className="text-xs"
                 >
                   <PlusIcon className="h-3 w-3 mr-1" />
                   {postProcessChain.length === 0 ? 'Add Function' : 'Add Outer Function (wraps result)'}
@@ -525,7 +525,7 @@ export function ConcatExpressionBuilder({
       {/* Expression Preview */}
       <div className="space-y-1 pt-2 border-t border-[var(--surface-border)]">
         <Label className="text-xs text-[var(--text-secondary)] block">Expression Preview</Label>
-        <code className="block text-xs font-mono p-2 bg-[var(--surface-bg-sunken)] rounded-[var(--radius-medium)] border border-[var(--surface-border)] break-all">
+        <code className="block text-xs font-mono p-2 bg-[var(--surface-bg-sunken)] rounded-[var(--radius-md)] border border-[var(--surface-border)] break-all">
           {fullExpression}
         </code>
       </div>

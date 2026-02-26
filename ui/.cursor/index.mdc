@@ -29,6 +29,7 @@ alwaysApply: true
 - API: `.cursor/api.mdc`
 - Styling: `.cursor/styling.mdc`
 - Modules: `.cursor/modules.mdc`
+- Figma ↔ code mapping: `.cursor/figma-mapping.mdc`
 
 ## Architecture Docs
 

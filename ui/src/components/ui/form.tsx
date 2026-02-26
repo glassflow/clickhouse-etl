@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { useState, useRef, useEffect } from 'react'
+import { useRef, useEffect } from 'react'
 import * as LabelPrimitive from '@radix-ui/react-label'
 import { Slot } from '@radix-ui/react-slot'
 import {
@@ -92,7 +92,11 @@ function FormLabel({ className, ...props }: React.ComponentProps<typeof LabelPri
     <Label
       data-slot="form-label"
       data-error={!!error}
-      className={cn('data-[error=true]:text-destructive-foreground', className)}
+      className={cn(
+        'transition-colors duration-200 text-content-faded',
+        'data-[error=true]:text-destructive-foreground',
+        className,
+      )}
       htmlFor={formItemId}
       {...props}
     />
@@ -185,35 +189,18 @@ const FormControlInput = <T extends FieldValues>({
   noLabel?: boolean
   defaultValue?: string
 }) => {
-  const [isFocused, setIsFocused] = useState(false)
-
   return (
     <div className={cn('grid gap-2 transition-all duration-200 ease-in-out', className)}>
-      {!noLabel && <FormLabel className="transition-colors duration-200 text-content-faded">{label}</FormLabel>}
+      {!noLabel && <FormLabel>{label}</FormLabel>}
       <FormControl>
         <Input
           id={id}
           type={type}
           placeholder={placeholder}
           {...register(name as any, { required })}
-          // readOnly={readOnly}
-          disabled={readOnly}
-          className={cn(
-            'w-full',
-            'input-regular',
-            'input-border-regular',
-            'transition-all duration-200 ease-in-out',
-            'text-content',
-            error && 'input-border-error',
-            isFocused && 'input-active',
-            readOnly && 'cursor-not-allowed',
-          )}
-          onFocus={() => !readOnly && setIsFocused(true)}
-          onBlur={() => {
-            if (!document.querySelector('[data-state="open"]')) {
-              setIsFocused(false)
-            }
-          }}
+          readOnly={readOnly}
+          error={!!error}
+          className={cn('w-full transition-all duration-200 ease-in-out text-content', className)}
           defaultValue={defaultValue}
         />
       </FormControl>
@@ -247,35 +234,18 @@ function FormControlTextarea({
   noLabel?: boolean
   readOnly?: boolean
 }) {
-  const [isFocused, setIsFocused] = useState(false)
   return (
     <div className={cn('grid gap-2 transition-all duration-200 ease-in-out', className)} {...props}>
-      {!noLabel && <FormLabel className="transition-colors duration-200 text-content-faded">{label}</FormLabel>}
+      {!noLabel && <FormLabel>{label}</FormLabel>}
       <FormControl>
         {/* @ts-expect-error - field is not typed */}
         <Textarea
           {...register(name, { required: required })}
           placeholder={placeholder}
           readOnly={readOnly}
+          error={!!error}
           {...props}
-          className={cn(
-            'w-full',
-            'input-regular',
-            'input-border-regular',
-            'transition-all duration-200 ease-in-out',
-            'text-content',
-            error && 'input-border-error',
-            isFocused && 'input-active',
-            readOnly && 'opacity-50 cursor-not-allowed',
-          )}
-          onFocus={() => !readOnly && setIsFocused(true)}
-          onBlur={() => {
-            // Only blur if the dropdown is closed
-            // This prevents losing the focus styles when clicking an option
-            if (!document.querySelector('[data-state="open"]')) {
-              setIsFocused(false)
-            }
-          }}
+          className="w-full transition-all duration-200 ease-in-out text-content"
         />
       </FormControl>
       {error && (
@@ -314,7 +284,6 @@ function FormControlSelect({
   noLabel?: boolean
   readOnly?: boolean
 }) {
-  const [isFocused, setIsFocused] = useState(false)
   const { control, getValues } = useFormContext()
 
   // Get the current value from the form context
@@ -322,7 +291,7 @@ function FormControlSelect({
 
   return (
     <div className={cn('space-y-2 w-full min-w-[200px] transition-all duration-200 ease-in-out', className)} {...props}>
-      {!noLabel && <FormLabel className="transition-colors duration-200 text-content-faded">{label}</FormLabel>}
+      {!noLabel && <FormLabel>{label}</FormLabel>}
       <FormControl>
         <Controller
           name={name}
@@ -339,32 +308,17 @@ function FormControlSelect({
                     field.onBlur() // Trigger validation
                   }
                 }}
-                onOpenChange={(open) => {
-                  if (!readOnly) {
-                    setIsFocused(open)
-                  }
-                }}
                 disabled={readOnly}
               >
                 <SelectTrigger
-                  className={cn(
-                    'w-full',
-                    'input-regular',
-                    'input-border-regular',
-                    'transition-all duration-200 ease-in-out',
-                    'text-content',
-                    error && 'input-border-error',
-                    isFocused && 'input-active',
-                    readOnly && 'cursor-not-allowed',
-                  )}
-                  onFocus={() => !readOnly && setIsFocused(true)}
+                  error={!!error}
+                  disabled={readOnly}
+                  className="w-full transition-all duration-200 ease-in-out text-content"
                   onBlur={() => {
                     if (!document.querySelector('[data-state="open"]')) {
-                      setIsFocused(false)
                       field.onBlur() // Trigger validation on blur
                     }
                   }}
-                  disabled={readOnly}
                 >
                   <SelectValue placeholder={placeholder} />
                 </SelectTrigger>
@@ -414,12 +368,11 @@ function FormControlSwitch({
   noLabel?: boolean
   readOnly?: boolean
 }) {
-  const [isChecked, setIsChecked] = useState(false)
   const { control } = useFormContext()
 
   return (
     <div className={cn('grid gap-2 transition-all duration-200 ease-in-out', className)} {...props}>
-      {!noLabel && <FormLabel className="transition-colors duration-200 text-content-faded">{label}</FormLabel>}
+      {!noLabel && <FormLabel>{label}</FormLabel>}
       <FormControl>
         <Controller
           name={name}
@@ -431,16 +384,9 @@ function FormControlSwitch({
               onCheckedChange={(checked) => {
                 if (!readOnly) {
                   field.onChange(checked)
-                  setIsChecked(checked)
                 }
               }}
               disabled={readOnly}
-              className={cn(
-                'data-[state=checked]:bg-[var(--primary)]',
-                'data-[state=unchecked]:bg-[var(--background)]',
-                'transition-colors duration-200 ease-in-out',
-                readOnly && 'opacity-50 cursor-not-allowed',
-              )}
             />
           )}
         />
