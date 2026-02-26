@@ -17,6 +17,8 @@ export interface TransformationFieldListProps {
   fields: TransformationField[]
   /** Available source fields from schema/event */
   availableFields: AvailableField[]
+  /** Sample event for playground evaluation (from Kafka step) */
+  sampleEvent: Record<string, unknown> | null
   /** Validation errors keyed by field ID */
   fieldErrors: Record<string, FieldValidation['errors']>
   /** Whether the component is in read-only mode */
@@ -44,6 +46,7 @@ export interface TransformationFieldListProps {
 export function TransformationFieldList({
   fields,
   availableFields,
+  sampleEvent,
   fieldErrors,
   readOnly,
   completeFieldCount,
@@ -105,6 +108,7 @@ export function TransformationFieldList({
               key={field.id}
               field={field}
               availableFields={availableFields}
+              sampleEvent={sampleEvent}
               onUpdate={onUpdate}
               onRemove={onRemove}
               errors={fieldErrors[field.id]}

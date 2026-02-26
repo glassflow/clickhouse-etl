@@ -215,6 +215,7 @@ export function TransformationConfigurator({
         <TransformationFieldList
           fields={transformationConfig.fields}
           availableFields={availableFields}
+          sampleEvent={sampleForValidation}
           fieldErrors={validation.localValidation.fieldErrors}
           readOnly={readOnly}
           completeFieldCount={completeFieldCount}

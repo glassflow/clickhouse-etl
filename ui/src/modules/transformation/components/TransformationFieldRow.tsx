@@ -14,7 +14,7 @@ import {
   TransformArithmeticExpression,
 } from '@/src/store/transformation.store'
 import { JSON_DATA_TYPES } from '@/src/config/constants'
-import { FieldValidation, inferOutputType, normalizeToJsonDataType, createFieldArg, createLiteralArg } from '../utils'
+import { FieldValidation, inferOutputType, normalizeToJsonDataType, createFieldArg, createLiteralArg, fieldToExpr } from '../utils'
 import { getFunctionByName } from '../functions'
 import { cn } from '@/src/utils/common.client'
 import TypeToggle from './TypeToggle'
@@ -22,10 +22,13 @@ import SourceFieldSelect from './SourceFieldSelect'
 import TransformFunctionSelect from './TransformFunctionSelect'
 import { ExpressionModeToggle } from './ExpressionModeToggle'
 import { ArithmeticModifier } from './ArithmeticModifier'
+import { ExpressionPlayground } from './ExpressionPlayground'
 
 interface TransformationFieldRowProps {
   field: TransformationField
   availableFields: Array<{ name: string; type: string }>
+  /** Sample event for playground (from Kafka step) */
+  sampleEvent?: Record<string, unknown> | null
   onUpdate: (fieldId: string, updates: Partial<Omit<TransformationField, 'id'>>) => void
   onRemove: (fieldId: string) => void
   errors?: FieldValidation['errors']
@@ -158,6 +161,7 @@ function formatFunctionExpression(field: TransformationField): string {
 export function TransformationFieldRow({
   field,
   availableFields,
+  sampleEvent = null,
   onUpdate,
   onRemove,
   errors = {},
@@ -166,6 +170,10 @@ export function TransformationFieldRow({
 }: TransformationFieldRowProps) {
   // Expanded state
   const [isExpanded, setIsExpanded] = useState(false)
+  // Sub-view within expanded: configure (builder) or playground
+  const [expandedSubView, setExpandedSubView] = useState<'configure' | 'playground'>('configure')
+  // Playground expression (synced when switching to playground)
+  const [localPlaygroundExpression, setLocalPlaygroundExpression] = useState('')
 
   // Ref for auto-focusing the output field name input
   const outputNameInputRef = useRef<HTMLInputElement>(null)
@@ -195,6 +203,18 @@ export function TransformationFieldRow({
     rawExpression: field.rawExpression,
     arithmeticExpression: field.arithmeticExpression,
   })
+
+  // When switching to playground view, sync expression from current field (only on enter)
+  const prevSubViewRef = useRef<'configure' | 'playground'>(expandedSubView)
+  useEffect(() => {
+    if (isExpanded && prevSubViewRef.current !== 'playground' && expandedSubView === 'playground') {
+      const merged = { ...field, ...localField } as TransformationField
+      setLocalPlaygroundExpression(fieldToExpr(merged))
+      prevSubViewRef.current = 'playground'
+    } else if (expandedSubView !== 'playground') {
+      prevSubViewRef.current = expandedSubView
+    }
+  }, [isExpanded, expandedSubView, field, localField])
 
   // Check if the field can be saved (minimum requirements met)
   const canSaveField = useMemo(() => {
@@ -603,6 +623,52 @@ export function TransformationFieldRow({
       {/* Expanded Section */}
       {isExpanded && (
         <div className="border-t border-[var(--surface-border)] p-4 space-y-4 bg-[var(--surface-bg-sunken)] animate-[fadeIn_0.2s_ease-in-out]">
+          {/* Configure | Playground toggle */}
+          <div className="flex items-center gap-1 rounded-[var(--radius-lg)] border border-[var(--surface-border)] p-0.5 bg-[var(--surface-bg-sunken)] w-fit">
+            <button
+              type="button"
+              onClick={() => setExpandedSubView('configure')}
+              className={cn(
+                'px-3 py-1.5 text-sm font-medium rounded-[calc(var(--radius-md)-2px)] transition-colors',
+                expandedSubView === 'configure'
+                  ? 'bg-[var(--option-bg-selected)] text-[var(--text-accent)]'
+                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]',
+              )}
+            >
+              Configure
+            </button>
+            <button
+              type="button"
+              onClick={() => setExpandedSubView('playground')}
+              className={cn(
+                'px-3 py-1.5 text-sm font-medium rounded-[calc(var(--radius-md)-2px)] transition-colors',
+                expandedSubView === 'playground'
+                  ? 'bg-[var(--option-bg-selected)] text-[var(--text-accent)]'
+                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]',
+              )}
+            >
+              Playground
+            </button>
+          </div>
+
+          {expandedSubView === 'playground' ? (
+            <ExpressionPlayground
+              singleFieldMode
+              availableFields={availableFields}
+              sampleEvent={sampleEvent}
+              expression={localPlaygroundExpression}
+              onExpressionChange={setLocalPlaygroundExpression}
+              outputName={localField.outputFieldName || ''}
+              outputType={localField.outputFieldType || 'string'}
+              onApplyExpression={(expression) => {
+                updateLocalField({ expressionMode: 'raw', rawExpression: expression })
+                setExpandedSubView('configure')
+              }}
+              readOnly={readOnly}
+              textareaId={field.id}
+            />
+          ) : (
+            <>
           <div className="flex items-start gap-4">
             {/* Output Field Name */}
             <div className="space-y-1.5 flex-1">
@@ -745,6 +811,8 @@ export function TransformationFieldRow({
               Save
             </Button>
           </div>
+            </>
+          )}
         </div>
       )}
 
