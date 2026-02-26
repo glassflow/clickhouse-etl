@@ -106,8 +106,12 @@ func (m *MockPipelineStore) GetPipelineResources(_ context.Context, _ string) (*
 	return nil, ErrPipelineNotExists
 }
 
-func (m *MockPipelineStore) UpsertPipelineResources(_ context.Context, _ string, _ models.PipelineResources) (*models.PipelineResourcesRow, error) {
-	return nil, ErrPipelineNotExists
+func (m *MockPipelineStore) UpsertPipelineResources(ctx context.Context, pid string, resources models.PipelineResources) (*models.PipelineResourcesRow, error) {
+	args := m.Called(ctx, pid, resources)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.PipelineResourcesRow), args.Error(1)
 }
 
 func TestEditPipeline_Success(t *testing.T) {
@@ -141,6 +145,7 @@ func TestEditPipeline_Success(t *testing.T) {
 
 	// Setup mock expectations
 	mockStore.On("GetPipeline", mock.Anything, pipelineID).Return(currentPipeline, nil)
+	mockStore.On("UpsertPipelineResources", mock.Anything, pipelineID, mock.Anything).Return(&models.PipelineResourcesRow{PipelineID: pipelineID}, nil)
 	mockStore.On("UpdatePipeline", mock.Anything, pipelineID, *newConfig).Return(nil)
 	mockOrchestrator.On("EditPipeline", mock.Anything, pipelineID, newConfig).Return(nil)
 
@@ -258,6 +263,7 @@ func TestEditPipeline_UpdatePipelineFails(t *testing.T) {
 
 	// Setup mock expectations
 	mockStore.On("GetPipeline", mock.Anything, pipelineID).Return(currentPipeline, nil)
+	mockStore.On("UpsertPipelineResources", mock.Anything, pipelineID, mock.Anything).Return(&models.PipelineResourcesRow{PipelineID: pipelineID}, nil)
 	mockStore.On("UpdatePipeline", mock.Anything, pipelineID, *newConfig).Return(errors.New("database error"))
 
 	// Execute
@@ -298,6 +304,7 @@ func TestEditPipeline_OrchestratorFails(t *testing.T) {
 
 	// Setup mock expectations
 	mockStore.On("GetPipeline", mock.Anything, pipelineID).Return(currentPipeline, nil)
+	mockStore.On("UpsertPipelineResources", mock.Anything, pipelineID, mock.Anything).Return(&models.PipelineResourcesRow{PipelineID: pipelineID}, nil)
 	mockStore.On("UpdatePipeline", mock.Anything, pipelineID, *newConfig).Return(nil)
 	mockOrchestrator.On("EditPipeline", mock.Anything, pipelineID, newConfig).Return(errors.New("orchestrator error"))
 

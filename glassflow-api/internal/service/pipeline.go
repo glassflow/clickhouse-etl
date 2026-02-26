@@ -284,6 +284,14 @@ func (p *PipelineService) ResumePipeline(ctx context.Context, pid string) error 
 		return fmt.Errorf("get pipeline failed for resume: %w", err)
 	}
 
+	if pipeline.PipelineResources.IsZero() {
+		defaultResources := models.NewDefaultPipelineResources()
+		if _, err = p.db.UpsertPipelineResources(ctx, pid, defaultResources); err != nil {
+			return fmt.Errorf("upsert default pipeline resources: %w", err)
+		}
+		pipeline.PipelineResources = defaultResources
+	}
+
 	err = status.ValidatePipelineOperation(pipeline, internal.PipelineStatusResuming)
 	if err != nil {
 		return err
@@ -400,6 +408,14 @@ func (p *PipelineService) EditPipeline(ctx context.Context, pid string, newCfg *
 	if currentPipeline.Status.OverallStatus != internal.PipelineStatusStopped && currentPipeline.Status.OverallStatus != internal.PipelineStatusFailed {
 		p.log.ErrorContext(ctx, "pipeline must be stopped before editing", "pipeline_id", pid, "current_status", currentPipeline.Status.OverallStatus)
 		return status.NewPipelineNotStoppedForEditError(models.PipelineStatus(currentPipeline.Status.OverallStatus))
+	}
+
+	if currentPipeline.PipelineResources.IsZero() {
+		defaultResources := models.NewDefaultPipelineResources()
+		if _, err = p.db.UpsertPipelineResources(ctx, pid, defaultResources); err != nil {
+			return fmt.Errorf("upsert default pipeline resources: %w", err)
+		}
+		currentPipeline.PipelineResources = defaultResources
 	}
 
 	// Preserve the original created_at timestamp
