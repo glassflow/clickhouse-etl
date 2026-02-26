@@ -374,7 +374,14 @@ export function ExpressionPlayground(props: ExpressionPlaygroundProps) {
           </div>
 
           <div className="space-y-1">
-            <Label className="text-xs text-[var(--text-secondary)] block">Result</Label>
+            <Label className="text-xs text-[var(--text-secondary)] block">
+              Result
+              {outputName && (
+                <span className="ml-1.5 font-normal text-[var(--text-disabled)]">
+                  (output field: <code className="text-[var(--text-secondary)]">{outputName}</code>)
+                </span>
+              )}
+            </Label>
             <div
               className={cn(
                 'card-outline rounded-[var(--radius-xl)] overflow-auto font-mono text-xs p-3 min-h-[120px] max-h-[200px]',
