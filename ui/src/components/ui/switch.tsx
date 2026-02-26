@@ -12,7 +12,7 @@ const Switch = React.forwardRef<
   <SwitchPrimitive.Root
     data-slot="switch"
     className={cn(
-      'peer inline-flex shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors',
+      'peer inline-flex shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors overflow-hidden',
       'w-[var(--toggle-track-width)] h-[var(--toggle-track-height)]',
       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
       'disabled:cursor-not-allowed disabled:opacity-50',
@@ -30,7 +30,7 @@ const Switch = React.forwardRef<
         'bg-[var(--toggle-thumb-unchecked-bg)]',
         'data-[state=checked]:bg-[var(--toggle-thumb-checked-bg)]',
         'data-[state=unchecked]:translate-x-0',
-        'data-[state=checked]:translate-x-3',
+        'data-[state=checked]:translate-x-2',
       )}
     />
   </SwitchPrimitive.Root>
