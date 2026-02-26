@@ -23,6 +23,7 @@ import TransformFunctionSelect from './TransformFunctionSelect'
 import { ExpressionModeToggle } from './ExpressionModeToggle'
 import { ArithmeticModifier } from './ArithmeticModifier'
 import { RawExpressionEditor } from './RawExpressionEditor'
+import { ExpressionPlayground } from './ExpressionPlayground'
 
 interface TransformationFieldRowProps {
   field: TransformationField
@@ -172,6 +173,10 @@ export function TransformationFieldRow({
   const [isExpanded, setIsExpanded] = useState(false)
   // For computed fields: 'raw' = default raw expression view, 'builder' = Functions builder view
   const [computedFieldView, setComputedFieldView] = useState<'raw' | 'builder'>('raw')
+  // Within builder view: 'configure' (Functions/Raw UI) or 'playground' (Evaluate)
+  const [builderSubView, setBuilderSubView] = useState<'configure' | 'playground'>('configure')
+  // Playground expression (synced when switching to playground from builder)
+  const [localPlaygroundExpression, setLocalPlaygroundExpression] = useState('')
 
   // Ref for auto-focusing the output field name input
   const outputNameInputRef = useRef<HTMLInputElement>(null)
@@ -201,6 +206,24 @@ export function TransformationFieldRow({
     rawExpression: field.rawExpression,
     arithmeticExpression: field.arithmeticExpression,
   })
+
+  // When switching to playground (within builder view), sync expression from current field
+  const prevBuilderSubViewRef = useRef<'configure' | 'playground'>(builderSubView)
+  useEffect(() => {
+    if (
+      isExpanded &&
+      localField.type === 'computed' &&
+      computedFieldView === 'builder' &&
+      prevBuilderSubViewRef.current !== 'playground' &&
+      builderSubView === 'playground'
+    ) {
+      const merged = { ...field, ...localField } as TransformationField
+      setLocalPlaygroundExpression(fieldToExpr(merged))
+      prevBuilderSubViewRef.current = 'playground'
+    } else if (builderSubView !== 'playground') {
+      prevBuilderSubViewRef.current = builderSubView
+    }
+  }, [isExpanded, computedFieldView, builderSubView, field, localField])
 
   // Check if the field can be saved (minimum requirements met)
   const canSaveField = useMemo(() => {
@@ -679,7 +702,7 @@ export function TransformationFieldRow({
             </>
           )}
 
-          {/* Computed: builder view */}
+          {/* Computed: builder view (Functions + Playground) */}
           {localField.type === 'computed' && computedFieldView === 'builder' && (
             <>
               {!readOnly && (
@@ -691,43 +714,91 @@ export function TransformationFieldRow({
                   Back to raw expression
                 </button>
               )}
-              <div className="flex items-center gap-3">
-                <TypeToggle
-                  field={{ ...field, ...localField } as TransformationField}
-                  handleTypeChange={handleTypeChange}
-                  readOnly={readOnly}
-                />
-                <div className="flex-1">
-                  <ExpressionModeToggle
-                    mode={localField.expressionMode || 'nested'}
-                    onChange={handleExpressionModeChange}
-                    disabled={readOnly}
-                  />
-                </div>
+              {/* Configure | Playground toggle within builder view */}
+              <div className="flex items-center gap-1 rounded-[var(--radius-lg)] border border-[var(--surface-border)] p-0.5 bg-[var(--surface-bg-sunken)] w-fit">
+                <button
+                  type="button"
+                  onClick={() => setBuilderSubView('configure')}
+                  className={cn(
+                    'px-3 py-1.5 text-sm font-medium rounded-[calc(var(--radius-md)-2px)] transition-colors',
+                    builderSubView === 'configure'
+                      ? 'bg-[var(--option-bg-selected)] text-[var(--text-accent)]'
+                      : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]',
+                  )}
+                >
+                  Configure
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBuilderSubView('playground')}
+                  className={cn(
+                    'px-3 py-1.5 text-sm font-medium rounded-[calc(var(--radius-md)-2px)] transition-colors',
+                    builderSubView === 'playground'
+                      ? 'bg-[var(--option-bg-selected)] text-[var(--text-accent)]'
+                      : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]',
+                  )}
+                >
+                  Playground
+                </button>
               </div>
-              <TransformFunctionSelect
-                field={{ ...field, ...localField } as TransformationField}
-                handleFunctionChange={handleFunctionChange}
-                readOnly={readOnly}
-                errors={errors}
-                availableFields={availableFields}
-                functionDef={
-                  functionDef || {
-                    name: '',
-                    category: 'utility',
-                    description: '',
-                    args: [],
-                    returnType: '',
-                    example: { input: '', output: '' },
-                  }
-                }
-                getArgValue={getArgValue}
-                handleArgChange={handleArgChange}
-                onExpressionModeChange={handleExpressionModeChange}
-                onFunctionArgsChange={handleFunctionArgsChange}
-                onRawExpressionChange={handleRawExpressionChange}
-                onArithmeticChange={handleArithmeticChange}
-              />
+
+              {builderSubView === 'playground' ? (
+                <ExpressionPlayground
+                  singleFieldMode
+                  availableFields={availableFields}
+                  sampleEvent={sampleEvent}
+                  expression={localPlaygroundExpression}
+                  onExpressionChange={setLocalPlaygroundExpression}
+                  outputName={localField.outputFieldName || ''}
+                  outputType={localField.outputFieldType || 'string'}
+                  onApplyExpression={(expression) => {
+                    updateLocalField({ expressionMode: 'raw', rawExpression: expression })
+                    setBuilderSubView('configure')
+                  }}
+                  readOnly={readOnly}
+                  textareaId={field.id}
+                />
+              ) : (
+                <>
+                  <div className="flex items-center gap-3">
+                    <TypeToggle
+                      field={{ ...field, ...localField } as TransformationField}
+                      handleTypeChange={handleTypeChange}
+                      readOnly={readOnly}
+                    />
+                    <div className="flex-1">
+                      <ExpressionModeToggle
+                        mode={localField.expressionMode || 'nested'}
+                        onChange={handleExpressionModeChange}
+                        disabled={readOnly}
+                      />
+                    </div>
+                  </div>
+                  <TransformFunctionSelect
+                    field={{ ...field, ...localField } as TransformationField}
+                    handleFunctionChange={handleFunctionChange}
+                    readOnly={readOnly}
+                    errors={errors}
+                    availableFields={availableFields}
+                    functionDef={
+                      functionDef || {
+                        name: '',
+                        category: 'utility',
+                        description: '',
+                        args: [],
+                        returnType: '',
+                        example: { input: '', output: '' },
+                      }
+                    }
+                    getArgValue={getArgValue}
+                    handleArgChange={handleArgChange}
+                    onExpressionModeChange={handleExpressionModeChange}
+                    onFunctionArgsChange={handleFunctionArgsChange}
+                    onRawExpressionChange={handleRawExpressionChange}
+                    onArithmeticChange={handleArithmeticChange}
+                  />
+                </>
+              )}
             </>
           )}
 
