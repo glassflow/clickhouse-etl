@@ -145,8 +145,16 @@ func (m *mockPipelineStore) GetPipelineResources(_ context.Context, _ string) (*
 	return nil, ErrPipelineNotExists
 }
 
-func (m *mockPipelineStore) UpsertPipelineResources(_ context.Context, _ string, _ models.PipelineResources) (*models.PipelineResourcesRow, error) {
-	return nil, ErrPipelineNotExists
+func (m *mockPipelineStore) UpsertPipelineResources(_ context.Context, pid string, resources models.PipelineResources) (*models.PipelineResourcesRow, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	pipeline, exists := m.pipelines[pid]
+	if !exists {
+		return nil, ErrPipelineNotExists
+	}
+	pipeline.PipelineResources = resources
+	m.pipelines[pid] = pipeline
+	return &models.PipelineResourcesRow{PipelineID: pid, Resources: resources}, nil
 }
 
 func TestPipelineService_ResumePipeline(t *testing.T) {
