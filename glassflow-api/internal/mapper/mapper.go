@@ -3,6 +3,7 @@ package mapper
 import (
 	"fmt"
 
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/tidwall/gjson"
 )
@@ -46,9 +47,10 @@ func (m *KafkaToClickHouseMapper) Map(data []byte, config map[string]models.Mapp
 
 		info, exists := m.columnLookUpInfo[mapping.DestinationField]
 		if exists {
-			convertedValue, err := ConvertValueFromJson(info.columnType, KafkaDataType(mapping.SourceType), value)
+			sourceType := KafkaDataType(internal.NormalizeToBasicKafkaType(mapping.SourceType))
+			convertedValue, err := ConvertValueFromJson(info.columnType, sourceType, value)
 			if err != nil {
-				conversionErr = fmt.Errorf("failed to convert field %s: %w", mapping.SourceField, err)
+				conversionErr = fmt.Errorf("failed to convert field %s: %w", sourceType, err)
 				return false
 			}
 
@@ -74,9 +76,10 @@ func (m *KafkaToClickHouseMapper) Map(data []byte, config map[string]models.Mapp
 
 		value := parsedJson.Get(mapping.SourceField)
 		if value.Exists() {
-			convertedValue, err := ConvertValueFromJson(info.columnType, KafkaDataType(mapping.SourceType), value)
+			sourceType := KafkaDataType(internal.NormalizeToBasicKafkaType(mapping.SourceType))
+			convertedValue, err := ConvertValueFromJson(info.columnType, sourceType, value)
 			if err != nil {
-				return nil, fmt.Errorf("failed to convert field %s: %w", mapping.SourceField, err)
+				return nil, fmt.Errorf("failed to convert field %s: %w", sourceType, err)
 			}
 			values[info.idx] = convertedValue
 		}
