@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import { structuredLogger } from '@/src/observability'
 import { Table, TableHeader, TableBody, TableCell, TableRow, TableHead } from '@/src/components/ui/table'
 import { SearchableSelect } from '@/src/components/common/SearchableSelect'
 import { DualSearchableSelect } from '@/src/components/common/DualSearchableSelect'
@@ -102,7 +103,7 @@ export function FieldColumnMapper({
       } else {
         // Fallback: if sourceTopic is missing but we're in join mode, show primary icon
         // This handles cases where columns were mapped before join mode was properly initialized
-        console.warn(`⚠️ Column "${column.name}" missing sourceTopic in join mode. Using primary icon as fallback.`)
+        structuredLogger.warn('FieldColumnMapper column missing sourceTopic in join mode, using primary icon as fallback', { column: column.name })
         return <Image src={leftTopicIcon} alt="Primary Topic (Fallback)" height={20} width={20} />
       }
     }

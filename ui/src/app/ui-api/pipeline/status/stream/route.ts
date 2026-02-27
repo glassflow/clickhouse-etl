@@ -19,6 +19,7 @@ import type {
   SSEErrorEvent,
   SSEHeartbeatEvent,
 } from '@/src/types/sse'
+import { structuredLogger } from '@/src/observability'
 
 // Get API URL from runtime config
 const API_URL = runtimeConfig.apiUrl
@@ -55,9 +56,9 @@ async function fetchPipelineHealth(pipelineId: string): Promise<PipelineStatus |
   } catch (error: any) {
     // Log error but don't throw - we'll handle missing pipelines gracefully
     if (error.response?.status === 404) {
-      console.log(`[SSE] Pipeline ${pipelineId} not found`)
+      structuredLogger.info('SSE pipeline not found', { pipeline_id: pipelineId })
     } else {
-      console.error(`[SSE] Error fetching health for pipeline ${pipelineId}:`, error.message)
+      structuredLogger.error('SSE error fetching pipeline health', { pipeline_id: pipelineId, error: error.message })
     }
     return null
   }
@@ -95,7 +96,7 @@ export async function GET(request: NextRequest) {
 
   const stream = new ReadableStream({
     async start(controller) {
-      console.log(`[SSE] New connection for pipelines: ${pipelineIds.join(', ')}`)
+      structuredLogger.info('SSE new connection', { pipeline_ids: pipelineIds.join(', ') })
 
       // Helper to send events. Never enqueue after stream is closed to avoid
       // Next.js/Node stream errors (e.g. controller[kState].transformAlgorithm).
@@ -111,7 +112,7 @@ export async function GET(request: NextRequest) {
           if (/closed|invalid state|transformAlgorithm|already closed/i.test(msg)) {
             return
           }
-          console.error('[SSE] Error sending event:', error)
+          structuredLogger.error('SSE error sending event', { error: msg })
         }
       }
 
@@ -197,7 +198,7 @@ export async function GET(request: NextRequest) {
         heartbeatIntervalId = null
       }
       isStreamActive = false
-      console.log('[SSE] Connection closed by client')
+      structuredLogger.info('SSE connection closed by client')
     },
   })
 

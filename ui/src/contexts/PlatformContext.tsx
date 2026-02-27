@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { getPlatformInfo } from '@/src/api/platform-api'
 import type { PlatformInfo } from '@/src/types/platform'
+import { structuredLogger } from '@/src/observability'
 
 interface PlatformContextType {
   platform: PlatformInfo | null
@@ -38,7 +39,7 @@ export const PlatformProvider: React.FC<PlatformProviderProps> = ({ children }) 
       setPlatform(platformInfo)
     } catch (err: any) {
       setError(err.message || 'Failed to fetch platform info')
-      console.error('Platform fetch error:', err)
+      structuredLogger.error('Platform fetch error', { error: err instanceof Error ? err.message : String(err) })
     } finally {
       setLoading(false)
     }

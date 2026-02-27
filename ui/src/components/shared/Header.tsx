@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import Image from 'next/image'
+import { structuredLogger } from '@/src/observability'
 import logoFullName from '../../images/logo-full-name.svg'
 import ListIcon from '../../images/list.svg'
 import PlugIcon from '../../images/plus.svg'
@@ -282,7 +283,7 @@ export function Header() {
           router.push('/home')
         }
       } catch (error) {
-        console.error('Error checking existing pipelines:', error)
+        structuredLogger.error('Header error checking existing pipelines', { error: error instanceof Error ? error.message : String(error) })
         // On error, default to home page
         router.push('/home')
       }

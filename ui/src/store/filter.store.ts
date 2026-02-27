@@ -1,5 +1,6 @@
 import { StateCreator } from 'zustand'
 import { v4 as uuidv4 } from 'uuid'
+import { structuredLogger } from '@/src/observability'
 import {
   createInitialValidation,
   createValidValidation,
@@ -425,7 +426,7 @@ export const createFilterSlice: StateCreator<FilterSlice> = (set, get) => ({
 
         // Check if we've reached max depth
         if (currentDepth >= MAX_GROUP_DEPTH - 1) {
-          console.warn('Maximum group nesting depth reached')
+          structuredLogger.warn('Maximum group nesting depth reached')
           return state
         }
 
@@ -484,7 +485,7 @@ export const createFilterSlice: StateCreator<FilterSlice> = (set, get) => ({
       set((state) => {
         // Don't allow removing the root group
         if (state.filterStore.filterConfig.root.id === itemId) {
-          console.warn('Cannot remove root group')
+          structuredLogger.warn('Cannot remove root group')
           return state
         }
 

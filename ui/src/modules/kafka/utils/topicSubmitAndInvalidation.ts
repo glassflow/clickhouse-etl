@@ -1,6 +1,7 @@
 import { StepKeys } from '@/src/config/constants'
 import { compareEventSchemas } from '@/src/utils/common.client'
 import { getSectionsToInvalidateForTopicStep } from './topicStepKeys'
+import { structuredLogger } from '@/src/observability'
 
 export interface TopicSubmitState {
   index: number
@@ -72,7 +73,7 @@ export function executeTopicSubmitAndInvalidation({ state, stores, originalTopic
   try {
     finalEvent = (manualEvent ? JSON.parse(manualEvent) : null) || stateEvent
   } catch (e) {
-    console.error('Error parsing event:', e)
+    structuredLogger.error('Error parsing event', { error: e instanceof Error ? e.message : String(e) })
     return
   }
 
@@ -86,7 +87,7 @@ export function executeTopicSubmitAndInvalidation({ state, stores, originalTopic
   if (!finalEvent && previousEvent) {
     finalEvent = previousEvent
   } else if (!finalEvent && !previousEvent) {
-    console.warn('[Topic Submit] Neither finalEvent nor previousEvent exists!')
+    structuredLogger.warn('Topic Submit neither finalEvent nor previousEvent exists')
   }
 
   const topicData = {

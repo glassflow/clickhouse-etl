@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
+import { structuredLogger } from '@/src/observability'
 import { Button } from '@/src/components/ui/button'
 import { Badge } from '@/src/components/ui/badge'
 import { Card } from '@/src/components/ui/card'
@@ -357,7 +358,7 @@ function PipelineDetailsHeader({
         setCopied(true)
         setTimeout(() => setCopied(false), 2000)
       } catch (fallbackErr) {
-        console.error('Fallback copy failed:', fallbackErr)
+        structuredLogger.error('PipelineDetailsHeader fallback copy failed', { error: fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr) })
       }
       document.body.removeChild(textArea)
     }

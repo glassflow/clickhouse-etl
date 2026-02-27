@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Label } from '@/src/components/ui/label'
+import { structuredLogger } from '@/src/observability'
 import { SearchableSelect } from '@/src/components/common/SearchableSelect'
 import { useStore } from '@/src/store'
 import { extractEventFields, getEffectiveFieldNames, type SchemaField } from '@/src/utils/common.client'
@@ -75,7 +76,7 @@ function SelectDeduplicateKeys({
         setError('No keys found in event data')
       }
     } catch (err) {
-      console.error('Error processing event data:', err)
+      structuredLogger.error('SelectDeduplicateKeys error processing event data', { error: err instanceof Error ? err.message : String(err) })
       setError('Error processing event data')
     } finally {
       setIsLoading(false)

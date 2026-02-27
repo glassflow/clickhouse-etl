@@ -17,6 +17,7 @@
  */
 
 import { IKafkaClient, KafkaConfig, KafkaConnectionError } from './kafka-client-interface'
+import { structuredLogger } from '@/src/observability'
 
 // Gateway service URL - can be configured via environment variable
 const KAFKA_GATEWAY_URL = process.env.KAFKA_GATEWAY_URL || 'http://localhost:8082'
@@ -377,13 +378,11 @@ export class KafkaGatewayClient implements IKafkaClient {
 
         // Don't retry if we've exhausted attempts
         if (attempt === opts.maxRetries) {
-          console.error(`[KafkaGateway] All ${opts.maxRetries} retries exhausted for ${endpoint}`)
+          structuredLogger.error('KafkaGateway all retries exhausted', { max_retries: opts.maxRetries, endpoint })
           throw lastError
         }
 
-        console.log(
-          `[KafkaGateway] Attempt ${attempt + 1} failed for ${endpoint}: ${lastError.message}. Retrying in ${delay}ms...`,
-        )
+        structuredLogger.debug('KafkaGateway attempt failed, retrying', { attempt: attempt + 1, endpoint, error: lastError.message, delay_ms: delay })
 
         // Wait before retrying (with abort signal support)
         await sleep(delay, abortSignal)
@@ -417,10 +416,10 @@ export class KafkaGatewayClient implements IKafkaClient {
       return true
     } catch (error) {
       if (error instanceof Error && error.message.includes('aborted')) {
-        console.error('[KafkaGateway] Connection test aborted')
+        structuredLogger.warn('KafkaGateway connection test aborted')
         return false
       }
-      console.error('[KafkaGateway] Connection test failed:', error)
+      structuredLogger.error('KafkaGateway connection test failed', { error: error instanceof Error ? error.message : String(error) })
       return false
     }
   }
@@ -541,7 +540,7 @@ export class KafkaGatewayClient implements IKafkaClient {
         return JSON.parse(response.event.value)
       } catch (error) {
         // If parsing fails, return the raw value as a string
-        console.warn('[KafkaGateway] Failed to parse event value as JSON, using raw value')
+        structuredLogger.warn('KafkaGateway failed to parse event value as JSON, using raw value')
         return response.event.value
       }
     }
@@ -581,7 +580,7 @@ export class KafkaGatewayClient implements IKafkaClient {
       const data = await response.json()
       return data.status === 'healthy'
     } catch (error) {
-      console.error('[KafkaGateway] Health check failed:', error)
+      structuredLogger.error('KafkaGateway health check failed', { error: error instanceof Error ? error.message : String(error) })
       return false
     }
   }

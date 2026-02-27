@@ -1,4 +1,5 @@
 import { useStore } from '../index'
+import { structuredLogger } from '@/src/observability'
 
 // Helper to map backend topic config to your store's topic shape (without deduplication)
 function mapBackendTopicToStore(topicConfig: any, index: number) {
@@ -382,7 +383,7 @@ export async function hydrateKafkaTopics(pipelineConfig: any): Promise<void> {
       useStore.getState().coreStore.setTopicCount(topicCount)
     }
   } catch (error) {
-    console.error('Failed to hydrate Kafka topics:', error)
+    structuredLogger.error('Failed to hydrate Kafka topics', { error: error instanceof Error ? error.message : String(error) })
     throw error
   }
 }

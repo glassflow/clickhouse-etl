@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import Cookies from 'js-cookie'
 import { notify } from '@/src/notifications/notify'
+import { structuredLogger } from '@/src/observability'
 import type { FlashMessage } from '@/src/notifications/types'
 
 const FLASH_COOKIE_NAME = 'flash_message'
@@ -35,7 +36,7 @@ export function useFlashMessages() {
         // Clear the cookie after displaying
         Cookies.remove(FLASH_COOKIE_NAME)
       } catch (error) {
-        console.error('Failed to parse flash message:', error)
+        structuredLogger.error('Failed to parse flash message', { error: error instanceof Error ? error.message : String(error) })
         Cookies.remove(FLASH_COOKIE_NAME)
       }
     }
