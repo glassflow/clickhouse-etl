@@ -242,11 +242,12 @@ func (mr *MockPipelineServiceMockRecorder) UpdatePipelineName(ctx, id, name any)
 }
 
 // UpdatePipelineResources mocks base method.
-func (m *MockPipelineService) UpdatePipelineResources(ctx context.Context, pid string, resources models.PipelineResources) error {
+func (m *MockPipelineService) UpdatePipelineResources(ctx context.Context, pid string, resources models.PipelineResources) (models.PipelineResources, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdatePipelineResources", ctx, pid, resources)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(models.PipelineResources)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // UpdatePipelineResources indicates an expected call of UpdatePipelineResources.
