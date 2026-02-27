@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
@@ -49,12 +50,47 @@ func NewPipelineService(orch Orchestrator, db PipelineStore, log *slog.Logger) *
 }
 
 var (
-	ErrIDExists             = errors.New("pipeline with this ID already exists")
-	ErrPipelineNotFound     = errors.New("no active pipeline found")
-	ErrNotImplemented       = errors.New("feature is not implemented")
-	ErrPipelineNotExists    = errors.New("no pipeline with given id exists")
-	ErrPipelineQuotaReached = errors.New("pipeline quota reached; shutdown active pipeline(s)")
+	ErrIDExists                    = errors.New("pipeline with this ID already exists")
+	ErrPipelineNotFound            = errors.New("no active pipeline found")
+	ErrNotImplemented              = errors.New("feature is not implemented")
+	ErrPipelineNotExists           = errors.New("no pipeline with given id exists")
+	ErrPipelineQuotaReached        = errors.New("pipeline quota reached; shutdown active pipeline(s)")
+	ErrPipelineResourcesValidation = errors.New("invalid pipeline resources")
 )
+
+type PipelineResourcesOperation string
+
+const (
+	PipelineResourcesOperationCreate PipelineResourcesOperation = "creation"
+	PipelineResourcesOperationEdit   PipelineResourcesOperation = "edit"
+)
+
+func (p *PipelineService) NewPipelineResources(ctx context.Context, cfg *models.PipelineConfig, operation PipelineResourcesOperation) (models.PipelineResources, error) {
+	defaults := models.NewDefaultPipelineResources()
+
+	if cfg.PipelineResources.IsZero() {
+		return defaults, nil
+	}
+
+	var (
+		oldResources    models.PipelineResources
+		immutableFields = models.PipelineResourcesAlwaysImmutable
+	)
+	if operation == PipelineResourcesOperationEdit {
+		existing, err := p.db.GetPipelineResources(ctx, cfg.ID)
+		if err != nil {
+			return models.PipelineResources{}, fmt.Errorf("get pipeline resources: %w", err)
+		}
+		oldResources = existing.Resources
+		immutableFields = slices.Concat(models.PipelineResourcesAlwaysImmutable, models.PipelineResourcesImmutableAfterCreate)
+	}
+
+	if err := models.ValidatePipelineResources(oldResources, cfg.PipelineResources, immutableFields); err != nil {
+		return models.PipelineResources{}, fmt.Errorf("%w: %w", ErrPipelineResourcesValidation, err)
+	}
+
+	return models.MergeWithDefaults(cfg.PipelineResources, defaults), nil
+}
 
 // CreatePipeline implements PipelineService.
 func (p *PipelineService) CreatePipeline(ctx context.Context, cfg *models.PipelineConfig) error {
@@ -75,6 +111,15 @@ func (p *PipelineService) CreatePipeline(ctx context.Context, cfg *models.Pipeli
 		// Since we don't have separate operator to update status
 		cfg.Status.OverallStatus = models.PipelineStatus(internal.PipelineStatusRunning)
 	}
+
+	newResources, err := p.NewPipelineResources(ctx, cfg, PipelineResourcesOperationCreate)
+	if err != nil {
+		return fmt.Errorf("validate pipeline resources: %w", err)
+	}
+	if _, err = p.db.UpsertPipelineResources(ctx, cfg.ID, newResources); err != nil {
+		return fmt.Errorf("upsert pipeline resources: %w", err)
+	}
+	cfg.PipelineResources = newResources
 
 	err = p.orchestrator.SetupPipeline(ctx, cfg)
 	if err != nil {
@@ -182,32 +227,42 @@ func (p *PipelineService) GetPipelineResources(ctx context.Context, pid string) 
 	return row, nil
 }
 
-func (p *PipelineService) UpdatePipelineResources(ctx context.Context, pid string, resources models.PipelineResources) error {
+func (p *PipelineService) UpdatePipelineResources(ctx context.Context, pid string, resources models.PipelineResources) (models.PipelineResources, error) {
 	pipeline, err := p.db.GetPipeline(ctx, pid)
 	if err != nil {
 		if errors.Is(err, ErrPipelineNotExists) {
-			return ErrPipelineNotExists
+			return models.PipelineResources{}, ErrPipelineNotExists
 		}
-		return fmt.Errorf("get pipeline for resource update: %w", err)
+		return models.PipelineResources{}, fmt.Errorf("get pipeline for resource update: %w", err)
 	}
 
 	if pipeline.Status.OverallStatus != internal.PipelineStatusStopped &&
 		pipeline.Status.OverallStatus != internal.PipelineStatusFailed {
-		return status.NewPipelineNotStoppedForEditError(pipeline.Status.OverallStatus)
+		return models.PipelineResources{}, status.NewPipelineNotStoppedForEditError(pipeline.Status.OverallStatus)
 	}
 
-	pipeline.PipelineResources = resources
+	existing, err := p.db.GetPipelineResources(ctx, pid)
+	if err != nil {
+		return models.PipelineResources{}, fmt.Errorf("get pipeline resources: %w", err)
+	}
+
+	if err := models.ValidatePipelineResources(existing.Resources, resources, models.PipelineResourcesImmutableAfterCreate); err != nil {
+		return models.PipelineResources{}, fmt.Errorf("%w: %w", ErrPipelineResourcesValidation, err)
+	}
+
+	merged := models.MergeWithDefaults(resources, models.NewDefaultPipelineResources())
+	pipeline.PipelineResources = merged
 
 	err = p.orchestrator.EditPipeline(ctx, pid, pipeline)
 	if err != nil {
-		return fmt.Errorf("edit pipeline: %w", err)
+		return models.PipelineResources{}, fmt.Errorf("edit pipeline: %w", err)
 	}
 
-	if _, err := p.db.UpsertPipelineResources(ctx, pid, resources); err != nil {
-		return fmt.Errorf("upsert pipeline resources: %w", err)
+	if _, err := p.db.UpsertPipelineResources(ctx, pid, merged); err != nil {
+		return models.PipelineResources{}, fmt.Errorf("upsert pipeline resources: %w", err)
 	}
 
-	return nil
+	return merged, nil
 }
 
 // GetPipelines implements PipelineService.
@@ -410,13 +465,14 @@ func (p *PipelineService) EditPipeline(ctx context.Context, pid string, newCfg *
 		return status.NewPipelineNotStoppedForEditError(models.PipelineStatus(currentPipeline.Status.OverallStatus))
 	}
 
-	if currentPipeline.PipelineResources.IsZero() {
-		defaultResources := models.NewDefaultPipelineResources()
-		if _, err = p.db.UpsertPipelineResources(ctx, pid, defaultResources); err != nil {
-			return fmt.Errorf("upsert default pipeline resources: %w", err)
-		}
-		currentPipeline.PipelineResources = defaultResources
+	newResources, err := p.NewPipelineResources(ctx, newCfg, PipelineResourcesOperationEdit)
+	if err != nil {
+		return fmt.Errorf("validate pipeline resources: %w", err)
 	}
+	if _, err = p.db.UpsertPipelineResources(ctx, pid, newResources); err != nil {
+		return fmt.Errorf("upsert pipeline resources: %w", err)
+	}
+	newCfg.PipelineResources = newResources
 
 	// Preserve the original created_at timestamp
 	newCfg.CreatedAt = currentPipeline.CreatedAt

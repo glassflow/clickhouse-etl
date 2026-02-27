@@ -502,6 +502,7 @@ func NewPipelineConfig(
 	filterConfig FilterComponentConfig,
 	statelessTransformation StatelessTransformation,
 	metadata PipelineMetadata,
+	resources PipelineResources,
 ) PipelineConfig {
 	return PipelineConfig{
 		ID:                      id,
@@ -515,6 +516,7 @@ func NewPipelineConfig(
 		CreatedAt:               time.Now().UTC(),
 		Metadata:                metadata,
 		Status:                  NewPipelineHealth(id, name),
+		PipelineResources:       resources,
 	}
 }
 

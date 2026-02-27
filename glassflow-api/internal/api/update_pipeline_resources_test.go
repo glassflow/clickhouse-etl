@@ -1,6 +1,7 @@
 package api
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
@@ -70,7 +71,7 @@ func TestValidateResourceQuantities(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateResourceQuantities(tt.r)
+			err := models.ValidateResourceQuantities(tt.r)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ValidateResourceQuantities() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -109,7 +110,8 @@ func TestValidatePipelineResources_DetectsImmutableFieldChanges(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			newResources := baseResources()
 			tt.modifier(&newResources)
-			if err := ValidateImmutabilityPipelineResources(old, newResources); err == nil {
+			allImmutable := slices.Concat(models.PipelineResourcesAlwaysImmutable, models.PipelineResourcesImmutableAfterCreate)
+			if err := models.ValidateImmutabilityPipelineResources(old, newResources, allImmutable); err == nil {
 				t.Errorf("expected error for changed immutable field %q, got nil", tt.name)
 			}
 		})
