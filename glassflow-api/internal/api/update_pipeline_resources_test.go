@@ -175,10 +175,23 @@ func TestValidateResourceConfig_JoinReplicaRules(t *testing.T) {
 		}
 	})
 
+	t.Run("transform replicas must be 1 when join enabled", func(t *testing.T) {
+		r := models.PipelineResources{
+			Transform: &models.ComponentResources{Replicas: replicas(2)},
+			Join:      &models.ComponentResources{Replicas: replicas(1)},
+			Sink:      &models.ComponentResources{Replicas: replicas(1)},
+		}
+		err := ValidateResourceConfig(r, true)
+		if err == nil {
+			t.Fatal("expected validation error, got nil")
+		}
+	})
+
 	t.Run("sink replicas must match join replicas when join enabled", func(t *testing.T) {
 		r := models.PipelineResources{
-			Join: &models.ComponentResources{Replicas: replicas(1)},
-			Sink: &models.ComponentResources{Replicas: replicas(2)},
+			Transform: &models.ComponentResources{Replicas: replicas(1)},
+			Join:      &models.ComponentResources{Replicas: replicas(1)},
+			Sink:      &models.ComponentResources{Replicas: replicas(2)},
 		}
 		err := ValidateResourceConfig(r, true)
 		if err == nil {
@@ -188,8 +201,9 @@ func TestValidateResourceConfig_JoinReplicaRules(t *testing.T) {
 
 	t.Run("join enabled with matching replicas passes", func(t *testing.T) {
 		r := models.PipelineResources{
-			Join: &models.ComponentResources{Replicas: replicas(1)},
-			Sink: &models.ComponentResources{Replicas: replicas(1)},
+			Transform: &models.ComponentResources{Replicas: replicas(1)},
+			Join:      &models.ComponentResources{Replicas: replicas(1)},
+			Sink:      &models.ComponentResources{Replicas: replicas(1)},
 		}
 		if err := ValidateResourceConfig(r, true); err != nil {
 			t.Fatalf("expected no error, got %v", err)

@@ -57,6 +57,21 @@ func validateReplicaConstraints(r models.PipelineResources, joinEnabled bool) er
 	transformReplicas := componentReplicas(r.Transform)
 	sinkReplicas := componentReplicas(r.Sink)
 
+	if joinEnabled {
+		joinReplicas := componentReplicas(r.Join)
+		if joinReplicas != 1 {
+			return fmt.Errorf("join replicas must be 1 when join is enabled")
+		}
+
+		if transformReplicas != 1 {
+			return fmt.Errorf("transform replicas must be 1 when join is enabled")
+		}
+
+		if sinkReplicas != joinReplicas {
+			return fmt.Errorf("sink replicas (%d) must match join replicas (%d) when join is enabled", sinkReplicas, joinReplicas)
+		}
+	}
+
 	if transformReplicas < sinkReplicas {
 		return fmt.Errorf("transform replicas (%d) must be greater than or equal to sink replicas (%d)", transformReplicas, sinkReplicas)
 	}
@@ -65,19 +80,6 @@ func validateReplicaConstraints(r models.PipelineResources, joinEnabled bool) er
 		if ingestorComp.replicas < transformReplicas {
 			return fmt.Errorf("%s replicas (%d) must be greater than or equal to transform replicas (%d)", ingestorComp.name, ingestorComp.replicas, transformReplicas)
 		}
-	}
-
-	if !joinEnabled {
-		return nil
-	}
-
-	joinReplicas := componentReplicas(r.Join)
-	if joinReplicas != 1 {
-		return fmt.Errorf("join replicas must be 1 when join is enabled")
-	}
-
-	if sinkReplicas != joinReplicas {
-		return fmt.Errorf("sink replicas (%d) must match join replicas (%d) when join is enabled", sinkReplicas, joinReplicas)
 	}
 
 	return nil

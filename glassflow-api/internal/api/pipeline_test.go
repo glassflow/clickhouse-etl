@@ -415,6 +415,46 @@ func TestCreatePipeline_CRDAlignedValidations(t *testing.T) {
 			wantContain: "join replicas must be 1 when join is enabled",
 		},
 		{
+			name: "transform replicas must be one when join enabled",
+			modify: func(b map[string]interface{}) {
+				b["join"].(map[string]interface{})["enabled"] = true
+				b["source"].(map[string]interface{})["topics"] = []map[string]interface{}{
+					{"name": "left-topic", "id": "topic-1"},
+					{"name": "right-topic", "id": "topic-2"},
+				}
+				b["schema"] = map[string]interface{}{
+					"fields": []map[string]interface{}{
+						{
+							"source_id":   "left-topic",
+							"name":        "id",
+							"type":        "string",
+							"column_name": "id_left",
+							"column_type": "String",
+						},
+						{
+							"source_id":   "right-topic",
+							"name":        "id",
+							"type":        "string",
+							"column_name": "id_right",
+							"column_type": "String",
+						},
+					},
+				}
+				b["resources"] = map[string]interface{}{
+					"transform": map[string]interface{}{
+						"replicas": 2,
+					},
+					"join": map[string]interface{}{
+						"replicas": 1,
+					},
+					"sink": map[string]interface{}{
+						"replicas": 1,
+					},
+				}
+			},
+			wantContain: "transform replicas must be 1 when join is enabled",
+		},
+		{
 			name: "sink replicas must match join replicas when join enabled",
 			modify: func(b map[string]interface{}) {
 				b["join"].(map[string]interface{})["enabled"] = true
@@ -447,7 +487,7 @@ func TestCreatePipeline_CRDAlignedValidations(t *testing.T) {
 						},
 					},
 					"transform": map[string]interface{}{
-						"replicas": 2,
+						"replicas": 1,
 					},
 					"join": map[string]interface{}{
 						"replicas": 1,
