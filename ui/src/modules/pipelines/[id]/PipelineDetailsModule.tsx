@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import PipelineDetailsHeader from './PipelineDetailsHeader'
+import { structuredLogger } from '@/src/observability'
 import PipelineStatusOverviewSection from './PipelineStatusOverviewSection'
 import TransformationSection from './sections/TransformationSection'
 import StandaloneStepRenderer from '@/src/modules/pipelines/[id]/StandaloneStepRenderer'
@@ -92,7 +93,7 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
       const updatedPipeline = await getPipeline(pipeline.pipeline_id)
       setPipeline(updatedPipeline)
     } catch (error) {
-      console.error('Failed to refresh pipeline data:', error)
+      structuredLogger.error('PipelineDetailsModule failed to refresh pipeline data', { error: error instanceof Error ? error.message : String(error) })
     }
   }, [pipeline.pipeline_id, pipeline.status])
 

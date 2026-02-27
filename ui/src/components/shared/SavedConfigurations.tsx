@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { structuredLogger } from '@/src/observability'
 import { Button } from '@/src/components/ui/button'
 import { Plus, Clock, Trash2 } from 'lucide-react'
 import { getConfigurations, deleteConfiguration, restoreConfiguration } from '@/src/utils/local-storage-config'
@@ -19,7 +20,7 @@ export function SavedConfigurations() {
         const savedConfigs = getConfigurations()
         setConfigurations(savedConfigs)
       } catch (error) {
-        console.error('Error loading configurations:', error)
+        structuredLogger.error('SavedConfigurations error loading configurations', { error: error instanceof Error ? error.message : String(error) })
       } finally {
         setIsLoading(false)
       }
@@ -43,14 +44,14 @@ export function SavedConfigurations() {
       const { coreStore } = useStore.getState()
       const { topicCount } = coreStore
       if (!topicCount || topicCount < 1) {
-        console.error('No operation type found in restored configuration. Full state:', restoredState)
+        structuredLogger.error('SavedConfigurations no operation type found in restored configuration')
         return
       }
 
       // Navigate to the create page
       router.push('/pipelines/create')
     } catch (error) {
-      console.error('Error loading configuration:', error)
+      structuredLogger.error('SavedConfigurations error loading configuration', { error: error instanceof Error ? error.message : String(error) })
       // TODO: Track error
     }
   }
@@ -67,7 +68,7 @@ export function SavedConfigurations() {
         // TODO: Track configuration deletion
       }
     } catch (error) {
-      console.error('Error deleting configuration:', error)
+      structuredLogger.error('SavedConfigurations error deleting configuration', { error: error instanceof Error ? error.message : String(error) })
       // TODO: Track error
     }
   }

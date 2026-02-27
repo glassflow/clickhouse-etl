@@ -1,5 +1,6 @@
 import React from 'react'
 import { Badge } from '@/src/components/ui/badge'
+import { structuredLogger } from '@/src/observability'
 import { PIPELINE_STATUS_CONFIG, StatusType } from '@/src/config/constants'
 import { cn } from '@/src/utils/common.client'
 import { PIPELINE_STATUS_MAP } from '@/src/config/constants'
@@ -13,7 +14,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, className }) =
   const statusConfig = PIPELINE_STATUS_CONFIG[status]
 
   if (!statusConfig) {
-    console.warn(`Unknown status: ${status}`)
+    structuredLogger.warn('Unknown pipeline status', { status })
     return null
   }
 

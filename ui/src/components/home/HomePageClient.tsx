@@ -1,6 +1,7 @@
 'use client'
 
 import Image from 'next/image'
+import { structuredLogger } from '@/src/observability'
 import Join from '../../images/join.svg'
 import IngestOnly from '../../images/ingest-only.svg'
 import { ArrowUpTrayIcon } from '@heroicons/react/24/outline'
@@ -77,7 +78,7 @@ export default function HomePageClient() {
         const blockingCount = countPipelinesBlockingCreation(pipelines)
         setActivePipelinesCount(blockingCount)
       } catch (error) {
-        console.error('Failed to fetch pipelines:', error)
+        structuredLogger.error('HomePageClient failed to fetch pipelines', { error: error instanceof Error ? error.message : String(error) })
         setActivePipelinesCount(0)
       }
     }
@@ -152,7 +153,7 @@ export default function HomePageClient() {
       }, 0)
     } catch (error) {
       setIsNavigating(false)
-      console.error('Failed to complete topic count selection:', error)
+      structuredLogger.error('HomePageClient failed to complete topic count selection', { error: error instanceof Error ? error.message : String(error) })
     }
   }
 
@@ -171,7 +172,7 @@ export default function HomePageClient() {
         await completeTopicCountSelection(pendingTopicCount, configName, pipelineId)
         // Modal will be closed when component unmounts due to navigation
       } catch (error) {
-        console.error('Failed to save configuration:', error)
+        structuredLogger.error('HomePageClient failed to save configuration', { error: error instanceof Error ? error.message : String(error) })
         setIsCreatePipelineModalVisible(false)
         setIsNavigating(false)
       }
@@ -232,7 +233,7 @@ export default function HomePageClient() {
       }, 0)
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to import pipeline configuration'
-      console.error('Failed to import pipeline configuration:', error)
+      structuredLogger.error('HomePageClient failed to import pipeline configuration', { error: error instanceof Error ? error.message : String(error) })
       setUploadError(message)
       setIsNavigating(false)
       // Keep modal open so the user can fix the configuration or try again

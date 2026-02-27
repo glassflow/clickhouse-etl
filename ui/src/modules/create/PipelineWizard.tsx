@@ -2,6 +2,7 @@
 
 import React, { useEffect } from 'react'
 import { ChevronDownIcon } from '@heroicons/react/24/outline'
+import { structuredLogger } from '@/src/observability'
 import { stepsMetadata } from '@/src/config/constants'
 import { StepKeys } from '@/src/config/constants'
 import { useRouter } from 'next/navigation'
@@ -130,7 +131,7 @@ function PipelineWizard() {
   ) => {
     const stepKey = instance.key
     if (!stepComponentsMap || !stepKey || !(stepKey in stepComponentsMap)) {
-      console.error(`Step component for key "${stepKey}" not found`)
+      structuredLogger.error('PipelineWizard step component not found', { step_key: stepKey })
       return null
     }
 

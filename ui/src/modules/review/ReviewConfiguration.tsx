@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react'
 import { useStore } from '@/src/store'
+import { structuredLogger } from '@/src/observability'
 import { StepKeys } from '@/src/config/constants'
 import { Button } from '@/src/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/src/components/ui/tabs'
@@ -107,7 +108,7 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
       setPipelineId(pipeline.pipeline_id || (payload as any).pipeline_id || '')
       router.push('/pipelines')
     } catch (error: any) {
-      console.error('Failed to deploy pipeline:', error)
+      structuredLogger.error('ReviewConfiguration failed to deploy pipeline', { error: error instanceof Error ? error.message : String(error) })
       const message = error?.message || error?.error || 'Failed to deploy pipeline. Please try again.'
       setDeployError(message)
     }

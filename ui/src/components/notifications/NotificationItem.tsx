@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { structuredLogger } from '@/src/observability'
 import { Check, Trash2, AlertCircle, AlertTriangle, Info, XCircle, Copy, ExternalLink } from 'lucide-react'
 import { cn } from '@/src/utils/common.client'
 import { Button } from '@/src/components/ui/button'
@@ -121,7 +122,7 @@ export function NotificationItem({
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch (err) {
-      console.error('Failed to copy pipeline ID:', err)
+      structuredLogger.error('NotificationItem failed to copy pipeline ID', { error: err instanceof Error ? err.message : String(err) })
     }
   }
 

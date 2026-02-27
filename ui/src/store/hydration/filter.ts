@@ -1,5 +1,6 @@
 import { useStore } from '../index'
 import { parseExprToFilterTree } from '@/src/modules/filter/parser/exprParser'
+import { structuredLogger } from '@/src/observability'
 
 /**
  * Hydrate filter configuration from pipeline config
@@ -36,16 +37,12 @@ export function hydrateFilter(pipelineConfig: any) {
 
       // Log any unsupported features for debugging
       if (parseResult.unsupportedFeatures && parseResult.unsupportedFeatures.length > 0) {
-        console.warn('[Filter Hydration] Expression parsed with unsupported features:', parseResult.unsupportedFeatures)
+        structuredLogger.warn('Filter hydration expression parsed with unsupported features', { unsupported_features: parseResult.unsupportedFeatures.join(', ') })
       }
     } else {
       // Failed to parse - keep expression string for read-only display
       // The UI will show the expression in read-only mode
-      console.warn(
-        '[Filter Hydration] Could not parse expression into tree structure:',
-        parseResult.error,
-        'Expression will be shown in read-only mode.',
-      )
+      structuredLogger.warn('Filter hydration could not parse expression into tree structure, showing in read-only mode', { error: parseResult.error })
     }
   } else {
     filterStore.setExpressionString('')

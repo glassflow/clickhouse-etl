@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid'
 import { KafkaConnectionParams, TableColumn } from './types'
 import { extractEventFields, getRuntimeEnv } from '@/src/utils/common.client'
+import { structuredLogger } from '@/src/observability'
 import { InternalPipelineConfig } from '@/src/types/pipeline'
 import { getPipelineAdapter } from '@/src/modules/pipeline-adapters/factory'
 import { LATEST_PIPELINE_VERSION } from '@/src/config/pipeline-versions'
@@ -628,7 +629,7 @@ export const generateApiConfig = ({
     // Note: The adapter handles wrapping the configuration in the correct structure for the target version
     return adapter.generate(internalConfig)
   } catch (error) {
-    console.error('Error generating API config:', error)
+    structuredLogger.error('Error generating API config', { error: error instanceof Error ? error.message : String(error) })
     return { error: 'Failed to generate API configuration' }
   }
 }

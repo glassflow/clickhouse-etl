@@ -84,24 +84,30 @@ export interface LogAttributes {
 export const structuredLogger = {
   debug: (message: string, attributes?: LogAttributes) => {
     emitLog('debug', message, attributes)
-    if (observabilityConfig.logLevel === 'debug') {
+    if (observabilityConfig.consoleLogsEnabled && observabilityConfig.logLevel === 'debug') {
       console.debug(`[DEBUG] ${message}`, attributes || {})
     }
   },
 
   info: (message: string, attributes?: LogAttributes) => {
     emitLog('info', message, attributes)
-    console.info(`[INFO] ${message}`, attributes || {})
+    if (observabilityConfig.consoleLogsEnabled) {
+      console.info(`[INFO] ${message}`, attributes || {})
+    }
   },
 
   warn: (message: string, attributes?: LogAttributes) => {
     emitLog('warn', message, attributes)
-    console.warn(`[WARN] ${message}`, attributes || {})
+    if (observabilityConfig.consoleLogsEnabled) {
+      console.warn(`[WARN] ${message}`, attributes || {})
+    }
   },
 
   error: (message: string, attributes?: LogAttributes) => {
     emitLog('error', message, attributes)
-    console.error(`[ERROR] ${message}`, attributes || {})
+    if (observabilityConfig.consoleLogsEnabled) {
+      console.error(`[ERROR] ${message}`, attributes || {})
+    }
   },
 
   /**

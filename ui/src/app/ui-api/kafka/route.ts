@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { KafkaConfig } from '@/src/lib/kafka-client'
 import { getKafkaConfig } from '../utils'
 import { KafkaService } from '@/src/services/kafka-service'
+import { structuredLogger } from '@/src/observability'
 
 export async function POST(request: Request) {
   try {
@@ -24,7 +25,7 @@ export async function POST(request: Request) {
       })
     }
   } catch (error) {
-    console.error('Error testing Kafka connection:', error)
+    structuredLogger.error('Error testing Kafka connection', { error: error instanceof Error ? error.message : String(error) })
     return NextResponse.json(
       {
         success: false,

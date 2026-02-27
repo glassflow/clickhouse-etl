@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClickHouseConnection, closeConnection } from '../../../../clickhouse/clickhouse-utils'
 import { validatePipelineIdOrError } from '../../../validation'
+import { structuredLogger } from '@/src/observability'
 
 interface ClickHouseTableMetrics {
   database: string
@@ -99,12 +100,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       throw metricsError
     }
   } catch (error: any) {
-    console.error('ClickHouse Metrics from Config API Route - Error details:', {
-      message: error.message,
-      response: error.response?.data,
-      status: error.response?.status,
-      config: error.config,
-    })
+    structuredLogger.error('ClickHouse Metrics from Config API Route error', { error: error.message, response: error.response?.data, status: error.response?.status })
 
     if (error.response) {
       const { status, data } = error.response
@@ -272,7 +268,7 @@ async function fetchClickHouseTableMetrics(
         results[key] = rows[0] || {}
       }
     } catch (error) {
-      console.warn(`Failed to execute query ${key}:`, error)
+      structuredLogger.warn('Failed to execute ClickHouse query', { key, error: error instanceof Error ? error.message : String(error) })
       results[key] = {}
     }
   }
@@ -417,7 +413,7 @@ function parseQueryResult(data: string): any {
       return result
     }
   } catch (error) {
-    console.warn('Failed to parse query result:', error)
+    structuredLogger.warn('Failed to parse ClickHouse query result', { error: error instanceof Error ? error.message : String(error) })
     return {}
   }
 }

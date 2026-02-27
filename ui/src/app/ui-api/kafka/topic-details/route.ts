@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { KafkaConfig } from '@/src/lib/kafka-client'
 import { getKafkaConfig } from '../../utils'
 import { KafkaService } from '@/src/services/kafka-service'
+import { structuredLogger } from '@/src/observability'
 
 export async function POST(request: Request) {
   try {
@@ -35,14 +36,14 @@ export async function POST(request: Request) {
         topicDetails,
       })
     } catch (error) {
-      console.error('Error fetching Kafka topic details:', error)
+      structuredLogger.error('Error fetching Kafka topic details', { error: error instanceof Error ? error.message : String(error) })
       return NextResponse.json({
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error occurred',
       })
     }
   } catch (error) {
-    console.error('Error processing request:', error)
+    structuredLogger.error('Error processing Kafka topic-details request', { error: error instanceof Error ? error.message : String(error) })
     return NextResponse.json(
       {
         success: false,

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { StepKeys } from '@/src/config/constants'
 import { useStore } from '@/src/store'
+import { structuredLogger } from '@/src/observability'
 import { EventDataFormat } from '@/src/config/constants'
 import { kafkaApiClient } from '@/src/services/kafka-api-client'
 
@@ -120,7 +121,7 @@ export function useStepDataPreloader(stepKey: StepKeys, pipeline: any) {
         const topic = currentTopicsStore.getTopic(topicIndex)
 
         if (!topic || !topic.name) {
-          console.warn(`No topic configured at index ${topicIndex}`)
+          structuredLogger.warn('useStepDataPreloader no topic configured at index', { topic_index: topicIndex })
           return false // No topic configured
         }
 
@@ -146,7 +147,7 @@ export function useStepDataPreloader(stepKey: StepKeys, pipeline: any) {
         const eventData = response.data?.event || response.event
 
         if (!eventData) {
-          console.warn(`No event data received for topic: ${topic.name}`)
+          structuredLogger.warn('useStepDataPreloader no event data received for topic', { topic: topic.name })
           return false
         }
 
@@ -169,7 +170,7 @@ export function useStepDataPreloader(stepKey: StepKeys, pipeline: any) {
         currentTopicsStore.updateTopic(updatedTopic)
         return true
       } catch (error) {
-        console.error(`Failed to fetch event for topic at index ${topicIndex}:`, error)
+        structuredLogger.error('useStepDataPreloader failed to fetch event for topic', { topic_index: topicIndex, error: error instanceof Error ? error.message : String(error) })
         return false
       }
     },
@@ -251,7 +252,7 @@ export function useStepDataPreloader(stepKey: StepKeys, pipeline: any) {
         },
       })
     } catch (error) {
-      console.error('Preloading failed:', error)
+      structuredLogger.error('useStepDataPreloader preloading failed', { error: error instanceof Error ? error.message : String(error) })
       setState({
         isLoading: false,
         isComplete: false,

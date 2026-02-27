@@ -2,6 +2,7 @@
 
 import { useFormContext } from 'react-hook-form'
 import { FormGroup } from '@/src/components/ui'
+import { structuredLogger } from '@/src/observability'
 import { InputFile } from '@/src/components/common/InputFile'
 import { renderFormField } from '@/src/components/ui/form'
 import { KafkaFormConfig } from '@/src/config/kafka-connection-form-config'
@@ -28,7 +29,7 @@ export function SaslGssapiForm({ errors, readOnly }: AuthFormProps) {
       setValue('saslGssapi.kerberosKeytab', fileContent, { shouldValidate: true, shouldDirty: true })
       setValue('saslGssapi.kerberosKeytabFileName', fileName, { shouldValidate: false, shouldDirty: true })
     } catch (error) {
-      console.error('Error reading keytab file:', error)
+      structuredLogger.error('SaslGssapiForm error reading keytab file', { error: error instanceof Error ? error.message : String(error) })
     }
   }
 
@@ -37,7 +38,7 @@ export function SaslGssapiForm({ errors, readOnly }: AuthFormProps) {
       setValue('saslGssapi.krb5Config', fileContent, { shouldValidate: true, shouldDirty: true })
       setValue('saslGssapi.krb5ConfigFileName', fileName, { shouldValidate: false, shouldDirty: true })
     } catch (error) {
-      console.error('Error reading krb5.conf file:', error)
+      structuredLogger.error('SaslGssapiForm error reading krb5.conf file', { error: error instanceof Error ? error.message : String(error) })
     }
   }
 

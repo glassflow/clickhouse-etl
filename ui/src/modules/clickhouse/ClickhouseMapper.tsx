@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import { structuredLogger } from '@/src/observability'
 
 import { Button } from '@/src/components/ui/button'
 import { XCircleIcon } from '@heroicons/react/24/outline'
@@ -298,10 +299,10 @@ export function ClickhouseMapper({
           if (baseConfig) {
             await coreStore.hydrateSection('topics', baseConfig)
           } else {
-            console.warn('[ClickhouseMapper] No base config available for re-hydration')
+            structuredLogger.warn('ClickhouseMapper no base config available for re-hydration')
           }
         } catch (error) {
-          console.error('[ClickhouseMapper] Failed to re-hydrate topics:', error)
+          structuredLogger.error('ClickhouseMapper failed to re-hydrate topics', { error: error instanceof Error ? error.message : String(error) })
         }
       }
     }
@@ -614,7 +615,7 @@ export function ClickhouseMapper({
                 jsonType: fieldType,
               }
             } else {
-              console.log(`No match found for column "${col.name}"`)
+              structuredLogger.debug('ClickhouseMapper no match found for column', { column: col.name })
             }
           })
 
@@ -662,7 +663,7 @@ export function ClickhouseMapper({
                 jsonType: verifiedType || inferJsonType(getNestedValue(eventData, matchingField)),
               }
             } else {
-              console.log(`No match found for column "${col.name}"`)
+              structuredLogger.debug('ClickhouseMapper no match found for column', { column: col.name })
             }
           })
 
@@ -676,7 +677,7 @@ export function ClickhouseMapper({
           const autoMappedCount = updatedColumns.filter((col) => col.eventField).length
         }
       } else {
-        console.log('No event data found')
+        structuredLogger.debug('ClickhouseMapper no event data found')
       }
     }
   }, [selectedEvent?.event, clickhouseDestination, mappedColumns, setClickhouseDestination, mode, transformationStore])
@@ -1476,7 +1477,7 @@ export function ClickhouseMapper({
         // Navigate to pipeline details page with deployment progress
         router.push(`/pipelines/${newPipelineId}?deployment=progress`)
       } catch (error: any) {
-        console.error('deployPipelineAndNavigate: Failed to deploy pipeline:', error)
+        structuredLogger.error('ClickhouseMapper failed to deploy pipeline', { error: error instanceof Error ? error.message : String(error) })
         setError(`Failed to deploy pipeline: ${error.message}`)
         // Store the failed config so user can download it
         setFailedDeploymentConfig(apiConfig)
@@ -1521,7 +1522,7 @@ export function ClickhouseMapper({
       document.body.removeChild(link)
       URL.revokeObjectURL(url)
     } catch (downloadError) {
-      console.error('Failed to download configuration:', downloadError)
+      structuredLogger.error('ClickhouseMapper failed to download configuration', { error: downloadError instanceof Error ? downloadError.message : String(downloadError) })
     }
   }, [failedDeploymentConfig, pipelineName])
 

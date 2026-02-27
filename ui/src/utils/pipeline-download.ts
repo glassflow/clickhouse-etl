@@ -1,6 +1,7 @@
 import { Pipeline, ListPipelineConfig } from '@/src/types/pipeline'
 import { getPipeline } from '@/src/api/pipeline-api'
 import { getPipelineAdapter } from '@/src/modules/pipeline-adapters/factory'
+import { structuredLogger } from '@/src/observability'
 import { PipelineVersion } from '@/src/config/pipeline-versions'
 
 /**
@@ -90,7 +91,7 @@ export const downloadPipelineConfig = async (
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
   } catch (error) {
-    console.error('Failed to download pipeline configuration:', error)
+    structuredLogger.error('Failed to download pipeline configuration', { error: error instanceof Error ? error.message : String(error) })
     throw new Error('Failed to download pipeline configuration. Please try again.')
   }
 }
@@ -163,7 +164,7 @@ export const downloadPipelineConfigAsYaml = async (
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
   } catch (error) {
-    console.error('Failed to download pipeline configuration as YAML:', error)
+    structuredLogger.error('Failed to download pipeline configuration as YAML', { error: error instanceof Error ? error.message : String(error) })
     throw new Error('Failed to download pipeline configuration as YAML. Please try again.')
   }
 }

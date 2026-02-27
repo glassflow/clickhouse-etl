@@ -1,4 +1,5 @@
 import { useStore } from '@/src/store'
+import { structuredLogger } from '@/src/observability'
 
 export interface SavedConfiguration {
   id: string
@@ -64,7 +65,7 @@ export function getConfigurations(): SavedConfiguration[] {
     const configs = localStorage.getItem(STORAGE_KEY)
     return configs ? JSON.parse(configs) : []
   } catch (error) {
-    console.error('Error getting configurations:', error)
+    structuredLogger.error('Error getting configurations from local storage', { error: error instanceof Error ? error.message : String(error) })
     return []
   }
 }
@@ -75,7 +76,7 @@ export function deleteConfiguration(id: string): void {
     const updatedConfigs = configs.filter((config) => config.id !== id)
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedConfigs))
   } catch (error) {
-    console.error('Error deleting configuration:', error)
+    structuredLogger.error('Error deleting configuration from local storage', { error: error instanceof Error ? error.message : String(error) })
   }
 }
 
@@ -104,7 +105,7 @@ export function restoreConfiguration(id: string): void {
     Object.assign(store.topicsStore, config.state.topicsStore)
     Object.assign(store.joinStore, config.state.joinStore)
   } catch (error) {
-    console.error('Error restoring configuration:', error)
+    structuredLogger.error('Error restoring configuration from local storage', { error: error instanceof Error ? error.message : String(error) })
     throw error
   }
 }

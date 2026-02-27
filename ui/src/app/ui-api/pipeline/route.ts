@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import axios from 'axios'
 import { runtimeConfig } from '../config'
+import { structuredLogger } from '@/src/observability'
 
 // Get API URL from runtime config
 const API_URL = runtimeConfig.apiUrl
@@ -41,15 +42,12 @@ export async function POST(request: Request) {
     if (axios.isAxiosError(error) && error.response) {
       const { status, data } = error.response
       const message = getBackendErrorMessage(data, 'Failed to create pipeline')
-      console.error(
-        `[ui-api/pipeline POST] Backend ${API_URL}/pipeline returned ${status}:`,
-        typeof data === 'object' && data !== null ? JSON.stringify(data) : data,
-      )
+      structuredLogger.error('Pipeline POST backend error', { status, data: typeof data === 'object' && data !== null ? JSON.stringify(data) : String(data) })
       return NextResponse.json({ success: false, error: message }, { status })
     }
     // Network/connection error (e.g. ECONNREFUSED when backend not running or wrong API_URL)
     const message = error instanceof Error ? error.message : 'Unknown error'
-    console.error(`[ui-api/pipeline POST] Backend request failed (${API_URL}/pipeline):`, error)
+    structuredLogger.error('Pipeline POST backend unreachable', { error: message })
     return NextResponse.json(
       { success: false, error: `Backend unreachable: ${message}. Check API_URL and that the pipeline API is running.` },
       { status: 500 },
@@ -83,11 +81,11 @@ export async function GET() {
     if (axios.isAxiosError(error) && error.response) {
       const { status, data } = error.response
       const message = getBackendErrorMessage(data, 'Failed to get pipelines')
-      console.error(`[ui-api/pipeline GET] Backend ${API_URL}/pipeline returned ${status}:`, data)
+      structuredLogger.error('Pipeline GET backend error', { status, data: typeof data === 'object' && data !== null ? JSON.stringify(data) : String(data) })
       return NextResponse.json({ success: false, error: message }, { status })
     }
     const message = error instanceof Error ? error.message : 'Unknown error'
-    console.error(`[ui-api/pipeline GET] Backend request failed (${API_URL}/pipeline):`, error)
+    structuredLogger.error('Pipeline GET backend unreachable', { error: message })
     return NextResponse.json(
       { success: false, error: `Backend unreachable: ${message}. Check API_URL and that the pipeline API is running.` },
       { status: 500 },
