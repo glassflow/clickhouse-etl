@@ -74,6 +74,7 @@ type pipelineJSON struct {
 	Sink                    clickhouseSink                 `json:"sink"`
 	Schema                  schema                         `json:"schema"`
 	Metadata                models.PipelineMetadata        `json:"metadata,omitempty"`
+	PipelineResources       models.PipelineResources       `json:"resources,omitempty"`
 
 	// Metadata fields (ignored, for backwards compatibility with exported configs)
 	Version    string `json:"version,omitempty"`
@@ -216,11 +217,11 @@ func newJoinComponentConfig(p pipelineJSON) (zero models.JoinComponentConfig, _ 
 	// Create a map of topic names to their deduplication status for quick lookup
 	topicDedupMap := make(map[string]bool)
 	for _, topic := range p.Source.Topics {
-		isDedupEnabled := topic.Deduplication.Enabled
-		if p.StatelessTransformation.Enabled {
-			isDedupEnabled = true
+		dedupEnabled := topic.Deduplication.Enabled
+		if p.StatelessTransformation.Enabled || p.Filter.Enabled {
+			dedupEnabled = true
 		}
-		topicDedupMap[topic.Topic] = isDedupEnabled
+		topicDedupMap[topic.Topic] = dedupEnabled
 	}
 
 	var sources []models.JoinSourceConfig
@@ -543,6 +544,10 @@ func (pipeline pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
 		}
 	}
 
+	if err := ValidateResourceConfig(pipeline.PipelineResources, pipeline.Join.Enabled); err != nil {
+		return zero, fmt.Errorf("invalid pipeline resources: %w", err)
+	}
+
 	ingestorComponentConfig, err := newIngestorComponentConfig(pipeline)
 	if err != nil {
 		return zero, fmt.Errorf("create ingestor component config: %w", err)
@@ -588,6 +593,7 @@ func (pipeline pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
 		filterConfig,
 		statelessTransformationConfig,
 		pipeline.Metadata,
+		pipeline.PipelineResources,
 	), nil
 }
 

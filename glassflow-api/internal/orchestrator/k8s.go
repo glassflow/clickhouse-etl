@@ -502,14 +502,10 @@ func (k *K8sOrchestrator) buildPipelineSpec(ctx context.Context, cfg *models.Pip
 	src := make([]operator.SourceStream, 0, len(cfg.Ingestor.KafkaTopics))
 	for _, s := range cfg.Ingestor.KafkaTopics {
 		src = append(src, operator.SourceStream{
-			TopicName:    s.Name,
-			OutputStream: s.OutputStreamID,
-			DedupWindow:  s.Deduplication.Window.Duration(),
-			Replicas:     s.Replicas,
+			TopicName:   s.Name,
+			DedupWindow: s.Deduplication.Window.Duration(),
 			Deduplication: &operator.Deduplication{
-				Enabled:          s.Deduplication.Enabled || cfg.StatelessTransformation.Enabled || cfg.Filter.Enabled,
-				OutputStream:     models.GetDedupOutputStreamName(cfg.ID, s.Name),
-				NATSConsumerName: models.GetNATSDedupConsumerName(cfg.ID),
+				Enabled: s.Deduplication.Enabled || cfg.StatelessTransformation.Enabled || cfg.Filter.Enabled,
 			},
 		})
 	}
@@ -520,26 +516,19 @@ func (k *K8sOrchestrator) buildPipelineSpec(ctx context.Context, cfg *models.Pip
 	}
 
 	spec := operator.PipelineSpec{
-		ID:  cfg.ID,
-		DLQ: models.GetDLQStreamName(cfg.ID),
+		ID: cfg.ID,
 		Ingestor: operator.Sources{
 			Type:    cfg.Ingestor.Type,
 			Streams: src,
 		},
 		Join: operator.Join{
-			Type:                  cfg.Join.Type,
-			OutputStream:          cfg.Join.OutputStreamID,
-			Enabled:               cfg.Join.Enabled,
-			Replicas:              internal.DefaultReplicasCount,
-			LeftBufferTTL:         cfg.Join.LeftBufferTTL.Duration(),
-			RightBufferTTL:        cfg.Join.RightBufferTTL.Duration(),
-			NATSLeftConsumerName:  cfg.Join.NATSLeftConsumerName,
-			NATSRightConsumerName: cfg.Join.NATSRightConsumerName,
+			Type:           cfg.Join.Type,
+			Enabled:        cfg.Join.Enabled,
+			LeftBufferTTL:  cfg.Join.LeftBufferTTL.Duration(),
+			RightBufferTTL: cfg.Join.RightBufferTTL.Duration(),
 		},
 		Sink: operator.Sink{
-			Type:             cfg.Sink.Type,
-			Replicas:         internal.DefaultReplicasCount,
-			NATSConsumerName: cfg.Sink.NATSConsumerName,
+			Type: cfg.Sink.Type,
 		},
 		Resources: operatorResources,
 		// Config field is intentionally omitted - stored in secret instead
