@@ -143,10 +143,15 @@ func TestEditPipeline_Success(t *testing.T) {
 		},
 	}
 
+	// expectedConfig is what UpdatePipeline will receive: newConfig with defaults applied and CreatedAt preserved.
+	expectedConfig := *newConfig
+	expectedConfig.PipelineResources = models.NewDefaultPipelineResources()
+	expectedConfig.CreatedAt = currentPipeline.CreatedAt
+
 	// Setup mock expectations
 	mockStore.On("GetPipeline", mock.Anything, pipelineID).Return(currentPipeline, nil)
 	mockStore.On("UpsertPipelineResources", mock.Anything, pipelineID, mock.Anything).Return(&models.PipelineResourcesRow{PipelineID: pipelineID}, nil)
-	mockStore.On("UpdatePipeline", mock.Anything, pipelineID, *newConfig).Return(nil)
+	mockStore.On("UpdatePipeline", mock.Anything, pipelineID, expectedConfig).Return(nil)
 	mockOrchestrator.On("EditPipeline", mock.Anything, pipelineID, newConfig).Return(nil)
 
 	// Execute
@@ -261,10 +266,14 @@ func TestEditPipeline_UpdatePipelineFails(t *testing.T) {
 		Name: "Updated Pipeline",
 	}
 
+	expectedConfig := *newConfig
+	expectedConfig.PipelineResources = models.NewDefaultPipelineResources()
+	expectedConfig.CreatedAt = currentPipeline.CreatedAt
+
 	// Setup mock expectations
 	mockStore.On("GetPipeline", mock.Anything, pipelineID).Return(currentPipeline, nil)
 	mockStore.On("UpsertPipelineResources", mock.Anything, pipelineID, mock.Anything).Return(&models.PipelineResourcesRow{PipelineID: pipelineID}, nil)
-	mockStore.On("UpdatePipeline", mock.Anything, pipelineID, *newConfig).Return(errors.New("database error"))
+	mockStore.On("UpdatePipeline", mock.Anything, pipelineID, expectedConfig).Return(errors.New("database error"))
 
 	// Execute
 	err := pipelineService.EditPipeline(context.Background(), pipelineID, newConfig)
@@ -302,10 +311,14 @@ func TestEditPipeline_OrchestratorFails(t *testing.T) {
 		Name: "Updated Pipeline",
 	}
 
+	expectedConfig := *newConfig
+	expectedConfig.PipelineResources = models.NewDefaultPipelineResources()
+	expectedConfig.CreatedAt = currentPipeline.CreatedAt
+
 	// Setup mock expectations
 	mockStore.On("GetPipeline", mock.Anything, pipelineID).Return(currentPipeline, nil)
 	mockStore.On("UpsertPipelineResources", mock.Anything, pipelineID, mock.Anything).Return(&models.PipelineResourcesRow{PipelineID: pipelineID}, nil)
-	mockStore.On("UpdatePipeline", mock.Anything, pipelineID, *newConfig).Return(nil)
+	mockStore.On("UpdatePipeline", mock.Anything, pipelineID, expectedConfig).Return(nil)
 	mockOrchestrator.On("EditPipeline", mock.Anything, pipelineID, newConfig).Return(errors.New("orchestrator error"))
 
 	// Execute

@@ -79,6 +79,12 @@ func (h *handler) editPipeline(ctx context.Context, input *EditPipelineInput) (*
 					"error":       err.Error(),
 				},
 			}
+		case errors.Is(err, service.ErrPipelineResourcesValidation):
+			return nil, &ErrorDetail{
+				Status:  http.StatusUnprocessableEntity,
+				Code:    "unprocessable_entity",
+				Message: err.Error(),
+			}
 		default:
 			// Check if it's a status validation error
 			if statusErr, ok := status.GetStatusValidationError(err); ok {

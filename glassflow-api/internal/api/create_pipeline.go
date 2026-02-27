@@ -75,6 +75,12 @@ func (h *handler) createPipeline(ctx context.Context, input *CreatePipelineInput
 					"error": err.Error(),
 				},
 			}
+		case errors.Is(err, service.ErrPipelineResourcesValidation):
+			return nil, &ErrorDetail{
+				Status:  http.StatusUnprocessableEntity,
+				Code:    "unprocessable_entity",
+				Message: err.Error(),
+			}
 		case errors.Is(err, models.ErrInvalidPipelineID):
 			return nil, &ErrorDetail{
 				Status:  http.StatusBadRequest,
