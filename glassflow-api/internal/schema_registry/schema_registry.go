@@ -91,7 +91,7 @@ func extractFieldTypes(properties gjson.Result) []models.Field {
 		if err != nil {
 			return true
 		}
-		if dataType == internal.KafkaTypeMap {
+		if dataType == internal.JSONTypeObject {
 			nestedFields, err := parseJSONSchema(value.Raw)
 			if err != nil {
 				return true
@@ -123,18 +123,8 @@ func resolveJSONSchemaType(property gjson.Result) (string, error) {
 	}
 
 	switch typeField.String() {
-	case internal.JSONTypeArray:
-		return internal.KafkaTypeArray, nil
-	case internal.JSONTypeObject:
-		return internal.KafkaTypeMap, nil
-	case internal.JSONTypeString:
-		return internal.KafkaTypeString, nil
-	case internal.JSONTypeInteger:
-		return internal.KafkaTypeInt, nil
-	case internal.JSONTypeNumber:
-		return internal.KafkaTypeFloat, nil
-	case internal.JSONTypeBoolean:
-		return internal.KafkaTypeBool, nil
+	case internal.JSONTypeInteger, internal.JSONTypeNumber, internal.JSONTypeString, internal.JSONTypeBoolean, internal.JSONTypeArray, internal.JSONTypeObject:
+		return typeField.String(), nil
 	default:
 		return "", models.ErrUnsupportedDataType
 	}

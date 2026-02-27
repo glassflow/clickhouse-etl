@@ -26,7 +26,7 @@ func validateSchemaToSchema(newSchemaFields, previousSchemaFields []models.Field
 			continue
 		}
 
-		if newType != previousField.Type {
+		if internal.NormalizeToBasicKafkaType(newType) != internal.NormalizeToBasicKafkaType(previousField.Type) {
 			errs = append(errs, fmt.Errorf("field %s type changed: previous schema has %s, new schema has %s",
 				previousField.Name, previousField.Type, newType))
 		}
