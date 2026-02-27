@@ -217,11 +217,11 @@ func newJoinComponentConfig(p pipelineJSON) (zero models.JoinComponentConfig, _ 
 	// Create a map of topic names to their deduplication status for quick lookup
 	topicDedupMap := make(map[string]bool)
 	for _, topic := range p.Source.Topics {
-		isDedupEnabled := topic.Deduplication.Enabled
-		if p.StatelessTransformation.Enabled {
-			isDedupEnabled = true
+		dedupEnabled := topic.Deduplication.Enabled
+		if p.StatelessTransformation.Enabled || p.Filter.Enabled {
+			dedupEnabled = true
 		}
-		topicDedupMap[topic.Topic] = isDedupEnabled
+		topicDedupMap[topic.Topic] = dedupEnabled
 	}
 
 	var sources []models.JoinSourceConfig
