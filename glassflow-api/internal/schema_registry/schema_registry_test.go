@@ -14,7 +14,7 @@ func TestParseJSONSchema(t *testing.T) {
 	tests := []struct {
 		name        string
 		schema      string
-		expected    models.SchemaFields
+		expected    []models.Field
 		expectError bool
 		errorType   error
 	}{
@@ -32,14 +32,12 @@ func TestParseJSONSchema(t *testing.T) {
                     "is_active": {"type": "boolean"}
                 }
             }`,
-			expected: models.SchemaFields{
-				Fields: []models.Field{
-					{Name: "user_id", Type: internal.KafkaTypeString},
-					{Name: "username", Type: internal.KafkaTypeString},
-					{Name: "age", Type: internal.KafkaTypeInt},
-					{Name: "score", Type: internal.KafkaTypeFloat},
-					{Name: "is_active", Type: internal.KafkaTypeBool},
-				},
+			expected: []models.Field{
+				{Name: "user_id", Type: internal.JSONTypeString},
+				{Name: "username", Type: internal.JSONTypeString},
+				{Name: "age", Type: internal.JSONTypeInteger},
+				{Name: "score", Type: internal.JSONTypeNumber},
+				{Name: "is_active", Type: internal.JSONTypeBoolean},
 			},
 			expectError: false,
 		},
@@ -61,12 +59,10 @@ func TestParseJSONSchema(t *testing.T) {
                     }
                 }
             }`,
-			expected: models.SchemaFields{
-				Fields: []models.Field{
-					{Name: "order_id", Type: internal.KafkaTypeString},
-					{Name: "tags", Type: internal.KafkaTypeArray},
-					{Name: "quantities", Type: internal.KafkaTypeArray},
-				},
+			expected: []models.Field{
+				{Name: "order_id", Type: internal.JSONTypeString},
+				{Name: "tags", Type: internal.JSONTypeArray},
+				{Name: "quantities", Type: internal.JSONTypeArray},
 			},
 			expectError: false,
 		},
@@ -91,12 +87,10 @@ func TestParseJSONSchema(t *testing.T) {
                     }
                 }
             }`,
-			expected: models.SchemaFields{
-				Fields: []models.Field{
-					{Name: "customer_id", Type: internal.KafkaTypeString},
-					{Name: "address.street", Type: internal.KafkaTypeString},
-					{Name: "address.city", Type: internal.KafkaTypeString},
-				},
+			expected: []models.Field{
+				{Name: "customer_id", Type: internal.JSONTypeString},
+				{Name: "address.street", Type: internal.JSONTypeString},
+				{Name: "address.city", Type: internal.JSONTypeString},
 			},
 			expectError: false,
 		},
@@ -113,14 +107,12 @@ func TestParseJSONSchema(t *testing.T) {
                     "object_field": {"type": "object"}
                 }
             }`,
-			expected: models.SchemaFields{
-				Fields: []models.Field{
-					{Name: "string_field", Type: internal.KafkaTypeString},
-					{Name: "int_field", Type: internal.KafkaTypeInt},
-					{Name: "number_field", Type: internal.KafkaTypeFloat},
-					{Name: "bool_field", Type: internal.KafkaTypeBool},
-					{Name: "array_field", Type: internal.KafkaTypeArray},
-				},
+			expected: []models.Field{
+				{Name: "string_field", Type: internal.JSONTypeString},
+				{Name: "int_field", Type: internal.JSONTypeInteger},
+				{Name: "number_field", Type: internal.JSONTypeNumber},
+				{Name: "bool_field", Type: internal.JSONTypeBoolean},
+				{Name: "array_field", Type: internal.JSONTypeArray},
 			},
 			expectError: false,
 		},
@@ -151,14 +143,12 @@ func TestParseJSONSchema(t *testing.T) {
                     "is_paid": {"type": "boolean"}
                 }
             }`,
-			expected: models.SchemaFields{
-				Fields: []models.Field{
-					{Name: "order_id", Type: internal.KafkaTypeString},
-					{Name: "customer_id", Type: internal.KafkaTypeString},
-					{Name: "total_amount", Type: internal.KafkaTypeFloat},
-					{Name: "items", Type: internal.KafkaTypeArray},
-					{Name: "is_paid", Type: internal.KafkaTypeBool},
-				},
+			expected: []models.Field{
+				{Name: "order_id", Type: internal.JSONTypeString},
+				{Name: "customer_id", Type: internal.JSONTypeString},
+				{Name: "total_amount", Type: internal.JSONTypeNumber},
+				{Name: "items", Type: internal.JSONTypeArray},
+				{Name: "is_paid", Type: internal.JSONTypeBoolean},
 			},
 			expectError: false,
 		},
@@ -172,11 +162,9 @@ func TestParseJSONSchema(t *testing.T) {
                     "another_valid": {"type": "integer"}
                 }
             }`,
-			expected: models.SchemaFields{
-				Fields: []models.Field{
-					{Name: "valid_field", Type: internal.KafkaTypeString},
-					{Name: "another_valid", Type: internal.KafkaTypeInt},
-				},
+			expected: []models.Field{
+				{Name: "valid_field", Type: internal.JSONTypeString},
+				{Name: "another_valid", Type: internal.JSONTypeInteger},
 			},
 			expectError: false,
 		},
@@ -186,7 +174,7 @@ func TestParseJSONSchema(t *testing.T) {
                 "$schema": "http://json-schema.org/draft-07/schema#",
                 "type": "string"
             }`,
-			expected:    models.SchemaFields{},
+			expected:    []models.Field{},
 			expectError: true,
 			errorType:   models.ErrInvalidSchema,
 		},
@@ -197,7 +185,7 @@ func TestParseJSONSchema(t *testing.T) {
                 "title": "Empty",
                 "type": "object"
             }`,
-			expected:    models.SchemaFields{},
+			expected:    []models.Field{},
 			expectError: true,
 			errorType:   models.ErrInvalidSchema,
 		},
@@ -209,7 +197,7 @@ func TestParseJSONSchema(t *testing.T) {
                     "field": {"type": "string"}
                 }
             }`,
-			expected:    models.SchemaFields{},
+			expected:    []models.Field{},
 			expectError: true,
 			errorType:   models.ErrInvalidSchema,
 		},
@@ -242,43 +230,43 @@ func TestResolveJSONSchemaType(t *testing.T) {
 		{
 			name:        "string type",
 			property:    `{"type": "string"}`,
-			expected:    internal.KafkaTypeString,
+			expected:    internal.JSONTypeString,
 			expectError: false,
 		},
 		{
 			name:        "integer type",
 			property:    `{"type": "integer"}`,
-			expected:    internal.KafkaTypeInt,
+			expected:    internal.JSONTypeInteger,
 			expectError: false,
 		},
 		{
 			name:        "number type",
 			property:    `{"type": "number"}`,
-			expected:    internal.KafkaTypeFloat,
+			expected:    internal.JSONTypeNumber,
 			expectError: false,
 		},
 		{
 			name:        "boolean type",
 			property:    `{"type": "boolean"}`,
-			expected:    internal.KafkaTypeBool,
+			expected:    internal.JSONTypeBoolean,
 			expectError: false,
 		},
 		{
 			name:        "array type",
 			property:    `{"type": "array", "items": {"type": "string"}}`,
-			expected:    internal.KafkaTypeArray,
+			expected:    internal.JSONTypeArray,
 			expectError: false,
 		},
 		{
 			name:        "object type",
 			property:    `{"type": "object", "properties": {"field": {"type": "string"}}}`,
-			expected:    internal.KafkaTypeMap,
+			expected:    internal.JSONTypeObject,
 			expectError: false,
 		},
 		{
 			name:        "object with additionalProperties",
 			property:    `{"type": "object", "additionalProperties": {"type": "string"}}`,
-			expected:    internal.KafkaTypeMap,
+			expected:    internal.JSONTypeObject,
 			expectError: false,
 		},
 		{
@@ -335,9 +323,9 @@ func TestParseJSONSchemaEdgeCases(t *testing.T) {
         }`
 		result, err := parseJSONSchema(schema)
 		require.NoError(t, err)
-		require.Len(t, result.Fields, 2)
-		require.Equal(t, models.Field{Name: "valid1", Type: internal.KafkaTypeString}, result.Fields[0])
-		require.Equal(t, models.Field{Name: "valid2", Type: internal.KafkaTypeInt}, result.Fields[1])
+		require.Len(t, result, 2)
+		require.Equal(t, models.Field{Name: "valid1", Type: internal.JSONTypeString}, result[0])
+		require.Equal(t, models.Field{Name: "valid2", Type: internal.JSONTypeInteger}, result[1])
 	})
 
 	t.Run("nested array in object", func(t *testing.T) {
@@ -354,7 +342,7 @@ func TestParseJSONSchemaEdgeCases(t *testing.T) {
         }`
 		result, err := parseJSONSchema(schema)
 		require.NoError(t, err)
-		require.Equal(t, models.Field{Name: "data.items", Type: internal.KafkaTypeArray}, result.Fields[0])
+		require.Equal(t, models.Field{Name: "data.items", Type: internal.JSONTypeArray}, result[0])
 	})
 
 	t.Run("invalid fields only", func(t *testing.T) {
@@ -367,6 +355,24 @@ func TestParseJSONSchemaEdgeCases(t *testing.T) {
 		}`
 		result, err := parseJSONSchema(schema)
 		require.NoError(t, err)
-		require.Len(t, result.Fields, 0)
+		require.Len(t, result, 0)
+	})
+
+	t.Run("object field", func(t *testing.T) {
+		schema := `{
+			"type": "object",
+			"properties": {
+				"object_type": {
+					"type": "object",
+					"properties": {
+						"nested_string": { "type": "string" }
+					}
+				}
+			}
+		}`
+		result, err := parseJSONSchema(schema)
+		require.NoError(t, err)
+		require.Len(t, result, 1)
+		require.Equal(t, models.Field{Name: "object_type.nested_string", Type: internal.JSONTypeString}, result[0])
 	})
 }

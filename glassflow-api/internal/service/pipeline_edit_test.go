@@ -82,6 +82,14 @@ func (m *MockPipelineStore) GetPipeline(ctx context.Context, pid string) (*model
 	return args.Get(0).(*models.PipelineConfig), args.Error(1)
 }
 
+func (m *MockPipelineStore) GetPipelineWithSchemaVersions(ctx context.Context, pid string, sourceSchemaVersions map[string]string) (*models.PipelineConfig, error) {
+	args := m.Called(ctx, pid, sourceSchemaVersions)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.PipelineConfig), args.Error(1)
+}
+
 func (m *MockPipelineStore) GetPipelines(ctx context.Context) ([]models.PipelineConfig, error) {
 	args := m.Called(ctx)
 	return args.Get(0).([]models.PipelineConfig), args.Error(1)
@@ -112,6 +120,36 @@ func (m *MockPipelineStore) UpsertPipelineResources(ctx context.Context, pid str
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*models.PipelineResourcesRow), args.Error(1)
+}
+
+func (m *MockPipelineStore) GetSchemaVersion(ctx context.Context, pipelineID, sourceID, versionID string) (*models.SchemaVersion, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *MockPipelineStore) GetLatestSchemaVersion(ctx context.Context, pipelineID, sourceID string) (*models.SchemaVersion, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *MockPipelineStore) SaveNewSchemaVersion(ctx context.Context, pipelineID, sourceID, oldVersionID, newVersionID string) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *MockPipelineStore) GetStatelessTransformationConfig(ctx context.Context, pipelineID, sourceID, sourceSchemaVersion string) (*models.TransformationConfig, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *MockPipelineStore) GetJoinConfigs(ctx context.Context, pipelineID, sourceID1, sourceSchemaVersion1, sourceID2, sourceSchemaVersion2 string) ([]models.JoinConfig, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *MockPipelineStore) GetSinkConfig(ctx context.Context, pipelineID, sourceID, sourceSchemaVersion string) (*models.SinkConfig, error) {
+	//TODO implement me
+	panic("implement me")
 }
 
 func TestEditPipeline_Success(t *testing.T) {

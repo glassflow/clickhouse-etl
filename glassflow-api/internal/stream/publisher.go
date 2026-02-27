@@ -78,6 +78,7 @@ func (p *NatsPublisher) PublishNatsMsg(ctx context.Context, msg *nats.Msg, opts 
 		if err != nil {
 			return fmt.Errorf("failed to publish message: %w", err)
 		}
+		return nil
 	}
 
 	ctxMax, cancel := context.WithTimeout(ctx, internal.PublisherSyncMaxRetryWait)

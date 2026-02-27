@@ -14,6 +14,7 @@ import (
 
 	"github.com/nats-io/nats.go/jetstream"
 
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/api"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/dlq"
@@ -37,6 +38,7 @@ type PipelineSteps struct {
 
 	pipelineService   *service.PipelineService
 	orchestrator      *orchestrator.LocalOrchestrator
+	pipelineStore     service.PipelineStore
 	currentPipelineID string
 }
 
@@ -305,7 +307,7 @@ func (p *PipelineSteps) thePipelineStatusShouldBe(expectedStatus string) error {
 	p.log.Info("Checking pipeline status", slog.String("expected_status", expectedStatus))
 
 	// Get the current pipeline status
-	pipeline, err := p.pipelineService.GetPipeline(context.Background(), p.currentPipelineID)
+	pipeline, err := p.pipelineService.GetPipeline(context.Background(), p.currentPipelineID, nil)
 	if err != nil {
 		return fmt.Errorf("failed to get pipeline: %w", err)
 	}
@@ -330,16 +332,42 @@ func (p *PipelineSteps) preparePipelineConfig(cfg string) (*models.PipelineConfi
 		return nil, fmt.Errorf("unmarshal pipeline config: %w", err)
 	}
 
+	// Update Kafka broker with test container
 	pc.Ingestor.KafkaConnectionParams.Brokers = []string{p.kafkaContainer.GetURI()}
-	pc.Ingestor, err = models.NewIngestorComponentConfig(
-		pc.Ingestor.Provider,
-		pc.Ingestor.KafkaConnectionParams,
-		pc.Ingestor.KafkaTopics,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("create ingestor component config: %w", err)
+	pc.Ingestor.KafkaConnectionParams.SASLMechanism = "NO_AUTH"
+	pc.Ingestor.KafkaConnectionParams.SASLProtocol = "SASL_PLAINTEXT"
+
+	// Generate consumer group names for kafka topics if not provided
+	for i := range pc.Ingestor.KafkaTopics {
+		if pc.Ingestor.KafkaTopics[i].ConsumerGroupName == "" {
+			pc.Ingestor.KafkaTopics[i].ConsumerGroupName = models.GetKafkaConsumerGroupName(pc.ID)
+		}
 	}
 
+	// Set sink's stream ID to the ingestor's output stream (where messages are published)
+	if len(pc.Ingestor.KafkaTopics) == 1 {
+		pc.Sink.StreamID = pc.Ingestor.KafkaTopics[0].OutputStreamID
+	}
+
+	// Set NATS consumer name for sink if not provided
+	if pc.Sink.NATSConsumerName == "" {
+		pc.Sink.NATSConsumerName = models.GetNATSSinkConsumerName(pc.ID)
+	}
+
+	if pc.Join.Enabled {
+		// Set NATS consumer name for join if not provided
+		if pc.Join.NATSLeftConsumerName == "" {
+			pc.Join.NATSLeftConsumerName = models.GetNATSJoinLeftConsumerName(pc.ID)
+		}
+		if pc.Join.NATSRightConsumerName == "" {
+			pc.Join.NATSRightConsumerName = models.GetNATSJoinRightConsumerName(pc.ID)
+		}
+		joinOutputStream := models.GetJoinedStreamName(pc.ID)
+		pc.Join.OutputStreamID = joinOutputStream
+		pc.Sink.StreamID = joinOutputStream
+	}
+
+	// Update ClickHouse connection params with test container
 	pc.Sink.ClickHouseConnectionParams.Host = "localhost"
 	pc.Sink.ClickHouseConnectionParams.Port, err = p.chContainer.GetPort()
 	if err != nil {
@@ -366,20 +394,19 @@ func (p *PipelineSteps) setupPipelineService() error {
 
 	// Setup Postgres container if not already set up
 	if p.postgresContainer == nil {
-		postgresContainer, err := testutils.StartPostgresContainer(context.Background())
+		err := p.setupPostgres()
 		if err != nil {
-			return fmt.Errorf("start postgres container: %w", err)
+			return fmt.Errorf("setup postgres container: %w", err)
 		}
-		p.postgresContainer = postgresContainer
-		// Migrations are automatically run in StartPostgresContainer()
 	}
 
-	db, err := storage.NewPipelineStore(context.Background(), p.postgresContainer.GetDSN(), p.log, nil)
+	db, err := storage.NewPipelineStore(context.Background(), p.postgresContainer.GetDSN(), p.log, nil, internal.RoleETL)
 	if err != nil {
 		return fmt.Errorf("create postgres pipeline storage: %w", err)
 	}
+	p.pipelineStore = db
 
-	orch := orchestrator.NewLocalOrchestrator(natsClient, p.log)
+	orch := orchestrator.NewLocalOrchestrator(natsClient, db, p.log)
 	p.orchestrator = orch.(*orchestrator.LocalOrchestrator)
 
 	usageStatsClient := usagestats.NewClient("", "", "", "", false, p.log, db)

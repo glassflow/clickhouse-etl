@@ -7,6 +7,7 @@ import (
 	"log/slog"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/configs"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/status"
 )
@@ -22,9 +23,11 @@ type Orchestrator interface {
 }
 
 type PipelineStore interface {
+	configs.DBClient
 	InsertPipeline(ctx context.Context, pi models.PipelineConfig) error
 	DeletePipeline(ctx context.Context, pid string) error
 	GetPipeline(ctx context.Context, pid string) (*models.PipelineConfig, error)
+	GetPipelineWithSchemaVersions(ctx context.Context, pid string, sourceSchemaVersions map[string]string) (*models.PipelineConfig, error)
 	GetPipelines(ctx context.Context) ([]models.PipelineConfig, error)
 	PatchPipelineName(ctx context.Context, pid string, name string) error
 	PatchPipelineMetadata(ctx context.Context, pid string, metadata models.PipelineMetadata) error
@@ -32,6 +35,9 @@ type PipelineStore interface {
 	UpdatePipeline(ctx context.Context, pid string, cfg models.PipelineConfig) error
 	GetPipelineResources(ctx context.Context, pipelineID string) (*models.PipelineResourcesRow, error)
 	UpsertPipelineResources(ctx context.Context, pipelineID string, resources models.PipelineResources) (*models.PipelineResourcesRow, error)
+	GetSchemaVersion(ctx context.Context, pipelineID, sourceID, versionID string) (*models.SchemaVersion, error)
+	GetLatestSchemaVersion(ctx context.Context, pipelineID, sourceID string) (*models.SchemaVersion, error)
+	SaveNewSchemaVersion(ctx context.Context, pipelineID, sourceID, oldVersionID, newVersionID string) error
 }
 
 type PipelineService struct {
@@ -49,11 +55,12 @@ func NewPipelineService(orch Orchestrator, db PipelineStore, log *slog.Logger) *
 }
 
 var (
-	ErrIDExists             = errors.New("pipeline with this ID already exists")
-	ErrPipelineNotFound     = errors.New("no active pipeline found")
-	ErrNotImplemented       = errors.New("feature is not implemented")
-	ErrPipelineNotExists    = errors.New("no pipeline with given id exists")
-	ErrPipelineQuotaReached = errors.New("pipeline quota reached; shutdown active pipeline(s)")
+	ErrIDExists               = errors.New("pipeline with this ID already exists")
+	ErrPipelineNotFound       = errors.New("no active pipeline found")
+	ErrNotImplemented         = errors.New("feature is not implemented")
+	ErrPipelineNotExists      = errors.New("no pipeline with given id exists")
+	ErrPipelineQuotaReached   = errors.New("pipeline quota reached; shutdown active pipeline(s)")
+	ErrInvalidSchemaSelection = errors.New("invalid schema selection")
 )
 
 // CreatePipeline implements PipelineService.
@@ -76,16 +83,22 @@ func (p *PipelineService) CreatePipeline(ctx context.Context, cfg *models.Pipeli
 		cfg.Status.OverallStatus = models.PipelineStatus(internal.PipelineStatusRunning)
 	}
 
-	err = p.orchestrator.SetupPipeline(ctx, cfg)
-	if err != nil {
-		p.log.ErrorContext(ctx, "failed to setup pipeline in orchestrator", "pipeline_id", cfg.ID, "error", err)
-		return fmt.Errorf("create pipeline: %w", err)
-	}
-
+	// Insert pipeline to database FIRST so schema versions and configs are available before components start
 	err = p.db.InsertPipeline(ctx, *cfg)
 	if err != nil {
 		p.log.ErrorContext(ctx, "failed to insert pipeline to database", "pipeline_id", cfg.ID, "error", err)
 		return fmt.Errorf("insert pipeline: %w", err)
+	}
+
+	// Now setup and start components - they can query schema versions from DB
+	err = p.orchestrator.SetupPipeline(ctx, cfg)
+	if err != nil {
+		p.log.ErrorContext(ctx, "failed to setup pipeline in orchestrator", "pipeline_id", cfg.ID, "error", err)
+		// Cleanup: delete the pipeline we just inserted since setup failed
+		if delErr := p.db.DeletePipeline(ctx, cfg.ID); delErr != nil {
+			p.log.ErrorContext(ctx, "failed to cleanup pipeline after setup failure", "pipeline_id", cfg.ID, "error", delErr)
+		}
+		return fmt.Errorf("create pipeline: %w", err)
 	}
 
 	return nil
@@ -163,10 +176,34 @@ func (p *PipelineService) TerminatePipeline(ctx context.Context, pid string) err
 }
 
 // GetPipeline implements PipelineService.
-func (p *PipelineService) GetPipeline(ctx context.Context, pid string) (zero models.PipelineConfig, _ error) {
-	pi, err := p.db.GetPipeline(ctx, pid)
+func (p *PipelineService) GetPipeline(
+	ctx context.Context,
+	pid string,
+	sourceSchemaVersions map[string]string,
+) (zero models.PipelineConfig, _ error) {
+	var pi *models.PipelineConfig
+	var err error
+	if len(sourceSchemaVersions) == 0 {
+		pi, err = p.db.GetPipeline(ctx, pid)
+	} else {
+		pi, err = p.db.GetPipelineWithSchemaVersions(ctx, pid, sourceSchemaVersions)
+	}
 	if err != nil {
-		p.log.ErrorContext(ctx, "failed to load pipeline from database", "pipeline_id", pid, "error", err)
+		p.log.ErrorContext(
+			ctx,
+			"failed to load pipeline from database",
+			"pipeline_id",
+			pid,
+			"source_schema_versions",
+			sourceSchemaVersions,
+			"error",
+			err,
+		)
+
+		if len(sourceSchemaVersions) > 0 && errors.Is(err, models.ErrRecordNotFound) {
+			return zero, fmt.Errorf("%w: %w", ErrInvalidSchemaSelection, err)
+		}
+
 		return zero, fmt.Errorf("load pipeline: %w", err)
 	}
 
@@ -359,25 +396,22 @@ func (p *PipelineService) StopPipeline(ctx context.Context, pid string) error {
 
 	// For Docker orchestrator, mark as failed if stop fails
 	if p.orchestrator.GetType() == "local" {
-		// create a new context for the stop pipeline operation
-		ctxAsync := context.Background()
 
-		go func() {
-			err := p.orchestrator.StopPipeline(ctxAsync, pid)
+		err := p.orchestrator.StopPipeline(ctx, pid)
+		if err != nil {
+			pipeline.Status.OverallStatus = internal.PipelineStatusFailed
+			err := p.db.UpdatePipelineStatus(context.Background(), pid, pipeline.Status)
 			if err != nil {
-				pipeline.Status.OverallStatus = internal.PipelineStatusFailed
-				err := p.db.UpdatePipelineStatus(context.Background(), pid, pipeline.Status)
-				if err != nil {
-					p.log.Error("failed to update pipeline status to failed", slog.Any("error", err))
-				}
-			} else {
-				pipeline.Status.OverallStatus = internal.PipelineStatusStopped
-				err := p.db.UpdatePipelineStatus(context.Background(), pid, pipeline.Status)
-				if err != nil {
-					p.log.Error("failed to update pipeline status to stopped", slog.Any("error", err))
-				}
+				p.log.Error("failed to update pipeline status to failed", slog.Any("error", err))
 			}
-		}()
+
+			return fmt.Errorf("failed to stop local pipeline: %w", err)
+		}
+		pipeline.Status.OverallStatus = internal.PipelineStatusStopped
+		err = p.db.UpdatePipelineStatus(context.Background(), pid, pipeline.Status)
+		if err != nil {
+			p.log.Error("failed to update pipeline status to stopped", slog.Any("error", err))
+		}
 
 		return nil
 	}

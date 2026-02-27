@@ -1,4 +1,4 @@
-package schema
+package mapper
 
 import (
 	"encoding/json"
@@ -42,6 +42,39 @@ func ExtractEventValue(dataType KafkaDataType, data any) (zero any, _ error) {
 	default:
 		return zero, fmt.Errorf("%w: %s", ErrUnknownFieldType, dataType)
 	}
+}
+
+func ConvertValueFromJson(columnType ClickHouseDataType, fieldType KafkaDataType, result gjson.Result) (any, error) {
+	if !result.Exists() {
+		return nil, nil
+	}
+
+	// Check if the value is explicitly null
+	if result.Type == gjson.Null {
+		return nil, nil
+	}
+
+	// Extract value based on field type (basic types only), directly from gjson.Result
+	var value any
+	switch fieldType {
+	case internal.KafkaTypeString:
+		value = result.String()
+	case internal.KafkaTypeBool:
+		value = result.Bool()
+	case internal.KafkaTypeInt:
+		value = result.Int()
+	case internal.KafkaTypeUint:
+		value = result.Uint()
+	case internal.KafkaTypeFloat:
+		value = result.Float()
+	case internal.KafkaTypeArray, internal.KafkaTypeMap:
+		value = result.Value()
+	default:
+		value = result.Value()
+	}
+
+	// Now convert to ClickHouse type
+	return ConvertValue(columnType, fieldType, value)
 }
 
 func ConvertValue(columnType ClickHouseDataType, fieldType KafkaDataType, data any) (zero any, _ error) {
@@ -196,36 +229,6 @@ func GetDefaultValueForKafkaType(kafkaType KafkaDataType) (any, error) {
 	}
 
 	return zeroValue, nil
-}
-
-// ConvertValueFromGjson converts a gjson.Result to the appropriate ClickHouse type.
-// This avoids the overhead of unmarshaling to map[string]any first.
-func ConvertValueFromGjson(columnType ClickHouseDataType, fieldType KafkaDataType, result gjson.Result) (any, error) {
-	if !result.Exists() {
-		return nil, nil
-	}
-
-	// Extract value based on field type (basic types only), directly from gjson.Result
-	var value any
-	switch fieldType {
-	case internal.KafkaTypeString:
-		value = result.String()
-	case internal.KafkaTypeBool:
-		value = result.Bool()
-	case internal.KafkaTypeInt:
-		value = result.Int()
-	case internal.KafkaTypeUint:
-		value = result.Uint()
-	case internal.KafkaTypeFloat:
-		value = result.Float()
-	case internal.KafkaTypeArray, internal.KafkaTypeMap:
-		value = result.Value()
-	default:
-		value = result.Value()
-	}
-
-	// Now convert to ClickHouse type
-	return ConvertValue(columnType, fieldType, value)
 }
 
 // convertMapToStringMap converts map[string]any to map[string]string for ClickHouse compatibility

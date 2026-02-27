@@ -1,4 +1,4 @@
-package schema
+package mapper
 
 import (
 	"math"
@@ -13,20 +13,20 @@ func TestParseUint8(t *testing.T) {
 		expectError bool
 	}{
 		{
-			name:        "Valid uint64 within range",
-			input:       uint64(42),
+			name:        "Valid uint8",
+			input:       uint8(42),
 			expected:    42,
 			expectError: false,
 		},
 		{
 			name:        "Zero value",
-			input:       uint64(0),
+			input:       uint8(0),
 			expected:    0,
 			expectError: false,
 		},
 		{
 			name:        "Max uint8",
-			input:       uint64(math.MaxUint8),
+			input:       uint8(math.MaxUint8),
 			expected:    math.MaxUint8,
 			expectError: false,
 		},
@@ -37,8 +37,8 @@ func TestParseUint8(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name:        "Uint64 too large",
-			input:       uint64(math.MaxUint8 + 1),
+			name:        "Uint too large",
+			input:       uint(math.MaxUint8 + 1),
 			expectError: true,
 		},
 		{
@@ -49,7 +49,8 @@ func TestParseUint8(t *testing.T) {
 		{
 			name:        "String value",
 			input:       "42",
-			expectError: true,
+			expected:    42,
+			expectError: false,
 		},
 		{
 			name:        "Nil value",
@@ -82,12 +83,23 @@ func TestParseFloat32(t *testing.T) {
 		expectError bool
 	}{
 		{
+			name:        "Valid float32",
+			input:       float32(3.14),
+			expected:    3.14,
+			expectError: false,
+		},
+		{
 			name:        "Zero value",
-			input:       float64(0),
+			input:       float32(0),
 			expected:    0,
 			expectError: false,
 		},
 		{
+			name:        "Negative value",
+			input:       float32(-3.14),
+			expected:    -3.14,
+			expectError: false,
+		}, {
 			name:        "Negative value",
 			input:       float64(-3.14),
 			expected:    -3.14,
@@ -95,13 +107,13 @@ func TestParseFloat32(t *testing.T) {
 		},
 		{
 			name:        "Max float32",
-			input:       float64(math.MaxFloat32),
+			input:       float32(math.MaxFloat32),
 			expected:    math.MaxFloat32,
 			expectError: false,
 		},
 		{
 			name:        "SmallestNonzero float32",
-			input:       float64(math.SmallestNonzeroFloat32),
+			input:       float32(math.SmallestNonzeroFloat32),
 			expected:    math.SmallestNonzeroFloat32,
 			expectError: false,
 		},
@@ -158,6 +170,18 @@ func TestParseFloat64(t *testing.T) {
 			expectError: false,
 		},
 		{
+			name:        "Valid []byte",
+			input:       []byte("3.14159"),
+			expected:    3.14159,
+			expectError: false,
+		},
+		{
+			name:        "Valid negative float []byte",
+			input:       []byte("-3.14159"),
+			expected:    -3.14159,
+			expectError: false,
+		},
+		{
 			name:        "Zero value",
 			input:       float64(0),
 			expected:    0,
@@ -168,6 +192,11 @@ func TestParseFloat64(t *testing.T) {
 			input:       float64(-3.14159),
 			expected:    -3.14159,
 			expectError: false,
+		},
+		{
+			name:        "Invalid []byte",
+			input:       []byte("not-a-float"),
+			expectError: true,
 		},
 		{
 			name:        "Integer value",
@@ -376,26 +405,26 @@ func TestParseInt8(t *testing.T) {
 		expectError bool
 	}{
 		{
-			name:        "Valid int64 within range",
-			input:       int64(42),
+			name:        "Valid int8",
+			input:       int8(42),
 			expected:    42,
 			expectError: false,
 		},
 		{
 			name:        "Zero value",
-			input:       int64(0),
+			input:       int8(0),
 			expected:    0,
 			expectError: false,
 		},
 		{
 			name:        "Min int8",
-			input:       int64(math.MinInt8),
+			input:       int8(math.MinInt8),
 			expected:    math.MinInt8,
 			expectError: false,
 		},
 		{
 			name:        "Max int8",
-			input:       int64(math.MaxInt8),
+			input:       int8(math.MaxInt8),
 			expected:    math.MaxInt8,
 			expectError: false,
 		},
@@ -412,13 +441,13 @@ func TestParseInt8(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name:        "Int64 too large",
-			input:       int64(math.MaxInt8 + 1),
+			name:        "Int too large",
+			input:       int(math.MaxInt8 + 1),
 			expectError: true,
 		},
 		{
-			name:        "Int64 too small",
-			input:       int64(math.MinInt8 - 1),
+			name:        "Int too small",
+			input:       int(math.MinInt8 - 1),
 			expectError: true,
 		},
 		{
@@ -428,7 +457,7 @@ func TestParseInt8(t *testing.T) {
 		},
 		{
 			name:        "Float value",
-			input:       float64(3.14),
+			input:       3.14,
 			expected:    3,
 			expectError: false,
 		},
@@ -476,13 +505,13 @@ func TestParseInt16(t *testing.T) {
 		},
 		{
 			name:        "Min int16",
-			input:       int64(math.MinInt16),
+			input:       int16(math.MinInt16),
 			expected:    math.MinInt16,
 			expectError: false,
 		},
 		{
 			name:        "Max int16",
-			input:       int64(math.MaxInt16),
+			input:       math.MaxInt16,
 			expected:    math.MaxInt16,
 			expectError: false,
 		},
@@ -515,7 +544,7 @@ func TestParseInt16(t *testing.T) {
 		},
 		{
 			name:        "Float value",
-			input:       float64(3.14),
+			input:       3.14,
 			expected:    3,
 			expectError: false,
 		},

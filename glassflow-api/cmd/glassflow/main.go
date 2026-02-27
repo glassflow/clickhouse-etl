@@ -24,7 +24,6 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/dlq"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/orchestrator"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/server"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/storage"
@@ -184,15 +183,29 @@ func mainErr(cfg *config, role models.Role) error {
 
 	defer cleanUp(nc, log)
 
+	if cfg.DatabaseURL == "" {
+		return fmt.Errorf("database URL is required: set GLASSFLOW_DATABASE_URL environment variable")
+	}
+
+	encryptionKey, err := loadEncryptionKey(cfg, log)
+	if err != nil {
+		return fmt.Errorf("load encryption key: %w", err)
+	}
+
+	db, err := storage.NewPipelineStore(ctx, cfg.DatabaseURL, log, encryptionKey, role)
+	if err != nil {
+		return fmt.Errorf("create postgres store for pipelines: %w", err)
+	}
+
 	switch role {
 	case internal.RoleSink:
-		return mainSink(ctx, nc, cfg, log, meter)
+		return mainSink(ctx, nc, cfg, db, log, meter)
 	case internal.RoleJoin:
-		return mainJoin(ctx, nc, cfg, log, meter)
+		return mainJoin(ctx, nc, cfg, db, log, meter)
 	case internal.RoleIngestor:
-		return mainIngestor(ctx, nc, cfg, log, meter)
+		return mainIngestor(ctx, nc, cfg, db, log, meter)
 	case internal.RoleETL:
-		return mainEtl(ctx, nc, cfg, log, meter)
+		return mainEtl(ctx, nc, cfg, db, log, meter)
 	case internal.RoleDeduplicator:
 		return mainDeduplicatorV2(ctx, nc, cfg, log, meter)
 	default:
@@ -204,27 +217,15 @@ func mainEtl(
 	ctx context.Context,
 	nc *client.NATSClient,
 	cfg *config,
+	db service.PipelineStore,
 	log *slog.Logger,
 	meter *observability.Meter,
 ) error {
-	if cfg.DatabaseURL == "" {
-		return fmt.Errorf("database URL is required: set GLASSFLOW_DATABASE_URL environment variable")
-	}
-
-	encryptionKey, err := loadEncryptionKey(cfg, log)
-	if err != nil {
-		return fmt.Errorf("load encryption key: %w", err)
-	}
-
-	db, err := storage.NewPipelineStore(ctx, cfg.DatabaseURL, log, encryptionKey)
-	if err != nil {
-		return fmt.Errorf("create postgres store for pipelines: %w", err)
-	}
-
 	// Run data migration from NATS KV to Postgres
 	kvStoreName := cfg.NATSPipelineKV
 
-	if err = storage.MigratePipelinesFromNATSKV(ctx, nc, db, kvStoreName, log); err != nil {
+	err := storage.MigratePipelinesFromNATSKV(ctx, nc, db, kvStoreName, log)
+	if err != nil {
 		// Log error but don't fail startup (data migration failures shouldn't block API)
 		log.Error("data migration from NATS KV failed",
 			slog.String("error", err.Error()),
@@ -239,7 +240,7 @@ func mainEtl(
 	var orch service.Orchestrator
 
 	if cfg.RunLocal {
-		orch = orchestrator.NewLocalOrchestrator(nc, log)
+		orch = orchestrator.NewLocalOrchestrator(nc, db, log)
 	} else {
 		orch, err = orchestrator.NewK8sOrchestrator(log, cfg.K8sNamespace, orchestrator.CustomResourceAPIGroupVersion{
 			Kind:     cfg.K8sResourceKind,
@@ -324,15 +325,10 @@ func mainEtl(
 	return nil
 }
 
-func mainSink(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog.Logger, meter *observability.Meter) error {
+func mainSink(ctx context.Context, nc *client.NATSClient, cfg *config, db service.PipelineStore, log *slog.Logger, meter *observability.Meter) error {
 	pipelineCfg, err := getPipelineConfigFromJSON(cfg.PipelineConfig)
 	if err != nil {
 		return fmt.Errorf("failed to get pipeline config: %w", err)
-	}
-
-	schemaMapper, err := schema.NewMapper(pipelineCfg.Mapper)
-	if err != nil {
-		return fmt.Errorf("create schema mapper: %w", err)
 	}
 
 	if pipelineCfg.Sink.StreamID == "" {
@@ -343,7 +339,7 @@ func mainSink(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 		log,
 		nc,
 		pipelineCfg,
-		schemaMapper,
+		db,
 		meter,
 	)
 
@@ -358,7 +354,7 @@ func mainSink(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 	)
 }
 
-func mainJoin(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog.Logger, meter *observability.Meter) error {
+func mainJoin(ctx context.Context, nc *client.NATSClient, cfg *config, db service.PipelineStore, log *slog.Logger, _ *observability.Meter) error {
 	if cfg.JoinType == "" {
 		return fmt.Errorf("join type must be specified")
 	}
@@ -372,33 +368,7 @@ func mainJoin(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 		return fmt.Errorf("join is not enabled in pipeline config")
 	}
 
-	if len(pipelineCfg.Join.Sources) != 2 {
-		return fmt.Errorf("join must have exactly 2 sources")
-	}
-
-	// Determine left and right streams based on orientation
-	var leftStream, rightStream string
-	if pipelineCfg.Join.Sources[0].Orientation == "left" {
-		leftStream = pipelineCfg.Join.Sources[0].StreamID
-		rightStream = pipelineCfg.Join.Sources[1].StreamID
-	} else {
-		leftStream = pipelineCfg.Join.Sources[1].StreamID
-		rightStream = pipelineCfg.Join.Sources[0].StreamID
-	}
-
-	if leftStream == "" || rightStream == "" {
-		return fmt.Errorf("both left and right streams must be specified in join sources")
-	}
-
-	// Generate output stream name for joined data
-	outputStream := pipelineCfg.Join.OutputStreamID
-
-	schemaMapper, err := schema.NewMapper(pipelineCfg.Mapper)
-	if err != nil {
-		return fmt.Errorf("create schema mapper: %w", err)
-	}
-
-	joinRunner := service.NewJoinRunner(log, nc, leftStream, rightStream, outputStream, pipelineCfg.Join, schemaMapper)
+	joinRunner := service.NewJoinRunner(log, nc, pipelineCfg, db)
 
 	usageStatsClient := newUsageStatsClient(cfg, log, nil)
 
@@ -411,7 +381,7 @@ func mainJoin(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 	)
 }
 
-func mainIngestor(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog.Logger, meter *observability.Meter) error {
+func mainIngestor(ctx context.Context, nc *client.NATSClient, cfg *config, db service.PipelineStore, log *slog.Logger, meter *observability.Meter) error {
 	if cfg.IngestorTopic == "" {
 		return fmt.Errorf("ingestor topic must be specified")
 	}
@@ -421,12 +391,7 @@ func mainIngestor(ctx context.Context, nc *client.NATSClient, cfg *config, log *
 		return fmt.Errorf("failed to get pipeline config: %w", err)
 	}
 
-	schemaMapper, err := schema.NewMapper(pipelineCfg.Mapper)
-	if err != nil {
-		return fmt.Errorf("create schema mapper: %w", err)
-	}
-
-	ingestorRunner := service.NewIngestorRunner(log, nc, cfg.IngestorTopic, pipelineCfg, schemaMapper, meter)
+	ingestorRunner := service.NewIngestorRunner(log, nc, cfg.IngestorTopic, pipelineCfg, db, meter)
 
 	usageStatsClient := newUsageStatsClient(cfg, log, nil)
 

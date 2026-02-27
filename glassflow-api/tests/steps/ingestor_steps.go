@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"strings"
 	"sync"
 	"time"
 
@@ -14,10 +13,14 @@ import (
 	"github.com/google/uuid"
 	"github.com/nats-io/nats.go/jetstream"
 
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/component"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/componentsignals"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
+	schemav2 "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema_v2"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/storage"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/tests/testutils"
 )
@@ -38,16 +41,14 @@ type IngestorTestSuite struct {
 	consumerCfg jetstream.ConsumerConfig
 	streamCfg   jetstream.StreamConfig
 
-	dlqStreamCfg   jetstream.StreamConfig
-	dlqConsumerCfg jetstream.ConsumerConfig
+	dlqStreamCfg      jetstream.StreamConfig
+	dlqConsumerCfg    jetstream.ConsumerConfig
+	signalStreamCfg   jetstream.StreamConfig
+	signalConsumerCfg jetstream.ConsumerConfig
 
-	schemaConfig models.MapperConfig
-
-	schemaMapper schema.Mapper
-
-	ingestorCfg models.IngestorComponentConfig
-
-	filterCfg models.FilterComponentConfig
+	pipelineConfig *models.PipelineConfig
+	pipelineStore  service.PipelineStore
+	mockSRClient   *testutils.MockSchemaRegistryClient
 
 	ingestor component.Component
 
@@ -61,11 +62,13 @@ type IngestorTestSuite struct {
 func NewIngestorTestSuite() *IngestorTestSuite {
 	return &IngestorTestSuite{
 		BaseTestSuite: BaseTestSuite{ //nolint:exhaustruct // optional config
-			wg:             sync.WaitGroup{},
-			kafkaContainer: nil,
-			natsContainer:  nil,
+			wg:                sync.WaitGroup{},
+			kafkaContainer:    nil,
+			natsContainer:     nil,
+			postgresContainer: nil,
 		},
-		logger: testutils.NewTestLogger(),
+		mockSRClient: nil,
+		logger:       testutils.NewTestLogger(),
 	}
 }
 
@@ -84,6 +87,24 @@ func (s *IngestorTestSuite) SetupResources() error {
 		if err != nil {
 			errs = append(errs, err)
 		}
+	}
+
+	// Setup Postgres for storing pipeline configs and schema versions
+	if s.postgresContainer == nil {
+		err := s.setupPostgres()
+		if err != nil {
+			errs = append(errs, fmt.Errorf("setup postgres: %w", err))
+		}
+	}
+
+	// Create pipeline store
+	if s.pipelineStore == nil {
+		s.logger.Debug("Pipeline store DSN", slog.String("dsn", s.postgresContainer.GetDSN()))
+		db, err := storage.NewPipelineStore(context.Background(), s.postgresContainer.GetDSN(), testutils.NewTestLogger(), nil, internal.RoleIngestor)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("create pipeline store: %w", err))
+		}
+		s.pipelineStore = db
 	}
 
 	err := testutils.CombineErrors(errs)
@@ -139,6 +160,22 @@ func (s *IngestorTestSuite) runNatsStreams(deduplicationWindow time.Duration) er
 		return fmt.Errorf("create nats DLQ stream: %w", err)
 	}
 
+	s.signalStreamCfg = jetstream.StreamConfig{
+		Name:     models.ComponentSignalsStream,
+		Subjects: []string{models.GetComponentSignalsSubject()},
+	}
+
+	s.signalConsumerCfg = jetstream.ConsumerConfig{
+		Name:          "component-signals-consumer",
+		Durable:       "component-signals-consumer",
+		FilterSubject: models.GetComponentSignalsSubject(),
+	}
+
+	err = s.createStream(s.signalStreamCfg, deduplicationWindow)
+	if err != nil {
+		return fmt.Errorf("create component signals nats stream: %w", err)
+	}
+
 	return nil
 }
 
@@ -166,47 +203,57 @@ func (s *IngestorTestSuite) aKafkaTopicWithPartitions(topicName string, partitio
 	return nil
 }
 
-func (s *IngestorTestSuite) aSchemaConfigWithMapping(cfg *godog.DocString) error {
-	schemaCfg, err := s.getMappingConfig(cfg)
-	if err != nil {
-		return fmt.Errorf("unmarshal schema config: %w", err)
+func (s *IngestorTestSuite) aSchemaRegistryContainsSchemaWithIDAndFields(schemaID int, fields *godog.Table) error {
+	var schemaFields []models.Field
+
+	s.mockSRClient = testutils.NewMockSchemaRegistryClient(s.logger)
+	for _, row := range fields.Rows[1:] {
+		if len(row.Cells) < 2 {
+			return fmt.Errorf("each field row must have at least 2 columns (name, type)")
+		}
+		schemaFields = append(schemaFields, models.Field{
+			Name: row.Cells[0].Value,
+			Type: row.Cells[1].Value,
+		})
 	}
-
-	s.schemaConfig = schemaCfg
-
-	s.schemaMapper, err = schema.NewMapper(s.schemaConfig)
-	if err != nil {
-		return fmt.Errorf("create schema mapper: %w", err)
-	}
-
+	// Add schema to the mock registry client
+	s.mockSRClient.AddSchema(schemaID, schemaFields)
 	return nil
 }
 
-func (s *IngestorTestSuite) anIngestorComponentConfig(config string) error {
-	var ingCgf models.IngestorComponentConfig
-	err := json.Unmarshal([]byte(config), &ingCgf)
+func (s *IngestorTestSuite) aPipelineConfig(cfg *godog.DocString) error {
+	var pc models.PipelineConfig
+
+	err := json.Unmarshal([]byte(cfg.Content), &pc)
 	if err != nil {
-		return fmt.Errorf("failed to unmarshal ingestor component config: %w", err)
+		return fmt.Errorf("unmarshal pipeline config: %w", err)
 	}
 
-	ingCgf.KafkaConnectionParams.Brokers = []string{s.kafkaContainer.GetURI()}
-
-	s.ingestorCfg, err = models.NewIngestorComponentConfig(ingCgf.Provider, ingCgf.KafkaConnectionParams, ingCgf.KafkaTopics)
-	if err != nil {
-		return fmt.Errorf("create ingestor component config: %w", err)
+	// Extract ingestor config from pipeline config and set Kafka broker
+	if len(pc.Ingestor.KafkaTopics) > 0 {
+		pc.Ingestor.KafkaConnectionParams.Brokers = []string{s.kafkaContainer.GetURI()}
+		s.topicName = pc.Ingestor.KafkaTopics[0].Name
 	}
 
-	return nil
-}
-
-func (s *IngestorTestSuite) aFilterComponentConfig(config string) error {
-	var filterCfg models.FilterComponentConfig
-	err := json.Unmarshal([]byte(config), &filterCfg)
+	// Validate ingestor config to set defaults (like consumer_group_initial_offset)
+	validatedCfg, err := models.NewIngestorComponentConfig(
+		pc.Ingestor.Provider,
+		pc.Ingestor.KafkaConnectionParams,
+		pc.Ingestor.KafkaTopics,
+	)
 	if err != nil {
-		return fmt.Errorf("failed to unmarshal filter component config: %w", err)
+		return fmt.Errorf("validate ingestor config: %w", err)
+	}
+	pc.Ingestor = validatedCfg
+
+	// Store pipeline config in database to create schema versions and component configs
+	err = s.pipelineStore.InsertPipeline(context.Background(), pc)
+	if err != nil {
+		return fmt.Errorf("insert pipeline: %w", err)
 	}
 
-	s.filterCfg = filterCfg
+	// Set ingestor config and pipeline config AFTER insertion (which may modify them)
+	s.pipelineConfig = &pc
 
 	return nil
 }
@@ -218,13 +265,13 @@ func (s *IngestorTestSuite) iRunningIngestorComponent() error {
 		return fmt.Errorf("nats container is not initialized")
 	}
 
-	if s.schemaMapper == nil {
-		return fmt.Errorf("schema mapper is not initialized")
+	if s.pipelineConfig == nil {
+		return fmt.Errorf("pipeline config not set")
 	}
 
-	if s.ingestorCfg.KafkaTopics != nil || len(s.ingestorCfg.KafkaTopics) == 1 {
-		if s.ingestorCfg.KafkaTopics[0].Deduplication.Enabled {
-			duration = s.ingestorCfg.KafkaTopics[0].Deduplication.Window.Duration()
+	if len(s.pipelineConfig.Ingestor.KafkaTopics) == 1 {
+		if s.pipelineConfig.Ingestor.KafkaTopics[0].Deduplication.Enabled {
+			duration = s.pipelineConfig.Ingestor.KafkaTopics[0].Deduplication.Window.Duration()
 		}
 	}
 
@@ -251,15 +298,35 @@ func (s *IngestorTestSuite) iRunningIngestorComponent() error {
 			Subject: s.dlqStreamCfg.Subjects[0],
 		},
 	)
+
+	signalPublisher, err := componentsignals.NewPublisher(nc)
+	if err != nil {
+		return fmt.Errorf("create component signal publisher: %w", err)
+	}
+
+	var srClient schemav2.SchemaRegistryClient
+	if s.mockSRClient != nil {
+		srClient = s.mockSRClient
+		s.logger.Debug("using mock schema registry client for ingestor")
+	}
+
+	schema, err := schemav2.NewSchema(
+		s.pipelineConfig.ID,
+		s.topicName,
+		s.pipelineStore,
+		srClient,
+	)
+	if err != nil {
+		return fmt.Errorf("create schema: %w", err)
+	}
+
 	ingestor, err := component.NewIngestorComponent(
-		models.PipelineConfig{
-			Ingestor: s.ingestorCfg,
-			Filter:   s.filterCfg,
-		},
+		*s.pipelineConfig,
 		s.topicName,
 		streamConsumer,
 		dlqStreamPublisher,
-		s.schemaMapper,
+		schema,
+		signalPublisher,
 		make(chan struct{}),
 		s.logger,
 		nil, // nil meter for e2e tests
@@ -268,7 +335,7 @@ func (s *IngestorTestSuite) iRunningIngestorComponent() error {
 		return fmt.Errorf("create ingestor component: %w", err)
 	}
 
-	for _, cfgTopic := range s.ingestorCfg.KafkaTopics {
+	for _, cfgTopic := range s.pipelineConfig.Ingestor.KafkaTopics {
 		if cfgTopic.Name == s.topicName {
 			s.cGroupName = cfgTopic.ConsumerGroupName
 			break
@@ -316,95 +383,16 @@ func (s *IngestorTestSuite) checkResultsFromNatsStream(
 		return fmt.Errorf("create nats consumer: %w", err)
 	}
 
-	expectedCount := len(dataTable.Rows) - 1
-	if expectedCount < 1 {
-		return fmt.Errorf("no expected events in data table")
-	}
-
-	// Get headers from first row
-	headers := make([]string, len(dataTable.Rows[0].Cells))
-	for i, cell := range dataTable.Rows[0].Cells {
-		headers[i] = cell.Value
-	}
-
-	expectedEvents := make(map[string]map[string]any)
-	for i := 1; i < len(dataTable.Rows); i++ {
-		row := dataTable.Rows[i]
-		event := make(map[string]any)
-		sign := make([]string, 0, len(row.Cells))
-
-		for j, cell := range row.Cells {
-			if j < len(headers) {
-				event[headers[j]] = cell.Value
-				sign = append(sign, cell.Value)
-			}
-		}
-
-		expectedEvents[strings.Join(sign, "")] = event
-	}
-
-	msgs, err := consumer.Fetch(2*expectedCount, jetstream.FetchMaxWait(fetchTimeout))
-	if err != nil {
-		return fmt.Errorf("fetch messages: %w", err)
-	}
-
-	receivedCount := 0
-
-	for msg := range msgs.Messages() {
-		if msg == nil {
-			break
-		}
-
-		if receivedCount > len(expectedEvents) {
-			return fmt.Errorf("too much events: actual %d, expected %d", receivedCount, len(expectedEvents))
-		}
-
-		var actual map[string]any
-
-		err := json.Unmarshal(msg.Data(), &actual)
-		if err != nil {
-			return fmt.Errorf("failed unmarshal message data: %w", err)
-		}
-
-		sign := make([]string, 0)
-
-		for _, header := range headers {
-			sign = append(sign, fmt.Sprint(actual[header]))
-		}
-
-		expected, exists := expectedEvents[strings.Join(sign, "")]
-		if !exists {
-			return fmt.Errorf("not expected event %v", actual)
-		}
-
-		if len(expected) != len(actual) {
-			return fmt.Errorf("events have differenet numer of keys: %v and actual: %v", expected, actual)
-		}
-
-		for k, v := range expected {
-			if v != actual[k] {
-				return fmt.Errorf("events are different: %v and actual: %v", expected, actual)
-			}
-		}
-
-		receivedCount++
-	}
-
-	if receivedCount != expectedCount {
-		return fmt.Errorf(
-			"not equal number of events: expected %d, got %d from stream %s, subject %s",
-			expectedCount,
-			receivedCount,
-			streamConfig.Name,
-			streamConfig.Subjects[0],
-		)
-	}
-
-	return nil
+	return s.ValidateEventsFromStream(
+		consumer,
+		dataTable,
+		streamConfig.Name,
+		streamConfig.Subjects[0],
+	)
 }
 
-func (s *IngestorTestSuite) checkResultsStream(dataTable *godog.Table) error {
-	err := s.waitForEventsProcessed()
+func (s *IngestorTestSuite) checkResultsStream(expectedLag int, dataTable *godog.Table) error {
+	err := s.waitForEventsProcessed(expectedLag)
 	if err != nil {
 		return fmt.Errorf("wait for events processed: %w", err)
 	}
@@ -426,7 +414,16 @@ func (s *IngestorTestSuite) checkDLQStream(dataTable *godog.Table) error {
 	return nil
 }
 
-func (s *IngestorTestSuite) waitForEventsProcessed() error {
+func (s *IngestorTestSuite) checkSignalStream(dataTable *godog.Table) error {
+	err := s.checkResultsFromNatsStream(s.signalStreamCfg, s.signalConsumerCfg, dataTable)
+	if err != nil {
+		return fmt.Errorf("check DLQ stream: %w", err)
+	}
+
+	return nil
+}
+
+func (s *IngestorTestSuite) waitForEventsProcessed(expectedLag int) error {
 	s.logger.Info("waiting for kafka consumer to process events",
 		"topic", s.topicName,
 		"consumerGroup", s.cGroupName)
@@ -442,6 +439,13 @@ func (s *IngestorTestSuite) waitForEventsProcessed() error {
 			}
 
 			if lag > 0 {
+				if expectedLag > 0 && lag == int64(expectedLag) {
+					s.logger.Info("kafka consumer reached expected lag",
+						"topic", s.topicName,
+						"consumerGroup", s.cGroupName,
+						"lag", lag)
+					return nil
+				}
 				return fmt.Errorf("consumer lag not zero: %d messages pending", lag)
 			}
 
@@ -493,6 +497,14 @@ func (s *IngestorTestSuite) fastCleanUp() error {
 		errs = append(errs, fmt.Errorf("clean nats streams: %w", err))
 	}
 
+	// Clean up pipeline from database
+	if s.pipelineConfig != nil {
+		err = s.pipelineStore.DeletePipeline(context.Background(), s.pipelineConfig.ID)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("delete pipeline: %w", err))
+		}
+	}
+
 	err = testutils.CombineErrors(errs)
 	if err != nil {
 		return fmt.Errorf("cleanup resources: %w", err)
@@ -523,8 +535,11 @@ func (s *IngestorTestSuite) CleanupResources() error {
 		}
 	}
 
-	err := testutils.CombineErrors(errs)
-	if err != nil {
+	if err := s.cleanupPostgres(); err != nil {
+		errs = append(errs, fmt.Errorf("cleanup postgres: %w", err))
+	}
+
+	if err := testutils.CombineErrors(errs); err != nil {
 		return fmt.Errorf("cleanup resources: %w", err)
 	}
 
@@ -534,16 +549,16 @@ func (s *IngestorTestSuite) CleanupResources() error {
 func (s *IngestorTestSuite) RegisterSteps(sc *godog.ScenarioContext) {
 	logElapsedTime(sc)
 	sc.Step(`^the NATS stream config:$`, s.theNatsStreamConfig)
-	sc.Step(`^a schema mapper with config:$`, s.aSchemaConfigWithMapping)
-	sc.Step(`^an ingestor component config:$`, s.anIngestorComponentConfig)
-	sc.Step(`^an filter component config:$`, s.aFilterComponentConfig)
+	sc.Step(`^pipeline config with configuration$`, s.aPipelineConfig)
+	sc.Step(`^a schema registry contains schema with id (\d+) and fields:$`, s.aSchemaRegistryContainsSchemaWithIDAndFields)
 	sc.Step(`a Kafka topic "([^"]*)" with (\d+) partition`, s.aKafkaTopicWithPartitions)
 
 	sc.Step(`^I run the ingestor component$`, s.iRunningIngestorComponent)
 	sc.Step(`^I stop the ingestor component$`, s.stopIngestor)
 	sc.Step(`^I write these events to Kafka topic "([^"]*)":$`, s.publishEventsToKafka)
-	sc.Step(`^I check results stream with content$`, s.checkResultsStream)
+	sc.Step(`^I check results stream with lag (\d+) and content$`, s.checkResultsStream)
 	sc.Step(`^I check DLQ stream with content$`, s.checkDLQStream)
+	sc.Step(`^I check signal stream with content$`, s.checkSignalStream)
 	sc.Step(`^I flush all NATS streams$`, s.cleanNatsStreams)
 	sc.Step(`^I wait for (\d+) second`, s.iWaitForSeconds)
 
