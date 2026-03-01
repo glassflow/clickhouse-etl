@@ -20,12 +20,13 @@ console = Console(width=140)
 def create_clickhouse_client(sink_config: models.SinkConfig):
     """Create a ClickHouse client"""
     # GlassFlow uses Clickhouse native port while the python client uses http
-    if sink_config.host == "clickhouse":
+    # Handle both docker-compose and Kubernetes service names
+    if "clickhouse.glassflow.svc.cluster.local" in sink_config.host:
         host = "localhost"
-        port = 8123
+        port = 30090
     else:
         host = sink_config.host
-        port = 8443
+        port = sink_config.http_port
 
     return clickhouse_connect.get_client(
         host=host,
@@ -37,7 +38,7 @@ def create_clickhouse_client(sink_config: models.SinkConfig):
 
 
 def create_table_if_not_exists(
-    sink_config: models.SinkConfig, client, join_key: str = None
+    sink_config: models.SinkConfig, schema: models.Schema, client, join_key: str = None
 ):
     """Create a table in ClickHouse if it doesn't exist"""
     if client.command(f"EXISTS TABLE {sink_config.table}"):
@@ -49,10 +50,10 @@ def create_table_if_not_exists(
         )
         return
     order_by_column = (
-        sink_config.table_mapping[0].column_name if not join_key else join_key
+        schema.fields[0].column_name if not join_key and schema.fields[0].column_name else join_key
     )
     columns_def = [
-        f"{m.column_name} {m.column_type}" for m in sink_config.table_mapping
+        f"{field.column_name} {field.column_type}" for field in schema.fields if field.column_name
     ]
     client.command(
         f"""
@@ -100,8 +101,10 @@ def create_topics_if_not_exists(source_config: models.SourceConfig):
     """Create topics in Kafka"""
 
     config = {}
-    if source_config.connection_params.brokers[0] == "kafka:9093":
-        config["bootstrap_servers"] = ["localhost:9092"]
+    # Handle both docker-compose and Kubernetes service names
+    broker = source_config.connection_params.brokers[0]
+    if "kafka.glassflow.svc.cluster.local" in broker:
+        config["bootstrap_servers"] = ["localhost:39092"]
     else:
         config["bootstrap_servers"] = source_config.connection_params.brokers
     if not source_config.connection_params.mechanism == "NO_AUTH":
@@ -166,7 +169,7 @@ def create_pipeline_if_not_exists(
     """
     try:
         pipeline = gf_client.get_pipeline(config.pipeline_id)
-        is_running = pipeline.health()["overall_status"] == "Running"
+        is_running = pipeline.status == models.PipelineStatus.RUNNING
         exists = True
     except errors.PipelineNotFoundError:
         pipelines = gf_client.list_pipelines()
@@ -201,7 +204,7 @@ def create_pipeline_if_not_exists(
                 component="Clickhouse",
             )
     else:
-        if exists and not is_running:
+        if exists:
             log(
                 message=f"Pipeline [italic u]{config.pipeline_id}[/italic u]",
                 status="Already exists but is terminated",
@@ -223,48 +226,16 @@ def create_pipeline_if_not_exists(
                     component="GlassFlow",
                 )
                 exit(0)
-        else:
-            if pipeline:
-                if not skip_confirmation:
-                    log(
-                        message=f"Pipeline [italic u]{pipeline.config.pipeline_id}[/italic u] is already running.",
-                        status="Blocked",
-                        is_warning=True,
-                        component="GlassFlow",
-                    )
-                    resp = query_yes_no(
-                        question=f"Do you want to delete your active pipeline and create a new one with ID [italic u]{pipeline.config.pipeline_id}[/italic u]?",
-                        default_yes=True,
-                    )
-                else:
-                    resp = True
-
-                if resp:
-                    pipeline.delete()
-                    log(
-                        message=f"Delete pipeline [italic u]{pipeline.config.pipeline_id}[/italic u]",
-                        status="Success",
-                        is_success=True,
-                        component="GlassFlow",
-                    )
-                else:
-                    log(
-                        message="Delete current pipeline or update config to send events to existing pipeline",
-                        status="Exited",
-                        is_failure=True,
-                        component="GlassFlow",
-                    )
-                    exit(0)
 
         if config.join.enabled:
             join_keys = [config.join.sources[0].join_key, config.join.sources[1].join_key]
-            for field in config.sink.table_mapping:
-                if field.field_name in join_keys:
+            for field in config.pipeline_schema.fields:
+                if field.name in join_keys:
                     join_key = field.column_name
                     break
         else:
             join_key = None
-        create_table_if_not_exists(config.sink, clickhouse_client, join_key)
+        create_table_if_not_exists(config.sink, config.pipeline_schema, clickhouse_client, join_key)
         create_topics_if_not_exists(config.source)
 
         try:

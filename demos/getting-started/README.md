@@ -1,13 +1,18 @@
-# GlassFlow ClickHouse ETL Getting Started Demo
+# GlassFlow Getting Started Demo
 
-This demo showcases the capabilities of GlassFlow ClickHouse ETL. The demo scripts use the Python SDK to automate pipeline setup and generate events.
+This demo showcases the capabilities of GlassFlow. This demo requires to the GlassFlow CLI to deploy GlassFlow, Kafka and ClickHouse locally in a kind cluster.
 
-> [!NOTE]
-> Local Docker Compose demos have been deprecated. Please use a Kubernetes deployment of GlassFlow for testing and development.
+The demo scripts use the Python SDK to automate pipeline setup and generate events.
 
-> [!NOTE]
-> **For Altinity ClickHouse Users**: If you're using Altinity ClickHouse instead of the local ClickHouse instance, check out the [instructions for running demos with Altinity](providers/altinity/README.md).
+## Prerequisites
 
+Before starting, ensure you have installed GlassFlow CLI. See [Installation Guide](/installation/cli) for more details.
+
+```bash
+glassflow up --demo
+```
+
+## Run demo
 
 ## Additional Resources
 
