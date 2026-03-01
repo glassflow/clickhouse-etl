@@ -189,9 +189,9 @@ func createComponent(
 	if statelessTransform != nil && statelessTransform.Enabled {
 		transformer, err := jsonTransformer.NewTransformer(statelessTransform.Config.Transform)
 		require.NoError(t, err)
-		statelessTransformerProcessorBase := processor.NewStatelessTransformerProcessor(transformer, nil)
+		statelessTransformerProcessorBase := processor.NewStatelessTransformerProcessor(transformer, nil, nil)
 		statelessTransformerProcessor = processor.ChainProcessors(
-			processor.ChainMiddlewares(processor.DLQMiddleware(dlqWriter, role)),
+			processor.ChainMiddlewares(processor.DLQMiddleware(dlqWriter, role, "transform", nil)),
 			statelessTransformerProcessorBase,
 		)
 	} else {
@@ -203,9 +203,9 @@ func createComponent(
 	if filterConfig != nil && filterConfig.Enabled {
 		filterJson, err := filterJSON.New(filterConfig.Expression, filterConfig.Enabled)
 		require.NoError(t, err)
-		filterProcessorBase := processor.NewFilterProcessor(filterJson, nil) // nil meter for tests
+		filterProcessorBase := processor.NewFilterProcessor(filterJson, nil, nil) // nil meter for tests
 		filterProcessor = processor.ChainProcessors(
-			processor.ChainMiddlewares(processor.DLQMiddleware(dlqWriter, role)),
+			processor.ChainMiddlewares(processor.DLQMiddleware(dlqWriter, role, "filter", nil)),
 			filterProcessorBase,
 		)
 	} else {
