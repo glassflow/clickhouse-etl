@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
 
 	"github.com/nats-io/nats.go/jetstream"
 
@@ -27,6 +28,18 @@ type SinkRunner struct {
 	component component.Component
 	c         chan error
 	doneCh    chan struct{}
+}
+
+// getSinkInputStreamName returns the NATS stream name the sink consumes from.
+// When GLASSFLOW_POD_INDEX and NATS_INPUT_STREAM_PREFIX are set, stream name is "NATS_INPUT_STREAM_PREFIX_GLASSFLOW_POD_INDEX".
+// Otherwise it falls back to the pipeline's sink stream ID.
+func getSinkInputStreamName(fallbackStreamID string) string {
+	prefix := os.Getenv("NATS_INPUT_STREAM_PREFIX")
+	podIndex := os.Getenv("GLASSFLOW_POD_INDEX")
+	if prefix != "" && podIndex != "" {
+		return fmt.Sprintf("%s_%s", prefix, podIndex)
+	}
+	return fallbackStreamID
 }
 
 func NewSinkRunner(
@@ -59,18 +72,20 @@ func (s *SinkRunner) Start(ctx context.Context) error {
 		"max_ack_pending", maxAckPending,
 		"max_batch_size", maxBatchSize)
 
+	inputStreamName := getSinkInputStreamName(s.pipelineCfg.Sink.StreamID)
+	s.log.InfoContext(ctx, "Sink will read from NATS stream", "stream", inputStreamName, "pipelineId", s.pipelineCfg.Status.PipelineID)
+
 	consumer, err := stream.NewNATSConsumer(
 		ctx,
 		s.nc.JetStream(),
 		jetstream.ConsumerConfig{
 			Name:          s.pipelineCfg.Sink.NATSConsumerName,
 			Durable:       s.pipelineCfg.Sink.NATSConsumerName,
-			FilterSubject: models.GetWildcardNATSSubjectName(s.pipelineCfg.Sink.StreamID),
 			AckPolicy:     jetstream.AckExplicitPolicy,
 			AckWait:       internal.NatsDefaultAckWait,
 			MaxAckPending: maxAckPending,
 		},
-		s.pipelineCfg.Sink.StreamID,
+		inputStreamName,
 	)
 	if err != nil {
 		s.log.ErrorContext(ctx, "failed to create clickhouse consumer", "error", err)
