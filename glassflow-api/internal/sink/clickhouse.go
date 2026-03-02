@@ -618,8 +618,6 @@ func (ch *ClickHouseSink) createCHBatches(
 						}
 					}
 				}
-
-				failedMsgs = append(failedMsgs, procMsg.msg)
 				skippedCount++
 			}
 			appendedBySchema[procMsg.schemaVersionID] = append(appendedBySchema[procMsg.schemaVersionID], &procMsg)
