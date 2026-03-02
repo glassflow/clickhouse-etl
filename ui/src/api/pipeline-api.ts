@@ -1,4 +1,5 @@
 import { getApiUrl, isMockMode } from '@/src/utils/mock-api'
+import { structuredLogger } from '@/src/observability'
 import type {
   Pipeline,
   ListPipelineConfig,
@@ -114,7 +115,7 @@ export const getPipeline = async (id: string): Promise<any> => {
               status = parsePipelineStatus(healthData.overall_status)
             }
           } catch (healthError) {
-            console.warn('Failed to parse health data:', healthError)
+            structuredLogger.warn('Failed to parse health data', { error: healthError instanceof Error ? healthError.message : String(healthError) })
           }
         }
 
@@ -136,7 +137,7 @@ export const getPipeline = async (id: string): Promise<any> => {
               status = parsePipelineStatus(healthData.overall_status)
             }
           } catch (healthError) {
-            console.warn('Failed to parse health data:', healthError)
+            structuredLogger.warn('Failed to parse health data', { error: healthError instanceof Error ? healthError.message : String(healthError) })
           }
         }
 
@@ -436,7 +437,7 @@ export const getBulkDLQStats = async (pipelineIds: string[]): Promise<Record<str
         return { pipelineId, dlqState }
       } catch (error) {
         // If DLQ fetch fails for a pipeline, return null for that pipeline
-        console.warn(`Failed to fetch DLQ stats for pipeline ${pipelineId}:`, error)
+        structuredLogger.warn('Failed to fetch DLQ stats for pipeline', { pipeline_id: pipelineId, error: error instanceof Error ? error.message : String(error) })
         return { pipelineId, dlqState: null }
       }
     })
@@ -451,7 +452,7 @@ export const getBulkDLQStats = async (pipelineIds: string[]): Promise<Record<str
 
     return dlqStatsMap
   } catch (error: any) {
-    console.error('Failed to fetch bulk DLQ stats:', error)
+    structuredLogger.error('Failed to fetch bulk DLQ stats', { error: error instanceof Error ? error.message : String(error) })
     // Return empty map if bulk fetch fails
     return {}
   }

@@ -14,6 +14,7 @@
 import { getPipelines } from '@/src/api/pipeline-api'
 import { getPipelineHealth } from '@/src/api/pipeline-health'
 import { PipelineStatus, parsePipelineStatus } from '@/src/types/pipeline'
+import { structuredLogger } from '@/src/observability'
 
 // Types
 export interface PipelineStatusCallbacks {
@@ -286,18 +287,13 @@ export class PipelineStatusManager {
       tracker.lastErrorTime = Date.now()
 
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-      console.error(
-        `[PipelineStatusManager] Status check failed for ${tracker.pipelineId} (attempt ${tracker.errorCount}/${this.MAX_ERROR_COUNT}):`,
-        errorMessage,
-      )
+      structuredLogger.error('PipelineStatusManager status check failed', { pipeline_id: tracker.pipelineId, attempt: tracker.errorCount, max_attempts: this.MAX_ERROR_COUNT, error: errorMessage })
 
       tracker.callbacks.onError?.(error instanceof Error ? error : new Error(errorMessage))
 
       // Stop tracking if max errors reached
       if (tracker.errorCount >= this.MAX_ERROR_COUNT) {
-        console.error(
-          `[PipelineStatusManager] Max errors reached for pipeline ${tracker.pipelineId}, stopping tracking`,
-        )
+        structuredLogger.error('PipelineStatusManager max errors reached, stopping tracking', { pipeline_id: tracker.pipelineId })
         this.stopTracking(tracker.pipelineId)
       }
     }
@@ -342,7 +338,7 @@ export class PipelineStatusManager {
     this.backendSyncInterval = setInterval(() => {
       if (this.stats.backendSyncEnabled && this.trackers.size > 0) {
         this.detectOrphanedPipelines().catch((error) => {
-          console.error('[PipelineStatusManager] Backend sync failed:', error)
+          structuredLogger.error('PipelineStatusManager backend sync failed', { error: error instanceof Error ? error.message : String(error) })
         })
       }
     }, this.BACKEND_SYNC_INTERVAL)
@@ -361,10 +357,7 @@ export class PipelineStatusManager {
       const orphaned = trackedIds.filter((id) => !existingIds.includes(id))
 
       if (orphaned.length > 0) {
-        console.warn(
-          `[PipelineStatusManager] Detected ${orphaned.length} orphaned pipelines (removed from backend):`,
-          orphaned,
-        )
+        structuredLogger.warn('PipelineStatusManager detected orphaned pipelines', { count: orphaned.length, pipeline_ids: orphaned.join(', ') })
 
         orphaned.forEach((pipelineId) => {
           const tracker = this.trackers.get(pipelineId)
@@ -379,7 +372,7 @@ export class PipelineStatusManager {
 
       this.stats.lastBackendSync = new Date()
     } catch (error) {
-      console.error('[PipelineStatusManager] Failed to detect orphaned pipelines:', error)
+      structuredLogger.error('PipelineStatusManager failed to detect orphaned pipelines', { error: error instanceof Error ? error.message : String(error) })
     }
   }
 

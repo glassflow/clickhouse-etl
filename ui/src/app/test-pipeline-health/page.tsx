@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Button } from '@/src/components/ui/button'
+import { structuredLogger } from '@/src/observability'
 import { Input } from '@/src/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/src/components/ui/card'
 import { usePipelineHealth } from '@/src/hooks/usePipelineHealth'
@@ -19,7 +20,7 @@ export default function TestPipelineHealthPage() {
       // console.log(`Status changed: ${previousStatus} → ${newStatus}`)
     },
     onError: (error) => {
-      console.error('Health check error:', error)
+      structuredLogger.error('Health check error', { error: error instanceof Error ? error.message : String(error) })
     },
   })
 

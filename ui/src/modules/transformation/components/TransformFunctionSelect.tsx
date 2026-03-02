@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useState, useMemo } from 'react'
+import { structuredLogger } from '@/src/observability'
 import {
   TransformationField,
   FunctionArg,
@@ -90,7 +91,7 @@ function TransformFunctionSelect({
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch (err) {
-      console.error('Failed to copy expression:', err)
+      structuredLogger.error('TransformFunctionSelect failed to copy expression', { error: err instanceof Error ? err.message : String(err) })
     }
   }, [fullExpression])
 

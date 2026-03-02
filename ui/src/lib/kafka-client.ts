@@ -1,6 +1,7 @@
 import { Kafka, Consumer, Admin, logLevel, KafkaMessage } from 'kafkajs'
 import { createAwsIamMechanism } from '../utils/common.server'
 import { KafkaConfig } from './kafka-client-interface'
+import { structuredLogger } from '@/src/observability'
 
 // Re-export KafkaConfig for backwards compatibility
 export type { KafkaConfig } from './kafka-client-interface'
@@ -68,7 +69,7 @@ export class CircuitBreaker {
       if (now - this.lastFailureTime >= this.options.resetTimeoutMs) {
         this.state = CircuitState.HALF_OPEN
         this.halfOpenAttempts = 0
-        console.log('[CircuitBreaker] Transitioning to HALF_OPEN state')
+        structuredLogger.debug('CircuitBreaker transitioning to HALF_OPEN state')
         return true
       }
       return false
@@ -84,7 +85,7 @@ export class CircuitBreaker {
   recordSuccess(): void {
     if (this.state === CircuitState.HALF_OPEN) {
       // Service recovered, close the circuit
-      console.log('[CircuitBreaker] Success in HALF_OPEN state, closing circuit')
+      structuredLogger.debug('CircuitBreaker success in HALF_OPEN state, closing circuit')
       this.state = CircuitState.CLOSED
       this.failureCount = 0
       this.halfOpenAttempts = 0
@@ -104,13 +105,13 @@ export class CircuitBreaker {
       this.halfOpenAttempts++
       if (this.halfOpenAttempts >= this.options.halfOpenMaxAttempts) {
         // Still failing, reopen circuit
-        console.log('[CircuitBreaker] Failed in HALF_OPEN state, reopening circuit')
+        structuredLogger.debug('CircuitBreaker failed in HALF_OPEN state, reopening circuit')
         this.state = CircuitState.OPEN
       }
     } else if (this.state === CircuitState.CLOSED) {
       this.failureCount++
       if (this.failureCount >= this.options.failureThreshold) {
-        console.log(`[CircuitBreaker] Failure threshold (${this.options.failureThreshold}) reached, opening circuit`)
+        structuredLogger.warn('CircuitBreaker failure threshold reached, opening circuit', { threshold: this.options.failureThreshold })
         this.state = CircuitState.OPEN
       }
     }
@@ -216,11 +217,11 @@ export async function withRetry<T>(
 
       // Don't retry if we've exhausted attempts
       if (attempt === opts.maxRetries) {
-        console.error(`[Retry] All ${opts.maxRetries} retries exhausted`)
+        structuredLogger.error('Retry exhausted', { max_retries: opts.maxRetries })
         throw lastError
       }
 
-      console.log(`[Retry] Attempt ${attempt + 1} failed: ${lastError.message}. Retrying in ${delay}ms...`)
+      structuredLogger.debug('Retry attempt failed, retrying', { attempt: attempt + 1, error: lastError.message, delay_ms: delay })
 
       // Wait before retrying
       await sleep(delay)
@@ -272,7 +273,7 @@ export class ConsumerTracker {
       topic,
       adminClient,
     })
-    console.log(`[ConsumerTracker] Tracking consumer ${id} for topic ${topic}`)
+    structuredLogger.debug('ConsumerTracker tracking consumer', { consumer_id: id, topic })
   }
 
   /**
@@ -290,7 +291,7 @@ export class ConsumerTracker {
    */
   untrack(id: string): void {
     this.consumers.delete(id)
-    console.log(`[ConsumerTracker] Untracked consumer ${id}`)
+    structuredLogger.info('ConsumerTracker untracked consumer', { consumer_id: id })
   }
 
   /**
@@ -329,7 +330,7 @@ export class ConsumerTracker {
     }
 
     if (orphaned.length > 0) {
-      console.log(`[ConsumerTracker] Cleaning up ${orphaned.length} orphaned consumers`)
+      structuredLogger.info('ConsumerTracker cleaning up orphaned consumers', { count: orphaned.length })
     }
 
     for (const id of orphaned) {
@@ -344,7 +345,7 @@ export class ConsumerTracker {
     const tracked = this.consumers.get(id)
     if (!tracked) return
 
-    console.log(`[ConsumerTracker] Force disconnecting consumer ${id}`)
+    structuredLogger.debug('ConsumerTracker force disconnecting consumer', { consumer_id: id })
 
     try {
       // If already disconnecting, wait for that
@@ -358,7 +359,7 @@ export class ConsumerTracker {
         await Promise.race([tracked.consumer.disconnect(), sleep(2000)])
       }
     } catch (error) {
-      console.error(`[ConsumerTracker] Error force disconnecting consumer ${id}:`, error)
+      structuredLogger.error('ConsumerTracker error force disconnecting consumer', { consumer_id: id, error: error instanceof Error ? error.message : String(error) })
     }
 
     // Delete the consumer group (best-effort); many brokers don't support or allow DeleteGroups.
@@ -368,18 +369,16 @@ export class ConsumerTracker {
           tracked.adminClient.deleteGroups([tracked.groupId]),
           sleep(3000), // Max 3 seconds for group deletion
         ])
-        console.log(`[ConsumerTracker] Deleted consumer group: ${tracked.groupId}`)
+        structuredLogger.debug('ConsumerTracker deleted consumer group', { group_id: tracked.groupId })
       } catch (deleteError: unknown) {
         const isDeleteGroupsError =
           deleteError &&
           typeof deleteError === 'object' &&
           (deleteError as { name?: string }).name === 'KafkaJSDeleteGroupsError'
         if (isDeleteGroupsError) {
-          console.info(
-            `[ConsumerTracker] Consumer group ${tracked.groupId} could not be deleted (broker may not support or allow it).`,
-          )
+          structuredLogger.info('ConsumerTracker consumer group could not be deleted (broker may not support or allow it)', { group_id: tracked.groupId })
         } else {
-          console.warn(`[ConsumerTracker] Failed to delete consumer group ${tracked.groupId}:`, deleteError)
+          structuredLogger.warn('ConsumerTracker failed to delete consumer group', { group_id: tracked.groupId, error: deleteError instanceof Error ? deleteError.message : String(deleteError) })
         }
       }
     }
@@ -392,7 +391,7 @@ export class ConsumerTracker {
    * Clean up all tracked consumers (for shutdown)
    */
   async cleanupAll(): Promise<void> {
-    console.log(`[ConsumerTracker] Cleaning up all ${this.consumers.size} tracked consumers`)
+    structuredLogger.info('ConsumerTracker cleaning up all tracked consumers', { count: this.consumers.size })
 
     if (this.cleanupInterval) {
       clearInterval(this.cleanupInterval)
@@ -564,7 +563,7 @@ export class KafkaClient {
             )
             kafkaConfig.sasl = mechanism
           } catch (error) {
-            console.error('Error setting up AWS_MSK_IAM authentication:', error)
+            structuredLogger.error('KafkaClient error setting up AWS_MSK_IAM authentication', { error: error instanceof Error ? error.message : String(error) })
             throw error
           }
           break
@@ -659,7 +658,7 @@ export class KafkaClient {
           sleep(5000), // Max 5 seconds for disconnect
         ])
       } catch (error) {
-        console.error('Error disconnecting admin client:', error)
+        structuredLogger.error('KafkaClient error disconnecting admin client', { error: error instanceof Error ? error.message : String(error) })
       }
       this.adminClientConnected = false
     }
@@ -676,7 +675,7 @@ export class KafkaClient {
       this.circuitBreaker.recordSuccess()
       return true
     } catch (error) {
-      console.error('Failed to connect to Kafka:', error)
+      structuredLogger.error('KafkaClient failed to connect', { error: error instanceof Error ? error.message : String(error) })
       // Reset connection state on failure so next attempt will reconnect
       this.adminClientConnected = false
       this.circuitBreaker.recordFailure()
@@ -696,7 +695,7 @@ export class KafkaClient {
       this.circuitBreaker.recordSuccess()
       return topics
     } catch (error) {
-      console.error('Error listing Kafka topics:', error)
+      structuredLogger.error('KafkaClient error listing topics', { error: error instanceof Error ? error.message : String(error) })
       // Reset connection state on failure
       this.adminClientConnected = false
       this.circuitBreaker.recordFailure()
@@ -719,7 +718,7 @@ export class KafkaClient {
       this.circuitBreaker.recordSuccess()
       return topicDetails
     } catch (error) {
-      console.error('Error fetching topic details:', error)
+      structuredLogger.error('KafkaClient error fetching topic details', { error: error instanceof Error ? error.message : String(error) })
       // Reset connection state on failure
       this.adminClientConnected = false
       this.circuitBreaker.recordFailure()
@@ -801,7 +800,7 @@ export class KafkaClient {
           sleep(5000), // Max 5 seconds
         ])
       } catch (error) {
-        console.error('Error disconnecting consumer:', error)
+        structuredLogger.error('KafkaClient error disconnecting consumer', { error: error instanceof Error ? error.message : String(error) })
       }
       this.consumer = null
     }
@@ -903,7 +902,7 @@ export class KafkaClient {
             ])
             globalConsumerTracker.untrack(consumerId!)
           } catch (disconnectError) {
-            console.error(`KafkaClient: Error during consumer disconnect:`, disconnectError)
+            structuredLogger.error('KafkaClient error during consumer disconnect', { error: disconnectError instanceof Error ? disconnectError.message : String(disconnectError) })
             // Consumer will be cleaned up by tracker eventually
           }
         })()
@@ -921,7 +920,7 @@ export class KafkaClient {
             this.adminClient.deleteGroups([groupIdToDelete]),
             sleep(5000), // Max 5 seconds for group deletion
           ])
-          console.log(`[KafkaClient] Deleted consumer group: ${groupIdToDelete}`)
+          structuredLogger.debug('KafkaClient deleted consumer group', { group_id: groupIdToDelete })
         } catch (deleteError: unknown) {
           const isDeleteGroupsError =
             deleteError &&
@@ -929,11 +928,9 @@ export class KafkaClient {
             (deleteError as { name?: string }).name === 'KafkaJSDeleteGroupsError'
           if (isDeleteGroupsError) {
             // Expected when broker doesn't support DeleteGroups or ACLs deny it; sample fetch succeeded.
-            console.info(
-              `[KafkaClient] Consumer group ${groupIdToDelete} could not be deleted (broker may not support or allow it); sample fetch succeeded.`,
-            )
+            structuredLogger.info('KafkaClient consumer group could not be deleted (broker may not support or allow it); sample fetch succeeded', { group_id: groupIdToDelete })
           } else {
-            console.warn(`[KafkaClient] Failed to delete consumer group ${groupIdToDelete}:`, deleteError)
+            structuredLogger.warn('KafkaClient failed to delete consumer group', { group_id: groupIdToDelete, error: deleteError instanceof Error ? deleteError.message : String(deleteError) })
           }
         }
       }
@@ -954,14 +951,14 @@ export class KafkaClient {
       )
 
       if (!metadata.topics.length || metadata.topics[0].name !== topic) {
-        console.error(`KafkaClient: Topic ${topic} does not exist`)
+        structuredLogger.error('KafkaClient topic does not exist', { topic })
         throw new Error(`Topic ${topic} does not exist`)
       }
 
       // Check if topic has partitions
       const topicInfo = metadata.topics[0]
       if (!topicInfo.partitions.length) {
-        console.error(`KafkaClient: Topic ${topic} has no partitions`)
+        structuredLogger.error('KafkaClient topic has no partitions', { topic })
         throw new Error(`Topic ${topic} has no partitions`)
       }
 
@@ -976,7 +973,7 @@ export class KafkaClient {
       const hasMessages = offsets.some((partition) => parseInt(partition.high, 10) > parseInt(partition.low, 10))
 
       if (!hasMessages) {
-        console.error(`KafkaClient: Topic ${topic} exists but has no messages`)
+        structuredLogger.error('KafkaClient topic has no messages', { topic })
         throw new Error(`Topic ${topic} exists but has no messages`)
       }
 
@@ -998,13 +995,13 @@ export class KafkaClient {
         if (partitionInfo) {
           const highOffset = parseInt(partitionInfo.high, 10)
           const lowOffset = parseInt(partitionInfo.low, 10)
-          console.log(`KafkaClient: Partition ${targetPartition} offsets - low: ${lowOffset}, high: ${highOffset}`)
+          structuredLogger.debug('KafkaClient partition offsets', { partition: targetPartition, low_offset: lowOffset, high_offset: highOffset })
           if (highOffset > 0) {
             targetOffset = (highOffset - 1).toString()
           } else {
             targetOffset = '0'
           }
-          console.log(`KafkaClient: Set targetOffset for 'latest': ${targetOffset}`)
+          structuredLogger.debug('KafkaClient set target offset for latest', { target_offset: targetOffset ?? undefined })
         }
       } else if (options?.position === 'earliest') {
         // For earliest, use the low offset
@@ -1090,13 +1087,11 @@ export class KafkaClient {
         internalAbortController.signal.addEventListener('abort', abortHandler)
 
         const messageHandler = async ({ topic: msgTopic, partition, message }: any) => {
-          console.log(
-            `KafkaClient: Received message - topic: ${msgTopic}, partition: ${partition}, offset: ${message.offset}, targetPartition: ${targetPartition}, targetOffset: ${targetOffset}`,
-          )
+          structuredLogger.debug('KafkaClient received message', { topic: msgTopic, partition, offset: message.offset, target_partition: targetPartition, target_offset: targetOffset ?? undefined })
 
           // Only process messages from the target partition
           if (partition !== targetPartition) {
-            console.log(`KafkaClient: Skipping message - wrong partition (${partition} !== ${targetPartition})`)
+            structuredLogger.debug('KafkaClient skipping message wrong partition', { partition, target_partition: targetPartition })
             return
           }
 
@@ -1105,24 +1100,22 @@ export class KafkaClient {
             const messageOffset = BigInt(message.offset)
             const targetOffsetBig = BigInt(targetOffset)
 
-            console.log(
-              `KafkaClient: Checking offset - messageOffset: ${messageOffset}, targetOffset: ${targetOffsetBig}, position: ${options?.position}`,
-            )
+            structuredLogger.debug('KafkaClient checking offset', { message_offset: String(messageOffset), target_offset: String(targetOffsetBig), position: options?.position })
 
             if (options?.position === 'earliest') {
               if (messageOffset < targetOffsetBig) {
-                console.log(`KafkaClient: Skipping message - offset too low for earliest`)
+                structuredLogger.debug('KafkaClient skipping message offset too low for earliest')
                 return
               }
             } else {
               if (messageOffset !== targetOffsetBig) {
-                console.log(`KafkaClient: Skipping message - offset mismatch (${messageOffset} !== ${targetOffsetBig})`)
+                structuredLogger.debug('KafkaClient skipping message offset mismatch', { message_offset: String(messageOffset), target_offset: String(targetOffsetBig) })
                 return
               }
             }
           }
 
-          console.log(`KafkaClient: ACCEPTING message at offset ${message.offset}`)
+          structuredLogger.debug('KafkaClient accepting message', { offset: message.offset })
 
           messageReceived = true
 
@@ -1143,12 +1136,12 @@ export class KafkaClient {
               try {
                 parsedMessage = JSON.parse(messageValue)
               } catch (parseError) {
-                console.error(`KafkaClient: Error parsing JSON:`, parseError)
+                structuredLogger.error('KafkaClient error parsing JSON', { error: parseError instanceof Error ? parseError.message : String(parseError) })
                 try {
                   const fixedJson = messageValue.replace(/(\s*)(\w+)(\s*):(\s*)/g, '$1"$2"$3:$4')
                   parsedMessage = JSON.parse(fixedJson)
                 } catch (fixError) {
-                  console.error(`KafkaClient: Failed to fix and parse JSON:`, fixError)
+                  structuredLogger.error('KafkaClient failed to fix and parse JSON', { error: fixError instanceof Error ? fixError.message : String(fixError) })
                   parsedMessage = {
                     _raw: messageValue,
                     _error: 'Failed to parse as JSON',
@@ -1171,14 +1164,14 @@ export class KafkaClient {
               try {
                 delete parsedMessage.key
               } catch (keyError) {
-                console.warn('KafkaClient: Error parsing message key:', keyError)
+                structuredLogger.warn('KafkaClient error parsing message key', { error: keyError instanceof Error ? keyError.message : String(keyError) })
                 parsedMessage.key = undefined
               }
             }
 
             resolve(parsedMessage)
           } catch (error) {
-            console.error(`KafkaClient: Error processing message:`, error)
+            structuredLogger.error('KafkaClient error processing message', { error: error instanceof Error ? error.message : String(error) })
             resolve({
               _raw: message.value.toString(),
               _error: 'Failed to process message',
@@ -1199,33 +1192,28 @@ export class KafkaClient {
             eachMessage: messageHandler,
           })
           .catch((error) => {
-            console.error(`KafkaClient: Error running consumer:`, error)
+            structuredLogger.error('KafkaClient error running consumer', { error: error instanceof Error ? error.message : String(error) })
             reject(error)
           })
 
         // Setup GROUP_JOIN listener if we need to seek
         if (targetOffset !== null && consumer) {
-          console.log(`KafkaClient: Setting up GROUP_JOIN listener to seek after partition assignment`)
+          structuredLogger.debug('KafkaClient setting up GROUP_JOIN listener to seek after partition assignment')
 
           // Store unsubscribe function for cleanup
           groupJoinUnsubscribe = consumer.on(consumer.events.GROUP_JOIN, ({ payload }: any) => {
-            console.log(
-              `KafkaClient: GROUP_JOIN event received, memberAssignment:`,
-              JSON.stringify(payload.memberAssignment),
-            )
+            structuredLogger.debug('KafkaClient GROUP_JOIN event received', { member_assignment: JSON.stringify(payload.memberAssignment) })
 
             try {
-              console.log(
-                `KafkaClient: Executing seek to topic: ${topic}, partition: ${targetPartition}, offset: ${targetOffset}`,
-              )
+              structuredLogger.debug('KafkaClient executing seek', { topic, partition: targetPartition, offset: targetOffset })
               consumer?.seek({
                 topic,
                 partition: targetPartition,
                 offset: targetOffset!,
               })
-              console.log(`KafkaClient: Seek completed successfully`)
+              structuredLogger.debug('KafkaClient seek completed successfully')
             } catch (seekError) {
-              console.error(`KafkaClient: Error seeking to offset:`, seekError)
+              structuredLogger.error('KafkaClient error seeking to offset', { error: seekError instanceof Error ? seekError.message : String(seekError) })
               reject(seekError)
               return
             }
@@ -1235,7 +1223,7 @@ export class KafkaClient {
             const envTimeout = parseInt(process.env.KAFKA_FETCH_SAMPLE_TIMEOUT_MS ?? '', 10)
             const timeoutDuration = Number.isNaN(envTimeout) ? defaultTimeout : envTimeout
 
-            console.log(`KafkaClient: Starting message fetch timeout: ${timeoutDuration}ms`)
+            structuredLogger.debug('KafkaClient starting message fetch timeout', { timeout_ms: timeoutDuration })
             timeoutId = setTimeout(() => {
               if (!messageReceived) {
                 reject(new Error(`Timeout waiting for message from topic: ${topic}`))
@@ -1248,7 +1236,7 @@ export class KafkaClient {
           const envTimeout = parseInt(process.env.KAFKA_FETCH_SAMPLE_TIMEOUT_MS ?? '', 10)
           const timeoutDuration = Number.isNaN(envTimeout) ? defaultTimeout : envTimeout
 
-          console.log(`KafkaClient: No target offset, starting timeout immediately: ${timeoutDuration}ms`)
+          structuredLogger.debug('KafkaClient no target offset, starting timeout immediately', { timeout_ms: timeoutDuration })
           timeoutId = setTimeout(() => {
             if (!messageReceived) {
               reject(new Error(`Timeout waiting for message from topic: ${topic}`))
@@ -1261,7 +1249,7 @@ export class KafkaClient {
       this.circuitBreaker.recordSuccess()
       return result
     } catch (error) {
-      console.error(`KafkaClient: Error in fetchSampleEvent:`, error)
+      structuredLogger.error('KafkaClient error in fetchSampleEvent', { error: error instanceof Error ? error.message : String(error) })
       this.adminClientConnected = false
       this.circuitBreaker.recordFailure()
       throw error
@@ -1275,7 +1263,7 @@ export class KafkaClient {
     try {
       return await this.fetchSampleEvent(topic, format)
     } catch (error) {
-      console.warn(`Failed to fetch real event from ${topic}, using mock data:`, error)
+      structuredLogger.warn('KafkaClient failed to fetch real event, using mock data', { topic, error: error instanceof Error ? error.message : String(error) })
 
       // Return mock data based on format
       if (format === 'JSON' || format === 'json') {

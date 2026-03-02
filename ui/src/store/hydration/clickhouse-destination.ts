@@ -1,4 +1,5 @@
 import { useStore } from '../index'
+import { structuredLogger } from '@/src/observability'
 
 // Helper: Map backend config to your store's destination shape
 // schemaFields is optional and used for V2 format where mapping is in schema.fields instead of sink.table_mapping
@@ -160,10 +161,8 @@ export async function hydrateClickhouseDestination(pipelineConfig: any) {
   const dbData = await dbRes.json()
 
   if (!dbData.success) {
-    console.error('[Hydration] Failed to fetch databases:', dbData.error)
-    // Don't throw - just log and continue with what we have
-    // This prevents infinite retry loops
-    console.warn('[Hydration] Continuing with basic destination setup (databases unavailable)')
+    structuredLogger.error('Hydration failed to fetch databases', { error: dbData.error })
+    structuredLogger.warn('Hydration continuing with basic destination setup (databases unavailable)')
     return // Exit gracefully instead of throwing
   }
 
@@ -186,8 +185,8 @@ export async function hydrateClickhouseDestination(pipelineConfig: any) {
   const tablesData = await tablesRes.json()
 
   if (!tablesData.success) {
-    console.error('[Hydration] Failed to fetch tables:', tablesData.error)
-    console.warn('[Hydration] Continuing with basic destination setup (tables unavailable)')
+    structuredLogger.error('Hydration failed to fetch tables', { error: tablesData.error })
+    structuredLogger.warn('Hydration continuing with basic destination setup (tables unavailable)')
     return // Exit gracefully
   }
 
@@ -211,8 +210,8 @@ export async function hydrateClickhouseDestination(pipelineConfig: any) {
   const schemaData = await schemaRes.json()
 
   if (!schemaData.success) {
-    console.error('[Hydration] Failed to fetch schema:', schemaData.error)
-    console.warn('[Hydration] Continuing with basic destination setup (schema unavailable)')
+    structuredLogger.error('Hydration failed to fetch schema', { error: schemaData.error })
+    structuredLogger.warn('Hydration continuing with basic destination setup (schema unavailable)')
     return // Exit gracefully
   }
 

@@ -1,5 +1,6 @@
 import { StepKeys } from '@/src/config/constants'
 import { KafkaConnectionContainer } from '../kafka/KafkaConnectionContainer'
+import { structuredLogger } from '@/src/observability'
 import { KafkaTopicSelector } from '../kafka/KafkaTopicSelector'
 import { KafkaTypeVerification } from '../kafka/KafkaTypeVerification'
 import { DeduplicationConfigurator } from '../deduplication/DeduplicationConfigurator'
@@ -170,7 +171,7 @@ export const getSingleTopicJourney = (): StepKeys[] => {
   if (isTransformationsEnabled()) {
     steps.push(StepKeys.TRANSFORMATION_CONFIGURATOR)
   } else {
-    console.log('Transformations feature is disabled')
+    structuredLogger.info('Transformations feature is disabled')
   }
 
   steps.push(StepKeys.CLICKHOUSE_CONNECTION, StepKeys.CLICKHOUSE_MAPPER)

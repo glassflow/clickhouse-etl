@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useEffect } from 'react'
 import Link from 'next/link'
+import { structuredLogger } from '@/src/observability'
 import {
   Check,
   Trash2,
@@ -429,7 +430,7 @@ function NotificationTableRow({
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch (err) {
-      console.error('Failed to copy pipeline ID:', err)
+      structuredLogger.error('NotificationTable failed to copy pipeline ID', { error: err instanceof Error ? err.message : String(err) })
     }
   }
 

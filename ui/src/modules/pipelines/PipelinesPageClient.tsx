@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react'
 import { PipelinesList } from '@/src/modules/pipelines/PipelinesList'
+import { structuredLogger } from '@/src/observability'
 import { NoPipelines } from '@/src/modules/pipelines/NoPipelines'
 
 import { getPipelines } from '@/src/api/pipeline-api'
@@ -17,7 +18,7 @@ export default function PipelinesPageClient() {
       const pipelinesData = await getPipelines()
       setPipelines(pipelinesData)
     } catch (error) {
-      console.error('Failed to fetch pipelines:', error)
+      structuredLogger.error('PipelinesPageClient failed to fetch pipelines', { error: error instanceof Error ? error.message : String(error) })
     } finally {
       setIsLoading(false)
     }

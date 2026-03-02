@@ -1,5 +1,6 @@
 import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
+import { structuredLogger } from '@/src/observability'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -19,7 +20,7 @@ export function getEventKeys(data: any): string[] {
       try {
         data = JSON.parse(data)
       } catch (e) {
-        console.error('Failed to parse string as JSON:', e)
+        structuredLogger.error('Failed to parse string as JSON', { error: e instanceof Error ? e.message : String(e) })
         return []
       }
     }
@@ -35,7 +36,7 @@ export function getEventKeys(data: any): string[] {
     // Extract keys from the object
     return Object.keys(data)
   } catch (error) {
-    console.error('Error in getEventKeys:', error)
+    structuredLogger.error('Error in getEventKeys', { error: error instanceof Error ? error.message : String(error) })
     return []
   }
 }
@@ -196,7 +197,7 @@ export const compareEventSchemas = (oldEvent: any, newEvent: any): boolean => {
     // Field paths are identical, schemas match!
     return true
   } catch (error) {
-    console.error('[Schema Comparison] Error comparing schemas:', error)
+    structuredLogger.error('Schema comparison error', { error: error instanceof Error ? error.message : String(error) })
     // On error, assume schemas differ to be safe
     return false
   }
@@ -438,7 +439,7 @@ export function parseForCodeEditor(data: any): string {
     // Stringify the cleaned object
     return JSON.stringify(cleanData, null, 2)
   } catch (error) {
-    console.error('Error parsing data for code editor:', error)
+    structuredLogger.error('Error parsing data for code editor', { error: error instanceof Error ? error.message : String(error) })
     // If parsing fails, return the original data as a string
     return typeof data === 'string' ? data : String(data)
   }

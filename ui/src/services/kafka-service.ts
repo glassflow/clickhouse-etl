@@ -1,5 +1,6 @@
 import { KafkaConfig } from '@/src/lib/kafka-client-interface'
 import { createKafkaClient } from '@/src/lib/kafka-client-factory'
+import { structuredLogger } from '@/src/observability'
 
 const API_TIMEOUT = 60000 // 60 seconds - unified timeout for all Kafka operations
 const CONNECTION_TIMEOUT = 60000 // 60 seconds for connection tests
@@ -20,7 +21,7 @@ export class KafkaService {
       return result
     } catch (error) {
       if (error instanceof Error && error.message.includes('aborted')) {
-        console.error('[KafkaService] Connection test timed out')
+        structuredLogger.error('KafkaService connection test timed out')
         return false
       }
       throw error
@@ -29,7 +30,7 @@ export class KafkaService {
       try {
         await kafkaClient.disconnect()
       } catch (error) {
-        console.error('[KafkaService] Error disconnecting client:', error)
+        structuredLogger.error('KafkaService error disconnecting client', { error: error instanceof Error ? error.message : String(error) })
       }
     }
   }
@@ -57,7 +58,7 @@ export class KafkaService {
       try {
         await kafkaClient.disconnect()
       } catch (error) {
-        console.error('[KafkaService] Error disconnecting client:', error)
+        structuredLogger.error('KafkaService error disconnecting client', { error: error instanceof Error ? error.message : String(error) })
       }
     }
   }
@@ -88,7 +89,7 @@ export class KafkaService {
       try {
         await kafkaClient.disconnect()
       } catch (error) {
-        console.error('[KafkaService] Error disconnecting client:', error)
+        structuredLogger.error('KafkaService error disconnecting client', { error: error instanceof Error ? error.message : String(error) })
       }
     }
   }
@@ -130,7 +131,7 @@ export class KafkaService {
     // Create AbortController for cascading cancellation
     const abortController = new AbortController()
     const timeoutId = setTimeout(() => {
-      console.log(`[KafkaService] API timeout (${API_TIMEOUT}ms) reached, aborting operation`)
+      structuredLogger.warn('KafkaService API timeout reached, aborting operation', { timeout_ms: API_TIMEOUT })
       abortController.abort()
     }, API_TIMEOUT)
 
@@ -258,7 +259,7 @@ export class KafkaService {
       try {
         await kafkaClient.disconnect()
       } catch (error) {
-        console.error('[KafkaService] Error disconnecting client:', error)
+        structuredLogger.error('KafkaService error disconnecting client', { error: error instanceof Error ? error.message : String(error) })
       }
     }
   }

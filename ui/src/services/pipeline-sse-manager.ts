@@ -23,6 +23,7 @@ import {
   SSEHeartbeatEvent,
   SSEErrorEvent,
 } from '@/src/types/sse'
+import { structuredLogger } from '@/src/observability'
 
 // Callback types
 type StatusChangeCallback = (pipelineId: string, status: PipelineStatus) => void
@@ -207,12 +208,12 @@ class PipelineSSEManagerImpl {
    */
   private connect(): void {
     if (this.subscribedPipelineIds.size === 0) {
-      console.log('[SSE Manager] No pipelines to subscribe to, skipping connection')
+      structuredLogger.debug('SSE Manager no pipelines to subscribe to, skipping connection')
       return
     }
 
     if (this.fallbackToPollingTriggered) {
-      console.log('[SSE Manager] Fallback to polling is active, skipping SSE connection')
+      structuredLogger.debug('SSE Manager fallback to polling is active, skipping SSE connection')
       return
     }
 
@@ -220,14 +221,14 @@ class PipelineSSEManagerImpl {
     const pipelineIds = Array.from(this.subscribedPipelineIds).join(',')
     const url = `${this.config.endpoint}?pipelineIds=${encodeURIComponent(pipelineIds)}`
 
-    console.log(`[SSE Manager] Connecting to ${url}`)
+    structuredLogger.info('SSE Manager connecting', { url })
     this.setConnectionState('connecting')
 
     try {
       this.eventSource = new EventSource(url)
 
       this.eventSource.onopen = () => {
-        console.log('[SSE Manager] Connection established')
+        structuredLogger.info('SSE Manager connection established')
         this.setConnectionState('connected')
         this.reconnectAttempts = 0
         this.lastHeartbeat = Date.now()
@@ -251,18 +252,18 @@ class PipelineSSEManagerImpl {
         // Try to parse as SSE error event
         try {
           const data = JSON.parse((event as MessageEvent).data) as SSEErrorEvent
-          console.error('[SSE Manager] Server error:', data.message)
+          structuredLogger.error('SSE Manager server error', { error: data.message })
         } catch {
           // Generic error handling below
         }
       })
 
       this.eventSource.onerror = (error) => {
-        console.error('[SSE Manager] Connection error:', error)
+        structuredLogger.error('SSE Manager connection error', { error: error instanceof Error ? error.message : String(error) })
         this.handleConnectionError()
       }
     } catch (error) {
-      console.error('[SSE Manager] Failed to create EventSource:', error)
+      structuredLogger.error('SSE Manager failed to create EventSource', { error: error instanceof Error ? error.message : String(error) })
       this.handleConnectionError()
     }
   }
@@ -279,7 +280,7 @@ class PipelineSSEManagerImpl {
     // Notify listeners
     this.notifyStatusChange(pipelineId, status)
 
-    console.log(`[SSE Manager] Status update: ${pipelineId} ${previousStatus} -> ${status}`)
+    structuredLogger.info('SSE Manager status update', { pipeline_id: pipelineId, previous_status: previousStatus, status })
   }
 
   /**
@@ -291,7 +292,7 @@ class PipelineSSEManagerImpl {
       this.notifyStatusChange(pipelineId, status)
     })
 
-    console.log(`[SSE Manager] Batch update: ${event.updates.length} pipelines`)
+    structuredLogger.info('SSE Manager batch update', { pipeline_count: event.updates.length })
   }
 
   /**
@@ -315,13 +316,11 @@ class PipelineSSEManagerImpl {
     this.reconnectAttempts++
 
     if (this.reconnectAttempts >= this.config.maxReconnectAttempts) {
-      console.error(
-        `[SSE Manager] Max reconnection attempts (${this.config.maxReconnectAttempts}) reached`
-      )
+      structuredLogger.error('SSE Manager max reconnection attempts reached', { max_attempts: this.config.maxReconnectAttempts })
       this.setConnectionState('error')
 
       if (this.config.enablePollingFallback) {
-        console.log('[SSE Manager] Triggering fallback to polling')
+        structuredLogger.info('SSE Manager triggering fallback to polling')
         this.fallbackToPollingTriggered = true
         this.notifyFallbackTriggered()
       }
@@ -334,9 +333,7 @@ class PipelineSSEManagerImpl {
       this.config.maxReconnectDelay
     )
 
-    console.log(
-      `[SSE Manager] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.config.maxReconnectAttempts})`
-    )
+    structuredLogger.info('SSE Manager reconnecting', { delay_ms: delay, attempt: this.reconnectAttempts, max_attempts: this.config.maxReconnectAttempts })
     this.setConnectionState('reconnecting')
 
     this.reconnectTimeoutId = setTimeout(() => {
@@ -354,7 +351,7 @@ class PipelineSSEManagerImpl {
       const timeSinceLastHeartbeat = Date.now() - this.lastHeartbeat
 
       if (timeSinceLastHeartbeat > this.config.heartbeatTimeout) {
-        console.warn('[SSE Manager] Heartbeat timeout, reconnecting...')
+        structuredLogger.warn('SSE Manager heartbeat timeout, reconnecting')
         this.handleConnectionError()
       }
     }, this.config.heartbeatTimeout / 2)
@@ -391,7 +388,7 @@ class PipelineSSEManagerImpl {
       try {
         callback(state)
       } catch (error) {
-        console.error('[SSE Manager] Connection listener error:', error)
+        structuredLogger.error('SSE Manager connection listener error', { error: error instanceof Error ? error.message : String(error) })
       }
     })
   }
@@ -404,7 +401,7 @@ class PipelineSSEManagerImpl {
       try {
         callback(pipelineId, status)
       } catch (error) {
-        console.error('[SSE Manager] Status listener error:', error)
+        structuredLogger.error('SSE Manager status listener error', { error: error instanceof Error ? error.message : String(error) })
       }
     })
   }
@@ -429,12 +426,12 @@ class PipelineSSEManagerImpl {
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) {
         // Tab is hidden - disconnect to save resources
-        console.log('[SSE Manager] Tab hidden, disconnecting')
+        structuredLogger.debug('SSE Manager tab hidden, disconnecting')
         this.disconnect()
       } else {
         // Tab is visible again - reconnect if we have subscriptions
         if (this.subscribedPipelineIds.size > 0 && !this.fallbackToPollingTriggered) {
-          console.log('[SSE Manager] Tab visible, reconnecting')
+          structuredLogger.debug('SSE Manager tab visible, reconnecting')
           this.connect()
         }
       }
