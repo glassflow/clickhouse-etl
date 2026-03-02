@@ -136,6 +136,7 @@ export type PipelineApiResponse = any
 /**
  * Defines the internal structure of a pipeline configuration used by the UI.
  * This should remain stable even if the backend API format changes.
+ * V3 API uses sink.connection_params and sink.mapping; the adapter normalizes to this shape.
  *
  * @see PipelineApiResponse for the raw API type
  * @see PipelineAdapter.hydrate() for the conversion process

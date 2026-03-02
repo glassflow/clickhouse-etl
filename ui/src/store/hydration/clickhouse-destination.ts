@@ -123,6 +123,26 @@ export async function hydrateClickhouseDestination(pipelineConfig: any) {
   const sink = pipelineConfig?.sink
   if (!sink) return
 
+  // Optional: normalize raw V3 sink (connection_params + mapping) so rest of hydration works
+  if (sink.connection_params && !sink.table_mapping && Array.isArray(sink.mapping)) {
+    const cp = sink.connection_params
+    sink.host = cp.host ?? sink.host
+    sink.http_port = cp.http_port ?? sink.http_port
+    sink.port = cp.port ?? sink.port
+    sink.database = cp.database ?? sink.database
+    sink.username = cp.username ?? sink.username
+    sink.password = cp.password ?? sink.password
+    sink.secure = cp.secure ?? sink.secure
+    sink.skip_certificate_verification = cp.skip_certificate_verification
+    const sourceId = sink.source_id ?? ''
+    sink.table_mapping = sink.mapping.map((m: any) => ({
+      source_id: sourceId,
+      field_name: m.name,
+      column_name: m.column_name,
+      column_type: m.column_type,
+    }))
+  }
+
   // Decode base64 password if it's encoded
   let decodedPassword = sink.password || ''
   try {
