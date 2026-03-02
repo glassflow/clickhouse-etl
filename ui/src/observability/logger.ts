@@ -11,6 +11,9 @@ import { buildResourceAttributes } from './resource'
 
 let loggerProvider: LoggerProvider | null = null
 let logger: ReturnType<typeof logs.getLogger> | null = null
+let lazyInitPromise: Promise<void> | null = null
+const PENDING_QUEUE_MAX = 50
+const pendingLogs: Array<{ level: string; message: string; attributes?: LogAttributes }> = []
 
 /**
  * Configure logger with OpenTelemetry OTLP exporter
@@ -59,8 +62,25 @@ export function configureLogger(config: ObservabilityConfig): void {
     logger = logs.getLogger(config.serviceName, config.serviceVersion)
 
     console.log('[Observability] Logger configured with OTLP exporter:', config.otlpEndpoint)
+    flushPendingLogs()
   } catch (error) {
     console.error('[Observability] Failed to configure logger:', error)
+  }
+}
+
+/**
+ * Flush logs that were queued before the logger was ready (lazy init)
+ */
+function flushPendingLogs(): void {
+  while (pendingLogs.length > 0 && logger) {
+    const entry = pendingLogs.shift()!
+    logger.emit({
+      severityNumber: severityMap[entry.level] || SeverityNumber.INFO,
+      severityText: entry.level.toUpperCase(),
+      body: entry.message,
+      attributes: entry.attributes || {},
+      timestamp: Date.now(),
+    })
   }
 }
 
@@ -132,9 +152,37 @@ export const structuredLogger = {
 }
 
 /**
- * Emit a log record to OpenTelemetry
+ * Lazy-init logger on first use (fallback when instrumentation.ts does not run, e.g. standalone).
+ * Server-only; no-op on client.
+ */
+function ensureLoggerConfigured(): void {
+  if (typeof window !== 'undefined') return
+  if (logger !== null || lazyInitPromise !== null) return
+  lazyInitPromise = (async () => {
+    try {
+      const { loadObservabilityConfig } = await import('./config')
+      configureLogger(loadObservabilityConfig())
+    } catch (err) {
+      console.error('[Observability] Lazy init failed:', err)
+    } finally {
+      lazyInitPromise = null
+    }
+  })()
+}
+
+/**
+ * Emit a log record to OpenTelemetry.
+ * On server, if the logger is not yet configured (e.g. instrumentation did not run), logs are queued
+ * and sent once lazy init completes.
  */
 function emitLog(level: string, message: string, attributes?: LogAttributes) {
+  if (typeof window === 'undefined' && logger === null) {
+    if (pendingLogs.length < PENDING_QUEUE_MAX) {
+      pendingLogs.push({ level, message, attributes })
+    }
+    ensureLoggerConfigured()
+    return
+  }
   if (!logger) {
     return
   }
