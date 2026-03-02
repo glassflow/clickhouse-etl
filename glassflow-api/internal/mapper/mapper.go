@@ -2,6 +2,7 @@ package mapper
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 
@@ -36,16 +37,22 @@ func (m *KafkaToClickHouseMapper) Map(data []byte, schemaVersionID string, confi
 	metadata, exists := m.columnsMetadata[schemaVersionID]
 	m.mu.RUnlock()
 	if !exists {
+		// Sort config keys for deterministic column ordering
+		sortedKeys := make([]string, 0, len(config))
+		for k := range config {
+			sortedKeys = append(sortedKeys, k)
+		}
+		sort.Strings(sortedKeys)
+
 		columnsList := make([]string, len(config))
 		lookUpMap := make(map[string]columnInfo)
-		i := 0
-		for _, field := range config {
-			columnsList[i] = field.DestinationField
+		for idx, key := range sortedKeys {
+			field := config[key]
+			columnsList[idx] = field.DestinationField
 			lookUpMap[field.DestinationField] = columnInfo{
-				idx:        i,
+				idx:        idx,
 				columnType: ClickHouseDataType(field.DestinationType),
 			}
-			i++
 		}
 
 		metadata = columnMetadata{
@@ -53,7 +60,11 @@ func (m *KafkaToClickHouseMapper) Map(data []byte, schemaVersionID string, confi
 			columnLookUpInfo: lookUpMap,
 		}
 		m.mu.Lock()
-		m.columnsMetadata[schemaVersionID] = metadata
+		if existing, alreadyExists := m.columnsMetadata[schemaVersionID]; alreadyExists {
+			metadata = existing
+		} else {
+			m.columnsMetadata[schemaVersionID] = metadata
+		}
 		m.mu.Unlock()
 	}
 

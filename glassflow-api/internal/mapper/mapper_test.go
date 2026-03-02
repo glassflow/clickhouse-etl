@@ -219,20 +219,6 @@ func TestKafkaToClickHouseMapper_Map(t *testing.T) {
 		},
 		{
 			name: "maps flat dotted field names",
-			fields: []models.Mapping{
-				{
-					SourceField:      "container.image.name",
-					SourceType:       string(internal.KafkaTypeString),
-					DestinationField: "container_image_name",
-					DestinationType:  "String",
-				},
-				{
-					SourceField:      "host.name",
-					SourceType:       string(internal.KafkaTypeString),
-					DestinationField: "host_name",
-					DestinationType:  "String",
-				},
-			},
 			config: map[string]models.Mapping{
 				"container_image_name": {
 					SourceField:      "container.image.name",
@@ -248,7 +234,7 @@ func TestKafkaToClickHouseMapper_Map(t *testing.T) {
 				},
 			},
 			data:     []byte(`{"container.image.name":"my-image","host.name":"server-1"}`),
-			expected: []any{"my-image", "server-1"},
+			expected: map[string]any{"container_image_name": "my-image", "host_name": "server-1"},
 		},
 		{
 			name: "handles missing fields with nil values",
