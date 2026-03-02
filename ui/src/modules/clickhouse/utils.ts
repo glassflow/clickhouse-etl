@@ -508,8 +508,20 @@ export const buildInternalPipelineConfig = ({
         : {}),
       // Ensure missing required fields are handled or typed as optional in InternalPipelineConfig if needed
       // but assuming they are filled by the spread above or default values
-      table: clickhouseDestination?.table,
+      // For create_new path use tableName; for use_existing use table
+      table:
+        clickhouseDestination?.destinationPath === 'create_new'
+          ? clickhouseDestination?.tableName || clickhouseDestination?.table
+          : clickhouseDestination?.table,
       table_mapping: tableMappings,
+      ...(clickhouseDestination?.destinationPath === 'create_new' &&
+      clickhouseDestination?.engine &&
+      clickhouseDestination?.orderBy
+        ? {
+            table_engine: clickhouseDestination.engine,
+            order_by: clickhouseDestination.orderBy,
+          }
+        : {}),
     } as any, // Type assertion to bypass strict checks on conditional properties for now
     // Include filter configuration only for single-topic pipelines
     // Filter is not available for multi-topic journeys
@@ -801,6 +813,13 @@ export function isTypeCompatible(sourceType: string | undefined, clickhouseType:
 
   // Check if any compatible type matches (partially) the ClickHouse type
   return compatibleTypes.some((type) => clickhouseType.includes(type))
+}
+
+/** Default ClickHouse type for a JSON/Kafka type when auto-generating new table mapping. */
+export function defaultClickHouseTypeForJsonType(jsonType: string): string {
+  const key = (jsonType || 'string').toLowerCase()
+  const options = TYPE_COMPATIBILITY_MAP[key]
+  return options?.[0] ?? 'String'
 }
 
 /**

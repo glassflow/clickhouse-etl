@@ -7,18 +7,38 @@ import {
   createInvalidatedValidation,
 } from '@/src/types/validation'
 
+export type DestinationPath = 'create_new' | 'use_existing'
+
 export interface ClickhouseDestinationProps {
   // destination configuration including mapping and other settings
   clickhouseDestination: {
     scheme: string
     database: string
     table: string
+    /** Path: create new table vs use existing table. Default create_new. */
+    destinationPath: DestinationPath
+    /** For create_new path: name of the table to create. */
+    tableName: string
+    /** For create_new path: ClickHouse table engine (e.g. MergeTree). */
+    engine: string
+    /** For create_new path: column name for ORDER BY. */
+    orderBy: string
     mapping: any[]
     destinationColumns: any[]
     maxBatchSize: number
     maxDelayTime: number
     maxDelayTimeUnit: string
     // useSSL: boolean
+  }
+  /** Last saved destination (for draft discard). Used in standalone edit mode. */
+  lastSavedDestination: null | {
+    database: string
+    table: string
+    mapping: any[]
+    destinationColumns: any[]
+    tableName?: string
+    engine?: string
+    orderBy?: string
   }
   // validation state
   validation: ValidationState
@@ -29,12 +49,17 @@ export const initialClickhouseDestinationStore: ClickhouseDestinationProps = {
     scheme: '',
     database: '',
     table: '',
+    destinationPath: 'create_new',
+    tableName: '',
+    engine: '',
+    orderBy: '',
     mapping: [],
     destinationColumns: [],
     maxBatchSize: 1000,
     maxDelayTime: 1,
     maxDelayTimeUnit: 'm',
   },
+  lastSavedDestination: null,
   validation: createInitialValidation(),
 }
 
@@ -44,6 +69,10 @@ export interface ClickhouseDestinationStore extends ClickhouseDestinationProps, 
     scheme: string
     database: string
     table: string
+    destinationPath?: DestinationPath
+    tableName?: string
+    engine?: string
+    orderBy?: string
     mapping: any[]
     destinationColumns: any[]
     maxBatchSize: number
@@ -62,6 +91,10 @@ export interface ClickhouseDestinationStore extends ClickhouseDestinationProps, 
       scheme: string
       database: string
       table: string
+      destinationPath: DestinationPath
+      tableName: string
+      engine: string
+      orderBy: string
       mapping: any[]
       destinationColumns: any[]
       maxBatchSize: number
@@ -69,6 +102,14 @@ export interface ClickhouseDestinationStore extends ClickhouseDestinationProps, 
       maxDelayTimeUnit: string
     }>,
   ) => void
+  /** Set destination path; resets only path-specific fields, preserves batch settings. */
+  setDestinationPath: (path: DestinationPath) => void
+  /** Save current destination as lastSavedDestination (for discard draft). */
+  saveDestinationSnapshot: () => void
+  /** Revert to lastSavedDestination (discard draft). No ALTER or API calls. */
+  discardDraft: () => void
+  /** True if current destination differs from lastSavedDestination. */
+  hasDraftChanges: () => boolean
   resetDestinationState: () => void
   getIsDestinationMappingDirty: () => boolean
   resetDestinationStore: () => void
@@ -85,6 +126,10 @@ export const createClickhouseDestinationSlice: StateCreator<ClickhouseDestinatio
       scheme: '',
       database: '',
       table: '',
+      destinationPath: 'create_new',
+      tableName: '',
+      engine: '',
+      orderBy: '',
       destinationColumns: [],
       mapping: [],
       maxBatchSize: 1000,
@@ -92,6 +137,7 @@ export const createClickhouseDestinationSlice: StateCreator<ClickhouseDestinatio
       maxDelayTimeUnit: 'm',
       useSSL: true,
     },
+    lastSavedDestination: null,
     // validation state
     validation: createInitialValidation(),
 
@@ -101,14 +147,19 @@ export const createClickhouseDestinationSlice: StateCreator<ClickhouseDestinatio
         clickhouseDestinationStore: {
           ...state.clickhouseDestinationStore,
           clickhouseDestination: {
+            ...state.clickhouseDestinationStore.clickhouseDestination,
             scheme: '',
             database: '',
             table: '',
+            destinationPath: 'create_new',
+            tableName: '',
+            engine: '',
+            orderBy: '',
             destinationColumns: [],
             mapping: [],
-            maxBatchSize: 1000,
-            maxDelayTime: 1,
-            maxDelayTimeUnit: 'm',
+            maxBatchSize: state.clickhouseDestinationStore.clickhouseDestination.maxBatchSize,
+            maxDelayTime: state.clickhouseDestinationStore.clickhouseDestination.maxDelayTime,
+            maxDelayTimeUnit: state.clickhouseDestinationStore.clickhouseDestination.maxDelayTimeUnit,
           },
         },
       })),
@@ -117,20 +168,136 @@ export const createClickhouseDestinationSlice: StateCreator<ClickhouseDestinatio
       scheme: string
       database: string
       table: string
+      destinationPath?: DestinationPath
+      tableName?: string
+      engine?: string
+      orderBy?: string
       mapping: any[]
       destinationColumns: any[]
       maxBatchSize: number
       maxDelayTime: number
       maxDelayTimeUnit: string
-      // useSSL: boolean
     }) =>
-      set((state) => ({
-        clickhouseDestinationStore: {
-          ...state.clickhouseDestinationStore,
-          clickhouseDestination: destination,
-          validation: createValidValidation(), // Auto-mark as valid when destination is set
-        },
-      })),
+      set((state) => {
+        const prev = state.clickhouseDestinationStore.clickhouseDestination
+        return {
+          clickhouseDestinationStore: {
+            ...state.clickhouseDestinationStore,
+            clickhouseDestination: {
+              scheme: destination.scheme,
+              database: destination.database,
+              table: destination.table,
+              destinationPath: destination.destinationPath ?? prev.destinationPath,
+              tableName: destination.tableName ?? prev.tableName,
+              engine: destination.engine ?? prev.engine,
+              orderBy: destination.orderBy ?? prev.orderBy,
+              mapping: destination.mapping,
+              destinationColumns: destination.destinationColumns,
+              maxBatchSize: destination.maxBatchSize,
+              maxDelayTime: destination.maxDelayTime,
+              maxDelayTimeUnit: destination.maxDelayTimeUnit,
+            },
+            validation: createValidValidation(),
+          },
+        }
+      }),
+
+    setDestinationPath: (path: DestinationPath) =>
+      set((state) => {
+        const prev = state.clickhouseDestinationStore.clickhouseDestination
+        const batch = { maxBatchSize: prev.maxBatchSize, maxDelayTime: prev.maxDelayTime, maxDelayTimeUnit: prev.maxDelayTimeUnit }
+        if (path === 'create_new') {
+          return {
+            clickhouseDestinationStore: {
+              ...state.clickhouseDestinationStore,
+              clickhouseDestination: {
+                ...prev,
+                destinationPath: 'create_new',
+                table: '',
+                tableName: '',
+                engine: '',
+                orderBy: '',
+                mapping: [],
+                destinationColumns: [],
+                ...batch,
+              },
+            },
+          }
+        }
+        return {
+          clickhouseDestinationStore: {
+            ...state.clickhouseDestinationStore,
+            clickhouseDestination: {
+              ...prev,
+              destinationPath: 'use_existing',
+              tableName: '',
+              engine: '',
+              orderBy: '',
+              table: '',
+              mapping: [],
+              destinationColumns: [],
+              ...batch,
+            },
+          },
+        }
+      }),
+
+    saveDestinationSnapshot: () =>
+      set((state) => {
+        const d = state.clickhouseDestinationStore.clickhouseDestination
+        return {
+          clickhouseDestinationStore: {
+            ...state.clickhouseDestinationStore,
+            lastSavedDestination: {
+              database: d.database,
+              table: d.table,
+              mapping: JSON.parse(JSON.stringify(d.mapping)),
+              destinationColumns: JSON.parse(JSON.stringify(d.destinationColumns)),
+              tableName: d.tableName,
+              engine: d.engine,
+              orderBy: d.orderBy,
+            },
+          },
+        }
+      }),
+
+    discardDraft: () =>
+      set((state) => {
+        const saved = state.clickhouseDestinationStore.lastSavedDestination
+        if (!saved) return state
+        const d = state.clickhouseDestinationStore.clickhouseDestination
+        return {
+          clickhouseDestinationStore: {
+            ...state.clickhouseDestinationStore,
+            clickhouseDestination: {
+              ...d,
+              database: saved.database,
+              table: saved.table,
+              mapping: JSON.parse(JSON.stringify(saved.mapping)),
+              destinationColumns: JSON.parse(JSON.stringify(saved.destinationColumns)),
+              tableName: saved.tableName ?? '',
+              engine: saved.engine ?? '',
+              orderBy: saved.orderBy ?? '',
+            },
+          },
+        }
+      }),
+
+    hasDraftChanges: () => {
+      const state = get()
+      const saved = state.clickhouseDestinationStore.lastSavedDestination
+      if (!saved) return false
+      const d = state.clickhouseDestinationStore.clickhouseDestination
+      return (
+        d.database !== saved.database ||
+        d.table !== saved.table ||
+        d.tableName !== (saved.tableName ?? '') ||
+        d.engine !== (saved.engine ?? '') ||
+        d.orderBy !== (saved.orderBy ?? '') ||
+        JSON.stringify(d.mapping) !== JSON.stringify(saved.mapping) ||
+        JSON.stringify(d.destinationColumns) !== JSON.stringify(saved.destinationColumns)
+      )
+    },
 
     updateClickhouseDestinationDraft: (
       partial: Partial<{

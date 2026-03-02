@@ -177,6 +177,27 @@ export function buildTestQuery(testType: string, database?: string, table?: stri
   }
 }
 
+/** Build CREATE TABLE statement for new table creation. Columns: { name, type, isNullable }. */
+export function buildCreateTableQuery(
+  database: string,
+  table: string,
+  engine: string,
+  orderBy: string,
+  columns: { name: string; type: string; isNullable?: boolean }[],
+): string {
+  const escapeId = (id: string) => '`' + String(id).replace(/`/g, '``') + '`'
+  const dbId = escapeId(database)
+  const tableId = escapeId(table)
+  const orderById = escapeId(orderBy)
+  const columnDefs = columns
+    .map((c) => {
+      const typeStr = (c.isNullable ? `Nullable(${c.type})` : c.type).trim()
+      return `${escapeId(c.name)} ${typeStr}`
+    })
+    .join(', ')
+  return `CREATE TABLE ${dbId}.${tableId} (${columnDefs}) ENGINE = ${engine} ORDER BY (${orderById})`
+}
+
 // Parse test results based on test type
 export function parseTestResult(testType: string, data: string, database?: string, table?: string) {
   switch (testType) {

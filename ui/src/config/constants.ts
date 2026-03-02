@@ -53,6 +53,17 @@ export const JSON_DATA_TYPES = ['string', 'bool', 'int', 'uint', 'float', 'bytes
 
 export const JSON_DATA_TYPES_DEDUPLICATION_JOIN = ['string', 'int', 'uint']
 
+/** Supported ClickHouse table engines for new table creation. Order matches common use. */
+export const CLICKHOUSE_TABLE_ENGINES = [
+  'MergeTree',
+  'ReplacingMergeTree',
+  'SummingMergeTree',
+  'AggregatingMergeTree',
+  'CollapsingMergeTree',
+  'VersionedCollapsingMergeTree',
+  'GraphiteMergeTree',
+] as const
+
 // ClickHouse data types
 export const CLICKHOUSE_DATA_TYPES = [
   'String',

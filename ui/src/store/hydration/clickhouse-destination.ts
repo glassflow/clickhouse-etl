@@ -90,6 +90,10 @@ function mapBackendClickhouseDestinationToStore(sink: any, schemaFields?: any[])
     scheme: '', // If you use this, fill from config or leave empty
     database: sink.database || '',
     table: sink.table || '',
+    destinationPath: sink.table ? 'use_existing' : 'create_new',
+    tableName: sink.table ?? '',
+    engine: (sink as any).table_engine ?? '',
+    orderBy: (sink as any).order_by ?? '',
     mapping: uiMapping,
     destinationColumns: [], // Will fill after fetching schema
     maxBatchSize: sink.max_batch_size || 1000,
