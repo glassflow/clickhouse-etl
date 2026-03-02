@@ -269,7 +269,7 @@ func (s *SinkTestSuite) iRunClickHouseSink() error {
 		},
 	)
 
-	kafkaMapper := mapper.NewKafkaToClickHouseMapper(s.pipelineConfig.Sink.Config)
+	kafkaMapper := mapper.NewKafkaToClickHouseMapper()
 	cfgStore := s.configStore.(*configs.ConfigStore)
 	sink, err := component.NewSinkComponent(
 		s.pipelineConfig.Sink,

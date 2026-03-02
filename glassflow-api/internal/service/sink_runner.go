@@ -124,7 +124,7 @@ func (s *SinkRunner) Start(ctx context.Context) error {
 	sinkComponent, err := component.NewSinkComponent(
 		s.pipelineCfg.Sink,
 		consumer,
-		mapper.NewKafkaToClickHouseMapper(s.pipelineCfg.Sink.Config),
+		mapper.NewKafkaToClickHouseMapper(),
 		configs.NewConfigStore(s.db, s.pipelineCfg.ID, s.pipelineCfg.Sink.SourceID),
 		s.doneCh,
 		s.log,
