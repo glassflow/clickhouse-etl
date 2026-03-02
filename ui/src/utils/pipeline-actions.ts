@@ -170,13 +170,13 @@ const getBaseActionConfig = (action: PipelineAction, pipelineStatus: Pipeline['s
           return {
             ...baseConfig,
             isDisabled: true,
-            disabledReason: 'Pipeline is already stopped',
+            disabledReason: 'Pipeline is already paused',
           }
         case PIPELINE_STATUS_MAP.stopping:
           return {
             ...baseConfig,
             isDisabled: true,
-            disabledReason: 'Pipeline is already being stopped',
+            disabledReason: 'Pipeline is already being paused',
           }
         case PIPELINE_STATUS_MAP.starting:
           return {
@@ -313,7 +313,7 @@ export const getVisibleActions = (
 export const getActionButtonText = (action: PipelineAction, pipelineStatus: Pipeline['status']): string => {
   switch (action) {
     case 'stop':
-      return pipelineStatus === PIPELINE_STATUS_MAP.stopping ? 'Stopping...' : 'Stop'
+      return pipelineStatus === PIPELINE_STATUS_MAP.stopping ? 'Pausing...' : 'Pause'
     case 'resume':
       return pipelineStatus === PIPELINE_STATUS_MAP.resuming ? 'Resuming...' : 'Resume'
     case 'terminate':

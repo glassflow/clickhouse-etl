@@ -873,3 +873,45 @@ export const getMappingType = (eventField: string, mapping: any) => {
   // NOTE: default to string if no mapping entry is found - check this
   return 'string'
 }
+
+/** Normalize type for comparison (strip Nullable wrapper). */
+function normalizeType(t: string | undefined): string {
+  return (t || '').replace(/^Nullable\((.*)\)$/, '$1').trim()
+}
+
+/**
+ * Compute ALTER TABLE operations from saved mapping to current mapping (use_existing path).
+ * Returns operations in order: drop, add, modify (rename not computed here).
+ */
+export function computeAlterTableOperations(
+  savedMapping: { name: string; type?: string; isNullable?: boolean }[],
+  currentMapping: { name: string; type?: string; isNullable?: boolean }[],
+): { op: 'add' | 'modify' | 'drop'; name: string; newName?: string; type?: string; isNullable?: boolean }[] {
+  const savedByName = new Map(savedMapping.map((c) => [c.name, c]))
+  const currentByName = new Map(currentMapping.map((c) => [c.name, c]))
+  const operations: { op: 'add' | 'modify' | 'drop'; name: string; newName?: string; type?: string; isNullable?: boolean }[] = []
+
+  for (const col of savedMapping) {
+    if (!col.name) continue
+    if (!currentByName.has(col.name)) {
+      operations.push({ op: 'drop', name: col.name })
+    }
+  }
+  for (const col of currentMapping) {
+    if (!col.name) continue
+    const typeStr = (col.type || 'String').replace(/^Nullable\((.*)\)$/, '$1')
+    const isNullable = col.isNullable ?? (col.type || '').includes('Nullable')
+    if (!savedByName.has(col.name)) {
+      operations.push({ op: 'add', name: col.name, type: typeStr, isNullable })
+    } else {
+      const saved = savedByName.get(col.name)!
+      const savedType = normalizeType(saved.type)
+      const currType = normalizeType(col.type)
+      const savedNull = saved.isNullable ?? (saved.type || '').includes('Nullable')
+      if (savedType !== currType || savedNull !== isNullable) {
+        operations.push({ op: 'modify', name: col.name, type: typeStr, isNullable })
+      }
+    }
+  }
+  return operations
+}

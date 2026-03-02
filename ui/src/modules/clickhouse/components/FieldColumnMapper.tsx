@@ -3,20 +3,29 @@
 import { useEffect } from 'react'
 import { structuredLogger } from '@/src/observability'
 import { Table, TableHeader, TableBody, TableCell, TableRow, TableHead } from '@/src/components/ui/table'
+import { Input } from '@/src/components/ui/input'
 import { SearchableSelect } from '@/src/components/common/SearchableSelect'
 import { DualSearchableSelect } from '@/src/components/common/DualSearchableSelect'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/src/components/ui/select'
 // Icons removed since status column is no longer used
 import { ColumnMappingType } from '@/src/scheme/clickhouse.scheme'
-import { JSON_DATA_TYPES } from '@/src/config/constants'
+import { JSON_DATA_TYPES, CLICKHOUSE_DATA_TYPES } from '@/src/config/constants'
 import { TableColumn } from '../types'
 import { useState } from 'react'
 import { isTypeCompatible } from '../utils'
 import Image from 'next/image'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 import { CacheRefreshButton } from './CacheRefreshButton'
-import { SparklesIcon } from '@heroicons/react/24/outline'
+import { SparklesIcon, PlusIcon, ChevronDownIcon } from '@heroicons/react/24/outline'
 import { Button } from '@/src/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from '@/src/components/ui/dropdown-menu'
 import { cn } from '@/src/utils/common.client'
 
 // Import topic icons
@@ -43,6 +52,12 @@ interface FieldColumnMapperProps {
   onAutoMap: () => boolean // Trigger automatic field-to-column mapping
   selectedDatabase: string
   selectedTable: string
+  /** Add a new mapping row by selecting a field from the schema (type auto-filled) */
+  onAddFromSchema?: (fieldName: string, sourceTopic?: string) => void
+  /** Add a new mapping row manually (user fills column name and type) */
+  onAddManual?: () => void
+  /** Column names that are Nullable in the table schema (block switching to NOT NULL) */
+  existingNullableColumns?: string[]
 }
 
 export function FieldColumnMapper({
@@ -63,8 +78,13 @@ export function FieldColumnMapper({
   onAutoMap,
   selectedDatabase,
   selectedTable,
+  onAddFromSchema,
+  onAddManual,
+  existingNullableColumns = [],
 }: FieldColumnMapperProps) {
   const [openSelectIndex, setOpenSelectIndex] = useState<number | null>(null)
+  const mappedFieldSet = new Set(mappedColumns.map((c) => c.eventField).filter(Boolean))
+  const existingNullableSet = new Set(existingNullableColumns)
   const analytics = useJourneyAnalytics()
   const handleSelectOpen = (index: number, isOpen: boolean) => {
     setOpenSelectIndex(isOpen ? index : null)
@@ -120,6 +140,71 @@ export function FieldColumnMapper({
           {readOnly && <span className="text-sm text-[var(--color-foreground-neutral-faded)] ml-2">(Read-only)</span>}
         </h3>
         <div className="flex gap-2">
+          {(onAddFromSchema || onAddManual) && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="secondary"
+                  size="custom"
+                  disabled={readOnly}
+                  className={cn(
+                    'transition-all duration-200',
+                    readOnly && 'opacity-50 cursor-not-allowed text-muted-foreground',
+                  )}
+                >
+                  <PlusIcon className="h-4 w-4" />
+                  <span>Add Mapping</span>
+                  <ChevronDownIcon className="h-3 w-3 ml-1" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="min-w-[220px] max-h-[300px] overflow-y-auto">
+                {onAddFromSchema && (
+                  <>
+                    <DropdownMenuLabel className="text-xs text-muted-foreground">Select field from schema</DropdownMenuLabel>
+                    {isJoinMapping ? (
+                      <>
+                        {primaryEventFields.filter((f) => !mappedFieldSet.has(f)).map((field) => (
+                          <DropdownMenuItem
+                            key={`primary-${field}`}
+                            onClick={() => onAddFromSchema(field, primaryTopicName)}
+                          >
+                            <Image src={leftTopicIcon} alt="" height={14} width={14} className="mr-2" />
+                            {field}
+                          </DropdownMenuItem>
+                        ))}
+                        {secondaryEventFields.filter((f) => !mappedFieldSet.has(f)).map((field) => (
+                          <DropdownMenuItem
+                            key={`secondary-${field}`}
+                            onClick={() => onAddFromSchema(field, secondaryTopicName)}
+                          >
+                            <Image src={rightTopicIcon} alt="" height={14} width={14} className="mr-2" />
+                            {field}
+                          </DropdownMenuItem>
+                        ))}
+                      </>
+                    ) : (
+                      eventFields.filter((f) => !mappedFieldSet.has(f)).map((field) => (
+                        <DropdownMenuItem key={field} onClick={() => onAddFromSchema(field)}>
+                          {field}
+                        </DropdownMenuItem>
+                      ))
+                    )}
+                    {(onAddManual && (isJoinMapping ? primaryEventFields.length + secondaryEventFields.length : eventFields.length) > 0) && (
+                      <DropdownMenuSeparator />
+                    )}
+                  </>
+                )}
+                {onAddManual && (
+                  <>
+                    {onAddFromSchema && <DropdownMenuLabel className="text-xs text-muted-foreground">Or</DropdownMenuLabel>}
+                    <DropdownMenuItem onClick={onAddManual}>
+                      Add field manually
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
           <Button
             variant="secondary"
             size="custom"
@@ -292,10 +377,50 @@ export function FieldColumnMapper({
                   )}
                 </TableCell>
                 <TableCell className="text-content w-[40%]">
-                  <div className="flex justify-between bg-[var(--color-background-elevation-raised-faded)] my-1 rounded-sm p-3">
-                    <span>{column.name}</span>
-                    <span className="text-xs text-content-secondary">{column.type || 'Unknown'}</span>
-                  </div>
+                  {!readOnly && column.eventField === '' ? (
+                    <div className="flex flex-col gap-2 my-1">
+                      <Input
+                        value={column.name}
+                        onChange={(e) => updateColumnMapping(index, 'name', e.target.value)}
+                        placeholder="Destination column name (required)"
+                        className="w-full"
+                      />
+                      <Select
+                        value={column.type || 'String'}
+                        onValueChange={(v) => updateColumnMapping(index, 'type', v)}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Data type (required)" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {CLICKHOUSE_DATA_TYPES.map((t) => (
+                            <SelectItem key={t} value={t}>
+                              {t}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-1 bg-[var(--color-background-elevation-raised-faded)] my-1 rounded-sm p-3">
+                      <div className="flex justify-between">
+                        <span>{column.name}</span>
+                        <span className="text-xs text-content-secondary">{column.type || 'Unknown'}</span>
+                      </div>
+                      {existingNullableSet.has(column.name) ? (
+                        <p className="text-xs text-muted-foreground">Nullable (cannot change to NOT NULL)</p>
+                      ) : !readOnly ? (
+                        <label className="flex items-center gap-2 text-xs cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={column.isNullable !== false}
+                            onChange={(e) => updateColumnMapping(index, 'isNullable', e.target.checked)}
+                          />
+                          Nullable
+                        </label>
+                      ) : null}
+                    </div>
+                  )}
                   {hasAnyIssue && (
                     <div className="text-xs font-medium leading-tight overflow-hidden mt-1">
                       <span className="text-transparent">Placeholder for alignment</span>

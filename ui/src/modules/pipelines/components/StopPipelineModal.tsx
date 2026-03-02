@@ -4,12 +4,12 @@ function StopPipelineModal({ visible, onOk, onCancel }: { visible: boolean; onOk
   return (
     <ConfirmationModal
       visible={visible}
-      title="Stop Pipeline?"
+      title="Pause Pipeline?"
       description={`<div>
-        <div style="margin-bottom: 16px;">Any events currently in the queue will be processed before stopping, which may take some time.</div>
-        <div>Are you sure you want to stop?</div>
+        <div style="margin-bottom: 16px;">Any events currently in the queue will be processed before pausing, which may take some time.</div>
+        <div>Are you sure you want to pause?</div>
       </div>`}
-      okButtonText="Stop"
+      okButtonText="Pause"
       cancelButtonText="Cancel"
       onComplete={(result) => {
         if (result === ModalResult.YES) {

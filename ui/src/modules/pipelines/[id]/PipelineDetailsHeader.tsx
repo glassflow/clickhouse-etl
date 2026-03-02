@@ -68,8 +68,9 @@ function PipelineDetailsHeader({
   const menuButtonRef = useRef<HTMLButtonElement>(null)
   const recentActionRef = useRef<{ action: PipelineAction; timestamp: number } | null>(null)
 
-  // Get store to check for unsaved changes
-  const { coreStore } = useStore()
+  // Get store to check for unsaved changes and destination draft
+  const { coreStore, clickhouseDestinationStore } = useStore()
+  const hasDraftChanges = clickhouseDestinationStore.hasDraftChanges()
 
   // Get centralized pipeline status and operations
   const centralizedStatus = usePipelineState(pipeline.pipeline_id)
@@ -368,7 +369,10 @@ function PipelineDetailsHeader({
     const config = getActionConfiguration(action)
     const buttonText = getButtonText(action)
     // isActionDisabled already accounts for demo mode via the hook options
-    const disabled = isActionDisabled(action)
+    const disabledByStatus = isActionDisabled(action)
+    const disabledByDraft = action === 'resume' && hasDraftChanges
+    const disabled = disabledByStatus || disabledByDraft
+    const title = disabledByDraft ? 'Save or discard destination changes before starting' : config.disabledReason
 
     // Use regular Button for more flexibility with loading states and disabled state
     return (
@@ -378,7 +382,7 @@ function PipelineDetailsHeader({
         className="group !px-3 !py-1.5 h-auto text-sm"
         onClick={() => handleActionClick(action)}
         disabled={disabled}
-        title={config.disabledReason}
+        title={title}
       >
         {actionState.isLoading && actionState.lastAction === action ? (
           <span className="flex items-center gap-2">
@@ -399,7 +403,7 @@ function PipelineDetailsHeader({
             {action === 'stop' && (
               <Image
                 src={StopWhiteIcon}
-                alt="Stop"
+                alt="Pause"
                 width={14}
                 height={14}
                 className="filter brightness-100 group-hover:brightness-0"
@@ -451,7 +455,10 @@ function PipelineDetailsHeader({
   const renderMenuButton = (action: PipelineAction, label: string, icon: any) => {
     const config = getActionConfiguration(action)
     // isActionDisabled already accounts for demo mode via the hook options
-    const disabled = isActionDisabled(action)
+    const disabledByStatus = isActionDisabled(action)
+    const disabledByDraft = action === 'resume' && hasDraftChanges
+    const disabled = disabledByStatus || disabledByDraft
+    const title = disabledByDraft ? 'Save or discard destination changes before starting' : config.disabledReason
 
     // Determine if this is a destructive action
     const isDestructive = action === 'terminate' || action === 'delete'
@@ -475,7 +482,7 @@ function PipelineDetailsHeader({
           }
         }}
         disabled={disabled}
-        title={config.disabledReason}
+        title={title}
       >
         <Image
           src={icon}
@@ -551,7 +558,7 @@ function PipelineDetailsHeader({
                   {/* Show resume in menu if not primary */}
                   {showResume && primaryAction !== 'resume' && renderMenuButton('resume', 'Resume', PlayIcon)}
                   {/* Show stop in menu if not primary */}
-                  {showStop && primaryAction !== 'stop' && renderMenuButton('stop', 'Stop', StopWhiteIcon)}
+                  {showStop && primaryAction !== 'stop' && renderMenuButton('stop', 'Pause', StopWhiteIcon)}
                   {showRename && renderMenuButton('rename', 'Rename', RenameIcon)}
                   {showTerminate && renderMenuButton('terminate', 'Terminate', CloseIcon)}
                   {/* Show delete in menu if not primary */}
@@ -695,7 +702,7 @@ function PipelineDetailsHeader({
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <Image src={Loader} alt="Loading" width={24} height={24} className="animate-spin" />
                   <span className="text-sm text-blue-600 font-medium whitespace-nowrap">
-                    {actionState.lastAction === 'stop' && 'Stopping pipeline...'}
+                    {actionState.lastAction === 'stop' && 'Pausing pipeline...'}
                     {actionState.lastAction === 'resume' && 'Resuming pipeline...'}
                     {actionState.lastAction === 'terminate' && 'Terminating pipeline...'}
                     {actionState.lastAction === 'delete' && 'Deleting pipeline...'}

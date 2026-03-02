@@ -198,6 +198,48 @@ export function buildCreateTableQuery(
   return `CREATE TABLE ${dbId}.${tableId} (${columnDefs}) ENGINE = ${engine} ORDER BY (${orderById})`
 }
 
+/** Operation for ALTER TABLE: add, modify, drop, rename */
+export type AlterTableOp = 'add' | 'modify' | 'drop' | 'rename'
+
+export interface AlterTableOperation {
+  op: AlterTableOp
+  name: string
+  newName?: string
+  type?: string
+  isNullable?: boolean
+}
+
+/** Build ALTER TABLE statements for the given operations. Runs in order. */
+export function buildAlterTableQueries(
+  database: string,
+  table: string,
+  operations: AlterTableOperation[],
+): string[] {
+  const escapeId = (id: string) => '`' + String(id).replace(/`/g, '``') + '`'
+  const dbId = escapeId(database)
+  const tableId = escapeId(table)
+  const queries: string[] = []
+  for (const op of operations) {
+    const nameId = escapeId(op.name)
+    if (op.op === 'add') {
+      if (!op.type) throw new Error(`ADD COLUMN "${op.name}" requires type`)
+      const typeStr = (op.isNullable !== false ? `Nullable(${op.type})` : op.type).trim()
+      queries.push(`ALTER TABLE ${dbId}.${tableId} ADD COLUMN ${nameId} ${typeStr}`)
+    } else if (op.op === 'drop') {
+      queries.push(`ALTER TABLE ${dbId}.${tableId} DROP COLUMN ${nameId}`)
+    } else if (op.op === 'modify') {
+      if (!op.type) throw new Error(`MODIFY COLUMN "${op.name}" requires type`)
+      const typeStr = (op.isNullable !== false ? `Nullable(${op.type})` : op.type).trim()
+      queries.push(`ALTER TABLE ${dbId}.${tableId} MODIFY COLUMN ${nameId} ${typeStr}`)
+    } else if (op.op === 'rename') {
+      if (!op.newName) throw new Error(`RENAME COLUMN "${op.name}" requires newName`)
+      const newNameId = escapeId(op.newName)
+      queries.push(`ALTER TABLE ${dbId}.${tableId} RENAME COLUMN ${nameId} TO ${newNameId}`)
+    }
+  }
+  return queries
+}
+
 // Parse test results based on test type
 export function parseTestResult(testType: string, data: string, database?: string, table?: string) {
   switch (testType) {

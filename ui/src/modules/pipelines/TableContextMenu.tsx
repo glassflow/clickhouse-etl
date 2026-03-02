@@ -124,12 +124,12 @@ export const TableContextMenu = ({
               >
                 <Image
                   src={StopWhiteIcon}
-                  alt="Stop"
+                  alt="Pause"
                   width={16}
                   height={16}
                   className="filter brightness-100 group-hover:brightness-0"
                 />
-                <span className="truncate">Stop</span>
+                <span className="truncate">Pause</span>
               </Button>
             )}
 

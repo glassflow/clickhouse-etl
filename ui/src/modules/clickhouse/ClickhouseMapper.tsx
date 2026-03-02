@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from '@/src/components/ui/select'
 import FormActions from '@/src/components/shared/FormActions'
-import { createPipeline } from '@/src/api/pipeline-api'
+import { createPipeline, editPipeline } from '@/src/api/pipeline-api'
 import { Pipeline } from '@/src/types/pipeline'
 import DownloadIconWhite from '@/src/images/download-white.svg'
 import Image from 'next/image'
@@ -42,6 +42,7 @@ import {
   hasDefaultExpression,
   defaultClickHouseTypeForJsonType,
   getFieldType,
+  computeAlterTableOperations,
 } from './utils'
 import { extractEventFields } from '@/src/utils/common.client'
 
@@ -218,6 +219,9 @@ export function ClickhouseMapper({
 
   // State to store config when deployment fails (for download)
   const [failedDeploymentConfig, setFailedDeploymentConfig] = useState<any>(null)
+
+  // Conflict after reload: draft no longer matches table schema (column removed or type changed in DB)
+  const [schemaReloadConflict, setSchemaReloadConflict] = useState<string | null>(null)
 
   const selectedTopics = useMemo(() => {
     if (mode === 'single') {
@@ -537,6 +541,28 @@ export function ClickhouseMapper({
       })
     }
   }, [storeSchema, tableSchema.columns, mappedColumns, updateClickhouseDestinationDraft])
+
+  // Clear conflict when user aligns draft (current mappedColumns match tableSchema) or when path is create_new
+  useEffect(() => {
+    if (!schemaReloadConflict) return
+    if (destinationPath !== 'use_existing') {
+      setSchemaReloadConflict(null)
+      return
+    }
+    if (tableSchema.columns.length === 0) return
+    const newColumnsByName = new Map(
+      tableSchema.columns.map((c) => [c.name, c.type || (c as any).column_type || '']),
+    )
+    const stillConflicted = mappedColumns.some((col) => {
+      if (!col.name) return false
+      const inNew = newColumnsByName.get(col.name)
+      if (inNew === undefined) return true
+      const draftType = (col.type || '').replace(/^Nullable\((.*)\)$/, '$1')
+      const newType = (inNew || '').replace(/^Nullable\((.*)\)$/, '$1')
+      return draftType !== newType
+    })
+    if (!stillConflicted) setSchemaReloadConflict(null)
+  }, [schemaReloadConflict, destinationPath, tableSchema.columns, mappedColumns])
 
   // When entering standalone edit mode, save a snapshot so Discard can revert to it
   useEffect(() => {
@@ -1011,6 +1037,69 @@ export function ClickhouseMapper({
       mapping: updatedColumns,
     })
   }
+
+  // Add mapping row: select field from schema (type auto-filled)
+  const handleAddFromSchema = useCallback(
+    (fieldName: string, sourceTopic?: string) => {
+      const topicForSchema = sourceTopic
+        ? sourceTopic === primaryTopic?.name
+          ? primaryTopic
+          : secondaryTopic
+        : selectedTopic
+      const jsonType =
+        getVerifiedTypeFromTopic(topicForSchema, fieldName) ||
+        (mode === 'single' && selectedEvent?.event
+          ? inferJsonType(getNestedValue(selectedEvent.event, fieldName))
+          : null) ||
+        (sourceTopic === primaryTopic?.name && primaryEventData
+          ? inferJsonType(getNestedValue(primaryEventData, fieldName))
+          : null) ||
+        (sourceTopic === secondaryTopic?.name && secondaryTopic?.selectedEvent?.event
+          ? inferJsonType(getNestedValue(secondaryTopic.selectedEvent.event, fieldName))
+          : null) ||
+        'string'
+      const chType = defaultClickHouseTypeForJsonType(jsonType)
+      const newRow: TableColumn = {
+        name: fieldName,
+        type: chType,
+        jsonType,
+        eventField: fieldName,
+        isNullable: true,
+        isKey: false,
+        ...(sourceTopic && { sourceTopic }),
+      }
+      const updated = [...mappedColumns, newRow]
+      setMappedColumns(updated)
+      updateClickhouseDestinationDraft({ mapping: updated, destinationColumns: destinationPath === 'create_new' ? updated : clickhouseDestination?.destinationColumns ?? [] })
+    },
+    [
+      mode,
+      primaryTopic,
+      secondaryTopic,
+      selectedTopic,
+      selectedEvent?.event,
+      primaryEventData,
+      mappedColumns,
+      destinationPath,
+      clickhouseDestination?.destinationColumns,
+      updateClickhouseDestinationDraft,
+    ],
+  )
+
+  // Add mapping row: manual (user fills column name and type)
+  const handleAddManual = useCallback(() => {
+    const newRow: TableColumn = {
+      name: '',
+      type: 'String',
+      jsonType: '',
+      eventField: '',
+      isNullable: true,
+      isKey: false,
+    }
+    const updated = [...mappedColumns, newRow]
+    setMappedColumns(updated)
+    updateClickhouseDestinationDraft({ mapping: updated, destinationColumns: destinationPath === 'create_new' ? updated : clickhouseDestination?.destinationColumns ?? [] })
+  }, [mappedColumns, destinationPath, clickhouseDestination?.destinationColumns, updateClickhouseDestinationDraft])
 
   // Helper function to perform automatic mapping for join mode (can be called manually)
   const performAutoMappingJoinMode = useCallback(() => {
@@ -1491,6 +1580,7 @@ export function ClickhouseMapper({
     if (standalone) {
       // Revert to last saved destination (no ALTER or API calls)
       discardDraft()
+      setSchemaReloadConflict(null)
       const d = clickhouseDestinationStore.clickhouseDestination
       setSelectedDatabase(d.database || '')
       setSelectedTable(d.table || '')
@@ -1502,7 +1592,7 @@ export function ClickhouseMapper({
   }, [coreStore, standalone, discardDraft, clickhouseDestinationStore])
 
   // Complete the save after modal confirmation
-  const completeConfigSave = useCallback(() => {
+  const completeConfigSave = useCallback(async () => {
     // Before saving, do a final validation of type compatibility
     const { invalidMappings, missingTypeMappings } = validateColumnMappings(mappedColumns)
 
@@ -1580,6 +1670,45 @@ export function ClickhouseMapper({
       version: pipelineVersion, // Respect the original pipeline version
     })
 
+    // Standalone edit: apply ALTER TABLE then update pipeline config via edit API
+    if (standalone && pipelineId && toggleEditMode) {
+      const saved = clickhouseDestinationStore.lastSavedDestination
+      if (destinationPath === 'use_existing' && saved?.mapping?.length !== undefined) {
+        const operations = computeAlterTableOperations(saved.mapping, mappedColumns)
+        if (operations.length > 0) {
+          const conn = clickhouseConnectionStore.clickhouseConnection.directConnection
+          const alterRes = await fetch('/ui-api/clickhouse/alter-table', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              host: conn.host,
+              httpPort: conn.httpPort,
+              nativePort: conn.nativePort,
+              username: conn.username,
+              password: conn.password,
+              database: selectedDatabase,
+              table: selectedTable,
+              operations,
+              useSSL: conn.useSSL,
+              skipCertificateVerification: conn.skipCertificateVerification,
+            }),
+          })
+          const alterData = await alterRes.json()
+          if (!alterData.success) {
+            setError(alterData.error || 'Failed to apply schema changes to ClickHouse')
+            return
+          }
+        }
+      }
+      try {
+        await editPipeline(pipelineId, apiConfig as Pipeline)
+      } catch (err: any) {
+        setError(err?.message || 'Failed to update pipeline configuration')
+        return
+      }
+      setError(null)
+    }
+
     // Update the store with the new destination config
     setClickhouseDestination(updatedDestination)
     if (standalone) {
@@ -1595,16 +1724,9 @@ export function ClickhouseMapper({
     setSuccess('Destination configuration saved successfully!')
     setTimeout(() => setSuccess(null), 3000)
 
-    // If in standalone edit mode, just save to store and mark as dirty
-    // The actual deployment will happen when user clicks Resume
+    // If in standalone edit mode, close the edit modal (config already saved via edit API)
     if (standalone && toggleEditMode) {
-      // Note: setClickhouseDestination (line 1074) already marks validation as valid
-      // No need to call validationEngine.markSectionAsValid() again
-
-      // Mark the configuration as modified (dirty)
-      coreStore.markAsDirty()
-
-      // Close the edit modal
+      coreStore.markAsClean?.()
       if (onCompleteStandaloneEditing) {
         onCompleteStandaloneEditing()
       }
@@ -1636,6 +1758,7 @@ export function ClickhouseMapper({
     pipelineId,
     setPipelineId,
     clickhouseConnection,
+    clickhouseConnectionStore,
     selectedTopics,
     joinStore,
     kafkaStore,
@@ -1649,7 +1772,6 @@ export function ClickhouseMapper({
     mode,
     primaryTopic?.name,
     secondaryTopic?.name,
-    standalone,
     toggleEditMode,
     coreStore,
     onCompleteStandaloneEditing,
@@ -1794,9 +1916,31 @@ export function ClickhouseMapper({
   }
 
   const handleRefreshTableSchema = async () => {
+    setSchemaReloadConflict(null)
+    const draftBeforeReload =
+      destinationPath === 'use_existing' && mappedColumns.length > 0 ? mappedColumns.map((c) => ({ ...c })) : []
     await fetchTableSchema()
-    // Don't clear mapping - let the sync effect handle updating the schema
-    // while preserving existing mappings where possible
+    if (draftBeforeReload.length === 0) return
+    const newSchema = getTableSchema(selectedDatabase, selectedTable)
+    const filteredNew = filterUserMappableColumns(newSchema)
+    const newColumnsByName = new Map(
+      filteredNew.map((c) => [c.name, c.type || (c as any).column_type || '']),
+    )
+    const reasons: string[] = []
+    for (const col of draftBeforeReload) {
+      if (!col.name) continue
+      const newType = newColumnsByName.get(col.name)
+      if (newType === undefined) {
+        reasons.push(`Column "${col.name}" was removed from the table`)
+        continue
+      }
+      const draftType = (col.type || '').replace(/^Nullable\((.*)\)$/, '$1')
+      const nType = (newType || '').replace(/^Nullable\((.*)\)$/, '$1')
+      if (draftType !== nType) {
+        reasons.push(`Column "${col.name}" type changed`)
+      }
+    }
+    setSchemaReloadConflict(reasons.length > 0 ? reasons.join('. ') : null)
   }
 
   // Infers and fills missing jsonType for already-mapped event fields after hydration
@@ -2104,9 +2248,23 @@ export function ClickhouseMapper({
                 onAutoMap={performAutoMapping}
                 selectedDatabase={selectedDatabase}
                 selectedTable={effectiveTable}
+                onAddFromSchema={handleAddFromSchema}
+                onAddManual={handleAddManual}
+                existingNullableColumns={
+                  destinationPath === 'use_existing'
+                    ? tableSchema.columns
+                        .filter((c) => (c.type || '').includes('Nullable') || c.isNullable === true)
+                        .map((c) => c.name)
+                    : []
+                }
               />
               {/* TypeCompatibilityInfo is temporarily hidden */}
               {/* <TypeCompatibilityInfo /> */}
+              {schemaReloadConflict && (
+                <div className="mt-4 p-3 rounded-md border border-[var(--color-border-neutral-faded)] bg-[var(--color-background-neutral-faded)] text-content text-sm">
+                  Schema was updated externally. Your draft no longer matches the table. Align your mapping or discard changes.
+                </div>
+              )}
               <div className="flex gap-2 mt-4">
                 <FormActions
                   standalone={standalone}
@@ -2114,7 +2272,7 @@ export function ClickhouseMapper({
                   onDiscard={handleDiscardChanges}
                   isLoading={isLoading}
                   isSuccess={!!success}
-                  disabled={isLoading}
+                  disabled={isLoading || !!schemaReloadConflict}
                   successText="Continue"
                   actionType="primary"
                   showLoadingIcon={false}

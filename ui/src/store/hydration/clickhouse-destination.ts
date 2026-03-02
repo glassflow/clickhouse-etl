@@ -1,5 +1,6 @@
 import { useStore } from '../index'
 import { structuredLogger } from '@/src/observability'
+import type { DestinationPath } from '@/src/store/clickhouse-destination.store'
 
 // Helper: Map backend config to your store's destination shape
 // schemaFields is optional and used for V2 format where mapping is in schema.fields instead of sink.table_mapping
@@ -90,7 +91,7 @@ function mapBackendClickhouseDestinationToStore(sink: any, schemaFields?: any[])
     scheme: '', // If you use this, fill from config or leave empty
     database: sink.database || '',
     table: sink.table || '',
-    destinationPath: sink.table ? 'use_existing' : 'create_new',
+    destinationPath: (sink.table ? 'use_existing' : 'create_new') as DestinationPath,
     tableName: sink.table ?? '',
     engine: (sink as any).table_engine ?? '',
     orderBy: (sink as any).order_by ?? '',
