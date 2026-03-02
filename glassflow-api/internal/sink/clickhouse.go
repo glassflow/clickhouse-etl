@@ -41,6 +41,7 @@ type processedMessage struct {
 	values          []any
 	msg             jetstream.Msg
 	schemaVersionID string
+	err             error
 }
 
 type schemaBatch struct {
@@ -300,28 +301,40 @@ func (ch *ClickHouseSink) worker() {
 				// Get metadata
 				metadata, err := msg.Metadata()
 				if err != nil {
-					jobErr = fmt.Errorf("failed to get message metadata: %w", err)
-					break
+					processed = append(processed, processedMessage{
+						msg: msg,
+						err: fmt.Errorf("failed to get message metadata: %w", err),
+					})
+					continue
 				}
 
 				// Schema mapping
 				var values []any
 				schemaVersionID := msg.Headers().Get(internal.SchemaVersionIDHeader)
 				if schemaVersionID == "" {
-					jobErr = fmt.Errorf("message is missing schema version header: %s", internal.SchemaVersionIDHeader)
-					break
+					processed = append(processed, processedMessage{
+						msg: msg,
+						err: fmt.Errorf("message is missing schema version header: %s", internal.SchemaVersionIDHeader),
+					})
+					continue
 				}
 
 				mappingConfig, err := ch.cfgStore.GetSinkConfig(ctx, schemaVersionID)
 				if err != nil {
-					jobErr = fmt.Errorf("failed to get sink config for schema version %s: %w", schemaVersionID, err)
-					break
+					processed = append(processed, processedMessage{
+						msg: msg,
+						err: fmt.Errorf("failed to get sink config for schema version %s: %w", schemaVersionID, err),
+					})
+					continue
 				}
 
 				values, err = ch.mapper.Map(msg.Data(), schemaVersionID, mappingConfig)
 				if err != nil {
-					jobErr = fmt.Errorf("failed to prepare values for message: %w", err)
-					break
+					processed = append(processed, processedMessage{
+						msg: msg,
+						err: fmt.Errorf("failed to prepare values for message: %w", err),
+					})
+					continue
 				}
 
 				processed = append(processed, processedMessage{
@@ -329,6 +342,7 @@ func (ch *ClickHouseSink) worker() {
 					values:          values,
 					msg:             msg,
 					schemaVersionID: schemaVersionID,
+					err:             nil,
 				})
 			}
 			cancel()
@@ -442,7 +456,7 @@ func (ch *ClickHouseSink) sendBatch(ctx context.Context, messages []jetstream.Ms
 		}
 
 		totalSent += size
-		ch.log.InfoContext(ctx, "Data sent successfully to ClickHouse",
+		ch.log.DebugContext(ctx, "Data sent successfully to ClickHouse",
 			"schema_version_id", schemaVersionID,
 			"message_count", size)
 
@@ -462,7 +476,7 @@ func (ch *ClickHouseSink) sendBatch(ctx context.Context, messages []jetstream.Ms
 		return allErr
 	}
 
-	ch.log.InfoContext(ctx, "Batch processing completed successfully",
+	ch.log.InfoContext(ctx, "Batches processing completed successfully",
 		"status", "success",
 		"sent_messages", totalSent,
 	)
@@ -552,6 +566,8 @@ func (ch *ClickHouseSink) createCHBatches(
 		}
 	}
 
+	failedMsgs := make([]jetstream.Msg, 0)
+
 	schemaMappingTotalTime := time.Since(schemaMappingStartTime)
 
 	// Process results in order and append to batch
@@ -559,11 +575,19 @@ func (ch *ClickHouseSink) createCHBatches(
 	for jobID := 0; jobID < numJobs; jobID++ {
 		result := results[jobID]
 		for _, procMsg := range result.processed {
-			// Append to batch
-			if procMsg.schemaVersionID == "" {
-				return nil, fmt.Errorf("processed message has empty schema version id")
+			// If there was an error during processing, push to DLQ and skip
+			if procMsg.err != nil {
+				dlqErr := ch.pushMsgToDLQ(ctx, procMsg.msg.Data(), procMsg.err)
+				if dlqErr != nil {
+					return nil, fmt.Errorf("failed to push bad message to DLQ: %w", dlqErr)
+				}
+
+				failedMsgs = append(failedMsgs, procMsg.msg)
+				skippedCount++
+				continue
 			}
 
+			// Append to batch for the corresponding schema version
 			batchedData, exists := batches[procMsg.schemaVersionID]
 			if !exists {
 				batch, err := ch.createBatchForSchemaVersion(ctx, procMsg.schemaVersionID)
@@ -603,11 +627,23 @@ func (ch *ClickHouseSink) createCHBatches(
 						}
 					}
 				}
+
+				failedMsgs = append(failedMsgs, procMsg.msg)
 				skippedCount++
-				continue
 			}
 			appendedBySchema[procMsg.schemaVersionID] = append(appendedBySchema[procMsg.schemaVersionID], &procMsg)
 			batchedData.messages = append(batchedData.messages, procMsg.msg)
+		}
+	}
+
+	// Acknowledge failed messages during processing of the consumed messages batch
+	if len(failedMsgs) > 0 {
+		ch.log.WarnContext(ctx, "Some messages failed during batch preparation and were pushed to DLQ",
+			"failed_message_count", len(failedMsgs),
+			"skipped_count", skippedCount)
+		err := ch.ackMessages(failedMsgs)
+		if err != nil {
+			return nil, fmt.Errorf("acknowledge failed messages: %w", err)
 		}
 	}
 
