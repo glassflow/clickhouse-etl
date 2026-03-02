@@ -5,6 +5,7 @@ import (
 	"log/slog"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/storage/postgres"
 )
@@ -21,6 +22,6 @@ func MigratePipelinesFromNATSKV(
 }
 
 // NewPipelineStore creates a new PipelineStore implementation.
-func NewPipelineStore(ctx context.Context, dsn string, logger *slog.Logger, encryptionKey []byte) (service.PipelineStore, error) {
-	return postgres.NewPostgres(ctx, dsn, logger, encryptionKey)
+func NewPipelineStore(ctx context.Context, dsn string, logger *slog.Logger, encryptionKey []byte, role models.Role) (service.PipelineStore, error) {
+	return postgres.NewPostgres(ctx, dsn, logger, encryptionKey, role)
 }

@@ -7,9 +7,10 @@ import (
 	"sync"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/componentsignals"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/ingestor"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
+	schemav2 "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema_v2"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 )
@@ -32,7 +33,8 @@ func NewIngestorComponent(
 	topicName string,
 	streamPublisher stream.Publisher,
 	dlqStreamPublisher stream.Publisher,
-	schemaMapper schema.Mapper,
+	schema *schemav2.Schema,
+	signalPublisher *componentsignals.ComponentSignalPublisher,
 	doneCh chan struct{},
 	log *slog.Logger,
 	meter *observability.Meter,
@@ -46,7 +48,8 @@ func NewIngestorComponent(
 		topicName,
 		streamPublisher,
 		dlqStreamPublisher,
-		schemaMapper,
+		schema,
+		signalPublisher,
 		log,
 		meter,
 	)

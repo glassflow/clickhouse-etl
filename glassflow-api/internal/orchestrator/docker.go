@@ -10,12 +10,12 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 )
 
 type LocalOrchestrator struct {
 	nc  *client.NATSClient
+	db  service.PipelineStore
 	log *slog.Logger
 
 	ingestorRunners []service.Runner
@@ -48,11 +48,13 @@ func (d *LocalOrchestrator) DeletePipeline(ctx context.Context, pid string) erro
 
 func NewLocalOrchestrator(
 	nc *client.NATSClient,
+	db service.PipelineStore,
 	log *slog.Logger,
 ) service.Orchestrator {
 	//nolint: exhaustruct // runners will be created on setup
 	return &LocalOrchestrator{
 		nc:  nc,
+		db:  db,
 		log: log,
 	}
 }
@@ -98,13 +100,6 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 		sinkConsumerSubject string
 	)
 
-	// TODO: transfer all schema mapper validations in models.NewPipeline
-	// so validation errors are handled the same way with correct HTTPStatus
-	schemaMapper, err := schema.NewMapper(pi.Mapper)
-	if err != nil {
-		return models.PipelineConfigError{Msg: fmt.Sprintf("new schema mapper: %s", err)}
-	}
-
 	d.id = pi.ID
 
 	// Store pipeline config in memory for cleanup
@@ -124,12 +119,16 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 	d.log.DebugContext(ctx, "created ingestion streams successfully")
 
 	err = d.nc.CreateOrUpdateStream(ctx, models.GetDLQStreamName(d.id), models.GetDLQStreamSubjectName(d.id), 0)
+	if err != nil {
+		d.log.ErrorContext(ctx, "failed to create DLQ stream", "stream_name", models.GetDLQStreamName(d.id), "subject_name", models.GetDLQStreamSubjectName(d.id), "error", err)
+		return fmt.Errorf("setup DLQ stream for pipeline: %w", err)
+	}
 
 	for _, t := range pi.Ingestor.KafkaTopics {
 		for i := range t.Replicas {
 			d.log.DebugContext(ctx, "create ingestor for the topic", "topic", t.Name, "replica", i)
 			ingestorRunner := service.NewIngestorRunner(d.log.With("component", "ingestor", "topic", t.Name), d.nc, t.Name, *pi,
-				schemaMapper, nil) // nil meter for docker orchestrator
+				d.db, nil) // nil meter for docker orchestrator
 
 			err = ingestorRunner.Start(ctx)
 			if err != nil {
@@ -177,8 +176,7 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 		}
 		d.log.DebugContext(ctx, "created join right buffer KV store successfully")
 
-		d.joinRunner = service.NewJoinRunner(d.log.With("component", "join"), d.nc, leftInputStreamName, rightInputStreamName, sinkConsumerStream,
-			pi.Join, schemaMapper)
+		d.joinRunner = service.NewJoinRunner(d.log.With("component", "join"), d.nc, *pi, d.db)
 		err = d.joinRunner.Start(ctx)
 		if err != nil {
 			d.log.ErrorContext(ctx, "failed to start join runner", "left_stream", leftInputStreamName, "right_stream", rightInputStreamName, "error", err)
@@ -190,7 +188,7 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 		d.log.With("component", "clickhouse_sink"),
 		d.nc,
 		*pi,
-		schemaMapper,
+		d.db,
 		nil, // nil meter for docker orchestrator
 	)
 

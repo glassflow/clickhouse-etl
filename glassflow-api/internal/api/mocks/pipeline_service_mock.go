@@ -112,18 +112,18 @@ func (mr *MockPipelineServiceMockRecorder) GetOrchestratorType() *gomock.Call {
 }
 
 // GetPipeline mocks base method.
-func (m *MockPipelineService) GetPipeline(ctx context.Context, pid string) (models.PipelineConfig, error) {
+func (m *MockPipelineService) GetPipeline(ctx context.Context, pid string, sourceSchemaVersions map[string]string) (models.PipelineConfig, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetPipeline", ctx, pid)
+	ret := m.ctrl.Call(m, "GetPipeline", ctx, pid, sourceSchemaVersions)
 	ret0, _ := ret[0].(models.PipelineConfig)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetPipeline indicates an expected call of GetPipeline.
-func (mr *MockPipelineServiceMockRecorder) GetPipeline(ctx, pid any) *gomock.Call {
+func (mr *MockPipelineServiceMockRecorder) GetPipeline(ctx, pid, sourceSchemaVersions any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPipeline", reflect.TypeOf((*MockPipelineService)(nil).GetPipeline), ctx, pid)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPipeline", reflect.TypeOf((*MockPipelineService)(nil).GetPipeline), ctx, pid, sourceSchemaVersions)
 }
 
 // GetPipelineHealth mocks base method.

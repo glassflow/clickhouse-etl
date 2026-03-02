@@ -6,13 +6,16 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"time"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 )
 
 const (
@@ -61,9 +64,14 @@ func (s *PostgresStorage) GetPipeline(ctx context.Context, id string) (*models.P
 		return nil, err
 	}
 
-	cfg, err := s.reconstructPipelineFromData(ctx, data)
+	pCfg, err := s.reconstructPipelineFromData(ctx, data)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("reconstruct pipeline config: %w", err)
+	}
+
+	err = s.loadConfigsAndSchemaVersions(ctx, pCfg)
+	if err != nil {
+		return nil, fmt.Errorf("load configs and schema versions: %w", err)
 	}
 
 	row, err := s.GetPipelineResources(ctx, id)
@@ -71,10 +79,40 @@ func (s *PostgresStorage) GetPipeline(ctx context.Context, id string) (*models.P
 		return nil, fmt.Errorf("get pipeline resources: %w", err)
 	}
 	if row != nil {
-		cfg.PipelineResources = row.Resources
+		pCfg.PipelineResources = row.Resources
 	}
 
-	return cfg, nil
+	return pCfg, nil
+}
+
+// GetPipelineWithSchemaVersions retrieves a pipeline by ID and reconstructs PipelineConfig
+// using explicitly requested source schema versions where provided.
+func (s *PostgresStorage) GetPipelineWithSchemaVersions(
+	ctx context.Context,
+	id string,
+	sourceSchemaVersions map[string]string,
+) (*models.PipelineConfig, error) {
+	pipelineID, err := parsePipelineID(id)
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := s.loadPipelineData(ctx, pipelineID)
+	if err != nil {
+		return nil, err
+	}
+
+	pCfg, err := s.reconstructPipelineFromData(ctx, data)
+	if err != nil {
+		return nil, fmt.Errorf("reconstruct pipeline config: %w", err)
+	}
+
+	err = s.loadConfigsAndSchemaVersionsWithSelection(ctx, pCfg, sourceSchemaVersions)
+	if err != nil {
+		return nil, fmt.Errorf("load configs and schema versions: %w", err)
+	}
+
+	return pCfg, nil
 }
 
 // GetPipelines retrieves all pipelines
@@ -129,6 +167,11 @@ func (s *PostgresStorage) GetPipelines(ctx context.Context) ([]models.PipelineCo
 			return nil, fmt.Errorf("reconstruct pipeline config: %w", err)
 		}
 
+		err = s.loadConfigsAndSchemaVersions(ctx, cfg)
+		if err != nil {
+			return nil, fmt.Errorf("load configs and schema versions: %w", err)
+		}
+
 		pipelines = append(pipelines, *cfg)
 	}
 
@@ -158,14 +201,14 @@ func (s *PostgresStorage) InsertPipeline(ctx context.Context, p models.PipelineC
 		return err
 	}
 
-	// Insert ClickHouse connection and sink
-	sinkID, err := s.insertClickHouseSink(ctx, tx, p)
+	// Insert transformations (without schema versions yet)
+	transformationIDs, err := s.insertTransformationsFromPipeline(ctx, tx, p)
 	if err != nil {
 		return err
 	}
 
-	// Insert transformations
-	transformationIDs, err := s.insertTransformationsFromPipeline(ctx, tx, p)
+	// Insert ClickHouse connection and sink (without schema versions yet)
+	sinkID, err := s.insertClickHouseSink(ctx, tx, p)
 	if err != nil {
 		return err
 	}
@@ -176,13 +219,48 @@ func (s *PostgresStorage) InsertPipeline(ctx context.Context, p models.PipelineC
 		return err
 	}
 
-	// Insert pipeline
+	// Insert pipeline record FIRST (required for foreign key constraints)
 	_, err = tx.Exec(ctx, `
 		INSERT INTO pipelines (id, name, status, source_id, sink_id, transformation_ids, metadata, version, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 	`, insertData.pipelineID, insertData.name, insertData.status, insertData.sourceID, insertData.sinkID, insertData.transformationIDsArg, insertData.metadataJSON, "v2", insertData.createdAt, insertData.updatedAt)
 	if err != nil {
 		return fmt.Errorf("insert pipeline: %w", err)
+	}
+
+	// Now insert schema versions (after pipeline exists)
+	err = s.upsertKafkaSourceSchemaVersions(ctx, tx, p.ID, p)
+	if err != nil {
+		return err
+	}
+
+	// Insert stateless transformation schema and config (after pipeline exists)
+	if p.StatelessTransformation.Enabled {
+		err = s.insertStatelessTransformationSchemaAndConfig(ctx, tx, p)
+		if err != nil {
+			return fmt.Errorf("insert stateless transformation schema and config: %w", err)
+		}
+	}
+
+	// Upsert join transformation schema and configs (after pipeline exists)
+	if p.Join.Enabled {
+		err = s.insertJoinSchemaAndConfig(ctx, tx, p)
+		if err != nil {
+			return fmt.Errorf("insert join schema and config: %w", err)
+		}
+	}
+
+	// Insert sink config (after pipeline and schemas exist)
+	if p.SchemaVersions != nil {
+		sourceSchemaVersion, found := p.SchemaVersions[p.Sink.SourceID]
+		if !found {
+			return fmt.Errorf("schema version for sink source ID '%s' not found", p.Sink.SourceID)
+		}
+
+		err = s.insertSinkConfig(ctx, tx, p.ID, p.Sink.SourceID, sourceSchemaVersion.VersionID, p.Sink.Config)
+		if err != nil {
+			return fmt.Errorf("insert sink config: %w", err)
+		}
 	}
 
 	// Build and insert schema
@@ -355,14 +433,20 @@ func (s *PostgresStorage) UpdatePipeline(ctx context.Context, id string, newCfg 
 		return err
 	}
 
-	// Update ClickHouse connection and sink
-	err = s.updateClickHouseSink(ctx, tx, chConnID, oldRow.sinkID, newCfg)
+	// Update Kafka source schema versions
+	err = s.upsertKafkaSourceSchemaVersions(ctx, tx, existingData.pipelineID, newCfg)
 	if err != nil {
 		return err
 	}
 
 	// Update transformations (match by type, update/delete/insert as needed)
 	newTransformationIDs, err := s.updateTransformationsFromPipeline(ctx, tx, existingData.pipelineID, oldTransformationIDs, newCfg)
+	if err != nil {
+		return err
+	}
+
+	// Update ClickHouse connection and sink
+	err = s.updateClickHouseSink(ctx, tx, chConnID, oldRow.sinkID, newCfg)
 	if err != nil {
 		return err
 	}
@@ -694,12 +778,38 @@ func (s *PostgresStorage) updateKafkaSource(ctx context.Context, tx pgx.Tx, kafk
 	return nil
 }
 
+// insertKafkaSourceSchemaVersions inserts schema versions for Kafka topics
+func (s *PostgresStorage) upsertKafkaSourceSchemaVersions(ctx context.Context, tx pgx.Tx, pipelineID string, p models.PipelineConfig) error {
+	// backward compatibility check
+	if p.SchemaVersions == nil {
+		return nil
+	}
+
+	for _, topic := range p.Ingestor.KafkaTopics {
+		schema, found := p.SchemaVersions[topic.Name]
+		if !found {
+			return fmt.Errorf("schema version for topic '%s' not found", topic.Name)
+		}
+
+		versionID, err := s.upsertSchemaVersion(ctx, tx, pipelineID, topic.Name, schema.VersionID, schema.Fields)
+		if err != nil {
+			return fmt.Errorf("upsert schema version for topic '%s': %w", topic.Name, err)
+		}
+
+		schema.VersionID = versionID
+		p.SchemaVersions[topic.Name] = schema
+	}
+
+	return nil
+}
+
 // insertClickHouseSink inserts ClickHouse connection and sink
 func (s *PostgresStorage) insertClickHouseSink(ctx context.Context, tx pgx.Tx, p models.PipelineConfig) (uuid.UUID, error) {
 	sinkConnConfig := models.SinkComponentConfig{
 		ClickHouseConnectionParams: p.Sink.ClickHouseConnectionParams,
 		Batch:                      p.Sink.Batch,
 		StreamID:                   p.Sink.StreamID,
+		SourceID:                   p.Sink.SourceID,
 		Type:                       p.Sink.Type,
 		NATSConsumerName:           p.Sink.NATSConsumerName,
 	}
@@ -728,6 +838,7 @@ func (s *PostgresStorage) updateClickHouseSink(ctx context.Context, tx pgx.Tx, c
 		ClickHouseConnectionParams: p.Sink.ClickHouseConnectionParams,
 		Batch:                      p.Sink.Batch,
 		StreamID:                   p.Sink.StreamID,
+		SourceID:                   p.Sink.SourceID,
 		NATSConsumerName:           p.Sink.NATSConsumerName,
 		Type:                       p.Sink.Type,
 	}
@@ -735,6 +846,18 @@ func (s *PostgresStorage) updateClickHouseSink(ctx context.Context, tx pgx.Tx, c
 	connBytes, err := json.Marshal(sinkConnConfig)
 	if err != nil {
 		return fmt.Errorf("marshal clickhouse connection config: %w", err)
+	}
+
+	if p.SchemaVersions != nil {
+		schema, found := p.SchemaVersions[p.Sink.SourceID]
+		if !found {
+			return fmt.Errorf("schema version for source ID '%s' not found", p.Sink.SourceID)
+		}
+
+		err = s.upsertSinkConfig(ctx, tx, p.ID, p.Sink.SourceID, schema.VersionID, p.Sink.Config)
+		if err != nil {
+			return fmt.Errorf("update sink config: %w", err)
+		}
 	}
 
 	err = s.updateConnectionWithConfig(ctx, tx, chConnID, "clickhouse", connBytes)
@@ -958,4 +1081,158 @@ func (s *PostgresStorage) loadPipelineData(ctx context.Context, pipelineID strin
 	}
 
 	return s.buildPipelineData(ctx, row)
+}
+
+// loadConfigsAndSchemaVersions loads pipeline configs and schema versions
+func (s *PostgresStorage) loadConfigsAndSchemaVersions(ctx context.Context, pipelineCfg *models.PipelineConfig) error {
+	return s.loadConfigsAndSchemaVersionsWithSelection(ctx, pipelineCfg, nil)
+}
+
+func (s *PostgresStorage) loadConfigsAndSchemaVersionsWithSelection(
+	ctx context.Context,
+	pipelineCfg *models.PipelineConfig,
+	sourceSchemaVersions map[string]string,
+) error {
+	if len(pipelineCfg.Mapper.Streams) != 0 {
+		// backward compatibility: if streams are defined in mapper, no need to load schema versions
+		return nil
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	notFoundSchemas := make(map[string]string)
+	maps.Copy(notFoundSchemas, sourceSchemaVersions)
+
+	for _, topic := range pipelineCfg.Ingestor.KafkaTopics {
+		var schemaVersion models.SchemaVersion
+
+		requestedVersionID, hasRequestedVersion := sourceSchemaVersions[topic.Name]
+		if hasRequestedVersion {
+			schemaVersion, err = s.getSchemaVersion(ctx, tx, pipelineCfg.ID, topic.Name, requestedVersionID)
+			delete(notFoundSchemas, topic.Name)
+		} else {
+			schemaVersion, err = s.getLatestSchemaVersion(ctx, tx, pipelineCfg.ID, topic.Name)
+		}
+		if err != nil {
+			return fmt.Errorf("get schema version for topic '%s': %w", topic.Name, err)
+		}
+
+		if pipelineCfg.SchemaVersions == nil {
+			pipelineCfg.SchemaVersions = make(map[string]models.SchemaVersion)
+		}
+		pipelineCfg.SchemaVersions[topic.Name] = schemaVersion
+	}
+
+	if len(notFoundSchemas) > 0 {
+		return models.ErrRecordNotFound
+	}
+
+	if pipelineCfg.StatelessTransformation.Enabled {
+		sourceSchema, found := pipelineCfg.SchemaVersions[pipelineCfg.StatelessTransformation.SourceID]
+		if !found {
+			return fmt.Errorf("schema version for source ID '%s' not found", pipelineCfg.StatelessTransformation.SourceID)
+		}
+		stCfg, err := s.getStatelessTransformationConfig(ctx, tx, pipelineCfg.ID, sourceSchema.SourceID, sourceSchema.VersionID)
+		if err != nil {
+			return fmt.Errorf("get stateless transformation config: %w", err)
+		}
+
+		pipelineCfg.StatelessTransformation.Config.Transform = stCfg.Config
+
+		outputSchema, err := s.getSchemaVersion(ctx, tx, pipelineCfg.ID, pipelineCfg.StatelessTransformation.ID, stCfg.OutputSchemaVersionID)
+		if err != nil {
+			return fmt.Errorf("get output schema version for stateless transformation: %w", err)
+		}
+
+		pipelineCfg.SchemaVersions[pipelineCfg.StatelessTransformation.ID] = outputSchema
+	}
+
+	if pipelineCfg.Join.Enabled {
+		if len(pipelineCfg.Join.Sources) < 2 {
+			return fmt.Errorf("join has not enought sources")
+		}
+
+		var leftSource, rightSource string
+		if pipelineCfg.Join.Sources[0].Orientation == internal.JoinLeft {
+			leftSource = pipelineCfg.Join.Sources[0].SourceID
+			rightSource = pipelineCfg.Join.Sources[1].SourceID
+		} else {
+			leftSource = pipelineCfg.Join.Sources[1].SourceID
+			rightSource = pipelineCfg.Join.Sources[0].SourceID
+		}
+
+		leftSchemaVersionID, found := pipelineCfg.SchemaVersions[leftSource]
+		if !found {
+			return fmt.Errorf("not found schema version for left source '%s'", leftSource)
+		}
+
+		rightSchemaVersionID, found := pipelineCfg.SchemaVersions[rightSource]
+		if !found {
+			return fmt.Errorf("not found schema version for right source '%s'", rightSource)
+		}
+
+		joinID, joinSchemaVersionID, err := s.getJoinIDAndOutputSchemaID(
+			ctx,
+			tx,
+			pipelineCfg.ID,
+			leftSource,
+			leftSchemaVersionID.VersionID,
+			rightSource,
+			rightSchemaVersionID.VersionID)
+		if err != nil {
+			return fmt.Errorf("was not found common join id and join schema version for pipline ID %s %s:%s %s:%s",
+				pipelineCfg.ID, leftSource, leftSchemaVersionID, rightSource, rightSchemaVersionID)
+		}
+		if joinID != pipelineCfg.Join.ID {
+			return fmt.Errorf("join id is not matched with stored one")
+		}
+
+		jCfgs, err := s.getJoinConfigsByOutputVersion(ctx, tx, pipelineCfg.ID, pipelineCfg.Join.ID, joinSchemaVersionID)
+		if err != nil {
+			return fmt.Errorf("get join configs by output version: %w", err)
+		}
+
+		joinRules := make(map[string]struct{})
+		uniqueRules := make([]models.JoinRule, 0)
+
+		for _, jCfg := range jCfgs {
+			for _, rule := range jCfg.Config {
+				_, exists := joinRules[rule.OutputName]
+				if !exists {
+					joinRules[rule.OutputName] = struct{}{}
+					uniqueRules = append(uniqueRules, rule)
+				}
+			}
+		}
+
+		pipelineCfg.Join.Config = uniqueRules
+
+		outputSchema, err := s.getSchemaVersion(ctx, tx, pipelineCfg.ID, pipelineCfg.Join.ID, joinSchemaVersionID)
+		if err != nil {
+			return fmt.Errorf("get output schema version for join: %w", err)
+		}
+
+		pipelineCfg.SchemaVersions[pipelineCfg.Join.ID] = outputSchema
+	}
+
+	sinkSourceSchema, found := pipelineCfg.SchemaVersions[pipelineCfg.Sink.SourceID]
+	if !found {
+		return fmt.Errorf("schema version for source ID '%s' not found", pipelineCfg.Sink.SourceID)
+	}
+
+	sinkCfg, err := s.getSinkConfig(ctx, tx, pipelineCfg.ID, pipelineCfg.Sink.SourceID, sinkSourceSchema.VersionID)
+	if err != nil {
+		return fmt.Errorf("get sink config: %w", err)
+	}
+
+	pipelineCfg.Sink.Config = sinkCfg.Config
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit transaction: %w", err)
+	}
+
+	return nil
 }

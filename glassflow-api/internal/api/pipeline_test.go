@@ -401,7 +401,16 @@ func validCreatePipelineBody() map[string]interface{} {
 				"protocol":  "SASL_PLAINTEXT",
 			},
 			"topics": []map[string]interface{}{
-				{"name": "test-topic", "id": "topic-1"},
+				{
+					"name": "test-topic",
+					"id":   "test-topic",
+					"schema_fields": []map[string]interface{}{
+						{
+							"name": "id",
+							"type": "string",
+						},
+					},
+				},
 			},
 		},
 		"join": map[string]interface{}{
@@ -420,17 +429,6 @@ func validCreatePipelineBody() map[string]interface{} {
 			"secure":         false,
 			"max_batch_size": 1000,
 			"max_delay_time": "60s",
-		},
-		"schema": map[string]interface{}{
-			"fields": []map[string]interface{}{
-				{
-					"source_id":   "test-topic",
-					"name":        "id",
-					"type":        "string",
-					"column_name": "id",
-					"column_type": "String",
-				},
-			},
 		},
 	}
 }
@@ -549,9 +547,10 @@ func TestCreatePipeline_ValidStatelessTransformAccepted(t *testing.T) {
 
 	body := validCreatePipelineBody()
 	body["stateless_transformation"] = map[string]interface{}{
-		"id":      "test-transform",
-		"type":    "expr_lang_transform",
-		"enabled": true,
+		"id":        "test-transform",
+		"type":      "expr_lang_transform",
+		"enabled":   true,
+		"source_id": "test-topic",
 		"config": map[string]interface{}{
 			"transform": []map[string]interface{}{
 				{

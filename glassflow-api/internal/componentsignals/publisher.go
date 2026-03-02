@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
 
@@ -15,18 +15,13 @@ type ComponentSignalPublisher struct {
 	subject string
 }
 
-func NewPublisher(nc *nats.Conn) (*ComponentSignalPublisher, error) {
+func NewPublisher(nc *client.NATSClient) (*ComponentSignalPublisher, error) {
 	if nc == nil {
-		return nil, fmt.Errorf("nats connection cannot be nil")
-	}
-
-	js, err := jetstream.New(nc)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create jetstream: %w", err)
+		return nil, fmt.Errorf("nats client cannot be nil")
 	}
 
 	return &ComponentSignalPublisher{
-		js:      js,
+		js:      nc.JetStream(),
 		subject: models.GetComponentSignalsSubject(),
 	}, nil
 }

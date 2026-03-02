@@ -5,14 +5,18 @@ package internal
 // are normalized to int, uint, float, or string. The seven basic types are returned as-is.
 func NormalizeToBasicKafkaType(typeStr string) string {
 	switch typeStr {
-	case "int8", "int16", "int32", "int64":
+	case "int8", "int16", "int32", "int64", JSONTypeInteger:
 		return KafkaTypeInt
 	case "uint8", "uint16", "uint32", "uint64":
 		return KafkaTypeUint
-	case "float32", "float64":
+	case "float32", "float64", JSONTypeNumber:
 		return KafkaTypeFloat
 	case "bytes":
 		return KafkaTypeString
+	case JSONTypeObject:
+		return KafkaTypeMap
+	case JSONTypeBoolean:
+		return KafkaTypeBool
 	case KafkaTypeString, KafkaTypeBool, KafkaTypeInt, KafkaTypeUint, KafkaTypeFloat, KafkaTypeArray, KafkaTypeMap:
 		return typeStr
 	default:

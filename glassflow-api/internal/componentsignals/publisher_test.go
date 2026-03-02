@@ -7,11 +7,11 @@ import (
 
 	natsServer "github.com/nats-io/nats-server/v2/server"
 	natsTest "github.com/nats-io/nats-server/v2/test"
-	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
 
@@ -29,12 +29,11 @@ func TestComponentSignalPublisher_SendSignal(t *testing.T) {
 
 	natsURL := ns.ClientURL()
 
-	nc, err := nats.Connect(natsURL)
+	nc, err := client.NewNATSClient(t.Context(), natsURL)
 	require.NoError(t, err)
 	defer nc.Close()
 
-	js, err := jetstream.New(nc)
-	require.NoError(t, err)
+	js := nc.JetStream()
 
 	streamName := models.ComponentSignalsStream
 	subject := models.GetComponentSignalsSubject()
