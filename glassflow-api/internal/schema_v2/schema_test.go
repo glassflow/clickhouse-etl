@@ -380,6 +380,56 @@ func TestSchema_Get(t *testing.T) {
 		assert.True(t, ok)
 		assert.Equal(t, "John", userMap["name"])
 	})
+
+	t.Run("gets dotted field name from flat key", func(t *testing.T) {
+		dottedSchema := &models.SchemaVersion{
+			SourceID:  sourceID,
+			VersionID: versionID,
+			DataType:  models.SchemaDataFormatJSON,
+			Fields: []models.Field{
+				{Name: "container.image.name", Type: "string"},
+			},
+		}
+
+		dottedData := []byte(`{"container.image.name": "my-image"}`)
+
+		mockDB := mocks.NewMockDBClient()
+		mockDB.GetSchemaVersionFunc = func(ctx context.Context, pipelineIDArg, sourceIDArg, versionIDArg string) (*models.SchemaVersion, error) {
+			return dottedSchema, nil
+		}
+
+		schema, _ := NewSchema(pipelineID, sourceID, mockDB, nil)
+
+		value, err := schema.Get(ctx, versionID, "container.image.name", dottedData)
+
+		assert.NoError(t, err)
+		assert.Equal(t, "my-image", value)
+	})
+
+	t.Run("gets dotted field name from nested object", func(t *testing.T) {
+		dottedSchema := &models.SchemaVersion{
+			SourceID:  sourceID,
+			VersionID: versionID,
+			DataType:  models.SchemaDataFormatJSON,
+			Fields: []models.Field{
+				{Name: "container.image.name", Type: "string"},
+			},
+		}
+
+		nestedData := []byte(`{"container": {"image": {"name": "my-image"}}}`)
+
+		mockDB := mocks.NewMockDBClient()
+		mockDB.GetSchemaVersionFunc = func(ctx context.Context, pipelineIDArg, sourceIDArg, versionIDArg string) (*models.SchemaVersion, error) {
+			return dottedSchema, nil
+		}
+
+		schema, _ := NewSchema(pipelineID, sourceID, mockDB, nil)
+
+		value, err := schema.Get(ctx, versionID, "container.image.name", nestedData)
+
+		assert.NoError(t, err)
+		assert.Equal(t, "my-image", value)
+	})
 }
 
 func TestExtractSchemaVersion(t *testing.T) {
