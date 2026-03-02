@@ -3,6 +3,7 @@ package mapper
 import (
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
@@ -14,30 +15,128 @@ type columnInfo struct {
 	columnType ClickHouseDataType
 }
 
-type KafkaToClickHouseMapper struct {
+// type KafkaToClickHouseMapper struct {
+// 	columns          []string
+// 	columnLookUpInfo map[string]columnInfo
+// }
+
+// func NewKafkaToClickHouseMapper(fields []models.Mapping) *KafkaToClickHouseMapper {
+// 	columns := make([]string, len(fields))
+// 	lookUpMap := make(map[string]columnInfo)
+// 	for idx, field := range fields {
+// 		columns[idx] = field.DestinationField
+// 		lookUpMap[field.DestinationField] = columnInfo{
+// 			idx:        idx,
+// 			columnType: ClickHouseDataType(field.DestinationType),
+// 		}
+// 	}
+
+// 	return &KafkaToClickHouseMapper{
+// 		columns:          columns,
+// 		columnLookUpInfo: lookUpMap,
+// 	}
+// }
+
+// func (m *KafkaToClickHouseMapper) Map(data []byte, config map[string]models.Mapping) ([]any, error) {
+// 	values := make([]any, len(m.columns))
+
+// 	parsedJson := gjson.ParseBytes(data)
+
+// 	var conversionErr error
+
+// 	parsedJson.ForEach(func(key, value gjson.Result) bool {
+// 		mapping := config[key.String()]
+
+// 		info, exists := m.columnLookUpInfo[mapping.DestinationField]
+// 		if exists {
+// 			sourceType := KafkaDataType(internal.NormalizeToBasicKafkaType(mapping.SourceType))
+// 			convertedValue, err := ConvertValueFromJson(info.columnType, sourceType, value)
+// 			if err != nil {
+// 				conversionErr = fmt.Errorf("failed to convert field %s: %w", sourceType, err)
+// 				return false
+// 			}
+
+// 			values[info.idx] = convertedValue
+// 		}
+
+// 		return true
+// 	})
+
+// 	if conversionErr != nil {
+// 		return nil, conversionErr
+// 	}
+
+// 	for columnName, info := range m.columnLookUpInfo {
+// 		if values[info.idx] != nil {
+// 			continue // Already found via top-level iteration
+// 		}
+
+// 		mapping, ok := config[columnName]
+// 		if !ok {
+// 			continue // No mapping for this column, skip it
+// 		}
+
+// 		value := parsedJson.Get(mapping.SourceField)
+// 		if value.Exists() {
+// 			sourceType := KafkaDataType(internal.NormalizeToBasicKafkaType(mapping.SourceType))
+// 			convertedValue, err := ConvertValueFromJson(info.columnType, sourceType, value)
+// 			if err != nil {
+// 				return nil, fmt.Errorf("failed to convert field %s: %w", sourceType, err)
+// 			}
+// 			values[info.idx] = convertedValue
+// 		}
+// 	}
+
+// 	return values, nil
+// }
+
+// func (m *KafkaToClickHouseMapper) GetColumnNames() []string {
+// 	return m.columns
+// }
+
+type columnMetadata struct {
 	columns          []string
 	columnLookUpInfo map[string]columnInfo
 }
 
-func NewKafkaToClickHouseMapper(fields []models.Mapping) *KafkaToClickHouseMapper {
-	columns := make([]string, len(fields))
-	lookUpMap := make(map[string]columnInfo)
-	for idx, field := range fields {
-		columns[idx] = field.DestinationField
-		lookUpMap[field.DestinationField] = columnInfo{
-			idx:        idx,
-			columnType: ClickHouseDataType(field.DestinationType),
-		}
-	}
+type KafkaToClickHouseMapper struct {
+	columnsMetadata map[string]columnMetadata
+	mu              sync.RWMutex
+}
 
+func NewKafkaToClickHouseMapper() *KafkaToClickHouseMapper {
 	return &KafkaToClickHouseMapper{
-		columns:          columns,
-		columnLookUpInfo: lookUpMap,
+		columnsMetadata: make(map[string]columnMetadata),
 	}
 }
 
-func (m *KafkaToClickHouseMapper) Map(data []byte, config map[string]models.Mapping) ([]any, error) {
-	values := make([]any, len(m.columns))
+func (m *KafkaToClickHouseMapper) Map(data []byte, schemaVersionID string, config map[string]models.Mapping) ([]any, error) {
+	m.mu.RLock()
+	metadata, exists := m.columnsMetadata[schemaVersionID]
+	m.mu.RUnlock()
+	if !exists {
+		columnsList := make([]string, len(config))
+		lookUpMap := make(map[string]columnInfo)
+		i := 0
+		for _, field := range config {
+			columnsList[i] = field.DestinationField
+			lookUpMap[field.DestinationField] = columnInfo{
+				idx:        i,
+				columnType: ClickHouseDataType(field.DestinationType),
+			}
+			i++
+		}
+
+		metadata = columnMetadata{
+			columns:          columnsList,
+			columnLookUpInfo: lookUpMap,
+		}
+		m.mu.Lock()
+		m.columnsMetadata[schemaVersionID] = metadata
+		m.mu.Unlock()
+	}
+
+	values := make([]any, len(metadata.columns))
 
 	parsedJson := gjson.ParseBytes(data)
 
@@ -46,7 +145,7 @@ func (m *KafkaToClickHouseMapper) Map(data []byte, config map[string]models.Mapp
 	parsedJson.ForEach(func(key, value gjson.Result) bool {
 		mapping := config[key.String()]
 
-		info, exists := m.columnLookUpInfo[mapping.DestinationField]
+		info, exists := metadata.columnLookUpInfo[mapping.DestinationField]
 		if exists {
 			sourceType := KafkaDataType(internal.NormalizeToBasicKafkaType(mapping.SourceType))
 			convertedValue, err := ConvertValueFromJson(info.columnType, sourceType, value)
@@ -65,7 +164,7 @@ func (m *KafkaToClickHouseMapper) Map(data []byte, config map[string]models.Mapp
 		return nil, conversionErr
 	}
 
-	for columnName, info := range m.columnLookUpInfo {
+	for columnName, info := range metadata.columnLookUpInfo {
 		if values[info.idx] != nil {
 			continue // Already found via top-level iteration
 		}
@@ -89,8 +188,14 @@ func (m *KafkaToClickHouseMapper) Map(data []byte, config map[string]models.Mapp
 	return values, nil
 }
 
-func (m *KafkaToClickHouseMapper) GetColumnNames() []string {
-	return m.columns
+func (m *KafkaToClickHouseMapper) GetColumnNames(schemaVersionID string) ([]string, error) {
+	m.mu.RLock()
+	metadata, exists := m.columnsMetadata[schemaVersionID]
+	m.mu.RUnlock()
+	if !exists {
+		return nil, fmt.Errorf("schema version %s not found in mapper metadata", schemaVersionID)
+	}
+	return metadata.columns, nil
 }
 
 // getFieldValue retrieves a field value from a parsed gjson result, supporting both

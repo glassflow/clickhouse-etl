@@ -38,15 +38,21 @@ type workerResult struct {
 
 // processedMessage contains the metadata and values for a processed message
 type processedMessage struct {
-	metadata *jetstream.MsgMetadata
-	values   []any
-	msg      jetstream.Msg
+	metadata        *jetstream.MsgMetadata
+	values          []any
+	msg             jetstream.Msg
+	schemaVersionID string
+}
+
+type schemaBatch struct {
+	batch    clickhouse.Batch
+	messages []jetstream.Msg
 }
 
 // ClickHouseSink uses Consume() callback pattern
 type FieldMapper interface {
-	Map(data []byte, config map[string]models.Mapping) ([]any, error)
-	GetColumnNames() []string
+	Map(data []byte, schemaVersionID string, config map[string]models.Mapping) ([]any, error)
+	GetColumnNames(schemaVersionID string) ([]string, error)
 }
 
 type ConfigStore interface {
@@ -287,7 +293,6 @@ func (ch *ClickHouseSink) worker() {
 			}
 
 			ctx, cancel := context.WithCancel(ch.workerCtx)
-			defer cancel()
 
 			processed := make([]processedMessage, 0, len(job.messages))
 			var jobErr error
@@ -302,30 +307,32 @@ func (ch *ClickHouseSink) worker() {
 
 				// Schema mapping
 				var values []any
-				schemaVerionID := msg.Headers().Get(internal.SchemaVersionIDHeader)
-				if schemaVerionID == "" {
+				schemaVersionID := msg.Headers().Get(internal.SchemaVersionIDHeader)
+				if schemaVersionID == "" {
 					jobErr = fmt.Errorf("message is missing schema version header: %s", internal.SchemaVersionIDHeader)
 					break
 				}
 
-				mappingConfig, err := ch.cfgStore.GetSinkConfig(ctx, schemaVerionID)
+				mappingConfig, err := ch.cfgStore.GetSinkConfig(ctx, schemaVersionID)
 				if err != nil {
-					jobErr = fmt.Errorf("failed to get sink config for schema version %s: %w", schemaVerionID, err)
+					jobErr = fmt.Errorf("failed to get sink config for schema version %s: %w", schemaVersionID, err)
 					break
 				}
 
-				values, err = ch.mapper.Map(msg.Data(), mappingConfig)
+				values, err = ch.mapper.Map(msg.Data(), schemaVersionID, mappingConfig)
 				if err != nil {
 					jobErr = fmt.Errorf("failed to prepare values for message: %w", err)
 					break
 				}
 
 				processed = append(processed, processedMessage{
-					metadata: metadata,
-					values:   values,
-					msg:      msg,
+					metadata:        metadata,
+					values:          values,
+					msg:             msg,
+					schemaVersionID: schemaVersionID,
 				})
 			}
+			cancel()
 
 			// Send a result back to the parent routine
 			ch.workerResultChan <- workerResult{
@@ -355,14 +362,7 @@ func (ch *ClickHouseSink) flushEvents(ctx context.Context, messages []jetstream.
 	if err == nil {
 		return nil
 	}
-	ch.log.Error("failed to send CH batch, writing to dlq", "error", err, "batch_size", len(messages))
-
-	err = ch.flushFailedBatch(ctx, messages, err)
-	if err != nil {
-		return fmt.Errorf("flush bad batch: %w", err)
-	}
-
-	return nil
+	return fmt.Errorf("send CH batches: %w", err)
 }
 
 // write failed batch to dlq
@@ -398,37 +398,72 @@ func (ch *ClickHouseSink) sendBatch(ctx context.Context, messages []jetstream.Ms
 		return nil
 	}
 
-	chBatch, err := ch.createCHBatch(ctx, messages)
+	batchesBySchema, err := ch.createCHBatches(ctx, messages)
 	if err != nil {
-		return fmt.Errorf("create CH batch: %w", err)
+		return fmt.Errorf("create CH batches: %w", err)
 	}
 
-	size := chBatch.Size()
-	start := time.Now()
+	var allErr error
+	totalSent := 0
 
-	// Send batch to ClickHouse
-	err = chBatch.Send(ctx)
-	if err != nil {
-		return fmt.Errorf("send the batch: %w", err)
-	}
-	ch.log.InfoContext(ctx, "Data sent successfully to ClickHouse",
-		"message_count", size)
+	for schemaVersionID, schemaData := range batchesBySchema {
+		size := schemaData.batch.Size()
+		if size == 0 {
+			continue
+		}
 
-	// Record ClickHouse write metrics
-	if ch.meter != nil {
-		ch.meter.RecordClickHouseWrite(ctx, int64(size))
+		start := time.Now()
+		err = schemaData.batch.Send(ctx)
+		if err != nil {
+			ch.log.ErrorContext(ctx, "failed to send schema batch, writing to dlq",
+				"schema_version_id", schemaVersionID,
+				"error", err,
+				"batch_size", len(schemaData.messages))
 
-		// Calculate and record write rate
-		duration := time.Since(start).Seconds()
-		if duration > 0 {
-			rate := float64(size) / duration
-			ch.meter.RecordSinkRate(ctx, rate)
+			flushErr := ch.flushFailedBatch(ctx, schemaData.messages, err)
+			if flushErr != nil {
+				allErr = errors.Join(allErr, fmt.Errorf("schema %s flush bad batch: %w", schemaVersionID, flushErr))
+			} else {
+				allErr = errors.Join(allErr, fmt.Errorf("schema %s send the batch: %w", schemaVersionID, err))
+			}
+			continue
+		}
+
+		if err = ch.ackMessages(schemaData.messages); err != nil {
+			allErr = errors.Join(allErr, fmt.Errorf("schema %s acknowledge messages: %w", schemaVersionID, err))
+			continue
+		}
+
+		totalSent += size
+		ch.log.InfoContext(ctx, "Data sent successfully to ClickHouse",
+			"schema_version_id", schemaVersionID,
+			"message_count", size)
+
+		if ch.meter != nil {
+			ch.meter.RecordClickHouseWrite(ctx, int64(size))
+			duration := time.Since(start).Seconds()
+			if duration > 0 {
+				rate := float64(size) / duration
+				ch.meter.RecordSinkRate(ctx, rate)
+			}
 		}
 	}
 
-	// Ack ALL messages individually with retry
+	if allErr != nil {
+		return allErr
+	}
+
+	ch.log.InfoContext(ctx, "Batch processing completed successfully",
+		"status", "success",
+		"sent_messages", totalSent,
+	)
+
+	return nil
+}
+
+func (ch *ClickHouseSink) ackMessages(messages []jetstream.Msg) error {
 	for _, msg := range messages {
-		err = retry.Do(
+		err := retry.Do(
 			func() error {
 				return msg.Ack()
 			},
@@ -440,41 +475,23 @@ func (ch *ClickHouseSink) sendBatch(ctx context.Context, messages []jetstream.Ms
 		}
 	}
 
-	ch.log.InfoContext(ctx, "Batch processing completed successfully",
-		"status", "success",
-		"sent_messages", size,
-	)
-
 	return nil
 }
 
-func (ch *ClickHouseSink) createCHBatch(
+func (ch *ClickHouseSink) createCHBatches(
 	ctx context.Context,
 	messages []jetstream.Msg,
-) (clickhouse.Batch, error) {
+) (map[string]*schemaBatch, error) {
 	prepStartTime := time.Now()
 
-	// Step 1: Query creation
-	query := fmt.Sprintf(
-		"INSERT INTO %s.%s (%s)",
-		ch.client.GetDatabase(),
-		ch.client.GetTableName(),
-		strings.Join(ch.mapper.GetColumnNames(), ", "),
-	)
-
-	// Step 2: Batch creation
-	resultBatch, err := clickhouse.NewClickHouseBatch(ctx, ch.client, query)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create batch with query %s: %w", query, err)
-	}
+	batches := make(map[string]*schemaBatch)
 
 	// Step 3: Process messages using worker pool (metadata + schema mapping + append)
 	schemaMappingStartTime := time.Now()
-	appendTotalTime := time.Duration(0)
 	skippedCount := 0
 
 	if len(messages) == 0 {
-		return resultBatch, nil
+		return batches, nil
 	}
 
 	// Split messages into chunks for parallel processing
@@ -529,13 +546,30 @@ func (ch *ClickHouseSink) createCHBatch(
 	schemaMappingTotalTime := time.Since(schemaMappingStartTime)
 
 	// Process results in order and append to batch
-	appendedMessages := make([]*processedMessage, 0, len(messages))
+	appendedBySchema := make(map[string][]*processedMessage)
 	for jobID := 0; jobID < numJobs; jobID++ {
 		result := results[jobID]
 		for _, procMsg := range result.processed {
 			// Append to batch
-			appendStartTime := time.Now()
-			err = resultBatch.Append(procMsg.metadata.Sequence.Stream, procMsg.values...)
+			if procMsg.schemaVersionID == "" {
+				return nil, fmt.Errorf("processed message has empty schema version id")
+			}
+
+			batchedData, exists := batches[procMsg.schemaVersionID]
+			if !exists {
+				batch, err := ch.createBatchForSchemaVersion(ctx, procMsg.schemaVersionID)
+				if err != nil {
+					return nil, fmt.Errorf("failed to create batch for schema version %s: %w", procMsg.schemaVersionID, err)
+				}
+
+				batchedData = &schemaBatch{
+					batch:    batch,
+					messages: make([]jetstream.Msg, 0),
+				}
+				batches[procMsg.schemaVersionID] = batchedData
+			}
+
+			err := batchedData.batch.Append(procMsg.metadata.Sequence.Stream, procMsg.values...)
 			if err != nil {
 				if !errors.Is(err, clickhouse.ErrAlreadyExists) {
 					ch.log.Warn("Failed to append message to batch, pushing to DLQ",
@@ -547,13 +581,14 @@ func (ch *ClickHouseSink) createCHBatch(
 					}
 
 					// try to recreate the batch and replay appended messages to avoid losing the whole batch due to one bad message
-					resultBatch, err = clickhouse.NewClickHouseBatch(ctx, ch.client, query)
+					batch, err := ch.createBatchForSchemaVersion(ctx, procMsg.schemaVersionID)
 					if err != nil {
 						return nil, fmt.Errorf("failed to recreate CH batch after append error: %w", err)
 					}
+					batchedData.batch = batch
 
-					for _, appended := range appendedMessages {
-						err = resultBatch.Append(appended.metadata.Sequence.Stream, appended.values...)
+					for _, appended := range appendedBySchema[procMsg.schemaVersionID] {
+						err = batchedData.batch.Append(appended.metadata.Sequence.Stream, appended.values...)
 						if err != nil {
 							return nil, fmt.Errorf("failed to replay CH batch after append error: %w", err)
 						}
@@ -562,8 +597,8 @@ func (ch *ClickHouseSink) createCHBatch(
 				skippedCount++
 				continue
 			}
-			appendedMessages = append(appendedMessages, &procMsg)
-			appendTotalTime += time.Since(appendStartTime)
+			appendedBySchema[procMsg.schemaVersionID] = append(appendedBySchema[procMsg.schemaVersionID], &procMsg)
+			batchedData.messages = append(batchedData.messages, procMsg.msg)
 		}
 	}
 
@@ -585,7 +620,26 @@ func (ch *ClickHouseSink) createCHBatch(
 		"total_prep_duration_ms", totalPrepDuration.Milliseconds(),
 		"schema_mapping_total_ms", schemaMappingTotalTime.Milliseconds())
 
-	return resultBatch, nil
+	return batches, nil
+}
+
+func (ch *ClickHouseSink) createBatchForSchemaVersion(ctx context.Context, schemaVersionID string) (clickhouse.Batch, error) {
+	columns, err := ch.mapper.GetColumnNames(schemaVersionID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get column names for schema version %s: %w", schemaVersionID, err)
+	}
+	query := fmt.Sprintf(
+		"INSERT INTO %s.%s (%s)",
+		ch.client.GetDatabase(),
+		ch.client.GetTableName(),
+		strings.Join(columns, ", "),
+	)
+	batch, err := clickhouse.NewClickHouseBatch(ctx, ch.client, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create batch for schema version %s: %w", schemaVersionID, err)
+	}
+
+	return batch, nil
 }
 
 func (ch *ClickHouseSink) clearConn() {
