@@ -3,6 +3,7 @@ package schemav2
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
@@ -39,6 +40,31 @@ func validateSchemaToSchema(newSchemaFields, previousSchemaFields []models.Field
 	return nil
 }
 
+// escapeGjsonPath escapes dots in a field name so gjson treats them as literal characters
+// rather than path separators. For example, "container.image.name" becomes "container\.image\.name"
+// which makes gjson look for the literal key "container.image.name" instead of traversing
+// nested objects container -> image -> name.
+func escapeJsonPath(path string) string {
+	return strings.ReplaceAll(path, ".", `\.`)
+}
+
+// getFieldValue retrieves a field value from a parsed gjson result, supporting both
+// literal dotted keys (e.g. "container.image.name": "value") and nested object paths
+// (e.g. {"container": {"image": {"name": "value"}}}). It tries the escaped (literal) path
+// first, then falls back to the unescaped (nested) path.
+func getFieldValue(parsedMsg gjson.Result, fieldName string) gjson.Result {
+	// Try escaped path first (literal dot key)
+	if strings.Contains(fieldName, ".") {
+		fieldValue := parsedMsg.Get(escapeJsonPath(fieldName))
+		if fieldValue.Exists() {
+			return fieldValue
+		}
+	}
+
+	// Fall back to unescaped path (nested object traversal)
+	return parsedMsg.Get(fieldName)
+}
+
 // validateJSONToSchema - validate message against schema fields
 func validateJSONToSchema(msg []byte, schema []models.Field) error {
 	if !gjson.ValidBytes(msg) {
@@ -48,7 +74,7 @@ func validateJSONToSchema(msg []byte, schema []models.Field) error {
 	parsedMsg := gjson.ParseBytes(msg)
 
 	for _, field := range schema {
-		fieldValue := parsedMsg.Get(field.Name)
+		fieldValue := getFieldValue(parsedMsg, field.Name)
 
 		if !fieldValue.Exists() {
 			return fmt.Errorf("field '%s' is missing in the message", field.Name)

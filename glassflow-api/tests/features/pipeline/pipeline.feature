@@ -825,3 +825,103 @@ Feature: Kafka to CH pipeline
             | id  | COUNT |
             | 123 | 5     |
             | 890 | 1     |
+
+    Scenario: Kafka to ClickHouse pipeline with dotted field names (ECS-style flat keys)
+        Given a Kafka topic "test_logs" with 1 partition
+        And the ClickHouse table "logs_test" on database "default" already exists with schema
+            | column_name          | data_type |
+            | container_image_name | String    |
+            | host_name            | String    |
+            | log_level            | String    |
+
+        And I write these events to Kafka topic "test_logs":
+            | key | value                                                                                                        |
+            | 1   | {"container.image.name": "nginx:latest", "host.name": "server-1", "log.level": "info"}                       |
+            | 2   | {"container.image.name": "redis:7", "host.name": "server-2", "log.level": "error"}                           |
+            | 3   | {"container.image.name": "postgres:16", "host": {"name": "server-1", "role": "role-1"}, "log.level": "warn"} |
+
+        And a glassflow pipeline with next configuration:
+            """json
+            {
+                "pipeline_id": "kafka-to-clickhouse-pipeline-b00008",
+                "name": "kafka-to-clickhouse-pipeline-b00008",
+                "ingestor": {
+                    "type": "kafka",
+                    "kafka_topics": [
+                        {
+                            "id": "test_logs",
+                            "output_stream_id": "gf-test-logs",
+                            "output_stream_subject": "gf-test-logs.input",
+                            "consumer_group_initial_offset": "earliest",
+                            "consumer_group_name": "glassflow-consumer-group-kafka-to-clickhouse-pipeline-b00008",
+                            "name": "test_logs",
+                            "replicas": 1,
+                            "deduplication": {
+                                "enabled": false
+                            }
+                        }
+                    ]
+                },
+                "join": {
+                    "enabled": false
+                },
+                "sink": {
+                    "type": "clickhouse",
+                    "source_id": "test_logs",
+                    "stream_id": "gf-test-logs",
+                    "batch": {
+                        "max_batch_size": 1000,
+                        "max_delay_time": "1s"
+                    },
+                    "config": [
+                        {
+                            "source_field": "container.image.name",
+                            "source_type": "string",
+                            "destination_field": "container_image_name",
+                            "destination_type": "String"
+                        },
+                        {
+                            "source_field": "host.name",
+                            "source_type": "string",
+                            "destination_field": "host_name",
+                            "destination_type": "String"
+                        },
+                        {
+                            "source_field": "log.level",
+                            "source_type": "string",
+                            "destination_field": "log_level",
+                            "destination_type": "String"
+                        }
+                    ]
+                },
+                "schema_versions": {
+                    "test_logs": {
+                        "source_id": "test_logs",
+                        "version_id": "1",
+                        "data_type": "json",
+                        "fields": [
+                            {
+                                "name": "container.image.name",
+                                "type": "string"
+                            },
+                            {
+                                "name": "host.name",
+                                "type": "string"
+                            },
+                            {
+                                "name": "log.level",
+                                "type": "string"
+                            }
+                        ]
+                    }
+                }
+            }
+            """
+        And I shutdown the glassflow pipeline after "4s"
+
+        Then the ClickHouse table "default.logs_test" should contain 3 rows
+        And the ClickHouse table "default.logs_test" should contain:
+            | container_image_name | host_name | log_level | COUNT |
+            | nginx:latest         | server-1  | info      | 1     |
+            | redis:7              | server-2  | error     | 1     |
+            | postgres:16          | server-1  | warn      | 1     |

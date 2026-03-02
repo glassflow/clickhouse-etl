@@ -151,8 +151,8 @@ func (s *Schema) Get(ctx context.Context, versionID, key string, data []byte) (a
 		return nil, fmt.Errorf("field %s not found in schema version %s", key, versionID)
 	}
 
-	// Extract value using gjson
-	result := gjson.GetBytes(data, key)
+	// Extract value using gjson, supporting both literal dotted keys and nested paths
+	result := getFieldValue(gjson.ParseBytes(data), key)
 	if !result.Exists() {
 		return nil, fmt.Errorf("key %s not found in data", key)
 	}
