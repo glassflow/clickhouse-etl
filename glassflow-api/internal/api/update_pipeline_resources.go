@@ -36,7 +36,7 @@ type UpdatePipelineResourcesResponse struct {
 func (h *handler) updatePipelineResources(ctx context.Context, input *UpdatePipelineResourcesInput) (*UpdatePipelineResourcesResponse, error) {
 	newResources := input.Body.PipelineResources
 
-	merged, err := h.pipelineService.UpdatePipelineResources(ctx, input.ID, newResources)
+	result, err := h.pipelineService.UpdatePipelineResources(ctx, input.ID, newResources)
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrPipelineNotExists):
@@ -75,10 +75,9 @@ func (h *handler) updatePipelineResources(ctx context.Context, input *UpdatePipe
 
 	return &UpdatePipelineResourcesResponse{
 		Body: pipelineResourcesBody{
-			PipelineResources: merged,
+			PipelineResources: result.Resources,
 			FieldsPolicy: FieldsPolicy{
-				ImmutableAfterCreate: models.PipelineResourcesImmutableAfterCreate,
-				AlwaysImmutable:      models.PipelineResourcesAlwaysImmutable,
+				Immutable: result.Immutable,
 			},
 		},
 	}, nil

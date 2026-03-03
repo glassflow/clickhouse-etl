@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -143,16 +144,25 @@ type StorageConfig struct {
 	Size string `json:"size,omitempty"`
 }
 
-// PipelineResourcesImmutableAfterCreate lists resource field paths that cannot be changed after pipeline creation.
-var PipelineResourcesImmutableAfterCreate = []string{
+// PipelineResourcesWithPolicy bundles resources with their field immutability policy.
+type PipelineResourcesWithPolicy struct {
+	Resources PipelineResources
+	Immutable []string
+}
+
+// NewPipelineResourcesWithPolicy creates a PipelineResourcesWithPolicy for the given pipeline config and resources.
+func NewPipelineResourcesWithPolicy(cfg *PipelineConfig, resources PipelineResources) PipelineResourcesWithPolicy {
+	return PipelineResourcesWithPolicy{
+		Resources: resources,
+		Immutable: GetImmutableFields(cfg),
+	}
+}
+
+// PipelineResourcesImmutable lists resource field paths that cannot be changed after pipeline creation.
+var PipelineResourcesImmutable = []string{
 	"nats/stream/maxAge",
 	"nats/stream/maxBytes",
 	"transform/storage/size",
-}
-
-// PipelineResourcesAlwaysImmutable lists resource field paths that users can never configure directly.
-var PipelineResourcesAlwaysImmutable = []string{
-	"join/replicas",
 }
 
 // ValidateResourceQuantities validates all resource quantity values in r.
@@ -232,21 +242,6 @@ func validateQuantity(val, field string) error {
 	return nil
 }
 
-// ValidateAlwaysImmutableFields returns an error if r contains any always-immutable fields.
-func ValidateAlwaysImmutableFields(r PipelineResources) error {
-	data, err := json.Marshal(r)
-	if err != nil {
-		return fmt.Errorf("marshal resources: %w", err)
-	}
-	for _, field := range PipelineResourcesAlwaysImmutable {
-		gjsonPath := strings.ReplaceAll(field, "/", ".")
-		if gjson.GetBytes(data, gjsonPath).Exists() {
-			return fmt.Errorf("field %q cannot be configured by users", field)
-		}
-	}
-	return nil
-}
-
 // ValidateImmutabilityPipelineResources returns an error if any field in the given list
 // is present in old and has a different value in new.
 func ValidateImmutabilityPipelineResources(old, new PipelineResources, fields []string) error {
@@ -262,7 +257,7 @@ func ValidateImmutabilityPipelineResources(old, new PipelineResources, fields []
 		gjsonPath := strings.ReplaceAll(field, "/", ".")
 		oldVal := gjson.GetBytes(oldJSON, gjsonPath)
 		newVal := gjson.GetBytes(newJSON, gjsonPath)
-		if oldVal.Exists() && oldVal.Raw != newVal.Raw {
+		if oldVal.Exists() && newVal.Exists() && oldVal.Raw != newVal.Raw {
 			return fmt.Errorf("immutable field %q cannot be changed", field)
 		}
 	}
@@ -276,9 +271,6 @@ func ValidatePipelineResources(old, new PipelineResources, immutableFields []str
 	if err := ValidateResourceQuantities(new); err != nil {
 		return err
 	}
-	if err := ValidateAlwaysImmutableFields(new); err != nil {
-		return err
-	}
 	if len(immutableFields) > 0 {
 		if err := ValidateImmutabilityPipelineResources(old, new, immutableFields); err != nil {
 			return err
@@ -288,62 +280,78 @@ func ValidatePipelineResources(old, new PipelineResources, immutableFields []str
 }
 
 // MergeWithDefaults fills nil components in r with the corresponding defaults.
-func MergeWithDefaults(r PipelineResources, defaults PipelineResources) PipelineResources {
+func MergeWithDefaults(cfg *PipelineConfig, r PipelineResources, defaults PipelineResources) PipelineResources {
 	if r.Nats == nil {
 		r.Nats = defaults.Nats
 	}
+
 	if r.Ingestor == nil {
-		r.Ingestor = defaults.Ingestor
-	} else {
-		if r.Ingestor.Base == nil {
-			r.Ingestor.Base = defaults.Ingestor.Base
-		} else {
-			mergeComponentDefaults(r.Ingestor.Base, defaults.Ingestor.Base)
-		}
-		if r.Ingestor.Left == nil {
-			r.Ingestor.Left = defaults.Ingestor.Left
-		} else {
-			mergeComponentDefaults(r.Ingestor.Left, defaults.Ingestor.Left)
-		}
-		if r.Ingestor.Right == nil {
-			r.Ingestor.Right = defaults.Ingestor.Right
-		} else {
-			mergeComponentDefaults(r.Ingestor.Right, defaults.Ingestor.Right)
-		}
+		r.Ingestor = &IngestorResources{}
 	}
-	if r.Join == nil {
-		r.Join = defaults.Join
+
+	if cfg.Join.Enabled {
+		r.Ingestor.Left = mergeComponentDefaults(r.Ingestor.Left, defaults.Ingestor.Left)
+		r.Ingestor.Right = mergeComponentDefaults(r.Ingestor.Right, defaults.Ingestor.Right)
+		r.Join = mergeComponentDefaults(r.Join, defaults.Join)
 	} else {
-		mergeComponentDefaults(r.Join, defaults.Join)
+		r.Ingestor.Base = mergeComponentDefaults(r.Ingestor.Base, defaults.Ingestor.Base)
 	}
-	if r.Sink == nil {
-		r.Sink = defaults.Sink
-	} else {
-		mergeComponentDefaults(r.Sink, defaults.Sink)
-	}
-	if r.Transform == nil {
-		r.Transform = defaults.Transform
-	} else {
-		mergeComponentDefaults(r.Transform, defaults.Transform)
+
+	r.Sink = mergeComponentDefaults(r.Sink, defaults.Sink)
+
+	if transformEnabled(cfg) {
+		r.Transform = mergeComponentDefaults(r.Transform, defaults.Transform)
 	}
 
 	return r
 }
 
-func mergeComponentDefaults(dst, src *ComponentResources) {
-	if dst == nil || src == nil {
-		return
+func dedupEnabled(pc *PipelineConfig) bool {
+	for _, topic := range pc.Ingestor.KafkaTopics {
+		if topic.Deduplication.Enabled {
+			return true
+		}
 	}
-	if dst.Replicas == nil {
-		dst.Replicas = src.Replicas
+	return false
+}
+
+func transformEnabled(pc *PipelineConfig) bool {
+	if pc.StatelessTransformation.Enabled || pc.Filter.Enabled {
+		return true
 	}
-	if dst.Requests == nil {
-		dst.Requests = src.Requests
+	return dedupEnabled(pc)
+}
+
+// GetImmutableFields returns immutable-after-create fields for the given pipeline config.
+// When dedup is enabled, transform/replicas is also immutable because dedup uses stateful storage.
+func GetImmutableFields(cfg *PipelineConfig) []string {
+	fields := slices.Clone(PipelineResourcesImmutable)
+	if dedupEnabled(cfg) {
+		fields = append(fields, "transform/replicas")
 	}
-	if dst.Limits == nil {
-		dst.Limits = src.Limits
+	return fields
+}
+
+func mergeComponentDefaults(destination, source *ComponentResources) *ComponentResources {
+	if source == nil {
+		return destination
 	}
-	if dst.Storage == nil {
-		dst.Storage = src.Storage
+	if destination == nil {
+		return source
 	}
+	merged := *destination
+	if merged.Replicas == nil {
+		merged.Replicas = source.Replicas
+	}
+	if merged.Requests == nil {
+		merged.Requests = source.Requests
+	}
+	if merged.Limits == nil {
+		merged.Limits = source.Limits
+	}
+	if merged.Storage == nil {
+		merged.Storage = source.Storage
+	}
+
+	return &merged
 }

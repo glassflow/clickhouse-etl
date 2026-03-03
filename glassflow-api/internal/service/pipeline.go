@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"slices"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
@@ -58,38 +57,34 @@ var (
 	ErrPipelineResourcesValidation = errors.New("invalid pipeline resources")
 )
 
-type PipelineResourcesOperation string
-
-const (
-	PipelineResourcesOperationCreate PipelineResourcesOperation = "creation"
-	PipelineResourcesOperationEdit   PipelineResourcesOperation = "edit"
-)
-
-func (p *PipelineService) NewPipelineResources(ctx context.Context, cfg *models.PipelineConfig, operation PipelineResourcesOperation) (models.PipelineResources, error) {
+func (p *PipelineService) NewPipelineResources(ctx context.Context, cfg *models.PipelineConfig) (models.PipelineResources, error) {
 	defaults := models.NewDefaultPipelineResources()
 
 	if cfg.PipelineResources.IsZero() {
 		return defaults, nil
 	}
 
-	var (
-		oldResources    models.PipelineResources
-		immutableFields = models.PipelineResourcesAlwaysImmutable
-	)
-	if operation == PipelineResourcesOperationEdit {
-		existing, err := p.db.GetPipelineResources(ctx, cfg.ID)
-		if err != nil {
-			return models.PipelineResources{}, fmt.Errorf("get pipeline resources: %w", err)
+	if cfg.Join.Enabled {
+		if cfg.PipelineResources.Join != nil &&
+			cfg.PipelineResources.Join.Replicas != nil &&
+			*cfg.PipelineResources.Join.Replicas != 1 {
+
+			return models.PipelineResources{}, fmt.Errorf("only 1 join replica is supported")
 		}
-		oldResources = existing.Resources
-		immutableFields = slices.Concat(models.PipelineResourcesAlwaysImmutable, models.PipelineResourcesImmutableAfterCreate)
 	}
+
+	existing, err := p.db.GetPipelineResources(ctx, cfg.ID)
+	if err != nil {
+		return models.PipelineResources{}, fmt.Errorf("get pipeline resources: %w", err)
+	}
+	oldResources := existing.Resources
+	immutableFields := models.GetImmutableFields(cfg)
 
 	if err := models.ValidatePipelineResources(oldResources, cfg.PipelineResources, immutableFields); err != nil {
 		return models.PipelineResources{}, fmt.Errorf("%w: %w", ErrPipelineResourcesValidation, err)
 	}
 
-	return models.MergeWithDefaults(cfg.PipelineResources, defaults), nil
+	return models.MergeWithDefaults(cfg, cfg.PipelineResources, defaults), nil
 }
 
 // CreatePipeline implements PipelineService.
@@ -112,7 +107,7 @@ func (p *PipelineService) CreatePipeline(ctx context.Context, cfg *models.Pipeli
 		cfg.Status.OverallStatus = models.PipelineStatus(internal.PipelineStatusRunning)
 	}
 
-	newResources, err := p.NewPipelineResources(ctx, cfg, PipelineResourcesOperationCreate)
+	newResources, err := p.NewPipelineResources(ctx, cfg)
 	if err != nil {
 		return fmt.Errorf("validate pipeline resources: %w", err)
 	}
@@ -219,51 +214,58 @@ func (p *PipelineService) GetPipeline(ctx context.Context, pid string) (zero mod
 	return *pi, nil
 }
 
-func (p *PipelineService) GetPipelineResources(ctx context.Context, pid string) (*models.PipelineResourcesRow, error) {
-	row, err := p.db.GetPipelineResources(ctx, pid)
+func (p *PipelineService) GetPipelineResources(ctx context.Context, pid string) (models.PipelineResourcesWithPolicy, error) {
+	pipeline, err := p.db.GetPipeline(ctx, pid)
 	if err != nil {
-		return nil, fmt.Errorf("load pipeline resources: %w", err)
+		return models.PipelineResourcesWithPolicy{}, fmt.Errorf("load pipeline: %w", err)
 	}
 
-	return row, nil
+	row, err := p.db.GetPipelineResources(ctx, pid)
+	if err != nil {
+		return models.PipelineResourcesWithPolicy{}, fmt.Errorf("load pipeline resources: %w", err)
+	}
+
+	return models.NewPipelineResourcesWithPolicy(pipeline, row.Resources), nil
 }
 
-func (p *PipelineService) UpdatePipelineResources(ctx context.Context, pid string, resources models.PipelineResources) (models.PipelineResources, error) {
+func (p *PipelineService) UpdatePipelineResources(ctx context.Context, pid string, resources models.PipelineResources) (models.PipelineResourcesWithPolicy, error) {
 	pipeline, err := p.db.GetPipeline(ctx, pid)
 	if err != nil {
 		if errors.Is(err, ErrPipelineNotExists) {
-			return models.PipelineResources{}, ErrPipelineNotExists
+			return models.PipelineResourcesWithPolicy{}, ErrPipelineNotExists
 		}
-		return models.PipelineResources{}, fmt.Errorf("get pipeline for resource update: %w", err)
+		return models.PipelineResourcesWithPolicy{}, fmt.Errorf("get pipeline for resource update: %w", err)
 	}
 
 	if pipeline.Status.OverallStatus != internal.PipelineStatusStopped &&
 		pipeline.Status.OverallStatus != internal.PipelineStatusFailed {
-		return models.PipelineResources{}, status.NewPipelineNotStoppedForEditError(pipeline.Status.OverallStatus)
+		return models.PipelineResourcesWithPolicy{}, status.NewPipelineNotStoppedForEditError(pipeline.Status.OverallStatus)
 	}
 
 	existing, err := p.db.GetPipelineResources(ctx, pid)
 	if err != nil {
-		return models.PipelineResources{}, fmt.Errorf("get pipeline resources: %w", err)
+		return models.PipelineResourcesWithPolicy{}, fmt.Errorf("get pipeline resources: %w", err)
 	}
 
-	if err := models.ValidatePipelineResources(existing.Resources, resources, models.PipelineResourcesImmutableAfterCreate); err != nil {
-		return models.PipelineResources{}, fmt.Errorf("%w: %w", ErrPipelineResourcesValidation, err)
+	immutableAfterCreate := models.GetImmutableFields(pipeline)
+
+	if err := models.ValidatePipelineResources(existing.Resources, resources, immutableAfterCreate); err != nil {
+		return models.PipelineResourcesWithPolicy{}, fmt.Errorf("%w: %w", ErrPipelineResourcesValidation, err)
 	}
 
-	merged := models.MergeWithDefaults(resources, models.NewDefaultPipelineResources())
+	merged := models.MergeWithDefaults(pipeline, resources, models.NewDefaultPipelineResources())
 	pipeline.PipelineResources = merged
 
 	err = p.orchestrator.EditPipeline(ctx, pid, pipeline)
 	if err != nil {
-		return models.PipelineResources{}, fmt.Errorf("edit pipeline: %w", err)
+		return models.PipelineResourcesWithPolicy{}, fmt.Errorf("edit pipeline: %w", err)
 	}
 
 	if _, err := p.db.UpsertPipelineResources(ctx, pid, merged); err != nil {
-		return models.PipelineResources{}, fmt.Errorf("upsert pipeline resources: %w", err)
+		return models.PipelineResourcesWithPolicy{}, fmt.Errorf("upsert pipeline resources: %w", err)
 	}
 
-	return merged, nil
+	return models.NewPipelineResourcesWithPolicy(pipeline, merged), nil
 }
 
 // GetPipelines implements PipelineService.
@@ -466,7 +468,7 @@ func (p *PipelineService) EditPipeline(ctx context.Context, pid string, newCfg *
 		return status.NewPipelineNotStoppedForEditError(models.PipelineStatus(currentPipeline.Status.OverallStatus))
 	}
 
-	newResources, err := p.NewPipelineResources(ctx, newCfg, PipelineResourcesOperationEdit)
+	newResources, err := p.NewPipelineResources(ctx, newCfg)
 	if err != nil {
 		return fmt.Errorf("validate pipeline resources: %w", err)
 	}

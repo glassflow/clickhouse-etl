@@ -31,8 +31,7 @@ type pipelineResourcesBody struct {
 }
 
 type FieldsPolicy struct {
-	ImmutableAfterCreate []string `json:"immutable_after_create"`
-	AlwaysImmutable      []string `json:"always_immutable"`
+	Immutable []string `json:"immutable"`
 }
 
 type GetPipelineResourcesResponse struct {
@@ -40,7 +39,7 @@ type GetPipelineResourcesResponse struct {
 }
 
 func (h *handler) getPipelineResources(ctx context.Context, input *GetPipelineResourcesInput) (*GetPipelineResourcesResponse, error) {
-	row, err := h.pipelineService.GetPipelineResources(ctx, input.ID)
+	result, err := h.pipelineService.GetPipelineResources(ctx, input.ID)
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrPipelineNotExists):
@@ -48,29 +47,23 @@ func (h *handler) getPipelineResources(ctx context.Context, input *GetPipelineRe
 				Status:  http.StatusNotFound,
 				Code:    "not_found",
 				Message: fmt.Sprintf("resources for pipeline %q not found", input.ID),
-				Details: map[string]any{
-					"pipeline_id": input.ID,
-				},
+				Details: map[string]any{"pipeline_id": input.ID},
 			}
 		default:
 			return nil, &ErrorDetail{
 				Status:  http.StatusInternalServerError,
 				Code:    "internal_error",
 				Message: "Unable to load pipeline resources",
-				Details: map[string]any{
-					"pipeline_id": input.ID,
-					"error":       err.Error(),
-				},
+				Details: map[string]any{"pipeline_id": input.ID, "error": err.Error()},
 			}
 		}
 	}
 
 	return &GetPipelineResourcesResponse{
 		Body: pipelineResourcesBody{
-			PipelineResources: row.Resources,
+			PipelineResources: result.Resources,
 			FieldsPolicy: FieldsPolicy{
-				ImmutableAfterCreate: models.PipelineResourcesImmutableAfterCreate,
-				AlwaysImmutable:      models.PipelineResourcesAlwaysImmutable,
+				Immutable: result.Immutable,
 			},
 		},
 	}, nil
