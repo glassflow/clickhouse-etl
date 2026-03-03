@@ -42,7 +42,6 @@ import {
   hasDefaultExpression,
   defaultClickHouseTypeForJsonType,
   getFieldType,
-  computeAlterTableOperations,
 } from './utils'
 import { extractEventFields } from '@/src/utils/common.client'
 
@@ -1670,36 +1669,8 @@ export function ClickhouseMapper({
       version: pipelineVersion, // Respect the original pipeline version
     })
 
-    // Standalone edit: apply ALTER TABLE then update pipeline config via edit API
+    // Standalone edit: update pipeline config via edit API (ALTER TABLE / schema evolution is backend responsibility, other branch)
     if (standalone && pipelineId && toggleEditMode) {
-      const saved = clickhouseDestinationStore.lastSavedDestination
-      if (destinationPath === 'use_existing' && saved?.mapping?.length !== undefined) {
-        const operations = computeAlterTableOperations(saved.mapping, mappedColumns)
-        if (operations.length > 0) {
-          const conn = clickhouseConnectionStore.clickhouseConnection.directConnection
-          const alterRes = await fetch('/ui-api/clickhouse/alter-table', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              host: conn.host,
-              httpPort: conn.httpPort,
-              nativePort: conn.nativePort,
-              username: conn.username,
-              password: conn.password,
-              database: selectedDatabase,
-              table: selectedTable,
-              operations,
-              useSSL: conn.useSSL,
-              skipCertificateVerification: conn.skipCertificateVerification,
-            }),
-          })
-          const alterData = await alterRes.json()
-          if (!alterData.success) {
-            setError(alterData.error || 'Failed to apply schema changes to ClickHouse')
-            return
-          }
-        }
-      }
       try {
         await editPipeline(pipelineId, apiConfig as Pipeline)
       } catch (err: any) {

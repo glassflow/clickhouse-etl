@@ -403,7 +403,7 @@ function PipelineDetailsHeader({
             {action === 'stop' && (
               <Image
                 src={StopWhiteIcon}
-                alt="Pause"
+                alt="Stop"
                 width={14}
                 height={14}
                 className="filter brightness-100 group-hover:brightness-0"
@@ -558,7 +558,7 @@ function PipelineDetailsHeader({
                   {/* Show resume in menu if not primary */}
                   {showResume && primaryAction !== 'resume' && renderMenuButton('resume', 'Resume', PlayIcon)}
                   {/* Show stop in menu if not primary */}
-                  {showStop && primaryAction !== 'stop' && renderMenuButton('stop', 'Pause', StopWhiteIcon)}
+                  {showStop && primaryAction !== 'stop' && renderMenuButton('stop', 'Stop', StopWhiteIcon)}
                   {showRename && renderMenuButton('rename', 'Rename', RenameIcon)}
                   {showTerminate && renderMenuButton('terminate', 'Terminate', CloseIcon)}
                   {/* Show delete in menu if not primary */}
@@ -702,7 +702,7 @@ function PipelineDetailsHeader({
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <Image src={Loader} alt="Loading" width={24} height={24} className="animate-spin" />
                   <span className="text-sm text-blue-600 font-medium whitespace-nowrap">
-                    {actionState.lastAction === 'stop' && 'Pausing pipeline...'}
+                    {actionState.lastAction === 'stop' && 'Stopping pipeline...'}
                     {actionState.lastAction === 'resume' && 'Resuming pipeline...'}
                     {actionState.lastAction === 'terminate' && 'Terminating pipeline...'}
                     {actionState.lastAction === 'delete' && 'Deleting pipeline...'}

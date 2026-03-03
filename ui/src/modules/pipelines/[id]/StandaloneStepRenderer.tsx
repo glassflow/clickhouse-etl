@@ -33,7 +33,7 @@ interface StandaloneStepRendererProps {
 function getLoadingText(lastAction: string | null): string {
   switch (lastAction) {
     case 'stop':
-      return 'Pausing pipeline for editing...'
+      return 'Stopping pipeline for editing...'
     case 'resume':
       return 'Resuming pipeline...'
     case 'delete':
@@ -120,7 +120,7 @@ function StandaloneStepRenderer({
   const handleComplete = (nextStep?: StepKeys, standalone?: boolean) => {
     // In StandaloneStepRenderer, we're always in standalone mode, so always close.
     // Use onCloseAfterSave when provided (e.g. after Save) so parent can skip navigate-away guard.
-    ;(onCloseAfterSave ?? onClose)()
+    ; (onCloseAfterSave ?? onClose)()
   }
 
   const handleBack = () => {
@@ -249,8 +249,8 @@ function StandaloneStepRenderer({
       {/* Pipeline Transition Overlay - shown during stopping transition */}
       <PipelineTransitionOverlay
         visible={isStoppingForEdit}
-        title="Pausing Pipeline"
-        description="The pipeline is being paused to enable editing. Please wait while the transition completes..."
+        title="Stopping Pipeline"
+        description="The pipeline is being stopped to enable editing. Please wait while the transition completes..."
       />
     </>
   )
