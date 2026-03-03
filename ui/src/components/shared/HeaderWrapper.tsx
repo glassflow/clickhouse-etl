@@ -12,7 +12,7 @@ export function HeaderWrapper({ children }: HeaderWrapperProps) {
       className="w-full shrink-0 sticky top-0 z-50 bg-[var(--elevated-background)]"
       style={{
         boxShadow:
-          'var(--Shadow-Styles-Overlay-Layer-1-X, 0px) 1px 1px var(--Shadow-Styles-Overlay-Layer-1-Spread, 0px) #3A3A3A',
+          'var(--Shadow-Styles-Overlay-Layer-1-X, 0px) 1px 1px var(--Shadow-Styles-Overlay-Layer-1-Spread, 0px) var(--color-gray-350)',
       }}
     >
       {children}

@@ -7,7 +7,7 @@ import {
   DialogOverlay,
 } from '@/src/components/ui/dialog'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
-import LoadingSpinner from '@/src/components/shared/LoadingSpinner'
+import LoadingSpinner from './LoadingSpinner'
 import { cn } from '@/src/utils/common.client'
 
 interface PipelineTransitionOverlayProps {

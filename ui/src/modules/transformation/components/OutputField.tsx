@@ -26,10 +26,8 @@ function OutputField({
             onChange={handleOutputNameChange}
             placeholder="Enter field name"
             disabled={readOnly}
-            className={cn(
-              'input-regular input-border-regular',
-              errors?.outputFieldName && 'border-[var(--color-border-critical)]',
-            )}
+            error={!!errors?.outputFieldName}
+            className="w-full"
           />
           {errors?.outputFieldName && (
             <p className="text-xs text-[var(--color-foreground-critical)] mt-1">{errors.outputFieldName}</p>

@@ -2,7 +2,7 @@
 .title-1 {
   font-size: var(--font-size-title-1);
   line-height: var(--line-height-title-1);
-  font-family: var(--font-family-title-1);
+  font-family: var(--font-family-title);
   font-weight: var(--font-weight-title-1);
   letter-spacing: var(--letter-spacing-title-1);
   color: var(--text-accent);
@@ -11,7 +11,7 @@
 .title-2 {
   font-size: var(--font-size-title-2);
   line-height: var(--line-height-title-2);
-  font-family: var(--font-family-title-2);
+  font-family: var(--font-family-title);
   font-weight: var(--font-weight-title-2);
   letter-spacing: var(--letter-spacing-title-2);
 }
@@ -19,7 +19,7 @@
 .title-3 {
   font-size: var(--font-size-title-3);
   line-height: var(--line-height-title-3);
-  font-family: var(--font-family-title-3);
+  font-family: var(--font-family-title);
   font-weight: var(--font-weight-title-3);
   letter-spacing: var(--letter-spacing-title-3);
 }
@@ -27,7 +27,7 @@
 .title-4 {
   font-size: var(--font-size-title-4);
   line-height: var(--line-height-title-4);
-  font-family: var(--font-family-title-4);
+  font-family: var(--font-family-title);
   font-weight: var(--font-weight-title-4);
   letter-spacing: var(--letter-spacing-title-4);
 }
@@ -35,7 +35,7 @@
 .title-5 {
   font-size: var(--font-size-title-5);
   line-height: var(--line-height-title-5);
-  font-family: var(--font-family-title-5);
+  font-family: var(--font-family-title);
   font-weight: var(--font-weight-title-5);
   letter-spacing: var(--letter-spacing-title-5);
 }
@@ -43,7 +43,7 @@
 .title-6 {
   font-size: var(--font-size-title-6);
   line-height: var(--line-height-title-6);
-  font-family: var(--font-family-title-6);
+  font-family: var(--font-family-title);
   font-weight: var(--font-weight-title-6);
   letter-spacing: var(--letter-spacing-title-6);
 }
@@ -52,21 +52,21 @@
 .body-1 {
   font-size: var(--font-size-body-1);
   line-height: var(--line-height-body-1);
-  font-family: var(--font-family-body-1);
+  font-family: var(--font-family-body);
   letter-spacing: var(--letter-spacing-body-1);
 }
 
 .body-2 {
   font-size: var(--font-size-body-2);
   line-height: var(--line-height-body-2);
-  font-family: var(--font-family-body-2);
+  font-family: var(--font-family-body);
   letter-spacing: var(--letter-spacing-body-2);
 }
 
 .body-3 {
   font-size: var(--font-size-body-3);
   line-height: var(--line-height-body-3);
-  font-family: var(--font-family-body-3);
+  font-family: var(--font-family-body);
   letter-spacing: var(--letter-spacing-body-3);
 }
 

@@ -153,7 +153,7 @@ export function FunctionArgumentInput({
             placeholder="Enter value"
             disabled={disabled}
             className={cn(
-              'input-regular input-border-regular flex-1',
+              'flex-1',
               error && 'border-[var(--color-border-critical)]',
             )}
           />
@@ -199,7 +199,7 @@ export function FunctionArgumentInput({
       <div className="flex items-start gap-2">
         {/* Type selector */}
         <Select value={argument.type} onValueChange={(v) => handleTypeChange(v as ArgumentType)} disabled={disabled}>
-          <SelectTrigger className="w-[100px] input-regular input-border-regular text-xs">
+          <SelectTrigger className="w-[100px] text-xs">
             <SelectValue />
           </SelectTrigger>
           <SelectContent className="select-content-custom">

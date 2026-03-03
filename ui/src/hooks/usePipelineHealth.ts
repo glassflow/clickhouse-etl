@@ -42,7 +42,7 @@ export const usePipelineHealth = ({
   const [hasStopped, setHasStopped] = useState(false)
   const [errorCount, setErrorCount] = useState(0)
 
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const previousStatusRef = useRef<PipelineHealthStatus | null>(null)
 
   // Single fetch function - no recursion, no complex state dependencies
@@ -206,7 +206,7 @@ export const useMultiplePipelineHealth = ({
   const [errorMap, setErrorMap] = useState<Record<string, PipelineHealthError>>({})
   const [isPolling, setIsPolling] = useState(false)
 
-  const intervalRef = useRef<NodeJS.Timeout | null>(null)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const isMountedRef = useRef(true)
   const previousStatusesRef = useRef<Record<string, PipelineHealthStatus>>({})
   const currentPipelineIdsRef = useRef<string[]>([])

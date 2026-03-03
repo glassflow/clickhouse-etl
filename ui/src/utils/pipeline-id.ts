@@ -1,4 +1,5 @@
 import { generateId } from './common.client'
+import { structuredLogger } from '@/src/observability'
 
 export interface PipelineIdValidation {
   isValid: boolean
@@ -121,10 +122,7 @@ export const generateUniquePipelineId = async (
     } catch (error) {
       // In local development, API might not be available
       // Treat network errors as "pipeline doesn't exist" and use the generated ID
-      console.warn(
-        `Pipeline existence check failed for "${id}", assuming it doesn't exist for local development:`,
-        error,
-      )
+      structuredLogger.warn('Pipeline existence check failed, assuming it does not exist for local development', { id, error: error instanceof Error ? error.message : String(error) })
       return id
     }
 

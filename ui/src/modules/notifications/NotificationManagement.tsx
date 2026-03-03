@@ -28,7 +28,7 @@ export function NotificationManagement() {
       <div
         className={cn(
           'flex items-center justify-between',
-          'p-4 rounded-[var(--radius-large)]',
+          'p-4 rounded-[var(--radius-xl)]',
           'bg-[var(--surface-bg)] border border-[var(--surface-border)]',
           'shadow-[var(--card-shadow)]',
           'animate-fadeIn'
@@ -50,11 +50,10 @@ export function NotificationManagement() {
           </div>
         </div>
         <Button
-          variant="outline"
           size="sm"
           onClick={handleRefresh}
           disabled={isLoading}
-          className="btn-neutral"
+          variant="secondary"
         >
           <RefreshCw className={cn('h-4 w-4', isLoading && 'animate-spin')} />
           Refresh

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { MessageSquare, Eye, EyeOff } from 'lucide-react'
 import { Input } from '@/src/components/ui/input'
+import { Label } from '@/src/components/ui/label'
 import { cn } from '@/src/utils/common.client'
 import type { SlackChannelConfig } from '@/src/services/notifications-api'
 
@@ -63,7 +64,7 @@ export function SlackConfigForm({ initialConfig, onChange, disabled }: SlackConf
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3 pb-4 border-b border-[var(--surface-border)]">
-        <div className="p-2 rounded-[var(--radius-medium)] bg-[var(--color-background-primary-faded)]">
+        <div className="p-2 rounded-[var(--radius-md)] bg-[var(--color-background-primary-faded)]">
           <MessageSquare className="h-5 w-5 text-[var(--color-foreground-primary)]" />
         </div>
         <div>
@@ -75,10 +76,10 @@ export function SlackConfigForm({ initialConfig, onChange, disabled }: SlackConf
       </div>
 
       {/* Webhook URL */}
-      <div className="modal-input-container">
-        <label htmlFor="webhook_url" className="modal-input-label">
+      <div className="grid gap-2">
+        <Label htmlFor="webhook_url" className="text-sm text-[var(--color-foreground-neutral-faded)]">
           Webhook URL <span className="text-[var(--color-foreground-critical)]">*</span>
-        </label>
+        </Label>
         <div className="relative">
           <Input
             id="webhook_url"
@@ -88,10 +89,8 @@ export function SlackConfigForm({ initialConfig, onChange, disabled }: SlackConf
             onBlur={() => handleBlur('webhookUrl')}
             placeholder="https://hooks.slack.com/services/..."
             disabled={disabled}
-            className={cn(
-              'input-regular pr-10',
-              touched.webhookUrl && errors.webhookUrl ? 'modal-input-error' : 'input-border-regular'
-            )}
+            error={!!(touched.webhookUrl && errors.webhookUrl)}
+            className="pr-10"
           />
           <button
             type="button"
@@ -107,9 +106,9 @@ export function SlackConfigForm({ initialConfig, onChange, disabled }: SlackConf
           </button>
         </div>
         {touched.webhookUrl && errors.webhookUrl && (
-          <p className="modal-error-text animate-slideDown">{errors.webhookUrl}</p>
+          <p className="text-sm input-description-error animate-slideDown">{errors.webhookUrl}</p>
         )}
-        <p className="modal-input-helper">
+        <p className="text-sm text-[var(--color-foreground-neutral-faded)]">
           Get your webhook URL from{' '}
           <a
             href="https://api.slack.com/messaging/webhooks"
@@ -123,10 +122,10 @@ export function SlackConfigForm({ initialConfig, onChange, disabled }: SlackConf
       </div>
 
       {/* Default Channel */}
-      <div className="modal-input-container">
-        <label htmlFor="default_channel" className="modal-input-label">
+      <div className="grid gap-2">
+        <Label htmlFor="default_channel" className="text-sm text-[var(--color-foreground-neutral-faded)]">
           Default Channel <span className="text-[var(--color-foreground-neutral-faded)]">(optional)</span>
-        </label>
+        </Label>
         <Input
           id="default_channel"
           type="text"
@@ -134,9 +133,8 @@ export function SlackConfigForm({ initialConfig, onChange, disabled }: SlackConf
           onChange={(e) => setDefaultChannel(e.target.value)}
           placeholder="#notifications"
           disabled={disabled}
-          className="input-regular input-border-regular"
         />
-        <p className="modal-input-helper">Override the default channel configured in your webhook</p>
+        <p className="text-sm text-[var(--color-foreground-neutral-faded)]">Override the default channel configured in your webhook</p>
       </div>
     </div>
   )

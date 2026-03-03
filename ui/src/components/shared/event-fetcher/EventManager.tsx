@@ -170,7 +170,7 @@ function EventManager({
               <Button
                 onClick={handleFetchPrevious}
                 variant="gradient"
-                className="btn-text btn-neutral"
+                variant="secondary" size="text"
                 type="button"
                 disabled={isAtEarliest || !topicName}
               >
@@ -179,7 +179,7 @@ function EventManager({
               <Button
                 onClick={handleFetchNext}
                 variant="gradient"
-                className="btn-text btn-neutral"
+                variant="secondary" size="text"
                 type="button"
                 disabled={isAtLatest || !topicName}
               >

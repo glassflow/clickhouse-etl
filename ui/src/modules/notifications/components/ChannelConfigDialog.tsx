@@ -137,7 +137,7 @@ export function ChannelConfigDialog({
         {error && (
           <div
             className={cn(
-              'p-3 rounded-[var(--radius-medium)]',
+              'p-3 rounded-[var(--radius-md)]',
               'border border-[var(--color-border-critical-faded)]',
               'bg-[var(--color-background-critical-faded)]/20',
               'animate-slideDown'
@@ -149,15 +149,14 @@ export function ChannelConfigDialog({
 
         <DialogFooter className="mt-6">
           <Button
-            variant="outline"
-            className="btn-tertiary"
+            variant="tertiary"
             onClick={handleCancel}
             disabled={isSaving}
           >
             Cancel
           </Button>
           <Button
-            className="btn-primary gap-2"
+            variant="primary" size="custom" className="gap-2"
             onClick={handleSave}
             disabled={!isValid || isSaving}
           >

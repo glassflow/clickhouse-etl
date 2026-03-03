@@ -114,7 +114,7 @@ export function NotificationsPanel() {
         >
           <div className="flex items-center justify-between pr-8">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-[var(--radius-medium)] bg-[var(--color-background-primary-faded)]">
+              <div className="p-2 rounded-[var(--radius-md)] bg-[var(--color-background-primary-faded)]">
                 <Bell className="h-5 w-5 text-[var(--color-foreground-primary)]" />
               </div>
               <SheetTitle className="text-lg font-semibold text-[var(--text-primary)]">
@@ -278,10 +278,9 @@ export function NotificationsPanel() {
               </div>
               <p className="mt-3 text-sm text-[var(--text-error)]">{error}</p>
               <Button
-                variant="outline"
                 size="sm"
                 onClick={handleRefresh}
-                className="mt-3 btn-neutral transition-all duration-200"
+                variant="secondary" className="mt-3 transition-all duration-200"
               >
                 Try again
               </Button>

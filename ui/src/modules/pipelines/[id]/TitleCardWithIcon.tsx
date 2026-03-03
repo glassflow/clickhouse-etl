@@ -40,7 +40,7 @@ function TitleCardWithIcon({
       <div className="flex flex-col items-center justify-center gap-4">
         <div className="flex items-center justify-center">{children}</div>
         <h3 className="text-lg font-bold text-center text-[var(--color-foreground-neutral-faded)]">{title}</h3>
-        {isClickable && <p className="text-sm text-gray-500 text-center">Click to edit</p>}
+        {isClickable && <p className="text-sm text-[var(--color-foreground-neutral-faded)] text-center">Click to edit</p>}
       </div>
     </Card>
   )

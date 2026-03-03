@@ -1,5 +1,6 @@
 import { cache, Suspense } from 'react'
 import { redirect, notFound } from 'next/navigation'
+import { structuredLogger } from '@/src/observability'
 import type { Metadata } from 'next'
 import { getSessionSafely } from '@/src/lib/auth0'
 import { isAuthEnabled } from '@/src/utils/auth-config.server'
@@ -83,7 +84,7 @@ async function PipelinePage({
 
     return <PipelineDetailsModule pipeline={pipeline} />
   } catch (error) {
-    console.error('Failed to fetch pipeline during SSR:', error)
+    structuredLogger.error('Failed to fetch pipeline during SSR', { error: error instanceof Error ? error.message : String(error) })
 
     // Check if this is a 404 error (pipeline not found) — use Next.js not-found boundary
     const apiError = error as ApiError

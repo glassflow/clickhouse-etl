@@ -148,7 +148,7 @@ export function MobilePipelinesList({
                     {(pipeline.dlq_stats?.unconsumed_messages || 0).toLocaleString()}
                   </Badge>
                   {(pipeline.dlq_stats?.total_messages || 0) > 0 && (
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-[var(--color-foreground-neutral-faded)]">
                       of {(pipeline.dlq_stats?.total_messages || 0).toLocaleString()}
                     </span>
                   )}

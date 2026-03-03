@@ -29,7 +29,7 @@ export function NoPipelines() {
         <p className="text-sm text-muted-foreground">Create your first pipeline to get started</p>
       </div>
 
-      <Button variant="outline" className="btn-primary flex items-center gap-2" onClick={handleCreatePipeline}>
+      <Button variant="primary" size="custom" className="flex items-center gap-2" onClick={handleCreatePipeline}>
         <Image
           src={PlusIcon}
           alt="New Pipeline"

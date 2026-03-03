@@ -34,7 +34,7 @@ function PipelineActionButton({
   const IconComponent = actionIcons[action]
 
   return (
-    <Button variant="outline" className={cn('btn-action', className)} onClick={onClick}>
+    <Button variant="ghost" className={className} onClick={onClick}>
       <IconComponent className={cn('action-icon', `action-icon--${variant}`)} size={16} />
       {actionLabels[action]}
     </Button>

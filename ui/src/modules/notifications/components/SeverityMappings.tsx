@@ -84,7 +84,7 @@ function ChannelToggleButton({ channel, isEnabled, onClick, disabled }: ChannelT
       disabled={disabled}
       className={cn(
         'w-full flex items-center justify-between p-3',
-        'rounded-[var(--radius-medium)]',
+        'rounded-[var(--radius-md)]',
         'border transition-all duration-200',
         'focus:outline-none focus:ring-2 focus:ring-[var(--color-border-primary)] focus:ring-offset-1',
         disabled && 'opacity-50 cursor-not-allowed',
@@ -105,7 +105,7 @@ function ChannelToggleButton({ channel, isEnabled, onClick, disabled }: ChannelT
       <div className="flex items-center gap-3">
         <div
           className={cn(
-            'p-2 rounded-[var(--radius-small)]',
+            'p-2 rounded-[var(--radius-sm)]',
             'transition-all duration-200',
             isEnabled
               ? 'bg-[var(--color-background-primary)] text-white'
@@ -189,7 +189,7 @@ function SeverityCard({ severity, channels, onChange, disabled }: SeverityCardPr
         <div className="flex items-center gap-3">
           <div
             className={cn(
-              'p-2.5 rounded-[var(--radius-medium)]',
+              'p-2.5 rounded-[var(--radius-md)]',
               'transition-all duration-200'
             )}
             style={{ backgroundColor: config.bgColorVar }}
@@ -339,21 +339,19 @@ export function SeverityMappings() {
         <div className="flex items-center gap-2">
           {hasChanges && (
             <Button
-              variant="outline"
               size="sm"
               onClick={handleReset}
               disabled={isSaving}
-              className="btn-neutral transition-all duration-200"
+              variant="secondary" className="transition-all duration-200"
             >
               Reset
             </Button>
           )}
           <Button
-            variant="outline"
             size="sm"
             onClick={fetchMappings}
             disabled={isLoading || isSaving}
-            className="gap-2 btn-neutral transition-all duration-200"
+            variant="secondary" className="gap-2 transition-all duration-200"
           >
             <RefreshCw className={cn('h-4 w-4', isLoading && 'animate-spin')} />
             Refresh
@@ -364,7 +362,7 @@ export function SeverityMappings() {
       {error && (
         <div
           className={cn(
-            'p-4 rounded-[var(--radius-large)]',
+            'p-4 rounded-[var(--radius-xl)]',
             'border border-[var(--color-border-critical-faded)]',
             'bg-[var(--color-background-critical-faded)]/20',
             'animate-slideDown'
@@ -397,7 +395,7 @@ export function SeverityMappings() {
         <div
           className={cn(
             'flex items-center justify-between p-4',
-            'rounded-[var(--radius-large)]',
+            'rounded-[var(--radius-xl)]',
             'bg-[var(--color-background-primary-faded)] border border-[var(--color-border-primary-faded)]',
             'animate-slideDown',
             'transition-all duration-200'
@@ -422,7 +420,7 @@ export function SeverityMappings() {
       {/* Legend */}
       <div
         className={cn(
-          'p-4 rounded-[var(--radius-large)]',
+          'p-4 rounded-[var(--radius-xl)]',
           'border border-[var(--surface-border)]',
           'bg-[var(--color-background-neutral-faded)]',
           'transition-all duration-200'

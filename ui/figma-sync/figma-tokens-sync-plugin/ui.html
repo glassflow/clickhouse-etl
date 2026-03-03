@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: 'Inter', -apple-system, sans-serif; font-size: 12px; margin: 0; padding: 12px; overflow-y: auto; }
+    h2 { margin: 0 0 10px; font-size: 14px; }
+    label { display: block; margin-bottom: 4px; color: #333; }
+    input[type="file"] { margin-bottom: 8px; }
+    textarea { width: 100%; height: 120px; resize: vertical; font-family: monospace; font-size: 11px; padding: 8px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 8px; }
+    button { padding: 8px 14px; margin-right: 8px; margin-bottom: 8px; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; }
+    button.primary { background: #0d99ff; color: white; }
+    button.primary:hover { background: #0b85de; }
+    button.secondary { background: #e5e5e5; color: #333; }
+    button.secondary:hover { background: #d0d0d0; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .summary { margin-top: 12px; padding: 10px; background: #f5f5f5; border-radius: 6px; font-size: 11px; white-space: pre-wrap; max-height: 220px; overflow-y: auto; }
+    .summary.error { color: #c00; }
+    .opt { margin: 10px 0; }
+    .opt input { margin-right: 6px; }
+    .status { margin-top: 10px; padding: 8px 10px; border-radius: 6px; font-size: 12px; background: #e8f4fc; color: #0b5a8c; }
+    .status.error { background: #fde8e8; color: #9b1c1c; }
+  </style>
+</head>
+<body>
+  <h2>Token Sync</h2>
+  <p>Load <code>tokens-for-figma.json</code> (or paste JSON) and sync variable values to this file. Optionally add a second file (e.g. <code>button-tokens-for-figma.json</code>) to merge button/control/surface variables into <strong>mode</strong>.</p>
+  <label>Upload JSON file</label>
+  <input type="file" id="file" accept=".json,application/json" />
+  <label>Or paste JSON</label>
+  <textarea id="paste" placeholder='{ "mode": { "dark-mode": { ... } }, ... }'></textarea>
+  <div class="opt" style="margin-top:12px;">
+    <label><strong>Additional variables (optional)</strong> — merged into mode</label>
+    <input type="file" id="fileExtra" accept=".json,application/json" style="margin-top:4px;" />
+    <label style="margin-top:4px;">Or paste additional JSON</label>
+    <textarea id="pasteExtra" placeholder='{ "dark-mode": { "variables": { "button-primary-border": {...} } } }' style="height:60px; margin-top:2px;"></textarea>
+  </div>
+  <div class="opt">
+    <label><input type="checkbox" id="createMissing" /> Create missing variables (in existing collections only)</label>
+  </div>
+  <div>
+    <button class="secondary" id="preview">Preview</button>
+    <button class="primary" id="apply">Apply</button>
+    <button class="secondary" id="showInfo" style="margin-left:auto;">Show Figma Structure</button>
+  </div>
+  <div id="status" class="status" style="display:none;"></div>
+  <div id="figmaInfo" class="summary" style="display:none; background:#fff8e6; border:1px solid #f0d060;"></div>
+  <div id="summary" class="summary" style="display:none;"></div>
+
+  <hr style="margin:16px 0; border:0; border-top:1px solid #e0e0e0;" />
+  <h2 style="margin-top:0;">Export from Figma</h2>
+  <p>Read all local variables from this file to copy, edit, or download as JSON.</p>
+  <div>
+    <button class="primary" id="readFigma">Read variables from Figma</button>
+  </div>
+  <div id="exportSection" style="display:none; margin-top:10px;">
+    <label>Format</label>
+    <div class="opt">
+      <label><input type="radio" name="exportFormat" value="repo" checked /> Repo (collection → mode → variable, ready to paste back)</label>
+    </div>
+    <div class="opt">
+      <label><input type="radio" name="exportFormat" value="full" /> Full (collections with ids and types)</label>
+    </div>
+    <textarea id="exportJson" readonly style="height:140px; margin-top:6px;"></textarea>
+    <div style="margin-top:8px;">
+      <button class="secondary" id="copyExport">Copy to clipboard</button>
+      <button class="secondary" id="downloadExport">Download JSON</button>
+    </div>
+  </div>
+  <div id="exportStatus" class="status" style="display:none; margin-top:8px;"></div>
+
+  <hr style="margin:16px 0; border:0; border-top:1px solid #e0e0e0;" />
+  <h2 style="margin-top:0;">Unused variables</h2>
+  <p>Find local variables that are not bound to any node or style and are not referenced by other variables (e.g. aliases).</p>
+  <div>
+    <button class="primary" id="analyzeUnused">Analyze</button>
+  </div>
+  <div id="unusedStatus" class="status" style="display:none; margin-top:8px;"></div>
+  <div id="unusedSection" style="display:none; margin-top:10px;">
+    <p id="unusedSummary" style="margin:0 0 8px; font-size:11px; color:#555;"></p>
+    <div id="unusedList" style="max-height:180px; overflow-y:auto; border:1px solid #ddd; border-radius:4px; padding:8px; background:#fafafa; margin-bottom:8px;"></div>
+    <div>
+      <button class="secondary" id="removeSelectedUnused">Remove selected</button>
+      <button class="secondary" id="removeAllUnused">Remove all unused</button>
+    </div>
+  </div>
+  <script>
+(function () {
+  var fileInput = document.getElementById("file");
+  var pasteArea = document.getElementById("paste");
+  var fileExtraInput = document.getElementById("fileExtra");
+  var pasteExtraArea = document.getElementById("pasteExtra");
+  var createMissing = document.getElementById("createMissing");
+  var previewBtn = document.getElementById("preview");
+  var applyBtn = document.getElementById("apply");
+  var summaryEl = document.getElementById("summary");
+  var statusEl = document.getElementById("status");
+  var figmaInfoEl = document.getElementById("figmaInfo");
+  var showInfoBtn = document.getElementById("showInfo");
+  var readFigmaBtn = document.getElementById("readFigma");
+  var exportSection = document.getElementById("exportSection");
+  var exportJson = document.getElementById("exportJson");
+  var copyExportBtn = document.getElementById("copyExport");
+  var downloadExportBtn = document.getElementById("downloadExport");
+  var exportStatusEl = document.getElementById("exportStatus");
+  var analyzeUnusedBtn = document.getElementById("analyzeUnused");
+  var unusedStatusEl = document.getElementById("unusedStatus");
+  var unusedSection = document.getElementById("unusedSection");
+  var unusedSummaryEl = document.getElementById("unusedSummary");
+  var unusedListEl = document.getElementById("unusedList");
+  var removeSelectedUnusedBtn = document.getElementById("removeSelectedUnused");
+  var removeAllUnusedBtn = document.getElementById("removeAllUnused");
+
+  var lastExportData = null;
+  var lastUnusedResult = null;
+
+  function setUnusedStatus(text, isError) {
+    unusedStatusEl.textContent = text;
+    unusedStatusEl.className = "status " + (isError ? "error" : "");
+    unusedStatusEl.style.display = text ? "block" : "none";
+  }
+
+  function setExportStatus(text, isError) {
+    exportStatusEl.textContent = text;
+    exportStatusEl.className = "status " + (isError ? "error" : "");
+    exportStatusEl.style.display = text ? "block" : "none";
+  }
+
+  function setStatus(text, isError) {
+    statusEl.textContent = text;
+    statusEl.className = "status " + (isError ? "error" : "");
+    statusEl.style.display = text ? "block" : "none";
+  }
+
+  function setButtonsDisabled(disabled) {
+    previewBtn.disabled = applyBtn.disabled = disabled;
+  }
+
+  function getPayload() {
+    var raw = pasteArea.value.trim();
+    if (!raw) {
+      setStatus("Please upload a JSON file or paste JSON above.", true);
+      summaryEl.style.display = "none";
+      return null;
+    }
+    try {
+      return JSON.parse(raw);
+    } catch (e) {
+      summaryEl.style.display = "none";
+      setStatus("Invalid JSON: " + e.message, true);
+      return null;
+    }
+  }
+
+  function getExtraPayload() {
+    var raw = pasteExtraArea.value.trim();
+    if (raw) {
+      try { return JSON.parse(raw); } catch (e) { setStatus("Additional JSON invalid: " + e.message, true); return null; }
+    }
+    return null;
+  }
+
+  function mergeExtraIntoPayload(payload, extra) {
+    if (!payload || !extra) return payload;
+    var mode = payload.mode || (payload.mode = {});
+    var darkMode = extra["dark-mode"];
+    if (!darkMode || typeof darkMode !== "object") return payload;
+    var vars = darkMode.variables && typeof darkMode.variables === "object" ? darkMode.variables : darkMode;
+    var targetMode = mode["dark-mode"] || (mode["dark-mode"] = {});
+    for (var key in vars) if (Object.prototype.hasOwnProperty.call(vars, key)) targetMode[key] = vars[key];
+    return payload;
+  }
+
+  function showResult(result, isPreview) {
+    setButtonsDisabled(false);
+    setStatus("");
+    summaryEl.classList.remove("error");
+    summaryEl.style.display = "block";
+    var lines = [];
+    if (result.errors && result.errors.length) {
+      lines.push("Errors:\n" + result.errors.join("\n"));
+    }
+    if (result.missingCollections && result.missingCollections.length) {
+      lines.push("Missing collections: " + result.missingCollections.join(", "));
+    }
+    if (result.missingVariables && result.missingVariables.length) {
+      var byColl = {};
+      result.missingVariables.forEach(function (m) {
+        if (!byColl[m.collection]) byColl[m.collection] = [];
+        byColl[m.collection].push(m.variable);
+      });
+      lines.push("Missing variables:\n" + Object.keys(byColl).map(function (c) {
+        return "  " + c + ": " + byColl[c].join(", ");
+      }).join("\n"));
+    }
+    if (result.updated && result.updated.length) {
+      lines.push((isPreview ? "Would update: " : "Updated: ") + result.updated.length + " variable(s)");
+      if (result.updated.length <= 20) {
+        lines.push(result.updated.join("\n"));
+      } else {
+        lines.push(result.updated.slice(0, 15).join("\n") + "\n... and " + (result.updated.length - 15) + " more");
+      }
+    }
+    if (result.created && result.created.length) {
+      lines.push((isPreview ? "Would create: " : "Created: ") + result.created.length + " variable(s)");
+      if (result.created.length <= 15) {
+        lines.push(result.created.join("\n"));
+      } else {
+        lines.push(result.created.slice(0, 10).join("\n") + "\n... and " + (result.created.length - 10) + " more");
+      }
+    }
+    if (lines.length === 0 && !(result.errors && result.errors.length)) {
+      lines.push("Done. No variables to update (all matched or nothing in file).");
+    }
+    summaryEl.textContent = lines.join("\n\n");
+    var hasErrors = result.errors && result.errors.length > 0;
+    if (hasErrors) summaryEl.classList.add("error");
+    if (!isPreview) {
+      setStatus(
+        "Sync complete. " + (result.updated ? result.updated.length : 0) + " updated, " +
+        (result.created ? result.created.length : 0) + " created." +
+        (hasErrors ? " See errors below." : ""),
+        hasErrors
+      );
+    }
+  }
+
+  fileInput.addEventListener("change", function () {
+    var f = fileInput.files[0];
+    if (!f) return;
+    setStatus("");
+    var r = new FileReader();
+    r.onload = function () {
+      pasteArea.value = r.result;
+      setStatus("File loaded (" + f.name + "). Click Preview or Apply.");
+    };
+    r.readAsText(f);
+  });
+
+  fileExtraInput.addEventListener("change", function () {
+    var f = fileExtraInput.files[0];
+    if (!f) return;
+    var r = new FileReader();
+    r.onload = function () { pasteExtraArea.value = r.result; };
+    r.readAsText(f);
+  });
+
+  previewBtn.addEventListener("click", function () {
+    var payload = getPayload();
+    if (!payload) return;
+    var extra = getExtraPayload();
+    if (extra !== undefined && extra !== null) payload = mergeExtraIntoPayload(JSON.parse(JSON.stringify(payload)), extra);
+    setStatus("Previewing…");
+    setButtonsDisabled(true);
+    summaryEl.style.display = "block";
+    summaryEl.textContent = "Loading…";
+    parent.postMessage({ pluginMessage: { type: "PREVIEW", payload: payload, createMissingVariables: false } }, "*");
+  });
+
+  applyBtn.addEventListener("click", function () {
+    var payload = getPayload();
+    if (!payload) return;
+    var extra = getExtraPayload();
+    if (extra !== undefined && extra !== null) payload = mergeExtraIntoPayload(JSON.parse(JSON.stringify(payload)), extra);
+    setStatus("Syncing…");
+    setButtonsDisabled(true);
+    summaryEl.style.display = "block";
+    summaryEl.textContent = "Applying…";
+    parent.postMessage({ pluginMessage: { type: "APPLY", payload: payload, createMissingVariables: createMissing.checked } }, "*");
+  });
+
+  showInfoBtn.addEventListener("click", function () {
+    figmaInfoEl.style.display = "block";
+    figmaInfoEl.textContent = "Loading Figma structure...";
+    parent.postMessage({ pluginMessage: { type: "GET_FILE_INFO" } }, "*");
+  });
+
+  function refreshExportText() {
+    if (!lastExportData) return;
+    var format = document.querySelector('input[name="exportFormat"]:checked');
+    var useRepo = !format || format.value === "repo";
+    var str = JSON.stringify(useRepo ? lastExportData.repo : lastExportData.collections, null, 2);
+    exportJson.value = str;
+  }
+
+  readFigmaBtn.addEventListener("click", function () {
+    setExportStatus("Reading variables…");
+    exportSection.style.display = "none";
+    parent.postMessage({ pluginMessage: { type: "EXPORT_VARIABLES" } }, "*");
+  });
+
+  copyExportBtn.addEventListener("click", function () {
+    var text = exportJson.value;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () {
+        setExportStatus("Copied to clipboard.");
+      }).catch(function (e) {
+        fallbackCopy(text);
+      });
+    } else {
+      fallbackCopy(text);
+    }
+  });
+  function fallbackCopy(text) {
+    exportJson.select();
+    try {
+      document.execCommand("copy");
+      setExportStatus("Copied to clipboard.");
+    } catch (e) {
+      setExportStatus("Copy failed: " + (e && e.message ? e.message : "unknown"), true);
+    }
+  }
+
+  downloadExportBtn.addEventListener("click", function () {
+    if (!lastExportData) return;
+    var format = document.querySelector('input[name="exportFormat"]:checked');
+    var useRepo = !format || format.value === "repo";
+    var data = useRepo ? lastExportData.repo : lastExportData.collections;
+    var str = JSON.stringify(data, null, 2);
+    var blob = new Blob([str], { type: "application/json" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = "figma-variables-export.json";
+    a.click();
+    URL.revokeObjectURL(url);
+    setExportStatus("Download started.");
+  });
+
+  document.querySelectorAll('input[name="exportFormat"]').forEach(function (radio) {
+    radio.addEventListener("change", refreshExportText);
+  });
+
+  analyzeUnusedBtn.addEventListener("click", function () {
+    setUnusedStatus("Analyzing…");
+    unusedSection.style.display = "none";
+    parent.postMessage({ pluginMessage: { type: "ANALYZE_UNUSED" } }, "*");
+  });
+
+  function getSelectedUnusedIds() {
+    if (!lastUnusedResult || !lastUnusedResult.unused) return [];
+    return Array.from(document.querySelectorAll("#unusedList input[type=checkbox]:checked")).map(function (cb) {
+      return cb.getAttribute("data-id");
+    }).filter(Boolean);
+  }
+
+  removeSelectedUnusedBtn.addEventListener("click", function () {
+    var ids = getSelectedUnusedIds();
+    if (ids.length === 0) {
+      setUnusedStatus("Select one or more variables to remove.", true);
+      return;
+    }
+    if (!confirm("Remove " + ids.length + " selected variable(s)? This cannot be undone.")) return;
+    setUnusedStatus("Removing…");
+    parent.postMessage({ pluginMessage: { type: "REMOVE_UNUSED", variableIds: ids } }, "*");
+  });
+
+  removeAllUnusedBtn.addEventListener("click", function () {
+    if (!lastUnusedResult || !lastUnusedResult.unused || lastUnusedResult.unused.length === 0) {
+      setUnusedStatus("No unused variables to remove. Run Analyze first.", true);
+      return;
+    }
+    var ids = lastUnusedResult.unused.map(function (u) { return u.id; });
+    if (!confirm("Remove all " + ids.length + " unused variable(s)? This cannot be undone.")) return;
+    setUnusedStatus("Removing…");
+    parent.postMessage({ pluginMessage: { type: "REMOVE_UNUSED", variableIds: ids } }, "*");
+  });
+
+  window.onmessage = function (event) {
+    var msg = event.data && event.data.pluginMessage;
+    if (!msg) return;
+    if (msg.type === "RESULT" && msg.result) {
+      showResult(msg.result, msg.preview === true);
+    }
+    if (msg.type === "FILE_INFO" && msg.info) {
+      figmaInfoEl.style.display = "block";
+      var lines = ["Collections in this Figma file:\n"];
+      if (msg.info.collections.length === 0) {
+        lines.push("  (no variable collections found)");
+      } else {
+        msg.info.collections.forEach(function (c) {
+          lines.push("• " + c.name);
+          lines.push("    Modes: " + (c.modes.length ? c.modes.join(", ") : "(none)"));
+        });
+      }
+      lines.push("\n--- JSON expects these names to match exactly ---");
+      figmaInfoEl.textContent = lines.join("\n");
+    }
+    if (msg.type === "EXPORT_DATA") {
+      setExportStatus("");
+      if (msg.error) {
+        setExportStatus("Export failed: " + msg.error, true);
+        return;
+      }
+      lastExportData = msg.data;
+      exportSection.style.display = "block";
+      refreshExportText();
+    }
+    if (msg.type === "UNUSED_ANALYSIS_RESULT" && msg.result) {
+      setUnusedStatus("");
+      var r = msg.result;
+      if (r.error) {
+        setUnusedStatus("Analysis failed: " + r.error, true);
+        return;
+      }
+      lastUnusedResult = r;
+      unusedSection.style.display = "block";
+      unusedSummaryEl.textContent = r.unused.length + " unused of " + r.totalVariables + " local variable(s).";
+      unusedListEl.innerHTML = "";
+      if (r.unused.length === 0) {
+        unusedListEl.appendChild(document.createTextNode("No unused variables found."));
+      } else {
+        r.unused.forEach(function (u) {
+          var label = document.createElement("label");
+          label.style.display = "block";
+          label.style.marginBottom = "4px";
+          var cb = document.createElement("input");
+          cb.type = "checkbox";
+          cb.setAttribute("data-id", u.id);
+          cb.checked = true;
+          label.appendChild(cb);
+          label.appendChild(document.createTextNode(" " + u.collectionName + " / " + u.name));
+          unusedListEl.appendChild(label);
+        });
+      }
+    }
+    if (msg.type === "REMOVE_UNUSED_RESULT" && msg.result) {
+      var res = msg.result;
+      if (res.errors && res.errors.length) {
+        setUnusedStatus("Removed " + res.removed.length + ". Errors: " + res.errors.join("; "), true);
+      } else {
+        setUnusedStatus("Removed " + res.removed.length + " variable(s).");
+      }
+      if (res.removed.length > 0 && lastUnusedResult && lastUnusedResult.unused) {
+        lastUnusedResult.unused = lastUnusedResult.unused.filter(function (u) {
+          return res.removed.indexOf(u.id) === -1;
+        });
+        if (lastUnusedResult.unused.length === 0) {
+          unusedSection.style.display = "none";
+        } else {
+          unusedSummaryEl.textContent = lastUnusedResult.unused.length + " unused remaining.";
+          unusedListEl.innerHTML = "";
+          lastUnusedResult.unused.forEach(function (u) {
+            var label = document.createElement("label");
+            label.style.display = "block";
+            label.style.marginBottom = "4px";
+            var cb = document.createElement("input");
+            cb.type = "checkbox";
+            cb.setAttribute("data-id", u.id);
+            cb.checked = true;
+            label.appendChild(cb);
+            label.appendChild(document.createTextNode(" " + u.collectionName + " / " + u.name));
+            unusedListEl.appendChild(label);
+          });
+        }
+      }
+    }
+  };
+})();
+  </script>
+</body>
+</html>

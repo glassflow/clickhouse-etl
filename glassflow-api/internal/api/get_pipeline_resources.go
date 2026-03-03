@@ -12,15 +12,6 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 )
 
-// PipelineResourcesImmutableFields lists the resource field paths that cannot be changed after pipeline creation.
-// format RFC6901 JSON Pointer
-var PipelineResourcesImmutableFields = []string{
-	"nats/stream/maxAge",
-	"nats/stream/maxBytes",
-	"transform/storage/size",
-	"join/replicas",
-}
-
 func GetPipelineResourcesDocs() huma.Operation {
 	return huma.Operation{
 		OperationID: "get-pipeline-resources",
@@ -40,7 +31,8 @@ type pipelineResourcesBody struct {
 }
 
 type FieldsPolicy struct {
-	Immutable []string `json:"immutable"`
+	ImmutableAfterCreate []string `json:"immutable_after_create"`
+	AlwaysImmutable      []string `json:"always_immutable"`
 }
 
 type GetPipelineResourcesResponse struct {
@@ -77,7 +69,8 @@ func (h *handler) getPipelineResources(ctx context.Context, input *GetPipelineRe
 		Body: pipelineResourcesBody{
 			PipelineResources: row.Resources,
 			FieldsPolicy: FieldsPolicy{
-				Immutable: PipelineResourcesImmutableFields,
+				ImmutableAfterCreate: models.PipelineResourcesImmutableAfterCreate,
+				AlwaysImmutable:      models.PipelineResourcesAlwaysImmutable,
 			},
 		},
 	}, nil

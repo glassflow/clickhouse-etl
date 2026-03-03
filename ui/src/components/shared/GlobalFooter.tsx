@@ -34,17 +34,17 @@ export default function GlobalFooter() {
               rel="noopener noreferrer"
               passHref
             >
-              <Button className="btn-tertiary" type="button" variant="outline" size="custom">
+              <Button variant="tertiary" type="button" size="custom">
                 Report an issue
               </Button>
             </Link>
             <Link href="https://www.glassflow.dev/contact" target="_blank" rel="noopener" passHref>
-              <Button className="btn-tertiary" type="button" variant="outline" size="custom">
+              <Button variant="tertiary" type="button" size="custom">
                 Get help
               </Button>
             </Link>
             <Link href="https://docs.glassflow.dev/" target="_blank" rel="noopener" passHref>
-              <Button className="btn-tertiary" type="button" variant="outline" size="custom">
+              <Button variant="tertiary" type="button" size="custom">
                 View documentation
               </Button>
             </Link>

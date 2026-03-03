@@ -30,7 +30,7 @@ type PipelineService interface { //nolint:interfacebloat //important interface
 	GetOrchestratorType() string
 	CleanUpPipelines(ctx context.Context) error
 	GetPipelineResources(ctx context.Context, pid string) (*models.PipelineResourcesRow, error)
-	UpdatePipelineResources(ctx context.Context, pid string, resources models.PipelineResources) error
+	UpdatePipelineResources(ctx context.Context, pid string, resources models.PipelineResources) (models.PipelineResources, error)
 }
 
 type pipelineSource struct {
@@ -74,6 +74,7 @@ type pipelineJSON struct {
 	Sink                    clickhouseSink                 `json:"sink"`
 	Schema                  schema                         `json:"schema"`
 	Metadata                models.PipelineMetadata        `json:"metadata,omitempty"`
+	PipelineResources       models.PipelineResources       `json:"pipeline_resources,omitempty"`
 
 	// Metadata fields (ignored, for backwards compatibility with exported configs)
 	Version    string `json:"version,omitempty"`
@@ -588,6 +589,7 @@ func (pipeline pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
 		filterConfig,
 		statelessTransformationConfig,
 		pipeline.Metadata,
+		pipeline.PipelineResources,
 	), nil
 }
 
@@ -698,8 +700,9 @@ func toPipelineJSON(p models.PipelineConfig) pipelineJSON {
 		Schema: schema{
 			Fields: schemaFields,
 		},
-		Metadata: p.Metadata,
-		Version:  "v2",
+		Metadata:          p.Metadata,
+		PipelineResources: p.PipelineResources,
+		Version:           "v2",
 	}
 }
 

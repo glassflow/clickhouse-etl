@@ -27,7 +27,7 @@ const CreatePipelineModal = ({
   const [isValidating, setIsValidating] = useState(false)
   const [generatedId, setGeneratedId] = useState<string>('')
   const [isValid, setIsValid] = useState(false)
-  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [shouldRefocus, setShouldRefocus] = useState(false)
 
   const isRenameMode = mode === 'rename'

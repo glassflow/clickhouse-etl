@@ -7,6 +7,7 @@
 
 import { pipelineStatusManager } from './pipeline-status-manager'
 import { PipelineStatus } from '@/src/types/pipeline'
+import { structuredLogger } from '@/src/observability'
 
 // Global state for pipeline statuses
 const pipelineState = new Map<string, PipelineStatus>()
@@ -46,7 +47,7 @@ class PipelineStateManagerImpl implements PipelineStateManager {
         try {
           listener(pipelineId, status)
         } catch (error) {
-          console.error('[PipelineStateManager] Listener error:', error)
+          structuredLogger.error('PipelineStateManager listener error', { error: error instanceof Error ? error.message : String(error) })
         }
       })
     }
@@ -71,13 +72,13 @@ class PipelineStateManagerImpl implements PipelineStateManager {
             this.setPipelineStatus(pipelineId, newStatus)
           },
           onError: (error) => {
-            console.error(`[PipelineStateManager] Tracking error for ${pipelineId}:`, error)
+            structuredLogger.error('PipelineStateManager tracking error', { pipeline_id: pipelineId, error: error instanceof Error ? error.message : String(error) })
           },
           onTimeout: () => {
-            console.log(`[PipelineStateManager] Tracking timeout for ${pipelineId}`)
+            structuredLogger.info('PipelineStateManager tracking timeout', { pipeline_id: pipelineId })
           },
           onDestroyed: () => {
-            console.log(`[PipelineStateManager] Tracking stopped for ${pipelineId}`)
+            structuredLogger.info('PipelineStateManager tracking stopped', { pipeline_id: pipelineId })
           },
         },
         {
@@ -106,7 +107,7 @@ class PipelineStateManagerImpl implements PipelineStateManager {
             this.setPipelineStatus(pipelineId, newStatus)
           },
           onError: (error) => {
-            console.error(`[PipelineStateManager] General monitoring error for ${pipelineId}:`, error)
+            structuredLogger.error('PipelineStateManager general monitoring error', { pipeline_id: pipelineId, error: error instanceof Error ? error.message : String(error) })
           },
         },
         {

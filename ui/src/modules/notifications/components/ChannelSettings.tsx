@@ -69,7 +69,7 @@ function ChannelCard({ channel, channelType, isLoading, onToggle, onConfigure }:
         <div className="flex items-start gap-3">
           <div
             className={cn(
-              'p-2.5 rounded-[var(--radius-medium)]',
+              'p-2.5 rounded-[var(--radius-md)]',
               'transition-all duration-200',
               isEnabled
                 ? 'bg-[var(--color-background-primary-faded)] text-[var(--color-foreground-primary)]'
@@ -103,11 +103,10 @@ function ChannelCard({ channel, channelType, isLoading, onToggle, onConfigure }:
         <div className="flex items-center gap-2">
           {/* Configure/Edit button */}
           <Button
-            variant="outline"
             size="sm"
             onClick={onConfigure}
             disabled={isLoading}
-            className="gap-1.5 btn-neutral transition-all duration-200"
+            variant="secondary" className="gap-1.5 transition-all duration-200"
           >
             {isConfigured ? (
               <>
@@ -212,11 +211,10 @@ export function ChannelSettings() {
           </p>
         </div>
         <Button
-          variant="outline"
           size="sm"
           onClick={fetchChannels}
           disabled={isLoading}
-          className="gap-2 btn-neutral transition-all duration-200"
+          variant="secondary" className="gap-2 transition-all duration-200"
         >
           <RefreshCw className={cn('h-4 w-4', isLoading && 'animate-spin')} />
           Refresh
@@ -226,7 +224,7 @@ export function ChannelSettings() {
       {error && (
         <div
           className={cn(
-            'p-4 rounded-[var(--radius-large)]',
+            'p-4 rounded-[var(--radius-xl)]',
             'border border-[var(--color-border-critical-faded)]',
             'bg-[var(--color-background-critical-faded)]/20',
             'animate-slideDown'
@@ -234,10 +232,9 @@ export function ChannelSettings() {
         >
           <p className="text-sm text-[var(--text-error)]">{error}</p>
           <Button
-            variant="outline"
             size="sm"
             onClick={fetchChannels}
-            className="mt-2 btn-neutral transition-all duration-200"
+            variant="secondary" className="mt-2 transition-all duration-200"
           >
             Try again
           </Button>

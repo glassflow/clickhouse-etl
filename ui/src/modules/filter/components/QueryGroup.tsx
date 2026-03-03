@@ -62,7 +62,7 @@ export function QueryGroup({
   return (
     <div
       className={cn(
-        'card-outline rounded-[var(--radius-large)] p-4',
+        'card-outline rounded-[var(--radius-xl)] p-4',
         group.not && 'border-[var(--color-border-primary)]',
         !isRoot && 'ml-4',
       )}
@@ -86,7 +86,7 @@ export function QueryGroup({
 
           {/* Combinator Select */}
           <Select value={group.combinator} onValueChange={handleCombinatorChange} disabled={readOnly}>
-            <SelectTrigger className="w-24 h-8 text-xs input-regular input-border-regular">
+            <SelectTrigger className="w-24 h-8 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="select-content-custom">
@@ -103,11 +103,10 @@ export function QueryGroup({
         <div className="flex items-center gap-2">
           {/* Add Rule Button */}
           <Button
-            variant="outline"
             size="sm"
             onClick={() => onAddRule(group.id)}
             disabled={readOnly}
-            className="h-8 text-xs btn-tertiary"
+            variant="tertiary" className="h-8 text-xs"
           >
             <PlusIcon className="h-3 w-3 mr-1" />
             Add Rule
@@ -116,11 +115,10 @@ export function QueryGroup({
           {/* Add Group Button (only if not at max depth) */}
           {canAddNestedGroup && (
             <Button
-              variant="outline"
               size="sm"
               onClick={() => onAddGroup(group.id)}
               disabled={readOnly}
-              className="h-8 text-xs btn-tertiary"
+              variant="tertiary" className="h-8 text-xs"
             >
               <PlusIcon className="h-3 w-3 mr-1" />
               Add Group
@@ -145,7 +143,7 @@ export function QueryGroup({
       {/* Group Children */}
       <div className="space-y-3">
         {group.children.length === 0 ? (
-          <div className="text-sm text-[var(--text-secondary)] text-center py-4 border border-dashed border-[var(--surface-border)] rounded-[var(--radius-medium)]">
+          <div className="text-sm text-[var(--text-secondary)] text-center py-4 border border-dashed border-[var(--surface-border)] rounded-[var(--radius-md)]">
             No rules yet. Click &quot;Add Rule&quot; to create one.
           </div>
         ) : (

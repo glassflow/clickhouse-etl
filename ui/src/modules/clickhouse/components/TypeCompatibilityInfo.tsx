@@ -22,7 +22,7 @@ export const TypeCompatibilityInfo: React.FC = () => {
       </Button>
 
       {isOpen && (
-        <div className="absolute z-50 mt-2 p-4 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 w-[600px] max-h-[500px] overflow-y-auto">
+        <div className="absolute z-50 mt-2 p-4 bg-[var(--surface-bg)] rounded-md shadow-lg border border-[var(--surface-border)] w-[600px] max-h-[500px] overflow-y-auto">
           <div className="flex justify-between items-center mb-3">
             <h3 className="text-lg font-medium">Type Compatibility Reference</h3>
             <Button variant="ghost" size="sm" onClick={() => setIsOpen(false)}>
@@ -45,7 +45,7 @@ export const TypeCompatibilityInfo: React.FC = () => {
                     const compatibleTypes = TYPE_COMPATIBILITY_MAP[sourceType] || []
                     return (
                       <div key={sourceType} className="grid grid-cols-12 gap-2">
-                        <div className="col-span-2 font-mono bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
+                        <div className="col-span-2 font-mono bg-[var(--control-bg)] px-2 py-1 rounded">
                           {sourceType}
                         </div>
                         <div className="col-span-10">
@@ -53,7 +53,7 @@ export const TypeCompatibilityInfo: React.FC = () => {
                             {compatibleTypes.map((targetType) => (
                               <span
                                 key={targetType}
-                                className="inline-block bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 px-2 py-1 rounded font-mono text-xs"
+                                className="inline-block bg-[var(--color-background-positive-faded)] text-[var(--color-foreground-positive)] px-2 py-1 rounded font-mono text-xs"
                               >
                                 {targetType}
                               </span>
