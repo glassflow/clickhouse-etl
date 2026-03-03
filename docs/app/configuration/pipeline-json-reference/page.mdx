@@ -22,6 +22,7 @@ The pipeline configuration is a JSON object that defines how data flows from Kaf
 | `join` | object | No | Configuration for joining multiple Kafka topics. See [Join Configuration](#join-configuration). |
 | `filter` | object | No | Configuration for filtering the data. See [Filter Configuration](#filter-configuration). |
 | `stateless_transformation` | object | No | Configuration for stateless JSON transformations. See [Stateless Transformation Configuration](#stateless-transformation-configuration). |
+| `pipeline_resources` | object | No | Configuration for the kubernetes resources for the pipeline. See [Pipeline Resources Configuration](#pipeline-resources-configuration). |
 | `metadata` | object | No | Metadata for the pipeline. See [Metadata Configuration](#metadata-configuration). |
 
 
@@ -42,9 +43,9 @@ The source configuration defines how to connect to and consume from Kafka topics
 |-------|------|----------|-------------|
 | `brokers` | array | Yes | List of Kafka broker addresses (e.g., `["localhost:9092"]`). |
 | `protocol` | string | Yes | Security protocol for Kafka connection (e.g., `SASL_SSL`). |
-| `mechanism` | string | No | Authentication mechanism (e.g., `SCRAM-SHA-256`). Mandatory when `skip_auth` is `false`. |
-| `username` | string | Yes | Username for Kafka authentication. |
-| `password` | string | Yes | Password for Kafka authentication. |
+| `mechanism` | string | No | Authentication mechanism (e.g., `SCRAM-SHA-256`). Mandatory when `skip_tls_verification` is `false`. |
+| `username` | string | No | Username for Kafka authentication. Mandatory when `skip_tls_verification` is `false`.|
+| `password` | string | No | Password for Kafka authentication. Mandatory when `skip_tls_verification` is `false`.|
 | `kerberos_service_name` | string | No | Kerberos service name. |
 | `kerberos_keytab` | string | No | Kerberos keytab file. |
 | `kerberos_realm` | string | No | Kerberos realm. |
@@ -73,7 +74,7 @@ Each topic in the `topics` array has the following configuration:
 |-------|------|----------|-------------|
 | `name` | string | Yes | Name of the Kafka topic. |
 | `consumer_group_initial_offset` | string | No | Initial offset for the consumer group (`earliest` or `latest`). Defaults to `latest`. |
-| `replicas` | integer | No | Number of replicas for the Kafka topic. Defaults to 1. |
+| `replicas` | integer | No | Number of replicas for the Kafka topic. Defaults to `1`. Deprecated field, use `pipeline_resources.ingestor.<base\|left\|right>.replicas` instead. |
 | `deduplication` | object | Yes | Deduplication settings. See [Deduplication Configuration](#deduplication-configuration). |
 
 ### Deduplication Configuration
@@ -226,6 +227,104 @@ Each entry in the `transform` array defines one derived field computed from the 
 | `output_type` | string | Yes | Expected output type. Supported values: `"string"`, `"int"`, `"int64"`, `"float64"`, `"bool"`, `"[]string"`. |
 
 > 💡 **Note**: For a conceptual overview, examples, and the list of helper functions (e.g. `parseQuery`, `parseISO8601`, `parseUserAgent`), see the [Stateless Transformations](/configuration/transformations/stateless-transformation) documentation.
+
+## Pipeline Resources Configuration
+
+The pipeline resources configuration defines the kubernetes resources for the pipeline. If not specified, the default values from the chart values will be used.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `ingestor` | object | No | Ingestor resources configuration. See [Ingestor Resources Configuration](#ingestor-resources-configuration). |
+| `join` | object | No | Join resources configuration. See [Join Resources Configuration](#join-resources-configuration). |
+| `sink` | object | No | Sink resources configuration. See [Sink Resources Configuration](#sink-resources-configuration). |
+| `transform` | object | No | Transform resources configuration. See [Transform Resources Configuration](#transform-resources-configuration). |
+| `nats` | object | No | Nats resources configuration. See [Nats Resources Configuration](#nats-resources-configuration). |
+
+### Ingestor Resources Configuration
+
+The ingestor resources configuration defines the resources for the ingestor.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `base` | object | No | Base ingestor resources configuration. See [Base Ingestor Resources Configuration](#base-ingestor-resources-configuration). |
+| `left` | object | No | Left ingestor resources configuration. See [Left Ingestor Resources Configuration](#left-ingestor-resources-configuration). |
+| `right` | object | No | Right ingestor resources configuration. See [Right Ingestor Resources Configuration](#right-ingestor-resources-configuration). |
+
+#### Base Ingestor Resources Configuration
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `replicas` | integer | No | Number of replicas for the base ingestor. Defaults to 1. |
+| `requests` | object | No | Requests resources configuration. See [Requests Resources Configuration](#requests-resources-configuration). |
+| `limits` | object | No | Limits resources configuration. See [Limits Resources Configuration](#limits-resources-configuration). |
+
+#### Left Ingestor Resources Configuration
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `replicas` | integer | No | Number of replicas for the left ingestor. Defaults to 1. |
+| `requests` | object | No | Requests resources configuration. See [Requests Resources Configuration](#requests-resources-configuration). |
+| `limits` | object | No | Limits resources configuration. See [Limits Resources Configuration](#limits-resources-configuration). |
+
+#### Right Ingestor Resources Configuration
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `replicas` | integer | No | Number of replicas for the right ingestor. Defaults to 1. |
+| `requests` | object | No | Requests resources configuration. See [Requests Resources Configuration](#requests-resources-configuration). |
+| `limits` | object | No | Limits resources configuration. See [Limits Resources Configuration](#limits-resources-configuration). |
+
+### Join Resources Configuration
+
+The join resources configuration defines the resources for the join.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `replicas` | integer | No | Number of replicas for the join. Defaults to 1. Currently, the number of replicas can only be equal to 1. |
+| `requests` | object | No | Requests resources configuration. See [Requests Resources Configuration](#requests-resources-configuration). |
+| `limits` | object | No | Limits resources configuration. See [Limits Resources Configuration](#limits-resources-configuration). |
+
+### Sink Resources Configuration
+
+The sink resources configuration defines the resources for the sink.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `replicas` | integer | No | Number of replicas for the sink. Defaults to 1. |
+| `requests` | object | No | Requests resources configuration. See [Requests Resources Configuration](#requests-resources-configuration). |
+| `limits` | object | No | Limits resources configuration. See [Limits Resources Configuration](#limits-resources-configuration). |
+
+### Transform Resources Configuration
+
+The transform resources configuration defines the resources for the transform.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `replicas` | integer | No | Number of replicas for the transform. Defaults to 1. This parameter is only mutable when deduplication is disabled. |
+| `requests` | object | No | Requests resources configuration. See [Requests Resources Configuration](#requests-resources-configuration). |
+| `limits` | object | No | Limits resources configuration. See [Limits Resources Configuration](#limits-resources-configuration). |
+| `storage` | object | No | Storage resources configuration, only used when deduplication is enabled. See [Storage Resources Configuration](#storage-resources-configuration). |
+
+#### Storage Resources Configuration
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `size` | string | No | Size of the storage. Defaults to "10Gi". This parameter is immutable and cannot be changed after the pipeline is created. |
+
+### Nats Resources Configuration
+
+The nats resources configuration defines the resources for the nats.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `stream` | object | No | Stream resources configuration. See [Stream Resources Configuration](#stream-resources-configuration). |
+
+#### Stream Resources Configuration
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `max_age` | string | No | Maximum age of the stream. Defaults to "24h". This parameter is immutable and cannot be changed after the pipeline is created. |
+| `max_bytes` | string | No | Maximum bytes of the stream. Defaults to "0 bytes" which will not limit the stream size. This parameter is immutable and cannot be changed after the pipeline is created. |
 
 ## Metadata Configuration
 
