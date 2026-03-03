@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"log/slog"
+	"os"
 	"strconv"
 
 	"github.com/nats-io/nats.go"
@@ -77,51 +79,77 @@ func (k *KafkaMsgProcessor) pushMsgToDLQ(ctx context.Context, orgMsg []byte, err
 	return nil
 }
 
-func (k *KafkaMsgProcessor) setupDeduplicationHeader(headers nats.Header, msgData []byte, dedupKey string) error {
-	if dedupKey == "" {
-		return nil // No deduplication required
+// setDedupHeader sets the Nats-Msg-Id header from a pre-resolved dedup key string.
+// Call this only when dedupKeyStr is non-empty (dedup enabled and key already resolved in getSubjectAndDedupKey).
+func (k *KafkaMsgProcessor) setDedupHeader(headers nats.Header, dedupKeyStr string) {
+	if dedupKeyStr == "" {
+		return
 	}
-
-	keyValue, err := k.schemaMapper.GetKey(k.topic.Name, dedupKey, msgData)
-	if err != nil {
-		return fmt.Errorf("failed to get deduplication key: %w", err)
-	}
-
-	if keyValue == nil {
-		return fmt.Errorf("deduplication key is nil for topic %s", k.topic.Name)
-	}
-
-	strKey := fmt.Sprintf("%v", keyValue)
-
 	k.log.Debug("Setting deduplication header",
 		slog.String("topic", k.topic.Name),
-		slog.String("dedupKey", dedupKey),
-		slog.Any("keyValue", keyValue),
+		slog.String("dedupKey", k.topic.Deduplication.ID),
+		slog.String("keyValue", dedupKeyStr),
 	)
-
-	headers.Set("Nats-Msg-Id", strKey)
-
-	return nil
+	headers.Set("Nats-Msg-Id", dedupKeyStr)
 }
 
-func (k *KafkaMsgProcessor) setSubject(partitionID int32) string {
-	if k.topic.Replicas > 1 {
-		return models.GetNATSSubjectName(k.topic.OutputStreamID, strconv.Itoa(int(partitionID)))
-	}
-
+// getSubject returns the fixed NATS subject for publishing (from publisher config).
+// Used when dedup is disabled or when NATS_SUBJECT_COUNT is not set.
+func (k *KafkaMsgProcessor) getSubject() string {
 	return k.publisher.GetSubject()
 }
 
+// getSubjectAndDedupKey returns the NATS subject for this message and, when dedup is enabled, the dedup key string for the header.
+// Resolves the dedup key at most once: same key is used for subject routing (hash % M) and for Nats-Msg-Id header.
+// When deduplication is enabled and NATS_SUBJECT_COUNT and NATS_SUBJECT_PREFIX are set,
+// subject is NATS_SUBJECT_PREFIX.(hash(dedupKey) % M). Otherwise returns the fixed subject.
+func (k *KafkaMsgProcessor) getSubjectAndDedupKey(msgData []byte) (subject string, dedupKeyStr string, err error) {
+	if !k.topic.Deduplication.Enabled {
+		return k.getSubject(), "", nil
+	}
+	keyValue, err := k.schemaMapper.GetKey(k.topic.Name, k.topic.Deduplication.ID, msgData)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to get deduplication key: %w", err)
+	}
+	if keyValue == nil {
+		return "", "", fmt.Errorf("deduplication key is nil for topic %s", k.topic.Name)
+	}
+	strKey := fmt.Sprintf("%v", keyValue)
+
+	prefix := os.Getenv("NATS_SUBJECT_PREFIX")
+	countStr := os.Getenv("NATS_SUBJECT_COUNT")
+	if prefix == "" || countStr == "" {
+		return k.getSubject(), strKey, nil
+	}
+	M, parseErr := strconv.Atoi(countStr)
+	if parseErr != nil || M <= 0 {
+		return k.getSubject(), strKey, nil
+	}
+	h := fnv.New64a()
+	_, _ = h.Write([]byte(strKey))
+	idx := int(h.Sum64() % uint64(M))
+	return fmt.Sprintf("%s.%d", prefix, idx), strKey, nil
+}
+
 func (k *KafkaMsgProcessor) prepareMesssage(ctx context.Context, msg *kgo.Record) (*nats.Msg, error) {
-	nMsg := nats.NewMsg(k.setSubject(msg.Partition))
+	subject, dedupKeyStr, err := k.getSubjectAndDedupKey(msg.Value)
+	if err != nil {
+		if dlqErr := k.pushMsgToDLQ(ctx, msg.Value, fmt.Errorf("%w: %w", ErrDeduplicateData, err)); dlqErr != nil {
+			return nil, fmt.Errorf("failed to push to DLQ: %w", dlqErr)
+		}
+		return nil, nil
+	}
+
+	nMsg := nats.NewMsg(subject)
 	nMsg.Data = msg.Value
+	k.setDedupHeader(nMsg.Header, dedupKeyStr)
 
 	k.log.Debug("Preparing message",
 		slog.String("topic", k.topic.Name),
 		slog.Any("data", nMsg.Data),
 		slog.String("subject", nMsg.Subject))
 
-	err := k.schemaMapper.ValidateSchema(k.topic.Name, msg.Value)
+	err = k.schemaMapper.ValidateSchema(k.topic.Name, msg.Value)
 	if err != nil {
 		k.log.Error("Failed to validate data",
 			slog.Any("error", err), slog.String("topic", k.topic.Name),
@@ -132,27 +160,6 @@ func (k *KafkaMsgProcessor) prepareMesssage(ctx context.Context, msg *kgo.Record
 			return nil, fmt.Errorf("failed to push to DLQ: %w", dlqErr)
 		}
 		return nil, nil
-	}
-
-	if k.topic.Deduplication.Enabled {
-		k.log.Debug("Setting up deduplication header for message",
-			slog.String("topic", k.topic.Name),
-			slog.String("dedupKey", k.topic.Deduplication.ID),
-			slog.String("subject", string(msg.Value)),
-		)
-		if err := k.setupDeduplicationHeader(nMsg.Header, msg.Value, k.topic.Deduplication.ID); err != nil {
-			k.log.Error("Failed to setup deduplication header",
-				slog.Any("error", err),
-				slog.String("topic", k.topic.Name),
-				slog.String("dedupKey", k.topic.Deduplication.ID),
-				slog.String("subject", string(msg.Value)),
-			)
-
-			if dlqErr := k.pushMsgToDLQ(ctx, msg.Value, fmt.Errorf("%w: %w", ErrDeduplicateData, err)); dlqErr != nil {
-				return nil, fmt.Errorf("failed to push to DLQ: %w", dlqErr)
-			}
-			return nil, nil
-		}
 	}
 
 	return nMsg, nil
