@@ -1,7 +1,6 @@
 package api
 
 import (
-	"slices"
 	"testing"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
@@ -79,6 +78,48 @@ func TestValidateResourceQuantities(t *testing.T) {
 	}
 }
 
+func TestTransformReplicasImmutable_WhenDedupEnabled(t *testing.T) {
+	replicas1 := int64(1)
+	replicas2 := int64(3)
+	old := models.PipelineResources{
+		Transform: &models.ComponentResources{Replicas: &replicas1},
+	}
+	newRes := models.PipelineResources{
+		Transform: &models.ComponentResources{Replicas: &replicas2},
+	}
+
+	immutableFields := models.GetImmutableFields(&models.PipelineConfig{
+		Ingestor: models.IngestorComponentConfig{
+			KafkaTopics: []models.KafkaTopicsConfig{
+				{Deduplication: models.DeduplicationConfig{Enabled: true}},
+			},
+		},
+	})
+
+	err := models.ValidateImmutabilityPipelineResources(old, newRes, immutableFields)
+	if err == nil {
+		t.Error("expected error when changing transform/replicas with dedup enabled")
+	}
+}
+
+func TestTransformReplicasMutable_WhenDedupDisabled(t *testing.T) {
+	replicas1 := int64(1)
+	replicas2 := int64(3)
+	old := models.PipelineResources{
+		Transform: &models.ComponentResources{Replicas: &replicas1},
+	}
+	newRes := models.PipelineResources{
+		Transform: &models.ComponentResources{Replicas: &replicas2},
+	}
+
+	immutableFields := models.GetImmutableFields(&models.PipelineConfig{})
+
+	err := models.ValidateImmutabilityPipelineResources(old, newRes, immutableFields)
+	if err != nil {
+		t.Errorf("expected no error when changing transform/replicas without dedup, got: %v", err)
+	}
+}
+
 func TestValidatePipelineResources_DetectsImmutableFieldChanges(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -96,13 +137,6 @@ func TestValidatePipelineResources_DetectsImmutableFieldChanges(t *testing.T) {
 			name:     "transform/storage/size",
 			modifier: func(r *models.PipelineResources) { r.Transform.Storage.Size = "20Gi" },
 		},
-		{
-			name: "join/replicas",
-			modifier: func(r *models.PipelineResources) {
-				n := int64(5)
-				r.Join.Replicas = &n
-			},
-		},
 	}
 
 	old := baseResources()
@@ -110,8 +144,7 @@ func TestValidatePipelineResources_DetectsImmutableFieldChanges(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			newResources := baseResources()
 			tt.modifier(&newResources)
-			allImmutable := slices.Concat(models.PipelineResourcesAlwaysImmutable, models.PipelineResourcesImmutableAfterCreate)
-			if err := models.ValidateImmutabilityPipelineResources(old, newResources, allImmutable); err == nil {
+			if err := models.ValidateImmutabilityPipelineResources(old, newResources, models.PipelineResourcesImmutable); err == nil {
 				t.Errorf("expected error for changed immutable field %q, got nil", tt.name)
 			}
 		})

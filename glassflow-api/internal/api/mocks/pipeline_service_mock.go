@@ -142,10 +142,10 @@ func (mr *MockPipelineServiceMockRecorder) GetPipelineHealth(ctx, pid any) *gomo
 }
 
 // GetPipelineResources mocks base method.
-func (m *MockPipelineService) GetPipelineResources(ctx context.Context, pid string) (*models.PipelineResourcesRow, error) {
+func (m *MockPipelineService) GetPipelineResources(ctx context.Context, pid string) (models.PipelineResourcesWithPolicy, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetPipelineResources", ctx, pid)
-	ret0, _ := ret[0].(*models.PipelineResourcesRow)
+	ret0, _ := ret[0].(models.PipelineResourcesWithPolicy)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -242,10 +242,10 @@ func (mr *MockPipelineServiceMockRecorder) UpdatePipelineName(ctx, id, name any)
 }
 
 // UpdatePipelineResources mocks base method.
-func (m *MockPipelineService) UpdatePipelineResources(ctx context.Context, pid string, resources models.PipelineResources) (models.PipelineResources, error) {
+func (m *MockPipelineService) UpdatePipelineResources(ctx context.Context, pid string, resources models.PipelineResources) (models.PipelineResourcesWithPolicy, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdatePipelineResources", ctx, pid, resources)
-	ret0, _ := ret[0].(models.PipelineResources)
+	ret0, _ := ret[0].(models.PipelineResourcesWithPolicy)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
