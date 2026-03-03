@@ -9,6 +9,8 @@ interface UseMappingValidationParams {
   primaryEventFields: string[]
   secondaryEventFields: string[]
   mode: MappingMode
+  destinationPath?: 'create' | 'existing'
+  orderBy?: string
 }
 
 interface UseMappingValidationReturn {
@@ -33,6 +35,8 @@ export function useMappingValidation({
   primaryEventFields,
   secondaryEventFields,
   mode,
+  destinationPath = 'existing',
+  orderBy,
 }: UseMappingValidationParams): UseMappingValidationReturn {
   // Validation issues state - updated continuously as mappings change
   const [validationIssues, setValidationIssues] = useState<ValidationIssues>({
@@ -42,15 +46,12 @@ export function useMappingValidation({
     extraEventFields: [],
     incompatibleTypeMappings: [],
     missingTypeMappings: [],
+    duplicateDestinationColumns: [],
+    orderByInvalid: false,
   })
 
   // Continuously validate mappings to update validation issues in real-time
   useEffect(() => {
-    if (tableSchema.columns.length === 0 || mappedColumns.length === 0) {
-      return
-    }
-
-    // Build validation state
     const issues: ValidationIssues = {
       unmappedNullableColumns: [],
       unmappedNonNullableColumns: [],
@@ -58,9 +59,44 @@ export function useMappingValidation({
       extraEventFields: [],
       incompatibleTypeMappings: [],
       missingTypeMappings: [],
+      duplicateDestinationColumns: [],
+      orderByInvalid: false,
     }
 
-    // Find unmapped columns
+    if (mappedColumns.length === 0) {
+      if (destinationPath === 'create' && orderBy) issues.orderByInvalid = true
+      setValidationIssues(issues)
+      return
+    }
+
+    // Duplicate destination column names (create path or any path)
+    const nameCounts = new Map<string, number>()
+    mappedColumns.forEach((col) => {
+      const n = (col.name || '').trim()
+      if (n) nameCounts.set(n, (nameCounts.get(n) ?? 0) + 1)
+    })
+    issues.duplicateDestinationColumns = [...nameCounts.entries()]
+      .filter(([, count]) => count > 1)
+      .map(([name]) => name)
+
+    // Order-by column missing (create path)
+    if (destinationPath === 'create' && orderBy) {
+      const orderColumnExists = mappedColumns.some(
+        (col) => (col.name || '').trim() === orderBy || col.eventField === orderBy,
+      )
+      issues.orderByInvalid = !orderColumnExists
+    }
+
+    if (tableSchema.columns.length === 0) {
+      // Create path: no ClickHouse schema; only duplicate/orderBy and type validation
+      const { invalidMappings, missingTypeMappings } = validateColumnMappings(mappedColumns)
+      issues.incompatibleTypeMappings = invalidMappings
+      issues.missingTypeMappings = missingTypeMappings
+      setValidationIssues(issues)
+      return
+    }
+
+    // Find unmapped columns (existing path)
     tableSchema.columns.forEach((column) => {
       const mappedColumn = mappedColumns.find((mc) => mc.name === column.name)
       if (!mappedColumn || !mappedColumn.eventField) {
@@ -94,7 +130,16 @@ export function useMappingValidation({
     issues.missingTypeMappings = missingTypeMappings
 
     setValidationIssues(issues)
-  }, [tableSchema.columns, mappedColumns, eventFields, primaryEventFields, secondaryEventFields, mode])
+  }, [
+    tableSchema.columns,
+    mappedColumns,
+    eventFields,
+    primaryEventFields,
+    secondaryEventFields,
+    mode,
+    destinationPath,
+    orderBy,
+  ])
 
   /**
    * Convert validation issues to a ValidationResult for modal display.
@@ -110,6 +155,30 @@ export function useMappingValidation({
    */
   const validateMapping = useCallback((): ValidationResult | null => {
     const issues = validationIssues
+
+    // Duplicate destination columns (error)
+    if (issues.duplicateDestinationColumns.length > 0) {
+      return {
+        type: 'error',
+        canProceed: false,
+        title: 'Duplicate Column Names',
+        message: `Column name already exists: ${issues.duplicateDestinationColumns.join(', ')}. Destination column names must be unique.`,
+        okButtonText: 'OK',
+        cancelButtonText: 'Cancel',
+      }
+    }
+
+    // Order-by column missing (create path)
+    if (issues.orderByInvalid) {
+      return {
+        type: 'error',
+        canProceed: false,
+        title: 'Invalid Order Field',
+        message: 'The selected order-by column is missing or was removed from the mapping. Please select a valid column or add it back.',
+        okButtonText: 'OK',
+        cancelButtonText: 'Cancel',
+      }
+    }
 
     // Count mapped fields for mismatch warning
     const mappedFieldsCount = mappedColumns.filter((col) => col.eventField).length

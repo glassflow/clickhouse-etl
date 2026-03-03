@@ -1,15 +1,20 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { structuredLogger } from '@/src/observability'
 import { InfoModal } from '@/src/components/common/InfoModal'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/src/components/ui/tabs'
 import { DatabaseTableSelectContainer } from './components/DatabaseTableSelectContainer'
+import { NewTableSettings } from './components/NewTableSettings'
 import { MappingFormSection } from './components/MappingFormSection'
+import { BatchDelaySelector } from './components/BatchDelaySelector'
+import FormActions from '@/src/components/shared/FormActions'
 import { DestinationErrorBlock } from './components/DestinationErrorBlock'
 import { StepKeys } from '@/src/config/constants'
 
 import { useStore } from '@/src/store'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 
-import { MappingMode } from './types'
+import { MappingMode, TableColumn } from './types'
+import { buildInitialMappingFromEventFields, getVerifiedTypeFromTopic } from './utils'
 
 import {
   useMappingValidation,
@@ -47,7 +52,8 @@ export function ClickhouseMapper({
     transformationStore,
   } = useStore()
   const analytics = useJourneyAnalytics()
-  const { clickhouseDestination, setClickhouseDestination } = clickhouseDestinationStore
+  const { clickhouseDestination, setClickhouseDestination, updateClickhouseDestinationDraft } =
+    clickhouseDestinationStore
   const { getTopic } = topicsStore
   const { topicCount } = coreStore
 
@@ -69,6 +75,14 @@ export function ClickhouseMapper({
   // State and data loading from dedicated hook
   const mapperState = useClickhouseMapperState()
   const {
+    destinationPath,
+    setDestinationPath,
+    tableName,
+    setTableName,
+    engine,
+    setEngine,
+    orderBy,
+    setOrderBy,
     selectedDatabase,
     selectedTable,
     tableSchema,
@@ -117,6 +131,45 @@ export function ClickhouseMapper({
     clickhouseDestination,
     setClickhouseDestination,
   })
+
+  const orderByOptions = useMemo(
+    () => (mode === 'single' ? eventFields : [...(primaryEventFields ?? []), ...(secondaryEventFields ?? [])]),
+    [mode, eventFields, primaryEventFields, secondaryEventFields],
+  )
+
+  // Auto-generate mapping for create path when table name + database are set
+  useEffect(() => {
+    if (
+      destinationPath !== 'create' ||
+      !tableName?.trim() ||
+      !selectedDatabase ||
+      orderByOptions.length === 0 ||
+      mappedColumns.length > 0
+    ) {
+      return
+    }
+    const getJsonType = (field: string) => {
+      if (mode === 'single') return getVerifiedTypeFromTopic(selectedTopic, field)
+      const primary = primaryTopic ? getVerifiedTypeFromTopic(primaryTopic, field) : undefined
+      if (primary) return primary
+      return secondaryTopic ? getVerifiedTypeFromTopic(secondaryTopic, field) : undefined
+    }
+    const initial = buildInitialMappingFromEventFields(orderByOptions, getJsonType)
+    setMappedColumns(initial)
+    updateClickhouseDestinationDraft({ mapping: initial, destinationColumns: initial })
+  }, [
+    destinationPath,
+    tableName,
+    selectedDatabase,
+    orderByOptions,
+    mode,
+    selectedTopic,
+    primaryTopic,
+    secondaryTopic,
+    mappedColumns.length,
+    setMappedColumns,
+    updateClickhouseDestinationDraft,
+  ])
 
   // Analytics tracking states (keep these as local state since they're UI-specific)
   const [hasTrackedView, setHasTrackedView] = useState(false)
@@ -187,6 +240,8 @@ export function ClickhouseMapper({
     primaryEventFields,
     secondaryEventFields,
     mode,
+    destinationPath,
+    orderBy,
   })
 
   const selectedTopics = useMemo(() => {
@@ -209,8 +264,12 @@ export function ClickhouseMapper({
     success,
   } = useDestinationSave({
     validateMapping,
+    destinationPath,
     selectedDatabase,
     selectedTable,
+    tableName,
+    engine,
+    orderBy,
     mappedColumns,
     tableSchema,
     maxDelayTimeRef,
@@ -296,62 +355,232 @@ export function ClickhouseMapper({
 
   const combinedError = error || dataError
   const hasColumns = tableSchema.columns.length > 0 || storeSchema?.length > 0
-  const shouldShowMappingForm =
-    selectedTable && hasColumns && (!schemaLoading || tableSchema.columns.length > 0)
+  const shouldShowMappingFormExisting =
+    destinationPath === 'existing' &&
+    selectedTable &&
+    hasColumns &&
+    (!schemaLoading || tableSchema.columns.length > 0)
+  const shouldShowMappingFormCreate =
+    destinationPath === 'create' && !!tableName?.trim() && !!selectedDatabase && mappedColumns.length > 0
+
+  const handlePathChange = useCallback(
+    (value: string) => {
+      setDestinationPath(value === 'existing' ? 'existing' : 'create')
+    },
+    [setDestinationPath],
+  )
+
+  const handleAddMapping = useCallback(() => {
+    const emptyRow: TableColumn = {
+      name: '',
+      type: 'String',
+      jsonType: 'string',
+      isNullable: true,
+      eventField: '',
+    }
+    const next = [...mappedColumns, emptyRow]
+    setMappedColumns(next)
+    updateClickhouseDestinationDraft({ mapping: next })
+  }, [mappedColumns, setMappedColumns, updateClickhouseDestinationDraft])
+
+  const handleDeleteRow = useCallback(
+    (index: number) => {
+      const next = mappedColumns.filter((_, i) => i !== index)
+      setMappedColumns(next)
+      updateClickhouseDestinationDraft({ mapping: next })
+    },
+    [mappedColumns, setMappedColumns, updateClickhouseDestinationDraft],
+  )
+
+  const handleNullableChange = useCallback(
+    (index: number, checked: boolean) => {
+      const next = mappedColumns.map((col, i) => {
+        if (i !== index) return col
+        const baseType = (col.type || 'String').replace(/^Nullable\((.*)\)$/, '$1')
+        return {
+          ...col,
+          isNullable: checked,
+          type: checked ? `Nullable(${baseType})` : baseType,
+        }
+      })
+      setMappedColumns(next)
+      updateClickhouseDestinationDraft({ mapping: next })
+    },
+    [mappedColumns, setMappedColumns, updateClickhouseDestinationDraft],
+  )
 
   return (
     <div className="flex flex-col gap-8 mb-4">
       <div className="space-y-6">
-        <DatabaseTableSelectContainer
-          availableDatabases={databases}
-          selectedDatabase={selectedDatabase}
-          setSelectedDatabase={handleDatabaseSelection}
-          testDatabaseAccess={testDatabaseAccessWrapper}
-          isLoading={isLoading}
-          getConnectionConfig={getConnectionConfig}
-          availableTables={availableTables}
-          selectedTable={selectedTable}
-          setSelectedTable={handleTableSelection}
-          testTableAccess={testTableAccessWrapper}
-          onRefreshDatabases={handleRefreshDatabases}
-          onRefreshTables={handleRefreshTables}
-          readOnly={readOnly}
-        />
+        <Tabs
+          value={destinationPath}
+          onValueChange={handlePathChange}
+          className="w-full"
+        >
+          <TabsList className="grid w-full max-w-md grid-cols-2 mb-4 rounded-lg border border-[var(--surface-border)] bg-[var(--surface-bg-sunken)]">
+            <TabsTrigger
+              value="create"
+              className="data-[state=inactive]:opacity-70 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:font-semibold data-[state=active]:shadow-md data-[state=active]:ring-2 data-[state=active]:ring-[var(--color-border-primary)] data-[state=active]:ring-inset rounded-md border border-transparent data-[state=active]:border-[var(--color-border-primary)]"
+            >
+              Create New Table
+            </TabsTrigger>
+            <TabsTrigger
+              value="existing"
+              className="data-[state=inactive]:opacity-70 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:font-semibold data-[state=active]:shadow-md data-[state=active]:ring-2 data-[state=active]:ring-[var(--color-border-primary)] data-[state=active]:ring-inset rounded-md border border-transparent data-[state=active]:border-[var(--color-border-primary)]"
+            >
+              Use Existing Table
+            </TabsTrigger>
+          </TabsList>
 
-        {shouldShowMappingForm && (
-          <MappingFormSection
-            maxBatchSize={maxBatchSize}
-            maxDelayTime={maxDelayTime}
-            maxDelayTimeUnit={maxDelayTimeUnit}
-            onMaxBatchSizeChange={setMaxBatchSize}
-            onMaxDelayTimeChange={setMaxDelayTime}
-            onMaxDelayTimeUnitChange={setMaxDelayTimeUnit}
-            eventFields={mode === 'single' ? eventFields : [...primaryEventFields, ...secondaryEventFields]}
-            mappedColumns={mappedColumns}
-            updateColumnMapping={updateColumnMapping}
-            mapEventFieldToColumn={mapEventFieldToColumn}
-            primaryEventFields={mode !== 'single' ? primaryEventFields : undefined}
-            secondaryEventFields={mode !== 'single' ? secondaryEventFields : undefined}
-            primaryTopicName={mode !== 'single' ? primaryTopic?.name : undefined}
-            secondaryTopicName={mode !== 'single' ? secondaryTopic?.name : undefined}
-            isJoinMapping={mode !== 'single'}
-            unmappedNonNullableColumns={validationIssues.unmappedNonNullableColumns}
-            unmappedDefaultColumns={validationIssues.unmappedDefaultColumns}
-            onRefreshTableSchema={handleRefreshTableSchema}
-            onAutoMap={performAutoMapping}
-            onSubmit={saveDestinationConfig}
-            onDiscard={handleDiscardChanges}
-            selectedDatabase={selectedDatabase}
-            selectedTable={selectedTable}
-            readOnly={readOnly}
-            isLoading={isLoading}
-            isSuccess={!!success}
-            standalone={standalone}
-            toggleEditMode={toggleEditMode}
-            pipelineActionState={pipelineActionState}
-            onClose={onCompleteStandaloneEditing}
-          />
-        )}
+          <TabsContent value="create" className="space-y-6 mt-0">
+            <NewTableSettings
+              tableName={tableName}
+              onTableNameChange={setTableName}
+              availableDatabases={databases}
+              selectedDatabase={selectedDatabase}
+              setSelectedDatabase={handleDatabaseSelection}
+              testDatabaseAccess={testDatabaseAccessWrapper}
+              isLoading={isLoading}
+              getConnectionConfig={getConnectionConfig}
+              onRefreshDatabases={handleRefreshDatabases}
+              engine={engine}
+              onEngineChange={setEngine}
+              orderBy={orderBy}
+              onOrderByChange={setOrderBy}
+              orderByOptions={orderByOptions}
+              readOnly={readOnly}
+            />
+            {!shouldShowMappingFormCreate && (
+              <BatchDelaySelector
+                maxBatchSize={maxBatchSize}
+                maxDelayTime={maxDelayTime}
+                maxDelayTimeUnit={maxDelayTimeUnit}
+                onMaxBatchSizeChange={setMaxBatchSize}
+                onMaxDelayTimeChange={setMaxDelayTime}
+                onMaxDelayTimeUnitChange={setMaxDelayTimeUnit}
+                readOnly={readOnly}
+              />
+            )}
+            {shouldShowMappingFormCreate && (
+              <MappingFormSection
+                maxBatchSize={maxBatchSize}
+                maxDelayTime={maxDelayTime}
+                maxDelayTimeUnit={maxDelayTimeUnit}
+                onMaxBatchSizeChange={setMaxBatchSize}
+                onMaxDelayTimeChange={setMaxDelayTime}
+                onMaxDelayTimeUnitChange={setMaxDelayTimeUnit}
+                eventFields={mode === 'single' ? eventFields : [...(primaryEventFields ?? []), ...(secondaryEventFields ?? [])]}
+                mappedColumns={mappedColumns}
+                updateColumnMapping={updateColumnMapping}
+                mapEventFieldToColumn={mapEventFieldToColumn}
+                primaryEventFields={mode !== 'single' ? primaryEventFields : undefined}
+                secondaryEventFields={mode !== 'single' ? secondaryEventFields : undefined}
+                primaryTopicName={mode !== 'single' ? primaryTopic?.name : undefined}
+                secondaryTopicName={mode !== 'single' ? secondaryTopic?.name : undefined}
+                isJoinMapping={mode !== 'single'}
+                unmappedNonNullableColumns={validationIssues.unmappedNonNullableColumns}
+                unmappedDefaultColumns={validationIssues.unmappedDefaultColumns}
+                duplicateDestinationColumns={validationIssues.duplicateDestinationColumns}
+                orderByInvalid={validationIssues.orderByInvalid}
+                isCreatePath
+                onAddMapping={handleAddMapping}
+                onDeleteRow={handleDeleteRow}
+                onNullableChange={handleNullableChange}
+                onRefreshTableSchema={handleRefreshTableSchema}
+                onAutoMap={performAutoMapping}
+                onSubmit={saveDestinationConfig}
+                onDiscard={handleDiscardChanges}
+                selectedDatabase={selectedDatabase}
+                selectedTable={tableName}
+                readOnly={readOnly}
+                isLoading={isLoading}
+                isSuccess={!!success}
+                standalone={standalone}
+                toggleEditMode={toggleEditMode}
+                pipelineActionState={pipelineActionState}
+                onClose={onCompleteStandaloneEditing}
+              />
+            )}
+            {!shouldShowMappingFormCreate && (
+              <div className="flex gap-2 mt-4">
+                <FormActions
+                  standalone={standalone}
+                  onSubmit={saveDestinationConfig}
+                  onDiscard={handleDiscardChanges}
+                  isLoading={isLoading}
+                  isSuccess={!!success}
+                  disabled={
+                    (destinationPath === 'create' &&
+                      (!tableName?.trim() || !selectedDatabase || !engine || !orderBy)) ||
+                    isLoading
+                  }
+                  successText="Continue"
+                  actionType="primary"
+                  showLoadingIcon={false}
+                  regularText="Continue"
+                  loadingText="Saving..."
+                  readOnly={readOnly}
+                  toggleEditMode={toggleEditMode}
+                  pipelineActionState={pipelineActionState}
+                  onClose={onCompleteStandaloneEditing}
+                />
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="existing" className="space-y-6 mt-0">
+            <DatabaseTableSelectContainer
+              availableDatabases={databases}
+              selectedDatabase={selectedDatabase}
+              setSelectedDatabase={handleDatabaseSelection}
+              testDatabaseAccess={testDatabaseAccessWrapper}
+              isLoading={isLoading}
+              getConnectionConfig={getConnectionConfig}
+              availableTables={availableTables}
+              selectedTable={selectedTable}
+              setSelectedTable={handleTableSelection}
+              testTableAccess={testTableAccessWrapper}
+              onRefreshDatabases={handleRefreshDatabases}
+              onRefreshTables={handleRefreshTables}
+              readOnly={readOnly}
+            />
+
+            {shouldShowMappingFormExisting && (
+              <MappingFormSection
+                maxBatchSize={maxBatchSize}
+                maxDelayTime={maxDelayTime}
+                maxDelayTimeUnit={maxDelayTimeUnit}
+                onMaxBatchSizeChange={setMaxBatchSize}
+                onMaxDelayTimeChange={setMaxDelayTime}
+                onMaxDelayTimeUnitChange={setMaxDelayTimeUnit}
+                eventFields={mode === 'single' ? eventFields : [...primaryEventFields, ...secondaryEventFields]}
+                mappedColumns={mappedColumns}
+                updateColumnMapping={updateColumnMapping}
+                mapEventFieldToColumn={mapEventFieldToColumn}
+                primaryEventFields={mode !== 'single' ? primaryEventFields : undefined}
+                secondaryEventFields={mode !== 'single' ? secondaryEventFields : undefined}
+                primaryTopicName={mode !== 'single' ? primaryTopic?.name : undefined}
+                secondaryTopicName={mode !== 'single' ? secondaryTopic?.name : undefined}
+                isJoinMapping={mode !== 'single'}
+                unmappedNonNullableColumns={validationIssues.unmappedNonNullableColumns}
+                unmappedDefaultColumns={validationIssues.unmappedDefaultColumns}
+                onRefreshTableSchema={handleRefreshTableSchema}
+                onAutoMap={performAutoMapping}
+                onSubmit={saveDestinationConfig}
+                onDiscard={handleDiscardChanges}
+                selectedDatabase={selectedDatabase}
+                selectedTable={selectedTable}
+                readOnly={readOnly}
+                isLoading={isLoading}
+                isSuccess={!!success}
+                standalone={standalone}
+                toggleEditMode={toggleEditMode}
+                pipelineActionState={pipelineActionState}
+                onClose={onCompleteStandaloneEditing}
+              />
+            )}
+          </TabsContent>
+        </Tabs>
 
         <DestinationErrorBlock
           error={combinedError}

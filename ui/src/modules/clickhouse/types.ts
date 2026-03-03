@@ -109,4 +109,15 @@ export interface ValidationIssues {
   incompatibleTypeMappings: TableColumn[]
   /** Mappings where the source type could not be determined */
   missingTypeMappings: TableColumn[]
+  /** Destination column names that appear more than once (create path) */
+  duplicateDestinationColumns: string[]
+  /** True when order-by column is missing or invalid (create path) */
+  orderByInvalid: boolean
 }
+
+/**
+ * Destination path for Select Destination step.
+ * - 'create': user is defining a new table (table name, engine, order, mapping from Kafka)
+ * - 'existing': user is selecting an existing table (database + table, then mapping from schema)
+ */
+export type DestinationPath = 'create' | 'existing'

@@ -18,8 +18,12 @@ export function useClickhouseMapperState() {
     clickhouseDestinationStore,
   } = useStore()
   const { clickhouseConnection, getTableSchema } = clickhouseConnectionStore
-  const { clickhouseDestination, setClickhouseDestination, updateClickhouseDestinationDraft } =
-    clickhouseDestinationStore
+  const {
+    clickhouseDestination,
+    setClickhouseDestination,
+    updateClickhouseDestinationDraft,
+    setDestinationPath,
+  } = clickhouseDestinationStore
 
   const { connectionStatus } = clickhouseConnection
   const { testDatabaseAccess, testTableAccess } = useClickhouseConnection()
@@ -81,50 +85,57 @@ export function useClickhouseMapperState() {
     lastConnectionRef.current = currentConnectionId
   }, [clickhouseConnection])
 
-  // Sync table schema from store when storeSchema updates
+  // Sync local state from store when destination path changes (path switch resets store path-specific fields)
+  const destinationPath = clickhouseDestination?.destinationPath ?? 'create'
   useEffect(() => {
-    if (storeSchema && storeSchema.length > 0) {
-      const filteredSchema = filterUserMappableColumns(storeSchema)
-      const schemaChanged =
-        tableSchema.columns.length !== filteredSchema.length ||
-        !tableSchema.columns.every(
-          (col, index) =>
-            col.name === filteredSchema[index]?.name &&
-            (col.type === filteredSchema[index]?.type || col.type === filteredSchema[index]?.column_type) &&
-            col.isNullable === filteredSchema[index]?.isNullable,
-        )
-      if (!schemaChanged) return
+    setSelectedTable(clickhouseDestination?.table ?? '')
+    setTableSchema({ columns: clickhouseDestination?.destinationColumns ?? [] })
+    setMappedColumns(clickhouseDestination?.mapping ?? [])
+  }, [destinationPath])
 
-      const hasExistingMappings = mappedColumns.some((col) => col.eventField)
-      const shouldKeepExistingMapping = hasExistingMappings && mappedColumns.length > 0
-      const newMapping = shouldKeepExistingMapping
-        ? filteredSchema.map((col) => {
-            const existingCol = mappedColumns.find((mc) => mc.name === col.name)
-            if (existingCol) {
-              return {
-                ...col,
-                jsonType: existingCol.jsonType || '',
-                isNullable: existingCol.isNullable || false,
-                isKey: existingCol.isKey || false,
-                eventField: existingCol.eventField || '',
-                ...(existingCol.sourceTopic && { sourceTopic: existingCol.sourceTopic }),
-              }
+  // Sync table schema from store when storeSchema updates (existing path only)
+  useEffect(() => {
+    if (destinationPath !== 'existing' || !storeSchema || storeSchema.length === 0) return
+    const filteredSchema = filterUserMappableColumns(storeSchema)
+    const schemaChanged =
+      tableSchema.columns.length !== filteredSchema.length ||
+      !tableSchema.columns.every(
+        (col, index) =>
+          col.name === filteredSchema[index]?.name &&
+          (col.type === filteredSchema[index]?.type || col.type === filteredSchema[index]?.column_type) &&
+          col.isNullable === filteredSchema[index]?.isNullable,
+      )
+    if (!schemaChanged) return
+
+    const hasExistingMappings = mappedColumns.some((col) => col.eventField)
+    const shouldKeepExistingMapping = hasExistingMappings && mappedColumns.length > 0
+    const newMapping = shouldKeepExistingMapping
+      ? filteredSchema.map((col) => {
+          const existingCol = mappedColumns.find((mc) => mc.name === col.name)
+          if (existingCol) {
+            return {
+              ...col,
+              jsonType: existingCol.jsonType || '',
+              isNullable: existingCol.isNullable || false,
+              isKey: existingCol.isKey || false,
+              eventField: existingCol.eventField || '',
+              ...(existingCol.sourceTopic && { sourceTopic: existingCol.sourceTopic }),
             }
-            return { ...col, jsonType: '', isNullable: false, isKey: false, eventField: '' }
-          })
-        : filteredSchema.map((col) => ({
-            ...col,
-            jsonType: '',
-            isNullable: false,
-            isKey: false,
-            eventField: '',
-          }))
+          }
+          return { ...col, jsonType: '', isNullable: false, isKey: false, eventField: '' }
+        })
+      : filteredSchema.map((col) => ({
+          ...col,
+          jsonType: '',
+          isNullable: false,
+          isKey: false,
+          eventField: '',
+        }))
 
-      setTableSchema({ columns: filteredSchema })
-      setMappedColumns(newMapping)
-      updateClickhouseDestinationDraft({ destinationColumns: filteredSchema, mapping: newMapping })
-    }
-  }, [storeSchema, tableSchema.columns, mappedColumns, updateClickhouseDestinationDraft])
+    setTableSchema({ columns: filteredSchema })
+    setMappedColumns(newMapping)
+    updateClickhouseDestinationDraft({ destinationColumns: filteredSchema, mapping: newMapping })
+  }, [destinationPath, storeSchema, tableSchema.columns, mappedColumns, updateClickhouseDestinationDraft])
 
   // Hydration from clickhouseDestination (run once when not hydrated)
   useEffect(() => {
@@ -159,9 +170,9 @@ export function useClickhouseMapperState() {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally omit clickhouseDestination to prevent resetting user changes
   }, [isHydrated])
 
-  // Load table schema when database and table are selected
+  // Load table schema when database and table are selected (existing path only)
   useEffect(() => {
-    if (!selectedDatabase || !selectedTable) return
+    if (destinationPath !== 'existing' || !selectedDatabase || !selectedTable) return
     const schemaFromStore = getTableSchema(selectedDatabase, selectedTable)
     if (schemaFromStore.length > 0) return
     if (
@@ -279,12 +290,16 @@ export function useClickhouseMapperState() {
       const updatedColumns = [...mappedColumns]
       updatedColumns[index] = { ...updatedColumns[index], [field]: value }
       setMappedColumns(updatedColumns)
-      setClickhouseDestination({
-        ...(clickhouseDestination ?? {}),
-        mapping: updatedColumns,
-      } as any)
+      if (destinationPath === 'create') {
+        updateClickhouseDestinationDraft({ mapping: updatedColumns })
+      } else {
+        setClickhouseDestination({
+          ...(clickhouseDestination ?? {}),
+          mapping: updatedColumns,
+        } as any)
+      }
     },
-    [mappedColumns, clickhouseDestination, setClickhouseDestination],
+    [mappedColumns, clickhouseDestination, destinationPath, setClickhouseDestination, updateClickhouseDestinationDraft],
   )
 
   const handleRefreshDatabases = useCallback(async () => {
@@ -310,8 +325,33 @@ export function useClickhouseMapperState() {
     await fetchTableSchema()
   }, [fetchTableSchema])
 
+  const tableName = clickhouseDestination?.tableName ?? ''
+  const engine = clickhouseDestination?.engine ?? ''
+  const orderBy = clickhouseDestination?.orderBy ?? ''
+
+  const setTableName = useCallback(
+    (value: string) => updateClickhouseDestinationDraft({ tableName: value }),
+    [updateClickhouseDestinationDraft],
+  )
+  const setEngine = useCallback(
+    (value: string) => updateClickhouseDestinationDraft({ engine: value }),
+    [updateClickhouseDestinationDraft],
+  )
+  const setOrderBy = useCallback(
+    (value: string) => updateClickhouseDestinationDraft({ orderBy: value }),
+    [updateClickhouseDestinationDraft],
+  )
+
   return {
     // State
+    destinationPath,
+    setDestinationPath,
+    tableName,
+    setTableName,
+    engine,
+    setEngine,
+    orderBy,
+    setOrderBy,
     selectedDatabase,
     setSelectedDatabase,
     selectedTable,

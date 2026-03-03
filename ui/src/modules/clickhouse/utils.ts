@@ -527,10 +527,21 @@ export const buildInternalPipelineConfig = ({
             })(),
           }
         : {}),
-      // Ensure missing required fields are handled or typed as optional in InternalPipelineConfig if needed
-      // but assuming they are filled by the spread above or default values
       table: clickhouseDestination?.table,
       table_mapping: tableMappings,
+      ...(clickhouseDestination?.engine ? { engine: clickhouseDestination.engine } : {}),
+      ...(clickhouseDestination?.orderBy
+        ? {
+            order_by: (() => {
+              const mapping = clickhouseDestination?.mapping ?? []
+              const byEventField = mapping.find(
+                (m: any) => m.eventField === clickhouseDestination.orderBy,
+              )
+              const byColumnName = mapping.find((m: any) => m.name === clickhouseDestination.orderBy)
+              return byEventField?.name ?? byColumnName?.name ?? clickhouseDestination.orderBy
+            })(),
+          }
+        : {}),
     } as any, // Type assertion to bypass strict checks on conditional properties for now
     // Include filter configuration only for single-topic pipelines
     // Filter is not available for multi-topic journeys
@@ -822,6 +833,37 @@ export function isTypeCompatible(sourceType: string | undefined, clickhouseType:
 
   // Check if any compatible type matches (partially) the ClickHouse type
   return compatibleTypes.some((type) => clickhouseType.includes(type))
+}
+
+/**
+ * Returns a default ClickHouse type for a given JSON/Kafka type (first compatible type).
+ * Used when auto-generating mapping rows for the create-table path.
+ */
+export function getDefaultClickHouseType(jsonType: string): string {
+  if (!jsonType) return 'String'
+  const compatible = TYPE_COMPATIBILITY_MAP[jsonType.toLowerCase()]
+  return compatible?.[0] ?? 'String'
+}
+
+/**
+ * Builds initial mapping rows from event field names and topic schema (create-table path).
+ */
+export function buildInitialMappingFromEventFields(
+  eventFields: string[],
+  getJsonType: (field: string) => string | undefined,
+): TableColumn[] {
+  return eventFields.map((field) => {
+    const jsonType = getJsonType(field) || 'string'
+    const chType = getDefaultClickHouseType(jsonType)
+    return {
+      name: field,
+      type: chType,
+      jsonType,
+      isNullable: true,
+      isKey: false,
+      eventField: field,
+    }
+  })
 }
 
 /**

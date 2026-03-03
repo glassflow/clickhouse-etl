@@ -13,8 +13,12 @@ import type { ValidationResult } from '../types'
 
 export interface UseDestinationSaveParams {
   validateMapping: () => ValidationResult | null
+  destinationPath: 'create' | 'existing'
   selectedDatabase: string
   selectedTable: string
+  tableName?: string
+  engine?: string
+  orderBy?: string
   mappedColumns: TableColumn[]
   tableSchema: TableSchema
   maxDelayTimeRef: React.MutableRefObject<number>
@@ -50,8 +54,12 @@ export interface ModalState {
  */
 export function useDestinationSave({
   validateMapping,
+  destinationPath,
   selectedDatabase,
   selectedTable,
+  tableName,
+  engine,
+  orderBy,
   mappedColumns,
   tableSchema,
   maxDelayTimeRef,
@@ -141,10 +149,14 @@ export function useDestinationSave({
     const currentMaxDelayTimeUnit = maxDelayTimeUnitRef.current
     const currentMaxBatchSize = maxBatchSizeRef.current
 
+    const effectiveTable = destinationPath === 'create' ? (tableName ?? '') : selectedTable
     const updatedDestination = {
       ...clickhouseDestination,
       database: selectedDatabase,
-      table: selectedTable,
+      table: effectiveTable,
+      tableName: destinationPath === 'create' ? (tableName ?? '') : undefined,
+      engine: destinationPath === 'create' ? (engine ?? '') : undefined,
+      orderBy: destinationPath === 'create' ? (orderBy ?? '') : undefined,
       mapping: mappedColumns,
       destinationColumns: tableSchema.columns,
       maxBatchSize: currentMaxBatchSize,
@@ -191,6 +203,10 @@ export function useDestinationSave({
   }, [
     mappedColumns,
     tableSchema.columns,
+    destinationPath,
+    tableName,
+    engine,
+    orderBy,
     selectedDatabase,
     selectedTable,
     clickhouseDestination,
@@ -234,6 +250,28 @@ export function useDestinationSave({
 
   const saveDestinationConfig = useCallback(() => {
     setPendingAction('save')
+    if (destinationPath === 'create') {
+      if (!tableName?.trim()) {
+        setError('Enter table name')
+        setPendingAction('none')
+        return
+      }
+      if (!selectedDatabase) {
+        setError('Select database')
+        setPendingAction('none')
+        return
+      }
+      if (!engine) {
+        setError('Select table engine')
+        setPendingAction('none')
+        return
+      }
+      if (!orderBy) {
+        setError('Select field to order by')
+        setPendingAction('none')
+        return
+      }
+    }
     analytics.destination.columnsSelected({ count: mappedColumns.length })
 
     const validationResult = validateMapping()
@@ -250,7 +288,17 @@ export function useDestinationSave({
     } else {
       completeConfigSave()
     }
-  }, [validateMapping, mappedColumns.length, analytics.destination, completeConfigSave])
+  }, [
+    destinationPath,
+    tableName,
+    selectedDatabase,
+    engine,
+    orderBy,
+    validateMapping,
+    mappedColumns.length,
+    analytics.destination,
+    completeConfigSave,
+  ])
 
   const handleDiscardChanges = useCallback(() => {
     coreStore.discardSection('clickhouse-destination')

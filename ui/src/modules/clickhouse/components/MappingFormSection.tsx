@@ -28,6 +28,14 @@ interface MappingFormSectionProps {
   // Validation issues for highlighting
   unmappedNonNullableColumns: string[]
   unmappedDefaultColumns: string[]
+  duplicateDestinationColumns?: string[]
+  orderByInvalid?: boolean
+
+  // Create path: add/delete mapping rows
+  isCreatePath?: boolean
+  onAddMapping?: () => void
+  onDeleteRow?: (index: number) => void
+  onNullableChange?: (index: number, checked: boolean) => void
 
   // Actions
   onRefreshTableSchema: () => Promise<void>
@@ -78,6 +86,12 @@ export function MappingFormSection({
   isJoinMapping,
   unmappedNonNullableColumns,
   unmappedDefaultColumns,
+  duplicateDestinationColumns,
+  orderByInvalid,
+  isCreatePath,
+  onAddMapping,
+  onDeleteRow,
+  onNullableChange,
   onRefreshTableSchema,
   onAutoMap,
   onSubmit,
@@ -115,16 +129,19 @@ export function MappingFormSection({
         secondaryTopicName={isJoinMapping ? secondaryTopicName : undefined}
         isJoinMapping={isJoinMapping}
         readOnly={readOnly}
-        typesReadOnly={true} // Types are verified in the earlier type verification step
+        typesReadOnly={true}
         unmappedNonNullableColumns={unmappedNonNullableColumns}
         unmappedDefaultColumns={unmappedDefaultColumns}
+        duplicateDestinationColumns={duplicateDestinationColumns}
+        isCreatePath={isCreatePath}
+        onAddMapping={onAddMapping}
+        onDeleteRow={onDeleteRow}
+        onNullableChange={onNullableChange}
         onRefreshTableSchema={onRefreshTableSchema}
         onAutoMap={onAutoMap}
         selectedDatabase={selectedDatabase}
         selectedTable={selectedTable}
       />
-      {/* TypeCompatibilityInfo is temporarily hidden */}
-      {/* <TypeCompatibilityInfo /> */}
       <div className="flex gap-2 mt-4">
         <FormActions
           standalone={standalone}
@@ -132,7 +149,11 @@ export function MappingFormSection({
           onDiscard={onDiscard}
           isLoading={isLoading}
           isSuccess={isSuccess}
-          disabled={isLoading}
+          disabled={
+            isLoading ||
+            (duplicateDestinationColumns?.length ?? 0) > 0 ||
+            !!orderByInvalid
+          }
           successText="Continue"
           actionType="primary"
           showLoadingIcon={false}
