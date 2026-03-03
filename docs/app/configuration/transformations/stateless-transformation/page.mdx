@@ -277,6 +277,43 @@ Converts a value to a float. Returns `0.0` for empty or invalid input.
 
 ---
 
+#### floor
+
+Returns the greatest integer value less than or equal to the argument (rounds down). Accepts a number or string that parses to a number.
+
+| Expression | Example output |
+|------------|----------------|
+| `floor(4.7)` | `4.0` |
+| `floor(4.2)` | `4.0` |
+| `floor(toFloat(price))` (with `price` = `"19.99"`) | `19.0` |
+
+---
+
+#### ceil
+
+Returns the least integer value greater than or equal to the argument (rounds up). Accepts a number or string that parses to a number.
+
+| Expression | Example output |
+|------------|----------------|
+| `ceil(4.2)` | `5.0` |
+| `ceil(4.0)` | `4.0` |
+| `ceil(toFloat(price))` (with `price` = `"19.01"`) | `20.0` |
+
+---
+
+#### round
+
+Returns the nearest integer, rounding half away from zero. Accepts a number or string that parses to a number.
+
+| Expression | Example output |
+|------------|----------------|
+| `round(4.5)` | `5.0` |
+| `round(4.4)` | `4.0` |
+| `round(-2.5)` | `-3.0` (half away from zero) |
+| `round(toFloat(score))` (with `score` = `"3.7"`) | `4.0` |
+
+---
+
 #### toString
 
 Converts a value to a string. Returns `""` for empty input.
