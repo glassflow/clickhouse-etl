@@ -29,6 +29,7 @@ This folder is the **deep reference** for the ClickHouse ETL UI. For development
 | [implementations/KERBEROS_IMPLEMENTATION_SUMMARY.md](implementations/KERBEROS_IMPLEMENTATION_SUMMARY.md) | Kafka Kerberos auth and gateway.                                      |
 | [implementations/KAFKA_OPERATIONS_LAYER.md](implementations/KAFKA_OPERATIONS_LAYER.md)                   | Kafka operations layer: service, factory, clients, resilience, tests. |
 | [implementations/STORE_MODE_SUPPORT_PRD.md](implementations/STORE_MODE_SUPPORT_PRD.md)                   | Store mode support PRD.                                               |
+| [implementations/OBSERVABILITY_IMPLEMENTATION.md](implementations/OBSERVABILITY_IMPLEMENTATION.md)       | OTEL-first structured logging and metrics: architecture, env vars, metric names, usage, constraints. |
 
 ## Modules (per-feature guides)
 

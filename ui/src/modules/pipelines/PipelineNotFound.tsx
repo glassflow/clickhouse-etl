@@ -33,7 +33,7 @@ export function PipelineNotFound({ pipelineId }: PipelineNotFoundProps) {
         </p>
       </div>
 
-      <Button variant="outline" className="btn-primary flex items-center gap-2" onClick={handleBackToPipelines}>
+      <Button variant="primary" size="custom" className="flex items-center gap-2" onClick={handleBackToPipelines}>
         ← Back to Pipelines
       </Button>
     </div>

@@ -67,7 +67,7 @@ export const NotificationBadge: React.FC = () => {
       {/* Loading indicator */}
       {isLoading && unreadCount === 0 && (
         <span
-          className="absolute top-1 right-1 w-2 h-2 bg-gray-400 rounded-full animate-pulse"
+          className="absolute top-1 right-1 w-2 h-2 bg-[var(--color-foreground-disabled)] rounded-full animate-pulse"
           aria-hidden="true"
         />
       )}

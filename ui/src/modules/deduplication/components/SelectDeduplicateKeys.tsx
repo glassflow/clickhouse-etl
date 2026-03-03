@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Label } from '@/src/components/ui/label'
+import { structuredLogger } from '@/src/observability'
 import { SearchableSelect } from '@/src/components/common/SearchableSelect'
 import { useStore } from '@/src/store'
 import { extractEventFields, getEffectiveFieldNames, type SchemaField } from '@/src/utils/common.client'
@@ -75,7 +76,7 @@ function SelectDeduplicateKeys({
         setError('No keys found in event data')
       }
     } catch (err) {
-      console.error('Error processing event data:', err)
+      structuredLogger.error('SelectDeduplicateKeys error processing event data', { error: err instanceof Error ? err.message : String(err) })
       setError('Error processing event data')
     } finally {
       setIsLoading(false)
@@ -135,7 +136,7 @@ function SelectDeduplicateKeys({
         <div className="flex gap-2 w-full">
           <div className="w-[70%]">
             {isLoading ? (
-              <div className="text-sm text-gray-500 p-2 border rounded">Loading available keys...</div>
+              <div className="text-sm text-[var(--color-foreground-neutral-faded)] p-2 border border-[var(--color-border-neutral-faded)] rounded">Loading available keys...</div>
             ) : availableKeys.length > 0 ? (
               <SearchableSelect
                 availableOptions={availableKeys}
@@ -147,7 +148,7 @@ function SelectDeduplicateKeys({
                 error={validationError || undefined}
               />
             ) : (
-              <div className="text-sm text-gray-500 p-2 border rounded">
+              <div className="text-sm text-[var(--color-foreground-neutral-faded)] p-2 border border-[var(--color-border-neutral-faded)] rounded">
                 {error || 'Please select a topic with valid event data.'}
               </div>
             )}

@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "module": "none",
+    "strict": true,
+    "noEmitOnError": true,
+    "outDir": ".",
+    "skipLibCheck": true
+  },
+  "files": ["code.ts"]
+}

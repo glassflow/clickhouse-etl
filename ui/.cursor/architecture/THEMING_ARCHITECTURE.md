@@ -9,7 +9,7 @@
 ## Files
 
 - `src/components/shared/ThemeProvider.tsx` – wraps app, sets `data-theme`.
-- `src/themes/base.css` + `src/themes/dark/theme.css` – token definitions.
+- `src/themes/base.css` + `src/themes/theme.css` – token definitions (dark theme in theme.css via `[data-theme='dark']`).
 - `src/app/globals.css` and `src/app/styles/*` – global styles/utilities.
 - Trashcan docs (for reference): `Trashcan/DARK_THEME_ONLY_CONSOLIDATION.md`, `GRAY_COLOR_CONSOLIDATION.md`, `THEME_CONSOLIDATION_PLAN.md`.
 

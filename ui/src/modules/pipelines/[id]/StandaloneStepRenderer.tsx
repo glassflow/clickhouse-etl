@@ -2,16 +2,17 @@
 
 import React, { useState, useEffect, useMemo } from 'react'
 import { StepKeys, OperationKeys } from '@/src/config/constants'
+import { structuredLogger } from '@/src/observability'
 import { useStore } from '@/src/store'
 import StepRendererPageComponent from './StepRendererPageComponent'
 import { useStepDataPreloader } from '@/src/hooks/useStepDataPreloader'
-import { StepDataPreloader } from '@/src/components/StepDataPreloader'
+import { StepDataPreloader } from '@/src/components/shared/StepDataPreloader'
 import { useEditConfirmationModal } from '../hooks'
 import EditConfirmationModal from '../components/EditConfirmationModal'
 import { usePipelineActions } from '@/src/hooks/usePipelineActions'
 import { usePipelineState } from '@/src/hooks/usePipelineStateAdapter'
 import { PipelineStatus } from '@/src/types/pipeline'
-import { PipelineTransitionOverlay } from '@/src/components/common/PipelineTransitionOverlay'
+import { PipelineTransitionOverlay } from '@/src/components/shared/PipelineTransitionOverlay'
 import { isDemoMode } from '@/src/config/feature-flags'
 import { getStepConfig, getStepProps, useSafeEnterEditMode } from './step-renderer'
 import type { StepBaseProps } from './step-renderer'
@@ -151,10 +152,10 @@ function StandaloneStepRenderer({
       effectiveStatus === 'terminating'
     ) {
       // For transitional states, show warning
-      console.warn('Edit mode not available while pipeline is in transitional state:', effectiveStatus)
+      structuredLogger.warn('Edit mode not available while pipeline is in transitional state', { status: effectiveStatus })
     } else {
       // For other cases (failed, etc), allow editing
-      console.warn('Edit mode requested for pipeline status:', effectiveStatus)
+      structuredLogger.warn('Edit mode requested for pipeline status', { status: effectiveStatus })
       if (!editMode) {
         setEditMode(true)
         safeEnterEditMode(pipeline)

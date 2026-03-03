@@ -14,7 +14,7 @@ export interface NoTransformationViewProps {
 export function NoTransformationView({ readOnly, hasAvailableFields }: NoTransformationViewProps) {
   return (
     <div className="space-y-4">
-      <div className="p-6 card-outline rounded-[var(--radius-large)] text-center">
+      <div className="p-6 card-outline rounded-[var(--radius-xl)] text-center">
         <div className="text-[var(--color-foreground-neutral-faded)] mb-2">
           <svg
             className="w-12 h-12 mx-auto mb-3 opacity-50"

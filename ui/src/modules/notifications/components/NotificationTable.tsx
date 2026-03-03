@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useEffect } from 'react'
 import Link from 'next/link'
+import { structuredLogger } from '@/src/observability'
 import {
   Check,
   Trash2,
@@ -175,10 +176,9 @@ export function NotificationTable() {
         </div>
         <p className="mt-4 text-sm text-[var(--text-error)]">{error}</p>
         <Button
-          variant="outline"
           size="sm"
           onClick={fetchNotifications}
-          className="mt-4 btn-neutral transition-all duration-200"
+          variant="secondary" className="mt-4 transition-all duration-200"
         >
           Try again
         </Button>
@@ -212,7 +212,7 @@ export function NotificationTable() {
         <div
           className={cn(
             'flex items-center justify-between p-4',
-            'rounded-[var(--radius-large)]',
+            'rounded-[var(--radius-xl)]',
             'bg-[var(--color-background-primary-faded)] border border-[var(--color-border-primary-faded)]',
             'animate-slideDown',
             'transition-all duration-200'
@@ -227,7 +227,7 @@ export function NotificationTable() {
               size="sm"
               onClick={handleMarkSelectedAsRead}
               className={cn(
-                'h-8 btn-neutral',
+                'h-8',
                 'transition-all duration-200'
               )}
             >
@@ -315,7 +315,7 @@ export function NotificationTable() {
         <div
           className={cn(
             'flex items-center justify-between',
-            'p-4 rounded-[var(--radius-large)]',
+            'p-4 rounded-[var(--radius-xl)]',
             'bg-[var(--surface-bg)] border border-[var(--surface-border)]',
             'transition-all duration-200'
           )}
@@ -329,7 +329,7 @@ export function NotificationTable() {
               <SelectTrigger
                 size="sm"
                 className={cn(
-                  'h-8 px-2 rounded-[var(--radius-medium)]',
+                  'h-8 px-2 rounded-[var(--radius-md)]',
                   'bg-[var(--control-bg)] border border-[var(--control-border)]',
                   'text-[var(--text-primary)]',
                   'hover:border-[var(--control-border-hover)]',
@@ -355,11 +355,10 @@ export function NotificationTable() {
 
           <div className="flex items-center gap-1">
             <Button
-              variant="outline"
               size="sm"
               onClick={() => handlePageChange(currentPage - 1)}
               disabled={currentPage === 1}
-              className="h-8 w-8 p-0 btn-neutral transition-all duration-200"
+              variant="secondary" className="h-8 w-8 p-0 transition-all duration-200"
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
@@ -367,25 +366,21 @@ export function NotificationTable() {
             {pageNumbers.map((page) => (
               <Button
                 key={page}
-                variant={page === currentPage ? 'default' : 'outline'}
+                variant={page === currentPage ? 'default' : 'secondary'}
                 size="sm"
                 onClick={() => handlePageChange(page)}
-                className={cn(
-                  'h-8 w-8 p-0',
-                  page !== currentPage && 'btn-neutral',
-                  'transition-all duration-200'
-                )}
+                className="h-8 w-8 p-0 transition-all duration-200"
               >
                 {page}
               </Button>
             ))}
 
             <Button
-              variant="outline"
               size="sm"
               onClick={() => handlePageChange(currentPage + 1)}
               disabled={currentPage === totalPages}
-              className="h-8 w-8 p-0 btn-neutral transition-all duration-200"
+              variant="secondary"
+              className="h-8 w-8 p-0 transition-all duration-200"
             >
               <ChevronRight className="h-4 w-4" />
             </Button>
@@ -435,7 +430,7 @@ function NotificationTableRow({
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch (err) {
-      console.error('Failed to copy pipeline ID:', err)
+      structuredLogger.error('NotificationTable failed to copy pipeline ID', { error: err instanceof Error ? err.message : String(err) })
     }
   }
 

@@ -72,8 +72,13 @@ modules/*/components/   # Feature-specific components
 - Keep side effects in containers/hooks, not presenters.
 - Reuse utilities from `src/utils` and store from `src/store` via hooks, not via prop drilling where global state is expected.
 
+## Styling
+
+- **Primitives own visual states.** Use semantic props (`variant`, `error`, `readOnly`, etc.) and layout-only `className`; do not pass `input-*`, `btn-*`, or modal-only label/error classes. See [UI_AND_STYLING.md](./UI_AND_STYLING.md) and `.cursor/styling.mdc`.
+
 ## Related Docs
 
 - Architecture Overview: ./ARCHITECTURE_OVERVIEW.md
 - Module Architecture: ./MODULE_ARCHITECTURE.md
 - Form Architecture: ./FORM_ARCHITECTURE.md
+- UI and styling: ./UI_AND_STYLING.md

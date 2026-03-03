@@ -17,6 +17,8 @@ export interface TransformationFieldListProps {
   fields: TransformationField[]
   /** Available source fields from schema/event */
   availableFields: AvailableField[]
+  /** Sample event for playground evaluation (from Kafka step) */
+  sampleEvent: Record<string, unknown> | null
   /** Validation errors keyed by field ID */
   fieldErrors: Record<string, FieldValidation['errors']>
   /** Whether the component is in read-only mode */
@@ -44,6 +46,7 @@ export interface TransformationFieldListProps {
 export function TransformationFieldList({
   fields,
   availableFields,
+  sampleEvent,
   fieldErrors,
   readOnly,
   completeFieldCount,
@@ -74,10 +77,9 @@ export function TransformationFieldList({
               <div className="flex gap-2">
                 {fields.length > 0 && (
                   <Button
-                    variant="outline"
                     size="sm"
                     onClick={onClearAll}
-                    className="btn-tertiary text-[var(--color-foreground-critical)] hover:bg-[var(--color-background-critical-subtle)]"
+                    variant="tertiary" className="text-[var(--color-foreground-critical)] hover:bg-[var(--color-background-critical-subtle)]"
                   >
                     <TrashIcon className="h-4 w-4 mr-1" />
                     Clear All
@@ -85,7 +87,7 @@ export function TransformationFieldList({
                 )}
               </div>
 
-              <Button variant="outline" size="sm" onClick={onRestoreSourceFields} className="btn-tertiary">
+              <Button variant="tertiary" size="sm" onClick={onRestoreSourceFields}>
                 <PlusIcon className="h-4 w-4 mr-1" />
                 Restore Source Fields
               </Button>
@@ -96,7 +98,7 @@ export function TransformationFieldList({
 
       {/* Field List */}
       {fields.length === 0 ? (
-        <div className="text-sm text-[var(--text-secondary)] text-center py-8 border border-dashed border-[var(--surface-border)] rounded-[var(--radius-medium)]">
+        <div className="text-sm text-[var(--text-secondary)] text-center py-8 border border-dashed border-[var(--surface-border)] rounded-[var(--radius-md)]">
           No fields configured. Add pass-through or computed fields using the buttons above.
         </div>
       ) : (
@@ -106,6 +108,7 @@ export function TransformationFieldList({
               key={field.id}
               field={field}
               availableFields={availableFields}
+              sampleEvent={sampleEvent}
               onUpdate={onUpdate}
               onRemove={onRemove}
               errors={fieldErrors[field.id]}
@@ -119,7 +122,7 @@ export function TransformationFieldList({
       {/* Add Field Button */}
       {!readOnly && (
         <div className="flex justify-end">
-          <Button variant="outline" size="sm" onClick={onAddField} className="btn-tertiary">
+          <Button variant="tertiary" size="sm" onClick={onAddField}>
             <PlusIcon className="h-4 w-4 mr-1" />
             Add Field
           </Button>

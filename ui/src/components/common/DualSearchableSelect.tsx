@@ -22,6 +22,8 @@ interface DualSearchableSelectProps {
   sourceTopic?: string
   open?: boolean
   onOpenChange?: (isOpen: boolean) => void
+  /** Error message; when set, shows error styling on the input (message is typically rendered by parent). */
+  error?: string
 }
 
 export function DualSearchableSelect({
@@ -38,6 +40,7 @@ export function DualSearchableSelect({
   sourceTopic,
   open: controlledOpen,
   onOpenChange,
+  error,
 }: DualSearchableSelectProps) {
   const [uncontrolledOpen, setUncontrolledOpen] = useState(false)
   const [search, setSearch] = useState('')
@@ -226,6 +229,7 @@ export function DualSearchableSelect({
           type="text"
           placeholder={placeholder}
           value={search}
+          error={!!error}
           onChange={(e) => {
             const value = e.target.value
             setSearch(value)
@@ -238,7 +242,7 @@ export function DualSearchableSelect({
           }}
           onClick={() => !disabled && setOpen(true)}
           className={cn(
-            'w-full pr-10 input-regular input-border-regular text-content',
+            'w-full pr-10 text-content',
             disabled && 'opacity-60 cursor-not-allowed',
           )}
           disabled={disabled}
@@ -285,7 +289,7 @@ export function DualSearchableSelect({
         typeof window !== 'undefined' &&
         createPortal(
           <div
-            className="fixed z-50 shadow-md rounded-md overflow-hidden bg-[var(--color-black-300,#1e1e1f)] border border-[var(--color-border-regular,#373737)] flex"
+            className="fixed z-50 shadow-md rounded-md overflow-hidden bg-[var(--color-background-elevation-overlay)] border border-[var(--color-border-regular)] flex"
             style={{
               top: dropdownCoordinates.top + 'px',
               left: dropdownCoordinates.left + 'px',

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import axios from 'axios'
 import { runtimeConfig } from '../../../../config'
 import { validatePipelineIdOrError } from '../../../validation'
+import { structuredLogger } from '@/src/observability'
 
 // Get API URL from runtime config
 const API_URL = runtimeConfig.apiUrl
@@ -20,12 +21,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     return NextResponse.json(response.data)
   } catch (error: any) {
-    console.error('DLQ State API Route - Error details:', {
-      message: error.message,
-      response: error.response?.data,
-      status: error.response?.status,
-      config: error.config,
-    })
+    structuredLogger.error('DLQ State API Route error', { error: error.message, response: error.response?.data, status: error.response?.status })
 
     if (error.response) {
       const { status, data } = error.response

@@ -2,12 +2,11 @@
 
 ## Overview
 
-This design system uses a **four-layer architecture** that separates concerns and makes color management extremely efficient:
+This design system uses a **layered architecture** that separates concerns and makes color management efficient:
 
-1. **Base Layer** (`base.css`) - Raw color values and foundation tokens
-2. **Theme Layer** (`dark/theme.css`, `light/theme.css`) - Semantic color mappings and component-specific tokens for each theme
-3. **Semantic Tokens Layer** (`semantic-tokens.css`) - State-based semantic tokens that bridge base colors and component styles
-4. **Integration Layer** (`globals.css`) - Tailwind CSS, shadcn/ui integration, and utility classes
+1. **Base Layer** (`base.css`) - Raw color values and foundation tokens (typography, spacing, radius, shadows)
+2. **Theme Layer** (`theme.css`) - Single theme file with `[data-theme='dark']` containing semantic color mappings, state-based semantic tokens (control, surface, option), and component-specific tokens (button, card, input, etc.). Dark-only; light theme removed.
+3. **Integration Layer** (`globals.css`) - Tailwind CSS, shadcn/ui integration, and utility classes
 
 ## 🎨 Color Token System
 
@@ -46,9 +45,9 @@ All raw color values are defined in `base.css` using semantic naming:
 --color-black-hover-light: color-mix(in srgb, var(--color-black-300) 15%, white);
 ```
 
-### Theme Color Mappings (dark/theme.css, light/theme.css)
+### Theme Color Mappings (theme.css)
 
-Theme files reference base tokens to create semantic color mappings and component-specific tokens:
+The theme file references base tokens to create semantic color mappings and component-specific tokens (dark theme only):
 
 ```css
 /* Dark Theme */
@@ -72,17 +71,17 @@ Theme files reference base tokens to create semantic color mappings and componen
 }
 ```
 
-Each theme file contains:
+The theme file contains:
 
 - **Semantic color mappings**: Background, foreground, border colors for each semantic category (primary, critical, warning, positive, neutral, disabled, info)
 - **Component-specific tokens**: Detailed tokens for buttons, cards, inputs, chips, badges, toggles, loaders, selects
 - **shadcn/ui variables**: Integration with shadcn/ui component library
 
-## 🎭 Semantic Tokens Layer
+## 🎭 Semantic Tokens (in theme.css)
 
-### State-Based Semantic Tokens (semantic-tokens.css)
+### State-Based Semantic Tokens
 
-The semantic tokens layer bridges primitive colors and component styles using state-based naming:
+Semantic tokens (control, surface, option, etc.) are defined in `theme.css` under `[data-theme='dark']` and bridge base colors and component styles:
 
 ```css
 [data-theme='dark'] {
@@ -490,7 +489,7 @@ If you have existing hardcoded colors:
 1. **Find the color value** in your components
 2. **Add it to base.css** with appropriate naming
 3. **Update theme files** to reference the base token (if needed)
-4. **Add semantic tokens** in semantic-tokens.css (if reusable)
+4. **Add semantic tokens** in theme.css (if reusable)
 5. **Update components** to use semantic or component tokens
 
 Example:
@@ -590,18 +589,11 @@ Example:
 └─────────────────────────────────────────────────────────┘
                         ↑
 ┌─────────────────────────────────────────────────────────┐
-│ Semantic Tokens Layer (semantic-tokens.css)            │
-│ - State-based tokens (control, surface, option)         │
-│ - Component-agnostic semantic tokens                   │
-│ - Reusable across components                           │
-└─────────────────────────────────────────────────────────┘
-                        ↑
-┌─────────────────────────────────────────────────────────┐
-│ Theme Layer (dark/theme.css, light/theme.css)          │
+│ Theme Layer (theme.css, [data-theme='dark'])           │
 │ - Semantic color mappings                              │
+│ - State-based semantic tokens (control, surface, option)│
 │ - Component-specific tokens (button, card, input)      │
 │ - shadcn/ui integration                                │
-│ - Theme-specific overrides                             │
 └─────────────────────────────────────────────────────────┘
                         ↑
 ┌─────────────────────────────────────────────────────────┐
@@ -628,12 +620,8 @@ src/
 │           ├── input.css
 │           └── ...
 └── themes/
-    ├── base.css                        # Base layer
-    ├── semantic-tokens.css             # Semantic tokens layer
-    ├── dark/
-    │   └── theme.css                   # Dark theme layer
-    └── light/
-        └── theme.css                   # Light theme layer
+    ├── base.css                        # Base layer (primitives, spacing, typography)
+    └── theme.css                       # Theme layer (dark only; semantic + component tokens)
 ```
 
 ## 🔗 Integration with shadcn/ui

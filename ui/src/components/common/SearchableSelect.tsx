@@ -267,12 +267,10 @@ export function SearchableSelect({
               onChange={handleInputChange}
               onClick={() => !disabled && !readOnly && setOpen(true)}
               onFocus={() => !disabled && !readOnly && setOpen(true)}
-              className={cn(
-                'w-full pr-10 input-regular input-border-regular text-content',
-                disabled && 'opacity-60 cursor-not-allowed',
-                error && 'input-border-error',
-              )}
-              disabled={disabled || readOnly}
+              error={!!error}
+              readOnly={readOnly}
+              className="w-full pr-10 text-content"
+              disabled={disabled}
               aria-expanded={open}
               aria-controls="searchable-select-dropdown"
               role="combobox"

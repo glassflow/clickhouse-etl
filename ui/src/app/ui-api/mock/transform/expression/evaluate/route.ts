@@ -37,12 +37,18 @@ export async function POST(request: Request) {
       )
     }
 
-    // Mock: build a simple output from sample and transform output names
+    // Mock: build output using output_name as key; value from first field referenced in expression (e.g. upper(user_id) -> use sample.user_id)
     const sample = body.sample ?? {}
     const output: Record<string, unknown> = {}
     for (const t of transform) {
       const name = t?.output_name ?? 'unknown'
-      output[name] = sample[name] ?? null
+      const expression = typeof t?.expression === 'string' ? t.expression : ''
+      // Extract a field reference from expression: (field_name) or plain field_name
+      const parenMatch = expression.match(/\(([a-zA-Z_][a-zA-Z0-9_]*)\)/)
+      const refField = parenMatch ? parenMatch[1] : expression.trim().match(/^([a-zA-Z_][a-zA-Z0-9_]*)$/)?.[1]
+      const value =
+        refField && refField in sample ? sample[refField] : (sample[name] ?? null)
+      output[name] = value
     }
 
     return NextResponse.json(output, { status: 200 })

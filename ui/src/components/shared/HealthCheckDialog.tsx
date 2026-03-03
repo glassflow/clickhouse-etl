@@ -49,9 +49,8 @@ export function HealthCheckDialog({
           <span className="text-sm font-medium text-[var(--color-foreground-neutral-faded)]">Back-End Status</span>
           <div className="flex items-center gap-2">
             <div
-              className={`w-3 h-3 rounded-full ${
-                isLoading ? 'bg-yellow-500 animate-pulse' : isConnected ? 'bg-green-500' : 'bg-red-500'
-              }`}
+              className={`w-3 h-3 rounded-full ${isLoading ? 'bg-yellow-500 animate-pulse' : isConnected ? 'bg-green-500' : 'bg-red-500'
+                }`}
             />
             <span className="text-sm font-medium">
               {isLoading ? 'Testing...' : isConnected ? 'Active' : 'Not Responding'}
@@ -60,9 +59,8 @@ export function HealthCheckDialog({
         </div>
 
         <Button
-          className="btn-primary"
+          variant="primary"
           type="button"
-          variant="gradient"
           size="custom"
           onClick={onTestConnection}
           disabled={isLoading}

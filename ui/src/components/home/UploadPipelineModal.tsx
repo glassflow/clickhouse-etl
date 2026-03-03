@@ -46,7 +46,7 @@ export function UploadPipelineModal({
       setErrors([])
       onClearImportError?.()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only reset when visibility changes
+
   }, [visible])
 
   const handleValidConfig = useCallback(
@@ -173,11 +173,12 @@ export function UploadPipelineModal({
         </div>
 
         <DialogFooter className="mt-6">
-          <Button variant="outline" className="btn-tertiary" onClick={handleCancel} disabled={isNavigating}>
+          <Button variant="tertiary" size="custom" onClick={handleCancel} disabled={isNavigating}>
             Cancel
           </Button>
           <Button
-            className="btn-primary"
+            variant="primary"
+            size="custom"
             onClick={handleImport}
             disabled={isImportDisabled}
             title={

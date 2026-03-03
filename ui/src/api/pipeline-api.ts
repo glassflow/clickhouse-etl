@@ -1,4 +1,5 @@
 import { getApiUrl, isMockMode } from '@/src/utils/mock-api'
+import { structuredLogger } from '@/src/observability'
 import type {
   Pipeline,
   ListPipelineConfig,
@@ -114,7 +115,7 @@ export const getPipeline = async (id: string): Promise<any> => {
               status = parsePipelineStatus(healthData.overall_status)
             }
           } catch (healthError) {
-            console.warn('Failed to parse health data:', healthError)
+            structuredLogger.warn('Failed to parse health data', { error: healthError instanceof Error ? healthError.message : String(healthError) })
           }
         }
 
@@ -136,7 +137,7 @@ export const getPipeline = async (id: string): Promise<any> => {
               status = parsePipelineStatus(healthData.overall_status)
             }
           } catch (healthError) {
-            console.warn('Failed to parse health data:', healthError)
+            structuredLogger.warn('Failed to parse health data', { error: healthError instanceof Error ? healthError.message : String(healthError) })
           }
         }
 
@@ -198,7 +199,11 @@ export const createPipeline = async (pipelineData: Partial<Pipeline>): Promise<P
     const data = await response.json()
 
     if (data.success) {
-      return data.pipeline
+      const pipeline = data.pipeline ?? {
+        pipeline_id: data.pipeline_id,
+        status: data.status || 'active',
+      }
+      return pipeline
     } else {
       throw { code: response.status, message: data.error || 'Failed to create pipeline' } as ApiError
     }
@@ -432,7 +437,7 @@ export const getBulkDLQStats = async (pipelineIds: string[]): Promise<Record<str
         return { pipelineId, dlqState }
       } catch (error) {
         // If DLQ fetch fails for a pipeline, return null for that pipeline
-        console.warn(`Failed to fetch DLQ stats for pipeline ${pipelineId}:`, error)
+        structuredLogger.warn('Failed to fetch DLQ stats for pipeline', { pipeline_id: pipelineId, error: error instanceof Error ? error.message : String(error) })
         return { pipelineId, dlqState: null }
       }
     })
@@ -447,7 +452,7 @@ export const getBulkDLQStats = async (pipelineIds: string[]): Promise<Record<str
 
     return dlqStatsMap
   } catch (error: any) {
-    console.error('Failed to fetch bulk DLQ stats:', error)
+    structuredLogger.error('Failed to fetch bulk DLQ stats', { error: error instanceof Error ? error.message : String(error) })
     // Return empty map if bulk fetch fails
     return {}
   }
@@ -824,5 +829,48 @@ export const validateTransformationExpression = async (
     return { valid: false, error: errorMessage }
   } catch (error: any) {
     return { valid: false, error: error.message || 'Failed to validate transformation expression' }
+  }
+}
+
+// Expression playground: evaluate a single expression and return the result
+export interface ExpressionEvaluationResult {
+  valid: boolean
+  result?: Record<string, unknown>
+  error?: string
+}
+
+export const evaluateExpression = async (
+  expression: string,
+  outputName: string,
+  outputType: string,
+  sample: Record<string, unknown>,
+): Promise<ExpressionEvaluationResult> => {
+  try {
+    const url = getApiUrl('transform/expression/evaluate')
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'expr_lang_transform',
+        config: {
+          transform: [
+            { expression, output_name: outputName, output_type: outputType },
+          ],
+        },
+        sample,
+      }),
+    })
+
+    const data = response.ok ? await response.json().catch(() => ({})) : await response.json()
+
+    if (response.ok) {
+      const result = (data?.result ?? data) as Record<string, unknown> | undefined
+      return { valid: true, result: result ?? undefined }
+    }
+
+    const errorMessage = data?.details?.error || data?.message || 'Failed to evaluate expression'
+    return { valid: false, error: errorMessage }
+  } catch (error: any) {
+    return { valid: false, error: error?.message || 'Failed to evaluate expression' }
   }
 }

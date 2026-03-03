@@ -297,7 +297,7 @@ export function WaterfallExpressionBuilder({
           return (
             <div
               key={slot.id}
-              className="card-outline rounded-[var(--radius-large)] p-3 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]"
+              className="card-outline rounded-[var(--radius-xl)] p-3 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]"
             >
               <div className="flex items-start gap-3">
                 {/* Slot number indicator */}
@@ -313,7 +313,7 @@ export function WaterfallExpressionBuilder({
                       onValueChange={(v) => handleSlotTypeChange(index, v as WaterfallSlotType)}
                       disabled={disabled}
                     >
-                      <SelectTrigger className="input-regular input-border-regular w-32 h-8 text-sm">
+                      <SelectTrigger className="w-32 h-8 text-sm">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="select-content-custom">
@@ -348,7 +348,7 @@ export function WaterfallExpressionBuilder({
                           onValueChange={(v) => handleLiteralTypeChange(index, v as 'string' | 'number')}
                           disabled={disabled}
                         >
-                          <SelectTrigger className="input-regular input-border-regular w-24 h-8 text-sm">
+                          <SelectTrigger className="w-24 h-8 text-sm">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent className="select-content-custom">
@@ -365,7 +365,7 @@ export function WaterfallExpressionBuilder({
                           onChange={(e) => handleLiteralChange(index, e.target.value)}
                           placeholder={slot.literalType === 'number' ? 'Enter number' : 'Enter value'}
                           disabled={disabled}
-                          className="input-regular input-border-regular flex-1 h-8 text-sm"
+                          className="flex-1 h-8 text-sm"
                           type={slot.literalType === 'number' ? 'number' : 'text'}
                         />
                       </>
@@ -416,7 +416,7 @@ export function WaterfallExpressionBuilder({
                               onChange={(e) => handleFunctionArgChange(index, argIndex, e.target.value, 'literal')}
                               placeholder={argDef.description}
                               disabled={disabled}
-                              className="input-regular input-border-regular flex-1 h-8 text-sm"
+                              className="flex-1 h-8 text-sm"
                             />
                           )}
                         </div>
@@ -444,7 +444,7 @@ export function WaterfallExpressionBuilder({
 
       {/* Add slot button */}
       {!disabled && effectiveSlots.length < MAX_SLOTS && (
-        <Button variant="outline" size="sm" onClick={handleAddSlot} className="btn-tertiary text-xs">
+        <Button variant="tertiary" size="sm" onClick={handleAddSlot} className="text-xs">
           <PlusIcon className="h-3 w-3 mr-1" />
           Add Expression ({effectiveSlots.length}/{MAX_SLOTS})
         </Button>
@@ -453,7 +453,7 @@ export function WaterfallExpressionBuilder({
       {/* Expression Preview */}
       <div className="space-y-1 pt-2 border-t border-[var(--surface-border)]">
         <Label className="text-xs text-[var(--text-secondary)] block">Expression Preview</Label>
-        <code className="block text-xs font-mono p-2 bg-[var(--surface-bg-sunken)] rounded-[var(--radius-medium)] border border-[var(--surface-border)] break-all">
+        <code className="block text-xs font-mono p-2 bg-[var(--surface-bg-sunken)] rounded-[var(--radius-md)] border border-[var(--surface-border)] break-all">
           {fullExpression}
         </code>
       </div>

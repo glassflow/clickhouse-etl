@@ -3,11 +3,10 @@
  * Matches the structure from glassflow-api/pkg/observability/config.go
  */
 
-import { getRuntimeEnv } from '@/src/utils/common.client'
-
 export interface ObservabilityConfig {
   // Logging configuration
   logLevel: 'debug' | 'info' | 'warn' | 'error'
+  consoleLogsEnabled: boolean
 
   // OpenTelemetry configuration
   logsEnabled: boolean
@@ -23,23 +22,35 @@ export interface ObservabilityConfig {
 }
 
 /**
- * Load observability configuration from environment variables
+ * Read an env variable from window.__ENV__ (client) or process.env (server).
+ * NEXT_PUBLIC_* vars are available in process.env on both server and client.
+ */
+function getEnvVar(key: string): string | undefined {
+  if (typeof window !== 'undefined' && (window as any).__ENV__) {
+    const val = (window as any).__ENV__[key]
+    if (val !== undefined) return val
+  }
+  return process.env[key]
+}
+
+/**
+ * Load observability configuration from environment variables.
+ * Works on both server (API routes, instrumentation.ts) and client.
  */
 export function loadObservabilityConfig(): ObservabilityConfig {
-  const env = getRuntimeEnv()
+  const headersRaw = getEnvVar('NEXT_PUBLIC_OTEL_EXPORTER_OTLP_HEADERS')
 
   const config: ObservabilityConfig = {
-    logLevel: (env.NEXT_PUBLIC_LOG_LEVEL as any) || 'info',
-    logsEnabled: env.NEXT_PUBLIC_OTEL_LOGS_ENABLED === 'true',
-    metricsEnabled: env.NEXT_PUBLIC_OTEL_METRICS_ENABLED === 'true',
-    serviceName: env.NEXT_PUBLIC_OTEL_SERVICE_NAME || 'glassflow-ui',
-    serviceVersion: env.NEXT_PUBLIC_OTEL_SERVICE_VERSION || 'dev',
-    serviceNamespace: env.NEXT_PUBLIC_OTEL_SERVICE_NAMESPACE || '',
-    serviceInstanceId: env.NEXT_PUBLIC_OTEL_SERVICE_INSTANCE_ID || '',
-    otlpEndpoint: env.NEXT_PUBLIC_OTEL_EXPORTER_OTLP_ENDPOINT || 'http://localhost:4318',
-    otlpHeaders: env.NEXT_PUBLIC_OTEL_EXPORTER_OTLP_HEADERS
-      ? JSON.parse(env.NEXT_PUBLIC_OTEL_EXPORTER_OTLP_HEADERS)
-      : undefined,
+    logLevel: (getEnvVar('NEXT_PUBLIC_LOG_LEVEL') as ObservabilityConfig['logLevel']) || 'info',
+    consoleLogsEnabled: getEnvVar('NEXT_PUBLIC_OTEL_CONSOLE_LOGS_ENABLED') !== 'false',
+    logsEnabled: getEnvVar('NEXT_PUBLIC_OTEL_LOGS_ENABLED') === 'true',
+    metricsEnabled: getEnvVar('NEXT_PUBLIC_OTEL_METRICS_ENABLED') === 'true',
+    serviceName: getEnvVar('NEXT_PUBLIC_OTEL_SERVICE_NAME') || 'glassflow-ui',
+    serviceVersion: getEnvVar('NEXT_PUBLIC_OTEL_SERVICE_VERSION') || 'dev',
+    serviceNamespace: getEnvVar('NEXT_PUBLIC_OTEL_SERVICE_NAMESPACE') || '',
+    serviceInstanceId: getEnvVar('NEXT_PUBLIC_OTEL_SERVICE_INSTANCE_ID') || '',
+    otlpEndpoint: getEnvVar('NEXT_PUBLIC_OTEL_EXPORTER_OTLP_ENDPOINT') || 'http://localhost:4318',
+    otlpHeaders: headersRaw ? JSON.parse(headersRaw) : undefined,
   }
 
   console.log('[Observability] Loaded config:', config)

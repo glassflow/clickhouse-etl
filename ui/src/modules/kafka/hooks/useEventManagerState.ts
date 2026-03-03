@@ -1,6 +1,7 @@
 import { KafkaStore } from '@/src/store/kafka.store'
 import { useFetchEvent } from '@/src/hooks/useFetchKafkaEvents'
 import { useState, useEffect } from 'react'
+import { structuredLogger } from '@/src/observability'
 
 export type EventManagerState = {
   event: any
@@ -86,7 +87,7 @@ export const useEventManagerState = (
   // Function to fetch next event
   const fetchNextEvent = async (topicName: string, currentOffset: number) => {
     if (!topicName || currentOffset === null) {
-      console.warn('fetchNextEvent: Invalid parameters', { topicName, currentOffset })
+      structuredLogger.warn('fetchNextEvent invalid parameters', { topic: topicName, current_offset: currentOffset })
       return
     }
 
@@ -162,7 +163,7 @@ export const useEventManagerState = (
   // Function to fetch previous event
   const fetchPreviousEvent = async (topicName: string, currentOffset: number) => {
     if (!topicName || currentOffset === null) {
-      console.warn('fetchPreviousEvent: Invalid parameters', { topicName, currentOffset })
+      structuredLogger.warn('fetchPreviousEvent invalid parameters', { topic: topicName, current_offset: currentOffset })
       return
     }
 
@@ -253,7 +254,7 @@ export const useEventManagerState = (
       const response = (await fetchEvent(topicName, false, { position: 'latest' })) as unknown as FetchEventResponse
 
       if (!response?.metadata) {
-        console.error('Invalid response format:', response)
+        structuredLogger.error('useEventManagerState invalid response format', { response: typeof response === 'object' ? JSON.stringify(response) : String(response) })
         throw new Error('Invalid response format from server')
       }
 
@@ -345,7 +346,7 @@ export const useEventManagerState = (
     try {
       await fetchEvent(topicName, fetchNext)
     } catch (error) {
-      console.error('Error in handleRefreshEvent:', error)
+      structuredLogger.error('Error in handleRefreshEvent', { error: error instanceof Error ? error.message : String(error) })
       onEventError(error)
     }
   }

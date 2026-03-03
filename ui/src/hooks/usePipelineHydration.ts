@@ -18,6 +18,7 @@ import { useEffect, useCallback, useRef } from 'react'
 import { useStore } from '@/src/store'
 import { getPipelineAdapter } from '@/src/modules/pipeline-adapters/factory'
 import type { Pipeline } from '@/src/types/pipeline'
+import { structuredLogger } from '@/src/observability'
 
 const HYDRATION_CACHE_KEY = 'lastHydratedPipeline'
 
@@ -114,7 +115,7 @@ export function usePipelineHydration(
       const { coreStore: currentCoreStore } = useStore.getState()
 
       if (currentCoreStore.isDirty) {
-        console.log('[usePipelineHydration] Skipping hydration - dirty config present')
+        structuredLogger.debug('usePipelineHydration skipping hydration - dirty config present')
         return
       }
 
@@ -147,7 +148,7 @@ export function usePipelineHydration(
           return
         } else {
           // Clear the stale cache and proceed with hydration
-          console.log(`[usePipelineHydration] Cache hit but invalid store data (${reason}), re-hydrating`)
+          structuredLogger.debug('usePipelineHydration cache hit but invalid store data, re-hydrating', { reason })
           sessionStorage.removeItem(HYDRATION_CACHE_KEY)
         }
       }
@@ -166,9 +167,9 @@ export function usePipelineHydration(
         // 4. Mark as hydrated to prevent re-hydration
         sessionStorage.setItem(HYDRATION_CACHE_KEY, currentPipelineKey)
 
-        console.log('[usePipelineHydration] Successfully hydrated pipeline:', pipeline.pipeline_id)
+        structuredLogger.info('usePipelineHydration successfully hydrated pipeline', { pipeline_id: pipeline.pipeline_id })
       } catch (error) {
-        console.error('[usePipelineHydration] Failed to hydrate pipeline data:', error)
+        structuredLogger.error('usePipelineHydration failed to hydrate pipeline data', { error: error instanceof Error ? error.message : String(error) })
         // Error will be handled by the stores' validation states
       }
     }
