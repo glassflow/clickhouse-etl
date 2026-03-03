@@ -2,7 +2,6 @@ package steps
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -152,7 +151,7 @@ func (s *SinkTestSuite) aClickHouseClientWithConfig(dbName, tableName string) er
 		Host:     "localhost",
 		Port:     chPort,
 		Username: "default",
-		Password: base64.StdEncoding.EncodeToString([]byte("default")),
+		Password: "default",
 		Database: dbName,
 		Table:    tableName,
 		Secure:   false,

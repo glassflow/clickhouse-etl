@@ -105,7 +105,7 @@ func TestToPipelineJSON_BasicConfig(t *testing.T) {
 	// Verify basic fields
 	assert.Equal(t, "test-pipeline-1", result.PipelineID)
 	assert.Equal(t, "Test Pipeline", result.Name)
-	assert.Equal(t, "v2", result.Version)
+	assert.Equal(t, "v3", result.Version)
 
 	// Verify source configuration
 	assert.Equal(t, internal.KafkaIngestorType, result.Source.Kind)
@@ -123,7 +123,7 @@ func TestToPipelineJSON_BasicConfig(t *testing.T) {
 
 	// Verify deduplication
 	assert.True(t, topic.Deduplication.Enabled)
-	assert.Equal(t, "event_id", topic.Deduplication.ID)
+	assert.Equal(t, "event_id", topic.Deduplication.Key)
 
 	// Verify sink has SourceID and TableMapping
 	assert.Equal(t, "users", result.Sink.SourceID)
@@ -674,22 +674,22 @@ func TestToPipelineJSON_WithJoin(t *testing.T) {
 	require.NotNil(t, rightSource)
 
 	assert.Equal(t, "events", leftSource.SourceID)
-	assert.Equal(t, "event_id", leftSource.JoinKey)
+	assert.Equal(t, "event_id", leftSource.Key)
 	assert.Equal(t, 1*time.Hour, leftSource.Window.Duration())
 
 	assert.Equal(t, "users", rightSource.SourceID)
-	assert.Equal(t, "event_id", rightSource.JoinKey)
+	assert.Equal(t, "event_id", rightSource.Key)
 	assert.Equal(t, 24*time.Hour, rightSource.Window.Duration())
 
-	// Verify join rules
-	require.Len(t, result.Join.Rules, 3)
-	assert.Equal(t, "events", result.Join.Rules[0].SourceID)
-	assert.Equal(t, "name", result.Join.Rules[0].SourceName)
-	assert.Equal(t, "event_name", result.Join.Rules[0].OutputName)
+	// Verify join fields
+	require.Len(t, result.Join.Fields, 3)
+	assert.Equal(t, "events", result.Join.Fields[0].SourceID)
+	assert.Equal(t, "name", result.Join.Fields[0].SourceName)
+	assert.Equal(t, "event_name", result.Join.Fields[0].OutputName)
 
-	assert.Equal(t, "users", result.Join.Rules[1].SourceID)
-	assert.Equal(t, "name", result.Join.Rules[1].SourceName)
-	assert.Equal(t, "user_name", result.Join.Rules[1].OutputName)
+	assert.Equal(t, "users", result.Join.Fields[1].SourceID)
+	assert.Equal(t, "name", result.Join.Fields[1].SourceName)
+	assert.Equal(t, "user_name", result.Join.Fields[1].OutputName)
 
 	// Verify schema versions - all three sources
 	assert.Len(t, pipelineConfig.SchemaVersions, 3)

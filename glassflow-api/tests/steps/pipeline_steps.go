@@ -3,7 +3,6 @@ package steps
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -375,7 +374,7 @@ func (p *PipelineSteps) preparePipelineConfig(cfg string) (*models.PipelineConfi
 	}
 
 	pc.Sink.ClickHouseConnectionParams.Username = "default"
-	pc.Sink.ClickHouseConnectionParams.Password = base64.StdEncoding.EncodeToString([]byte("default"))
+	pc.Sink.ClickHouseConnectionParams.Password = "default"
 	pc.Sink.ClickHouseConnectionParams.Database = p.chDB
 	pc.Sink.ClickHouseConnectionParams.Table = p.chTable
 
