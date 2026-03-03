@@ -1,0 +1,83 @@
+---
+title: 'Scaling Guide'
+description: 'How to scale GlassFlow pipeline components and best practices for horizontal scaling'
+---
+
+# Scaling Guide
+
+GlassFlow supports **horizontal scaling** of pipeline components. You can run multiple replicas of the ingestor, transformation, and sink stages to increase throughput and improve availability. This page describes what can be scaled, how to configure it, and recommended practices.
+
+## Overview
+
+- **Ingestor** — Scale the number of consumers reading from Kafka (supported for base, left, and right ingestors when using joins).
+- **Transform** — Scale the number of transformation workers that process messages from the buffer.
+- **Sink** — Scale the number of sink workers that write batches to ClickHouse.
+
+Together, scaling these components allows you to fully scale a pipeline horizontally **except when using [join](/configuration/transformations/join)**. Join pipelines require the join stage to run with a single replica; ingestor and sink can still be scaled.
+
+## What Can Be Scaled
+
+| Component | Scalable | Notes |
+| --- | --- | --- |
+| **Ingestor** (base / left / right) | Yes | Increase replicas to consume from more Kafka partitions in parallel. |
+| **Transform** | Yes | Increase replicas when transformation is the bottleneck. Transform replicas can not be changed after the pipeline is created when deduplication is enabled. |
+| **Sink** | Yes | Increase replicas to write to ClickHouse with higher throughput. |
+| **Join** | No | Join must run with 1 replica. Use multiple pipelines or filter-based routing if you need more join capacity. |
+
+## How to Configure Scaling
+
+Replicas are configured under `pipeline_resources` in the pipeline JSON. See the [Pipeline JSON Reference](/configuration/pipeline-json-reference#pipeline-resources-configuration) for the full schema.
+
+Example: scaling ingestor, transform, and sink:
+
+```json
+{
+  "pipeline_resources": {
+    "ingestor": {
+      "base": {
+        "replicas": 4
+      }
+    },
+    "transform": {
+      "replicas": 2
+    },
+    "sink": {
+      "replicas": 2
+    }
+  }
+}
+```
+
+For join pipelines, configure left and right ingestors separately; the join stage remains at 1 replica.
+
+## Best Practices
+
+### Match ingestor replicas to Kafka partitions
+
+For non-join pipelines, the number of ingestor replicas is typically limited by the number of Kafka topic partitions. Running more ingestor replicas than partitions does not increase throughput for that topic; aim for at most one consumer per partition per consumer group.
+
+### Identify the bottleneck first
+
+Before scaling, use [metrics](/configuration/metrics) to see where time is spent (ingestor, transform, or sink). Scale the component that is CPU- or I/O-bound. Scaling the wrong stage adds cost without improving throughput.
+
+### Join pipelines
+
+Join pipelines do not currently support scaling the join component. To handle more load with joins:
+
+- Scale **left** and **right** ingestor replicas to match the partition count of each joined topic.
+- Scale the **sink** if the join output is the bottleneck.
+- For very high throughput, consider splitting workload across multiple join pipelines (e.g. by key ranges or filters) so each pipeline has one join instance.
+
+### Transform and deduplication
+
+When [deduplication](/configuration/transformations/deduplication) is enabled, the transform stage runs with deduplication logic and transform replicas are not mutable (fixed at 1 in practice). If you need both deduplication and more transformation capacity, scale the ingestor and sink; the single transform/dedup instance will process from the buffer as fast as it can.
+
+### Scaling beyond a single pipeline
+
+For higher throughput than a single pipeline can provide, add more pipelines and distribute Kafka load across them (e.g. by topic or filter). See [Performance](/architecture/performance#horizontal-scaling) for throughput examples and scaling by adding pipelines.
+
+## Summary
+
+- **Ingestor, transform, and sink** can be scaled via `pipeline_resources` in the pipeline configuration.
+- **Join** pipelines support scaling ingestors and sink only; the join stage is single-replica.
+- Align ingestor replicas with Kafka partitions, use metrics to find bottlenecks, and combine component scaling with multi-pipeline scaling when needed.
