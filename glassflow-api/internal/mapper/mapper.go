@@ -2,6 +2,7 @@ package mapper
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
@@ -74,7 +75,7 @@ func (m *KafkaToClickHouseMapper) Map(data []byte, config map[string]models.Mapp
 			continue // No mapping for this column, skip it
 		}
 
-		value := parsedJson.Get(mapping.SourceField)
+		value := getFieldValue(parsedJson, mapping.SourceField)
 		if value.Exists() {
 			sourceType := KafkaDataType(internal.NormalizeToBasicKafkaType(mapping.SourceType))
 			convertedValue, err := ConvertValueFromJson(info.columnType, sourceType, value)
@@ -90,4 +91,19 @@ func (m *KafkaToClickHouseMapper) Map(data []byte, config map[string]models.Mapp
 
 func (m *KafkaToClickHouseMapper) GetColumnNames() []string {
 	return m.columns
+}
+
+// getFieldValue retrieves a field value from a parsed gjson result, supporting both
+// literal dotted keys (e.g. "container.image.name": "value") and nested object paths
+// (e.g. {"container": {"image": {"name": "value"}}}). It tries the escaped (literal) path
+// first, then falls back to the unescaped (nested) path.
+func getFieldValue(parsedMsg gjson.Result, fieldName string) gjson.Result {
+	if strings.Contains(fieldName, ".") {
+		fieldValue := parsedMsg.Get(strings.ReplaceAll(fieldName, ".", `\.`))
+		if fieldValue.Exists() {
+			return fieldValue
+		}
+	}
+
+	return parsedMsg.Get(fieldName)
 }

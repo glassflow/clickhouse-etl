@@ -75,6 +75,61 @@ func TestValidateJSONToSchema(t *testing.T) {
 			},
 			wantError: false,
 		},
+		{
+			name: "dotted field name - flat key",
+			msg:  []byte(`{"container.image.name": "my-image", "id": 1}`),
+			schema: []models.Field{
+				{Name: "container.image.name", Type: internal.KafkaTypeString},
+				{Name: "id", Type: internal.KafkaTypeInt},
+			},
+			wantError: false,
+		},
+		{
+			name: "dotted field name - nested object",
+			msg:  []byte(`{"container": {"image": {"name": "my-image"}}, "id": 1}`),
+			schema: []models.Field{
+				{Name: "container.image.name", Type: internal.KafkaTypeString},
+				{Name: "id", Type: internal.KafkaTypeInt},
+			},
+			wantError: false,
+		},
+		{
+			name: "dotted field name - missing in both flat and nested",
+			msg:  []byte(`{"other.field": "val", "id": 1}`),
+			schema: []models.Field{
+				{Name: "container.image.name", Type: internal.KafkaTypeString},
+				{Name: "id", Type: internal.KafkaTypeInt},
+			},
+			wantError: true,
+			errorMsg:  "field 'container.image.name' is missing in the message",
+		},
+		{
+			name: "dotted field name - flat key preferred over nested",
+			msg:  []byte(`{"container.image.name": "flat-value", "container": {"image": {"name": "nested-value"}}}`),
+			schema: []models.Field{
+				{Name: "container.image.name", Type: internal.KafkaTypeString},
+			},
+			wantError: false,
+		},
+		{
+			name: "multiple dotted field names - flat keys",
+			msg:  []byte(`{"host.name": "server-1", "container.image.name": "my-image", "log.level": "info"}`),
+			schema: []models.Field{
+				{Name: "host.name", Type: internal.KafkaTypeString},
+				{Name: "container.image.name", Type: internal.KafkaTypeString},
+				{Name: "log.level", Type: internal.KafkaTypeString},
+			},
+			wantError: false,
+		},
+		{
+			name: "dotted field name with type mismatch",
+			msg:  []byte(`{"container.image.name": 123}`),
+			schema: []models.Field{
+				{Name: "container.image.name", Type: internal.KafkaTypeString},
+			},
+			wantError: true,
+			errorMsg:  "field 'container.image.name' type validation failed",
+		},
 	}
 
 	for _, tt := range tests {
@@ -87,6 +142,71 @@ func TestValidateJSONToSchema(t *testing.T) {
 				}
 			} else {
 				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestGetFieldValue(t *testing.T) {
+	tests := []struct {
+		name      string
+		json      string
+		fieldName string
+		wantExist bool
+		wantValue string
+	}{
+		{
+			name:      "simple field - no dots",
+			json:      `{"name": "test"}`,
+			fieldName: "name",
+			wantExist: true,
+			wantValue: "test",
+		},
+		{
+			name:      "dotted key - flat JSON",
+			json:      `{"container.image.name": "my-image"}`,
+			fieldName: "container.image.name",
+			wantExist: true,
+			wantValue: "my-image",
+		},
+		{
+			name:      "dotted key - nested JSON",
+			json:      `{"container": {"image": {"name": "my-image"}}}`,
+			fieldName: "container.image.name",
+			wantExist: true,
+			wantValue: "my-image",
+		},
+		{
+			name:      "dotted key - flat preferred over nested",
+			json:      `{"container.image.name": "flat-value", "container": {"image": {"name": "nested-value"}}}`,
+			fieldName: "container.image.name",
+			wantExist: true,
+			wantValue: "flat-value",
+		},
+		{
+			name:      "dotted key - not found",
+			json:      `{"other": "value"}`,
+			fieldName: "container.image.name",
+			wantExist: false,
+		},
+		{
+			name:      "single dot key - flat",
+			json:      `{"host.name": "server-1"}`,
+			fieldName: "host.name",
+			wantExist: true,
+			wantValue: "server-1",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			parsed := gjson.Parse(tt.json)
+			result := getFieldValue(parsed, tt.fieldName)
+			if tt.wantExist {
+				assert.True(t, result.Exists(), "expected field to exist")
+				assert.Equal(t, tt.wantValue, result.String())
+			} else {
+				assert.False(t, result.Exists(), "expected field to not exist")
 			}
 		})
 	}
