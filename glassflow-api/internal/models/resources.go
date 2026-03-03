@@ -49,8 +49,8 @@ func getEnvOrDefault(key, defaultVal string) string {
 func newDefaultIngestorComponentResources() *ComponentResources {
 	return &ComponentResources{
 		Requests: &ResourceList{
-			CPU:    getEnvOrDefault("INGESTOR_CPU_REQUEST", "1000m"),
-			Memory: getEnvOrDefault("INGESTOR_MEMORY_REQUEST", "1Gi"),
+			CPU:    getEnvOrDefault("INGESTOR_CPU_REQUEST", "100m"),
+			Memory: getEnvOrDefault("INGESTOR_MEMORY_REQUEST", "128Mi"),
 		},
 		Limits: &ResourceList{
 			CPU:    getEnvOrDefault("INGESTOR_CPU_LIMIT", "1500m"),
@@ -65,7 +65,7 @@ func NewDefaultPipelineResources() PipelineResources {
 		Nats: &NatsResources{
 			Stream: &NatsStreamResources{
 				MaxAge:   getEnvOrDefault("NATS_MAX_STREAM_AGE", "24h"),
-				MaxBytes: getEnvOrDefault("NATS_MAX_STREAM_BYTES", "25GB"),
+				MaxBytes: getEnvOrDefault("NATS_MAX_STREAM_BYTES", "0"),
 			},
 		},
 		Ingestor: &IngestorResources{
@@ -75,8 +75,8 @@ func NewDefaultPipelineResources() PipelineResources {
 		},
 		Join: &ComponentResources{
 			Requests: &ResourceList{
-				CPU:    getEnvOrDefault("JOIN_CPU_REQUEST", "1000m"),
-				Memory: getEnvOrDefault("JOIN_MEMORY_REQUEST", "1Gi"),
+				CPU:    getEnvOrDefault("JOIN_CPU_REQUEST", "100m"),
+				Memory: getEnvOrDefault("JOIN_MEMORY_REQUEST", "128Mi"),
 			},
 			Limits: &ResourceList{
 				CPU:    getEnvOrDefault("JOIN_CPU_LIMIT", "1500m"),
@@ -86,8 +86,8 @@ func NewDefaultPipelineResources() PipelineResources {
 		},
 		Sink: &ComponentResources{
 			Requests: &ResourceList{
-				CPU:    getEnvOrDefault("SINK_CPU_REQUEST", "1000m"),
-				Memory: getEnvOrDefault("SINK_MEMORY_REQUEST", "1Gi"),
+				CPU:    getEnvOrDefault("SINK_CPU_REQUEST", "100m"),
+				Memory: getEnvOrDefault("SINK_MEMORY_REQUEST", "128Mi"),
 			},
 			Limits: &ResourceList{
 				CPU:    getEnvOrDefault("SINK_CPU_LIMIT", "1500m"),
@@ -97,8 +97,8 @@ func NewDefaultPipelineResources() PipelineResources {
 		},
 		Transform: &ComponentResources{
 			Requests: &ResourceList{
-				CPU:    getEnvOrDefault("DEDUP_CPU_REQUEST", "1000m"),
-				Memory: getEnvOrDefault("DEDUP_MEMORY_REQUEST", "1Gi"),
+				CPU:    getEnvOrDefault("DEDUP_CPU_REQUEST", "100m"),
+				Memory: getEnvOrDefault("DEDUP_MEMORY_REQUEST", "128Mi"),
 			},
 			Limits: &ResourceList{
 				CPU:    getEnvOrDefault("DEDUP_CPU_LIMIT", "1500m"),
