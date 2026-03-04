@@ -13,6 +13,13 @@ import {
   type ClickHouseConfig,
 } from '@/src/app/ui-api/clickhouse/clickhouse-utils'
 
+export interface AlterTableAddOperation {
+  op: 'add'
+  name: string
+  type: string
+  nullable?: boolean
+}
+
 export class ClickhouseService {
   async testConnection({
     config,
@@ -268,6 +275,44 @@ export class ClickhouseService {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to create table in ClickHouse',
+      }
+    }
+  }
+
+  async alterTable(
+    config: ClickHouseConfig,
+    params: { database: string; table: string; operations: AlterTableAddOperation[] }
+  ) {
+    const { database, table, operations } = params
+    if (!database || !table) {
+      return { success: false, error: 'database and table are required' }
+    }
+    if (!operations?.length) {
+      return { success: false, error: 'at least one operation is required' }
+    }
+    const addOps = operations.filter((o) => o.op === 'add')
+    if (addOps.length === 0) {
+      return { success: false, error: 'only ADD COLUMN operations are supported' }
+    }
+    try {
+      const connection = await createClickHouseConnection(config)
+      try {
+        const tableRef = quoteTableRef(database, table)
+        for (const op of addOps) {
+          if (!op.name || !op.type) continue
+          const quotedName = quoteClickHouseIdentifier(op.name)
+          const typeStr = op.nullable !== false ? `Nullable(${op.type})` : op.type
+          const query = `ALTER TABLE ${tableRef} ADD COLUMN ${quotedName} ${typeStr}`
+          await executeCommand(connection, query)
+        }
+        return { success: true }
+      } finally {
+        await closeConnection(connection)
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to alter table in ClickHouse',
       }
     }
   }

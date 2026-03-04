@@ -33,6 +33,8 @@ interface MappingFormSectionProps {
 
   // Create path: add/delete mapping rows
   isCreatePath?: boolean
+  allowAddMapping?: boolean // Use Existing: allow adding new columns (schema evolution)
+  existingColumnNames?: string[] // Use Existing: columns already in table (read-only)
   onAddMapping?: () => void
   onDeleteRow?: (index: number) => void
   onNullableChange?: (index: number, checked: boolean) => void
@@ -89,6 +91,8 @@ export function MappingFormSection({
   duplicateDestinationColumns,
   orderByInvalid,
   isCreatePath,
+  allowAddMapping,
+  existingColumnNames,
   onAddMapping,
   onDeleteRow,
   onNullableChange,
@@ -134,6 +138,8 @@ export function MappingFormSection({
         unmappedDefaultColumns={unmappedDefaultColumns}
         duplicateDestinationColumns={duplicateDestinationColumns}
         isCreatePath={isCreatePath}
+        allowAddMapping={allowAddMapping}
+        existingColumnNames={existingColumnNames}
         onAddMapping={onAddMapping}
         onDeleteRow={onDeleteRow}
         onNullableChange={onNullableChange}

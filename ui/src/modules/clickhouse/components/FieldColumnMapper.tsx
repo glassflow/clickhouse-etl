@@ -42,6 +42,8 @@ interface FieldColumnMapperProps {
   unmappedDefaultColumns?: string[]
   duplicateDestinationColumns?: string[]
   isCreatePath?: boolean
+  allowAddMapping?: boolean // Use Existing: allow adding new columns (schema evolution)
+  existingColumnNames?: string[] // Use Existing: columns already in table (read-only)
   onAddMapping?: () => void
   onDeleteRow?: (index: number) => void
   onNullableChange?: (index: number, checked: boolean) => void
@@ -67,6 +69,8 @@ export function FieldColumnMapper({
   unmappedDefaultColumns = [],
   duplicateDestinationColumns = [],
   isCreatePath = false,
+  allowAddMapping = false,
+  existingColumnNames,
   onAddMapping,
   onDeleteRow,
   onNullableChange,
@@ -160,7 +164,7 @@ export function FieldColumnMapper({
           {readOnly && <span className="text-sm text-[var(--color-foreground-neutral-faded)] ml-2">(Read-only)</span>}
         </h3>
         <div className="flex gap-2">
-          {isCreatePath && onAddMapping && (
+          {(isCreatePath || allowAddMapping) && onAddMapping && (
             <Button
               variant="outline"
               size="sm"
@@ -225,7 +229,7 @@ export function FieldColumnMapper({
             <TableHead className="text-content border-0 w-[20%]">Data Type (incoming)</TableHead>
             <TableHead className="text-content text-center border-0 w-[5%]">Topic</TableHead>
             <TableHead className="text-content border-0 w-[20%]">Destination column</TableHead>
-            {isCreatePath && (
+            {(isCreatePath || allowAddMapping) && (
               <>
                 <TableHead className="text-content border-0 w-[17%]">ClickHouse type</TableHead>
                 <TableHead className="text-content border-0 w-[10%]">Nullable</TableHead>
@@ -242,7 +246,12 @@ export function FieldColumnMapper({
             const hasDuplicate = isDuplicateName(column)
             const hasAnyError = isRequiredField || hasTypeError || hasDuplicate
             const hasAnyIssue = hasAnyError || hasDefaultWarning
-            const rowKey = isCreatePath ? `row-${index}-${column.name}` : column.name
+            // Use Existing + allowAddMapping: new rows (not in table) are editable; existing rows read-only
+            const isNewRow = allowAddMapping && (!column.name || !(existingColumnNames ?? []).includes(column.name))
+            const showEditableDestination = isCreatePath || (allowAddMapping && isNewRow)
+            const showEditableTypeNullableDelete = isCreatePath || (allowAddMapping && isNewRow)
+            const showDeleteButton = showEditableTypeNullableDelete && onDeleteRow
+            const rowKey = (allowAddMapping && isNewRow) ? `row-${index}` : (isCreatePath ? `row-${index}` : column.name)
             return (
               <TableRow
                 key={rowKey}
@@ -365,7 +374,7 @@ export function FieldColumnMapper({
                   )}
                 </TableCell>
                 <TableCell className="text-content w-[20%]">
-                  {isCreatePath ? (
+                  {showEditableDestination ? (
                     <div className="space-y-1">
                       <Input
                         value={column.name || ''}
@@ -397,50 +406,66 @@ export function FieldColumnMapper({
                     </>
                   )}
                 </TableCell>
-                {isCreatePath && (
+                {(isCreatePath || allowAddMapping) && (
                   <>
                     <TableCell className="w-[17%]">
-                      <Select
-                        value={getBaseClickHouseType(column.type)}
-                        onValueChange={(value) => handleDestinationTypeChange(index, value)}
-                        disabled={readOnly}
-                      >
-                        <SelectTrigger
-                          className={cn(
-                            'w-full input-regular input-border-regular hover:bg-[var(--color-gray-dark-950)] transition-colors text-content',
-                            readOnly && 'opacity-50 cursor-not-allowed',
-                          )}
+                      {showEditableTypeNullableDelete ? (
+                        <Select
+                          value={getBaseClickHouseType(column.type)}
+                          onValueChange={(value) => handleDestinationTypeChange(index, value)}
+                          disabled={readOnly}
                         >
-                          <SelectValue placeholder="Select type" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-[var(--color-background-neutral-faded)] border-[var(--color-border-neutral)] shadow-md text-content select-content-custom">
-                          {CLICKHOUSE_DATA_TYPES.map((chType) => (
-                            <SelectItem key={chType} value={chType} className="text-content select-item-custom">
-                              {chType}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                          <SelectTrigger
+                            className={cn(
+                              'w-full input-regular input-border-regular hover:bg-[var(--color-gray-dark-950)] transition-colors text-content',
+                              readOnly && 'opacity-50 cursor-not-allowed',
+                            )}
+                          >
+                            <SelectValue placeholder="Select type" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-[var(--color-background-neutral-faded)] border-[var(--color-border-neutral)] shadow-md text-content select-content-custom">
+                            {CLICKHOUSE_DATA_TYPES.map((chType) => (
+                              <SelectItem key={chType} value={chType} className="text-content select-item-custom">
+                                {chType}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <div className="w-full h-10 px-3 flex items-center rounded-md bg-[var(--surface-bg-sunken)] border border-[var(--surface-border)] text-content">
+                          {getBaseClickHouseType(column.type)}
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell className="w-[10%]">
-                      <Switch
-                        checked={column.isNullable !== false}
-                        onCheckedChange={(checked) => handleNullableChange(index, checked)}
-                        disabled={readOnly}
-                      />
+                      {showEditableTypeNullableDelete ? (
+                        <Switch
+                          checked={column.isNullable !== false}
+                          onCheckedChange={(checked) => handleNullableChange(index, checked)}
+                          disabled={readOnly}
+                        />
+                      ) : (
+                        <div className="w-full h-10 px-3 flex items-center text-content">
+                          {column.isNullable !== false ? 'Yes' : 'No'}
+                        </div>
+                      )}
                     </TableCell>
                     {onDeleteRow && (
                       <TableCell className="w-[8%]">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onDeleteRow(index)}
-                          disabled={readOnly}
-                          className="text-muted-foreground hover:text-foreground"
-                          title="Remove row"
-                        >
-                          <TrashIcon className="h-4 w-4" />
-                        </Button>
+                        {showDeleteButton ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => onDeleteRow(index)}
+                            disabled={readOnly}
+                            className="text-muted-foreground hover:text-foreground"
+                            title="Remove row"
+                          >
+                            <TrashIcon className="h-4 w-4" />
+                          </Button>
+                        ) : (
+                          <div className="w-8" />
+                        )}
                       </TableCell>
                     )}
                   </>

@@ -917,3 +917,36 @@ export const getMappingType = (eventField: string, mapping: any) => {
   // NOTE: default to string if no mapping entry is found - check this
   return 'string'
 }
+
+export interface AlterTableAddOperation {
+  op: 'add'
+  name: string
+  type: string
+  nullable?: boolean
+}
+
+/**
+ * Compute ALTER TABLE operations for new columns.
+ * Only ADD COLUMN operations; never DROP or MODIFY (data integrity).
+ * Mapping rows with name not in existingColumnNames become ADD operations.
+ */
+export function computeAlterTableOperations(
+  mapping: TableColumn[],
+  existingColumnNames: string[]
+): { add: AlterTableAddOperation[] } {
+  const existingSet = new Set(existingColumnNames.map((n) => n.trim()))
+  const add: AlterTableAddOperation[] = []
+  for (const col of mapping) {
+    const name = (col.name || '').trim()
+    if (!name) continue
+    if (existingSet.has(name)) continue
+    const baseType = (col.type || 'String').replace(/^Nullable\((.*)\)$/, '$1')
+    add.push({
+      op: 'add',
+      name,
+      type: baseType,
+      nullable: col.isNullable !== false,
+    })
+  }
+  return { add }
+}

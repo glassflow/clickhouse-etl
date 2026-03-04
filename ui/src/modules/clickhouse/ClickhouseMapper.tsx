@@ -564,6 +564,13 @@ export function ClickhouseMapper({
                 isJoinMapping={mode !== 'single'}
                 unmappedNonNullableColumns={validationIssues.unmappedNonNullableColumns}
                 unmappedDefaultColumns={validationIssues.unmappedDefaultColumns}
+                duplicateDestinationColumns={validationIssues.duplicateDestinationColumns}
+                orderByInvalid={validationIssues.orderByInvalid}
+                allowAddMapping
+                existingColumnNames={tableSchema.columns.map((c) => c.name)}
+                onAddMapping={handleAddMapping}
+                onDeleteRow={handleDeleteRow}
+                onNullableChange={handleNullableChange}
                 onRefreshTableSchema={handleRefreshTableSchema}
                 onAutoMap={performAutoMapping}
                 onSubmit={saveDestinationConfig}
