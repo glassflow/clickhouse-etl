@@ -143,7 +143,8 @@ export async function executeCommand(connection: ClickHouseConnection, query: st
   if (connection.type === 'direct' && connection.directFetch) {
     await connection.directFetch(query)
   } else if (connection.type === 'client' && connection.client) {
-    await connection.client.query({ query, format: 'TabSeparated' })
+    const result = await connection.client.query({ query, format: 'TabSeparated' })
+    await result.text() // Consume the stream so the request completes; required for DDL
   } else {
     throw new Error('Invalid connection type or missing connection method')
   }
