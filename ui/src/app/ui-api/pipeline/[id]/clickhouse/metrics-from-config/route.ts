@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClickHouseConnection, closeConnection } from '../../../../clickhouse/clickhouse-utils'
+import { createClickHouseConnection, closeConnection, quoteTableRef } from '../../../../clickhouse/clickhouse-utils'
 import { validatePipelineIdOrError } from '../../../validation'
 import { structuredLogger } from '@/src/observability'
 
@@ -175,13 +175,14 @@ async function fetchClickHouseTableMetrics(
 
     // Fallback: Direct table count if system.parts is empty - only run when table exists
     // (avoids "Unknown table expression identifier" during create pipeline flow)
+    // Use quoted identifiers so names with hyphens (e.g. test-table-5) parse correctly
     ...(tableExists && {
       tableInfoDirect: `
       SELECT
         count() as row_count,
         0 as compressed_size_bytes,
         0 as table_size_bytes
-      FROM ${database}.${table}
+      FROM ${quoteTableRef(database, table)}
     `,
     }),
 
