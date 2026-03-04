@@ -46,7 +46,7 @@ type pipelineJoin struct {
 	Enabled bool   `json:"enabled"`
 
 	Sources []joinSource      `json:"sources,omitempty"`
-	Rules   []models.JoinRule `json:"rules,omitempty"`
+	Fields  []models.JoinRule `json:"fields,omitempty"`
 }
 
 type pipelineFilter struct {
@@ -129,35 +129,37 @@ type topicSchemaFieldV1 struct {
 type topicDedupConfig struct {
 	Enabled bool `json:"enabled"`
 
-	ID     string              `json:"id_field,omitempty"`
-	Type   string              `json:"id_field_type,omitempty"`
+	Key    string              `json:"key,omitempty"`
 	Window models.JSONDuration `json:"time_window,omitempty" format:"duration" example:"5m"`
 }
 
 type joinSource struct {
 	SourceID    string              `json:"source_id"`
-	JoinKey     string              `json:"join_key"`
+	Key         string              `json:"key"`
 	Window      models.JSONDuration `json:"time_window" format:"duration" example:"5m"`
 	Orientation string              `json:"orientation"`
 }
 
+type sinkConnectionParams struct {
+	Host                        string `json:"host"`
+	Port                        string `json:"port"`      // native port used in BE connection
+	HttpPort                    string `json:"http_port"` // http port used by UI for FE connection
+	Database                    string `json:"database"`
+	Username                    string `json:"username"`
+	Password                    string `json:"password"`
+	Secure                      bool   `json:"secure"`
+	SkipCertificateVerification bool   `json:"skip_certificate_verification,omitempty" default:"false"`
+}
+
 type clickhouseSink struct {
-	Kind     string `json:"type"`
-	Provider string `json:"provider,omitempty"`
-	// Add validation for null/empty values
-	Host     string `json:"host"`
-	Port     string `json:"port"`      // native port used in BE connection
-	HttpPort string `json:"http_port"` // http port used by UI for FE connection
-	Database string `json:"database"`
-	Username string `json:"username"`
-	Password string `json:"password"`
-	Table    string `json:"table"`
-	Secure   bool   `json:"secure"`
+	Kind             string               `json:"type"`
+	Provider         string               `json:"provider,omitempty"`
+	ConnectionParams sinkConnectionParams `json:"connection_params"`
+	Table            string               `json:"table"`
 
 	// Add validation for range
-	MaxBatchSize                int                 `json:"max_batch_size"`
-	MaxDelayTime                models.JSONDuration `json:"max_delay_time" format:"duration" doc:"Maximum delay time for batching (e.g., 60s, 1m, 5m)" example:"1m"`
-	SkipCertificateVerification bool                `json:"skip_certificate_verification,omitempty" default:"false"`
+	MaxBatchSize int                 `json:"max_batch_size"`
+	MaxDelayTime models.JSONDuration `json:"max_delay_time" format:"duration" doc:"Maximum delay time for batching (e.g., 60s, 1m, 5m)" example:"1m"`
 
 	// schema evolution related sections
 	SourceID     string              `json:"source_id,omitempty"`
@@ -209,8 +211,7 @@ func newIngestorComponentConfig(p pipelineJSON, schemaVersions map[string]models
 			Replicas:                   t.Replicas,
 			Deduplication: models.DeduplicationConfig{
 				Enabled: t.Deduplication.Enabled,
-				ID:      t.Deduplication.ID,
-				Type:    internal.NormalizeToBasicKafkaType(t.Deduplication.Type),
+				ID:      t.Deduplication.Key,
 				Window:  t.Deduplication.Window,
 			},
 			SchemaRegistryConfig: t.SchemaRegistry,
@@ -265,13 +266,13 @@ func newJoinComponentConfig(p pipelineJSON, schemaVersions map[string]models.Sch
 		sources = append(sources, models.JoinSourceConfig{
 			SourceID:    s.SourceID,
 			StreamID:    streamID,
-			JoinKey:     s.JoinKey,
+			JoinKey:     s.Key,
 			Window:      s.Window,
 			Orientation: s.Orientation,
 		})
 	}
 
-	joinComponentConfig, err := models.NewJoinComponentConfig(p.Join.Kind, p.Join.ID, sources, p.Join.Rules)
+	joinComponentConfig, err := models.NewJoinComponentConfig(p.Join.Kind, p.Join.ID, sources, p.Join.Fields)
 	if err != nil {
 		return zero, fmt.Errorf("create join config: %w", err)
 	}
@@ -280,19 +281,25 @@ func newJoinComponentConfig(p pipelineJSON, schemaVersions map[string]models.Sch
 	joinComponentConfig.NATSRightConsumerName = models.GetNATSJoinRightConsumerName(p.PipelineID)
 
 	joinSchemaFields := make([]models.Field, 0)
-	for _, rule := range p.Join.Rules {
-		schemaVersion, found := schemaVersions[rule.SourceID]
+	for _, field := range p.Join.Fields {
+		schemaVersion, found := schemaVersions[field.SourceID]
 		if !found {
-			return zero, fmt.Errorf("schema version for join source_id '%s' not found", rule.SourceID)
+			return zero, fmt.Errorf("schema version for join source_id '%s' not found", field.SourceID)
 		}
 
-		sourceField, found := schemaVersion.GetField(rule.SourceName)
+		sourceField, found := schemaVersion.GetField(field.SourceName)
 		if !found {
-			return zero, fmt.Errorf("join rule field '%s' not found in schema for source '%s'", rule.SourceName, rule.SourceID)
+			return zero, fmt.Errorf("join rule field '%s' not found in schema for source '%s'", field.SourceName, field.SourceID)
+		}
+
+		// OutputName defaults to SourceName (Name) if not provided
+		outputName := field.OutputName
+		if outputName == "" {
+			outputName = field.SourceName
 		}
 
 		joinSchemaFields = append(joinSchemaFields, models.Field{
-			Name: rule.OutputName,
+			Name: outputName,
 			Type: sourceField.Type,
 		})
 	}
@@ -341,18 +348,18 @@ func newSinkComponentConfig(
 	}
 
 	sinkComponentConfig, err := models.NewClickhouseSinkComponent(models.ClickhouseSinkArgs{
-		Host:                 p.Sink.Host,
-		Port:                 p.Sink.Port,
-		HttpPort:             p.Sink.HttpPort,
-		DB:                   p.Sink.Database,
-		User:                 p.Sink.Username,
-		Password:             p.Sink.Password,
+		Host:                 p.Sink.ConnectionParams.Host,
+		Port:                 p.Sink.ConnectionParams.Port,
+		HttpPort:             p.Sink.ConnectionParams.HttpPort,
+		DB:                   p.Sink.ConnectionParams.Database,
+		User:                 p.Sink.ConnectionParams.Username,
+		Password:             p.Sink.ConnectionParams.Password,
+		Secure:               p.Sink.ConnectionParams.Secure,
+		SkipCertificateCheck: p.Sink.ConnectionParams.SkipCertificateVerification,
 		Table:                p.Sink.Table,
-		Secure:               p.Sink.Secure,
 		StreamID:             sinkStreamID,
 		MaxBatchSize:         p.Sink.MaxBatchSize,
 		MaxDelayTime:         maxDelayTime,
-		SkipCertificateCheck: p.Sink.SkipCertificateVerification,
 		Mappings:             mappings,
 	})
 	if err != nil {
@@ -404,8 +411,8 @@ func validateJoinKeysInSchema(schema schema, joinSources []joinSource) error {
 		if !exists {
 			return fmt.Errorf("join source_id '%s' not found in schema fields", js.SourceID)
 		}
-		if !sourceFields[js.JoinKey] {
-			return fmt.Errorf("join key '%s' not found in schema fields for source_id '%s'", js.JoinKey, js.SourceID)
+		if !sourceFields[js.Key] {
+			return fmt.Errorf("join key '%s' not found in schema fields for source_id '%s'", js.Key, js.SourceID)
 		}
 	}
 
@@ -427,15 +434,15 @@ func validateDedupKeysInSchema(schema schema, topics []kafkaTopic) error {
 		if !t.Deduplication.Enabled {
 			continue
 		}
-		if t.Deduplication.ID == "" {
+		if t.Deduplication.Key == "" {
 			continue
 		}
 		sourceFields, exists := fieldsBySource[t.Topic]
 		if !exists {
 			return fmt.Errorf("deduplication source_id '%s' not found in schema fields", t.Topic)
 		}
-		if !sourceFields[t.Deduplication.ID] {
-			return fmt.Errorf("deduplication key '%s' not found in schema fields for source_id '%s'", t.Deduplication.ID, t.Topic)
+		if !sourceFields[t.Deduplication.Key] {
+			return fmt.Errorf("deduplication key '%s' not found in schema fields for source_id '%s'", t.Deduplication.Key, t.Topic)
 		}
 	}
 
@@ -480,7 +487,7 @@ func newMapperConfig(pipeline pipelineJSON) (zero models.MapperConfig, _ error) 
 		// Add join info if this source is part of a join
 		for _, js := range pipeline.Join.Sources {
 			if js.SourceID == sourceID {
-				streamCfg.JoinKeyField = js.JoinKey
+				streamCfg.JoinKeyField = js.Key
 				streamCfg.JoinOrientation = js.Orientation
 				streamCfg.JoinWindow = js.Window
 				break
@@ -732,8 +739,7 @@ func toPipelineJSON(p models.PipelineConfig) pipelineJSON {
 			Replicas:                   t.Replicas,
 			Deduplication: topicDedupConfig{
 				Enabled: t.Deduplication.Enabled,
-				ID:      t.Deduplication.ID,
-				Type:    t.Deduplication.Type,
+				Key:     t.Deduplication.ID,
 				Window:  t.Deduplication.Window,
 			},
 			SchemaRegistry: models.SchemaRegistryConfig{
@@ -784,15 +790,15 @@ func toPipelineJSON(p models.PipelineConfig) pipelineJSON {
 	}
 
 	var joinSources []joinSource
-	var joinRules []models.JoinRule
+	var joinFields []models.JoinRule
 	if p.Join.Enabled {
 		if p.Join.Config != nil {
-			joinRules = p.Join.Config
+			joinFields = p.Join.Config
 		}
 		for _, s := range p.Join.Sources {
 			joinSources = append(joinSources, joinSource{
 				SourceID:    s.SourceID,
-				JoinKey:     s.JoinKey,
+				Key:         s.JoinKey,
 				Window:      s.Window,
 				Orientation: s.Orientation,
 			})
@@ -831,23 +837,25 @@ func toPipelineJSON(p models.PipelineConfig) pipelineJSON {
 			Kind:    internal.TemporalJoinType,
 			Enabled: p.Join.Enabled,
 			Sources: joinSources,
-			Rules:   joinRules,
+			Fields:  joinFields,
 		},
 		Sink: clickhouseSink{
-			Kind:                        internal.ClickHouseSinkType,
-			Host:                        p.Sink.ClickHouseConnectionParams.Host,
-			Port:                        p.Sink.ClickHouseConnectionParams.Port,
-			HttpPort:                    p.Sink.ClickHouseConnectionParams.HttpPort,
-			Database:                    p.Sink.ClickHouseConnectionParams.Database,
-			Username:                    p.Sink.ClickHouseConnectionParams.Username,
-			Password:                    p.Sink.ClickHouseConnectionParams.Password,
-			Table:                       p.Sink.ClickHouseConnectionParams.Table,
-			Secure:                      p.Sink.ClickHouseConnectionParams.Secure,
-			MaxBatchSize:                p.Sink.Batch.MaxBatchSize,
-			MaxDelayTime:                p.Sink.Batch.MaxDelayTime,
-			SkipCertificateVerification: p.Sink.ClickHouseConnectionParams.SkipCertificateCheck,
-			SourceID:                    p.Sink.SourceID,
-			TableMapping:                sinkMappings,
+			Kind: internal.ClickHouseSinkType,
+			ConnectionParams: sinkConnectionParams{
+				Host:                        p.Sink.ClickHouseConnectionParams.Host,
+				Port:                        p.Sink.ClickHouseConnectionParams.Port,
+				HttpPort:                    p.Sink.ClickHouseConnectionParams.HttpPort,
+				Database:                    p.Sink.ClickHouseConnectionParams.Database,
+				Username:                    p.Sink.ClickHouseConnectionParams.Username,
+				Password:                    p.Sink.ClickHouseConnectionParams.Password,
+				Secure:                      p.Sink.ClickHouseConnectionParams.Secure,
+				SkipCertificateVerification: p.Sink.ClickHouseConnectionParams.SkipCertificateCheck,
+			},
+			Table:        p.Sink.ClickHouseConnectionParams.Table,
+			MaxBatchSize: p.Sink.Batch.MaxBatchSize,
+			MaxDelayTime: p.Sink.Batch.MaxDelayTime,
+			SourceID:     p.Sink.SourceID,
+			TableMapping: sinkMappings,
 		},
 		Filter: pipelineFilter{
 			Enabled:    p.Filter.Enabled,
@@ -858,7 +866,7 @@ func toPipelineJSON(p models.PipelineConfig) pipelineJSON {
 			Fields: schemaFields,
 		},
 		Metadata: p.Metadata,
-		Version:  "v2",
+		Version:  "v3",
 	}
 }
 
