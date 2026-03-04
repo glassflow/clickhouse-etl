@@ -83,9 +83,21 @@ function TransformationSection({ pipeline, onStepClick, disabled, validation, ac
   const storeDestinationTable = clickhouseDestinationStore.clickhouseDestination.table
   const storeTableMapping = clickhouseDestinationStore.clickhouseDestination.mapping || []
 
-  // Fallback to pipeline config if store is empty
+  // Fallback to pipeline config when store is empty (before async hydration completes).
+  // Store is populated by hydrateClickhouseDestination, which runs after hydrateKafkaTopics
+  // (can take several seconds). Pipeline is available immediately from API.
+  // V2 API: mapping is in schema.fields (column_name, column_type); V1: sink.table_mapping
   const destinationTable = storeDestinationTable || pipeline?.sink?.table || 'N/A'
-  const tableMapping = storeTableMapping.length > 0 ? storeTableMapping : pipeline?.sink?.table_mapping || []
+  const pipelineTableMapping = pipeline?.sink?.table_mapping || []
+  const pipelineSchemaMapping = (pipeline?.schema?.fields || []).filter(
+    (f: any) => f.column_name && f.column_type,
+  )
+  const tableMapping =
+    storeTableMapping.length > 0
+      ? storeTableMapping
+      : pipelineTableMapping.length > 0
+        ? pipelineTableMapping
+        : pipelineSchemaMapping
   const totalSourceFields = tableMapping.length
   const totalDestinationColumns = tableMapping.length
 
