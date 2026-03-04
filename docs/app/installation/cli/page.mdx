@@ -4,8 +4,9 @@ description: 'Install GlassFlow locally using the GlassFlow CLI'
 ---
 import { Steps } from 'nextra/components'
 import { Callout } from 'nextra/components'
+import { Tabs } from 'nextra/components'
 
-# GlassFlow CLI Installation
+# GlassFlow CLI
 
 The GlassFlow CLI provides a quick way to set up a local development environment for exploring and testing GlassFlow - an open-source ETL tool for real-time data processing from Kafka to ClickHouse.
 
@@ -20,34 +21,28 @@ The GlassFlow CLI provides a quick way to set up a local development environment
 Before installing the GlassFlow CLI, ensure you have:
 
 - **Docker** (or compatible runtime like Docker Desktop, OrbStack, Colima, or Podman)
+- **Helm** — install via [Helm docs](https://helm.sh/docs/intro/install/) or run: `brew install helm`
 - **kubectl** (installed automatically via Homebrew, or install manually)
 
-## Installation
+## Install CLI
 
-<Steps>
-### Install via Homebrew (Recommended)
+<Tabs items={['Homebrew (recommended)', 'GitHub Releases']} defaultIndex="0" storageKey="glassflow_cli_install_method">
+  <Tabs.Tab>
+    ```bash
+    brew tap glassflow/tap
+    brew install glassflow
+    ```
+    This will automatically install `kubectl` if it's not already installed on your system.
+  </Tabs.Tab>
+  <Tabs.Tab>
+    Download the latest release for your platform from the [GlassFlow CLI GitHub Releases](https://github.com/glassflow/cli/releases). Extract the binary, add it to your `PATH`, and make it executable:
+    ```bash
+    chmod +x glassflow
+    ```
+  </Tabs.Tab>
+</Tabs>
 
-```bash
-brew tap glassflow/tap
-brew install glassflow
-```
-
-This will automatically install `kubectl` if it's not already installed on your system.
-
-### Install from GitHub Releases
-
-If you prefer not to use Homebrew, you can download the latest release for your platform from the [GlassFlow CLI GitHub Releases](https://github.com/glassflow/cli/releases).
-
-1. Download the appropriate binary for your operating system and architecture
-2. Extract the binary and add it to your PATH
-3. Make the binary executable (on Unix-like systems):
-   ```bash
-   chmod +x glassflow
-   ```
-
-### Verify Installation
-
-After installation, verify that the CLI is working correctly:
+### Verify installation
 
 ```bash
 glassflow version
@@ -55,38 +50,47 @@ glassflow version
 
 You should see the version number of the installed GlassFlow CLI.
 
-</Steps>
-
 ## Quick Start
 
 <Steps>
-### Start the Local Environment
 
-To start the local development environment with a demo setup:
+### Step 1: Bring up the services
+
+Run `glassflow up` to create the cluster and install the core services:
 
 ```bash
-glassflow up --demo
+glassflow up
 ```
 
-This command will:
-- Create a local Kubernetes cluster using Kind
-- Install Kafka, ClickHouse, and GlassFlow using Helm charts
-- Set up a demo pipeline with sample data
+This will:
+
+- Create a **Kind** cluster (if needed)
+- Install **GlassFlow ETL** (glassflow namespace) via Helm
+- Install **Kafka** (kafka namespace) and **ClickHouse** (clickhouse namespace) via Helm
+- Wait for all services to be ready (up to ~25 minutes)
 - Configure port forwarding for UI and API access
 
-### Access GlassFlow Services
-
-Once the environment is running, you can access:
+**Access GlassFlow services** (available after Step 1; ports may vary if alternatives were chosen):
 
 - **GlassFlow UI**: [http://localhost:30080](http://localhost:30080)
 - **GlassFlow API**: [http://localhost:30180](http://localhost:30180)
 - **ClickHouse HTTP**: [http://localhost:30090](http://localhost:30090)
 
+### Step 2: Set up the demo (optional)
+
+To create a demo pipeline, Kafka topic, ClickHouse table, and a data producer that sends sample events:
+
+```bash
+glassflow setup-demo
+```
+
+This will create a pipeline, create a Kafka topic, create a ClickHouse table, and start a data producer.
+
 <Callout type="info" emoji="💡">
-The demo environment comes pre-configured with a pipeline that ingests events from the `demo_events` Kafka topic into the `demo_events` table in ClickHouse. You can view this pipeline in the GlassFlow UI.
+After running `glassflow setup-demo`, a pipeline ingests events from the `demo_events` Kafka topic into the `demo_events` table in ClickHouse. You can view this pipeline in the GlassFlow UI.
 </Callout>
 
-### Stop the Environment
+### Stop the environment
 
 When you're done testing, stop and clean up the local environment:
 
@@ -94,19 +98,19 @@ When you're done testing, stop and clean up the local environment:
 glassflow down
 ```
 
-This will:
-- Stop all running services
-- Remove the Kind cluster
-- Clean up all resources
+This will stop all running services, remove the Kind cluster, and clean up all resources.
 
 </Steps>
 
-## What Gets Installed
+## What gets installed
 
-When you run `glassflow up --demo`, the CLI installs the following components:
+**After `glassflow up`:**
 
 - **Kind**: Local Kubernetes cluster for running all services
-- **Kafka**: Message broker (Bitnami Helm chart) for streaming data
-- **ClickHouse**: Columnar database (Bitnami Helm chart) for data storage
-- **GlassFlow ETL**: Real-time streaming ETL service (GlassFlow Helm chart)
-- **Demo Pipeline**: Pre-configured pipeline with sample data for testing
+- **Kafka**: Message broker (kafka namespace, Bitnami Helm chart)
+- **ClickHouse**: Columnar database (clickhouse namespace, Bitnami Helm chart)
+- **GlassFlow ETL**: Real-time streaming ETL service (glassflow namespace, GlassFlow Helm chart)
+
+**After `glassflow setup-demo` (optional):**
+
+- A demo pipeline, Kafka topic, ClickHouse table, and a data producer that sends sample events
