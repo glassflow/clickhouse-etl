@@ -124,12 +124,35 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 }
 
+async function checkTableExists(connection: any, database: string, table: string): Promise<boolean> {
+  const query = `SELECT 1 FROM system.tables WHERE database = '${database}' AND name = '${table}' LIMIT 1 SETTINGS use_query_cache = 0`
+  try {
+    let rows: any[] = []
+    if (connection.type === 'direct' && connection.directFetch) {
+      const data = await connection.directFetch(query)
+      const parsed = parseQueryResult(data)
+      rows = parsed && Object.keys(parsed).length > 0 ? [parsed] : []
+    } else if (connection.type === 'client' && connection.client) {
+      const result = await connection.client.query({ query, format: 'JSONEachRow' })
+      rows = (await result.json()) || []
+    }
+    return Array.isArray(rows) ? rows.length > 0 : !!rows
+  } catch {
+    return false
+  }
+}
+
 async function fetchClickHouseTableMetrics(
   connection: any,
   database: string,
   table: string,
 ): Promise<ClickHouseTableMetrics> {
-  const queries = {
+  // Check if table exists before running tableInfoDirect (which queries the table directly).
+  // During create pipeline flow, the table may not exist yet - tableInfoDirect would fail
+  // with "Unknown table expression identifier".
+  const tableExists = await checkTableExists(connection, database, table)
+
+  const queries: Record<string, string> = {
     // Basic table info and row count - try multiple approaches
     tableInfo: `
       SELECT
@@ -138,15 +161,6 @@ async function fetchClickHouseTableMetrics(
         sum(data_uncompressed_bytes) as table_size_bytes
       FROM system.parts
       WHERE database = '${database}' AND table = '${table}' AND active = 1
-    `,
-
-    // Fallback: Direct table count if system.parts is empty
-    tableInfoDirect: `
-      SELECT
-        count() as row_count,
-        0 as compressed_size_bytes,
-        0 as table_size_bytes
-      FROM ${database}.${table}
     `,
 
     // Table size from system.tables (most reliable for actual disk usage)
@@ -158,6 +172,18 @@ async function fetchClickHouseTableMetrics(
       FROM system.tables
       WHERE database = '${database}' AND name = '${table}'
     `,
+
+    // Fallback: Direct table count if system.parts is empty - only run when table exists
+    // (avoids "Unknown table expression identifier" during create pipeline flow)
+    ...(tableExists && {
+      tableInfoDirect: `
+      SELECT
+        count() as row_count,
+        0 as compressed_size_bytes,
+        0 as table_size_bytes
+      FROM ${database}.${table}
+    `,
+    }),
 
     // Insert rate from query_log (last minute) - using written_rows instead of read_rows
     insertRate: `
