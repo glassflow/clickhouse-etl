@@ -241,7 +241,11 @@ export function useDestinationSave({
       router.push(`/pipelines/${newPipelineId}?deployment=progress`)
     } catch (err: any) {
       console.error('deployPipelineAndNavigate: Failed to deploy pipeline:', err)
-      setError(`Failed to deploy pipeline: ${err.message}`)
+      const orphanTable = err?.orphanTable as { database?: string; table?: string; message?: string } | undefined
+      const errorMessage = orphanTable
+        ? `${err.message || 'Failed to deploy pipeline'}. ${orphanTable.message || ''} Table: ${orphanTable.database ?? ''}.${orphanTable.table ?? ''}`
+        : `Failed to deploy pipeline: ${err.message}`
+      setError(errorMessage)
       setFailedDeploymentConfig(apiConfig)
     }
   }, [setPipelineId, router])

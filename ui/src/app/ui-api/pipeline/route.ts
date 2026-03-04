@@ -2,13 +2,99 @@ import { NextResponse } from 'next/server'
 import axios from 'axios'
 import { runtimeConfig } from '../config'
 import { structuredLogger } from '@/src/observability'
+import { ClickhouseService } from '@/src/services/clickhouse-service'
+import type { ClickHouseConfig } from '../clickhouse/clickhouse-utils'
 
 // Get API URL from runtime config
 const API_URL = runtimeConfig.apiUrl
 
-export async function POST(request: Request) {
+/** Detect "create new table" flow: sink has engine, order_by, and table_mapping with columns */
+function isCreateNewTableFlow(config: { sink?: Record<string, unknown> }): boolean {
+  const sink = config?.sink
+  if (!sink || typeof sink !== 'object') return false
+  if (!sink.engine || !sink.order_by) return false
+  const mapping = sink.table_mapping
+  if (!Array.isArray(mapping) || mapping.length === 0) return false
+  const hasColumns = mapping.some(
+    (m: { column_name?: string; column_type?: string }) =>
+      m?.column_name && m?.column_type
+  )
+  return !!sink.database && !!sink.table && hasColumns
+}
+
+/** Build ClickHouse config and create-table params from pipeline sink config */
+function buildCreateTableParams(config: { sink?: Record<string, unknown> }): {
+  chConfig: ClickHouseConfig
+  params: { database: string; table: string; engine: string; orderBy: string; columns: Array<{ name: string; type: string }> }
+} | null {
+  const sink = config?.sink as Record<string, unknown> | undefined
+  if (!sink) return null
+  let decodedPassword = String(sink.password ?? '')
   try {
-    const config = await request.json()
+    if (sink.password && typeof sink.password === 'string') {
+      const d = atob(sink.password)
+      if (d && !/[\x00-\x1F\x7F]/.test(d)) decodedPassword = d
+    }
+  } catch {
+    decodedPassword = String(sink.password ?? '')
+  }
+  const httpPort = Number(sink.http_port ?? sink.port ?? 8123)
+  const chConfig: ClickHouseConfig = {
+    host: String(sink.host ?? ''),
+    httpPort,
+    username: String(sink.username ?? ''),
+    password: decodedPassword,
+    database: String(sink.database ?? ''),
+    useSSL: Boolean(sink.secure ?? true),
+    skipCertificateVerification: Boolean(sink.skip_certificate_verification ?? false),
+  }
+  const mapping = (sink.table_mapping ?? []) as Array<{ column_name?: string; column_type?: string }>
+  const columns = mapping
+    .filter((m) => m?.column_name && m?.column_type)
+    .map((m) => ({ name: String(m.column_name), type: String(m.column_type) }))
+  if (columns.length === 0) return null
+  return {
+    chConfig,
+    params: {
+      database: String(sink.database ?? ''),
+      table: String(sink.table ?? ''),
+      engine: String(sink.engine ?? 'MergeTree'),
+      orderBy: String(sink.order_by ?? columns[0]!.name),
+      columns,
+    },
+  }
+}
+
+export async function POST(request: Request) {
+  let config: Record<string, any>
+  try {
+    config = await request.json()
+  } catch {
+    return NextResponse.json(
+      { success: false, error: 'Invalid JSON body' },
+      { status: 400 }
+    )
+  }
+
+  try {
+    // Create new table flow: create table first, then pipeline
+    const createTableParams = isCreateNewTableFlow(config)
+      ? buildCreateTableParams(config)
+      : null
+
+    if (createTableParams) {
+      const clickhouseService = new ClickhouseService()
+      const createResult = await clickhouseService.createTable(
+        createTableParams.chConfig,
+        createTableParams.params
+      )
+      if (!createResult.success) {
+        return NextResponse.json(
+          { success: false, error: createResult.error ?? 'Failed to create ClickHouse table' },
+          { status: 400 }
+        )
+      }
+    }
 
     // Normalize Kafka broker hosts for Docker backend: localhost/127.0.0.1 -> host.docker.internal
     if (config?.source?.connection_params?.brokers && Array.isArray(config.source.connection_params.brokers)) {
@@ -24,7 +110,6 @@ export async function POST(request: Request) {
     // If a client mistakenly sends HTTP port and a separate native_port, prefer native_port for backend.
     if (config?.sink?.native_port) {
       config.sink.port = String(config.sink.native_port)
-      // Do not forward native_port as backend schema does not include it
       delete config.sink.native_port
     }
 
@@ -39,18 +124,53 @@ export async function POST(request: Request) {
       },
     })
   } catch (error: unknown) {
+    // Pipeline creation failed; if we created the table, attempt rollback
+    const createTableParams = isCreateNewTableFlow(config)
+      ? buildCreateTableParams(config)
+      : null
+
+    if (createTableParams) {
+      const clickhouseService = new ClickhouseService()
+      const dropResult = await clickhouseService.dropTable(
+        createTableParams.chConfig,
+        createTableParams.params.database,
+        createTableParams.params.table
+      )
+      if (!dropResult.success) {
+        const message = getBackendErrorMessage(
+          axios.isAxiosError(error) && error.response ? error.response.data : null,
+          'Failed to create pipeline'
+        )
+        return NextResponse.json(
+          {
+            success: false,
+            error: message,
+            orphanTable: {
+              database: createTableParams.params.database,
+              table: createTableParams.params.table,
+              message:
+                'The table was created but pipeline deployment failed. Rollback (drop table) failed. You may need to drop the table manually if not needed.',
+            },
+          },
+          { status: 500 }
+        )
+      }
+    }
+
     if (axios.isAxiosError(error) && error.response) {
       const { status, data } = error.response
       const message = getBackendErrorMessage(data, 'Failed to create pipeline')
-      structuredLogger.error('Pipeline POST backend error', { status, data: typeof data === 'object' && data !== null ? JSON.stringify(data) : String(data) })
+      structuredLogger.error('Pipeline POST backend error', {
+        status,
+        data: typeof data === 'object' && data !== null ? JSON.stringify(data) : String(data),
+      })
       return NextResponse.json({ success: false, error: message }, { status })
     }
-    // Network/connection error (e.g. ECONNREFUSED when backend not running or wrong API_URL)
     const message = error instanceof Error ? error.message : 'Unknown error'
     structuredLogger.error('Pipeline POST backend unreachable', { error: message })
     return NextResponse.json(
       { success: false, error: `Backend unreachable: ${message}. Check API_URL and that the pipeline API is running.` },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }

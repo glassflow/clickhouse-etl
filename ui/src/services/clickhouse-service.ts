@@ -1,6 +1,7 @@
 import {
   createClickHouseConnection,
   closeConnection,
+  executeCommand,
   buildTestQuery,
   parseTestResult,
   parseTabSeparated,
@@ -230,6 +231,62 @@ export class ClickhouseService {
           error instanceof Error
             ? error.message
             : `Failed to fetch schema for table '${table}' in database '${database}'`,
+      }
+    }
+  }
+
+  async createTable(
+    config: ClickHouseConfig,
+    params: { database: string; table: string; engine: string; orderBy: string; columns: Array<{ name: string; type: string }> }
+  ) {
+    const { database, table, engine, orderBy, columns } = params
+    if (!database || !table || !engine || !orderBy || !columns?.length) {
+      return {
+        success: false,
+        error: 'database, table, engine, orderBy, and at least one column are required',
+      }
+    }
+    const columnDefs = columns
+      .filter((c) => c.name && c.type)
+      .map((c) => `\`${c.name.replace(/`/g, '``')}\` ${c.type}`)
+      .join(', ')
+    if (!columnDefs) {
+      return { success: false, error: 'At least one column with name and type is required' }
+    }
+    const query = `CREATE TABLE IF NOT EXISTS \`${database.replace(/`/g, '``')}\`.\`${table.replace(/`/g, '``')}\` (${columnDefs}) ENGINE = ${engine} ORDER BY \`${orderBy.replace(/`/g, '``')}\``
+    try {
+      const connection = await createClickHouseConnection(config)
+      try {
+        await executeCommand(connection, query)
+      } finally {
+        await closeConnection(connection)
+      }
+      return { success: true }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to create table in ClickHouse',
+      }
+    }
+  }
+
+  async dropTable(config: ClickHouseConfig, database: string, table: string) {
+    if (!database || !table) {
+      return { success: false, error: 'database and table are required' }
+    }
+    const query = `DROP TABLE IF EXISTS \`${database.replace(/`/g, '``')}\`.\`${table.replace(/`/g, '``')}\``
+    try {
+      const connection = await createClickHouseConnection(config)
+      try {
+        await executeCommand(connection, query)
+      } finally {
+        await closeConnection(connection)
+      }
+      return { success: true }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to drop table in ClickHouse',
       }
     }
   }

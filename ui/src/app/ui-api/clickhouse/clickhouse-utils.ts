@@ -135,6 +135,20 @@ export async function executeQuery(connection: ClickHouseConnection, query: stri
   }
 }
 
+/**
+ * Execute a DDL command (CREATE TABLE, DROP TABLE, etc.). Does not parse response.
+ * Throws on error.
+ */
+export async function executeCommand(connection: ClickHouseConnection, query: string): Promise<void> {
+  if (connection.type === 'direct' && connection.directFetch) {
+    await connection.directFetch(query)
+  } else if (connection.type === 'client' && connection.client) {
+    await connection.client.query({ query, format: 'TabSeparated' })
+  } else {
+    throw new Error('Invalid connection type or missing connection method')
+  }
+}
+
 export async function closeConnection(connection: ClickHouseConnection): Promise<void> {
   if (connection.type === 'client' && connection.client) {
     await connection.client.close()
