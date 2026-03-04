@@ -137,19 +137,29 @@ export function useClickhouseMapperState() {
     updateClickhouseDestinationDraft({ destinationColumns: filteredSchema, mapping: newMapping })
   }, [destinationPath, storeSchema, tableSchema.columns, mappedColumns, updateClickhouseDestinationDraft])
 
-  // Hydration from clickhouseDestination (run once when not hydrated)
+  // Hydration from clickhouseDestination (run once when server data is available)
+  // Only hydrate when we have meaningful data (from hydrateClickhouseDestination) - not from
+  // default empty store state on initial mount, which would mark isHydrated and prevent
+  // re-running when async hydration completes.
   useEffect(() => {
-    if (clickhouseDestination && !isHydrated) {
-      setSelectedDatabase(clickhouseDestination.database || '')
-      setSelectedTable(clickhouseDestination.table || '')
-      setTableSchema({ columns: clickhouseDestination.destinationColumns || [] })
+    const hasServerData =
+      clickhouseDestination &&
+      (clickhouseDestination.mapping?.length > 0 ||
+        clickhouseDestination.destinationColumns?.length > 0 ||
+        (!!clickhouseDestination.database &&
+          !!(clickhouseDestination.table || clickhouseDestination.tableName)))
 
-      const hasMapping = clickhouseDestination.mapping && clickhouseDestination.mapping.length > 0
+    if (hasServerData && !isHydrated) {
+      setSelectedDatabase(clickhouseDestination!.database || '')
+      setSelectedTable(clickhouseDestination!.table || '')
+      setTableSchema({ columns: clickhouseDestination!.destinationColumns || [] })
+
+      const hasMapping = clickhouseDestination!.mapping && clickhouseDestination!.mapping.length > 0
       const hasColumns =
-        clickhouseDestination.destinationColumns && clickhouseDestination.destinationColumns.length > 0
+        clickhouseDestination!.destinationColumns && clickhouseDestination!.destinationColumns.length > 0
 
       if (!hasMapping && hasColumns) {
-        const filteredSchema = filterUserMappableColumns(clickhouseDestination.destinationColumns)
+        const filteredSchema = filterUserMappableColumns(clickhouseDestination!.destinationColumns)
         const initialMapping = filteredSchema.map((col) => ({
           ...col,
           jsonType: '',
@@ -159,16 +169,15 @@ export function useClickhouseMapperState() {
         }))
         setMappedColumns(initialMapping)
       } else {
-        setMappedColumns(clickhouseDestination.mapping || [])
+        setMappedColumns(clickhouseDestination!.mapping || [])
       }
 
-      setMaxBatchSize(clickhouseDestination.maxBatchSize || 1000)
-      setMaxDelayTime(clickhouseDestination.maxDelayTime || 1)
-      setMaxDelayTimeUnit(clickhouseDestination.maxDelayTimeUnit || 'm')
+      setMaxBatchSize(clickhouseDestination!.maxBatchSize || 1000)
+      setMaxDelayTime(clickhouseDestination!.maxDelayTime || 1)
+      setMaxDelayTimeUnit(clickhouseDestination!.maxDelayTimeUnit || 'm')
       setIsHydrated(true)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally omit clickhouseDestination to prevent resetting user changes
-  }, [isHydrated])
+  }, [isHydrated, clickhouseDestination])
 
   // Load table schema when database and table are selected (existing path only)
   useEffect(() => {
