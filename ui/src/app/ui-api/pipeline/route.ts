@@ -113,6 +113,13 @@ export async function POST(request: Request) {
       delete config.sink.native_port
     }
 
+    // Backend schema does not include engine/order_by - strip before forwarding to avoid validation error.
+    // These are only needed for create-table (done above); backend sink only needs table/mapping for INSERT.
+    if (config?.sink) {
+      delete config.sink.engine
+      delete config.sink.order_by
+    }
+
     const response = await axios.post(`${API_URL}/pipeline`, config)
 
     return NextResponse.json({
