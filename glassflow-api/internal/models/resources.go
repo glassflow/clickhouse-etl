@@ -48,7 +48,14 @@ func getEnvOrDefault(key, defaultVal string) string {
 	return defaultVal
 }
 
-func newDefaultIngestorComponentResources() *ComponentResources {
+func topicReplicas(topics []KafkaTopicsConfig, idx int) *int64 {
+	if idx < len(topics) && topics[idx].Replicas > 0 {
+		return ptrInt64(int64(topics[idx].Replicas))
+	}
+	return ptrInt64(1)
+}
+
+func newDefaultIngestorComponentResources(replicas *int64) *ComponentResources {
 	return &ComponentResources{
 		Requests: &ResourceList{
 			CPU:    getEnvOrDefault("INGESTOR_CPU_REQUEST", "100m"),
@@ -58,7 +65,7 @@ func newDefaultIngestorComponentResources() *ComponentResources {
 			CPU:    getEnvOrDefault("INGESTOR_CPU_LIMIT", "1500m"),
 			Memory: getEnvOrDefault("INGESTOR_MEMORY_LIMIT", "1.5Gi"),
 		},
-		Replicas: ptrInt64(1),
+		Replicas: replicas,
 	}
 }
 
@@ -85,8 +92,8 @@ func NewDefaultPipelineResources(cfg *PipelineConfig) PipelineResources {
 	}
 
 	if cfg.Join.Enabled {
-		r.Ingestor.Left = newDefaultIngestorComponentResources()
-		r.Ingestor.Right = newDefaultIngestorComponentResources()
+		r.Ingestor.Left = newDefaultIngestorComponentResources(topicReplicas(cfg.Ingestor.KafkaTopics, 0))
+		r.Ingestor.Right = newDefaultIngestorComponentResources(topicReplicas(cfg.Ingestor.KafkaTopics, 1))
 		r.Join = &ComponentResources{
 			Requests: &ResourceList{
 				CPU:    getEnvOrDefault("JOIN_CPU_REQUEST", "100m"),
@@ -99,7 +106,7 @@ func NewDefaultPipelineResources(cfg *PipelineConfig) PipelineResources {
 			Replicas: ptrInt64(1),
 		}
 	} else {
-		r.Ingestor.Base = newDefaultIngestorComponentResources()
+		r.Ingestor.Base = newDefaultIngestorComponentResources(topicReplicas(cfg.Ingestor.KafkaTopics, 0))
 	}
 
 	if transformEnabled(cfg) {
