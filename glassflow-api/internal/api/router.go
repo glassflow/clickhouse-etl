@@ -89,6 +89,7 @@ func NewRouter(
 	registerHumaHandler("/api/v1/filter/validate", h.validateFilter, log, ValidateFilterDocs(), humaAPI, h.usageStatsClient)
 	registerHumaHandler("/api/v1/transform/expression/evaluate", h.evaluateTransform, log, EvaluateTransformDocs(), humaAPI, h.usageStatsClient)
 	registerHumaHandler("/api/v1/pipeline", h.getPipelines, log, GetPipelinesDocs(), humaAPI, h.usageStatsClient)
+	registerHumaHandler("/api/v1/pipeline/{id}/resources/validation", h.getPipelineResourcesValidation, log, GetPipelineResourcesValidationDocs(), humaAPI, h.usageStatsClient)
 	registerHumaHandler("/api/v1/pipeline/{id}/resources", h.getPipelineResources, log, GetPipelineResourcesDocs(), humaAPI, h.usageStatsClient)
 	registerHumaHandler("/api/v1/pipeline/{id}/resources", h.updatePipelineResources, log, UpdatePipelineResourcesDocs(), humaAPI, h.usageStatsClient)
 	registerHumaHandler("/api/v1/pipeline/{id}", h.getPipeline, log, GetPipelineDocs(), humaAPI, h.usageStatsClient)

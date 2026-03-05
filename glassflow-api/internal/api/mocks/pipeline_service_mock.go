@@ -156,6 +156,21 @@ func (mr *MockPipelineServiceMockRecorder) GetPipelineResources(ctx, pid any) *g
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPipelineResources", reflect.TypeOf((*MockPipelineService)(nil).GetPipelineResources), ctx, pid)
 }
 
+// GetPipelineResourcesValidation mocks base method.
+func (m *MockPipelineService) GetPipelineResourcesValidation(ctx context.Context, pid string) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPipelineResourcesValidation", ctx, pid)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetPipelineResourcesValidation indicates an expected call of GetPipelineResourcesValidation.
+func (mr *MockPipelineServiceMockRecorder) GetPipelineResourcesValidation(ctx, pid any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPipelineResourcesValidation", reflect.TypeOf((*MockPipelineService)(nil).GetPipelineResourcesValidation), ctx, pid)
+}
+
 // GetPipelines mocks base method.
 func (m *MockPipelineService) GetPipelines(ctx context.Context) ([]models.ListPipelineConfig, error) {
 	m.ctrl.T.Helper()
