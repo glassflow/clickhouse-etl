@@ -24,26 +24,36 @@ GlassFlow is an open-source streaming ETL for Kafka to Clickhouse streams. It ha
 <div className="flex flex-col gap-4">
 
 ### Streaming Deduplication
-- Real-time deduplication of Kafka streams before ingestion into ClickHouse
+- Real-time deduplication of Kafka streams before ingestion into ClickHouse ([Deduplication](/configuration/transformations/deduplication))
 - Configurable time windows up to 7 days for deduplication
 - Simple configuration of deduplication keys and time windows
 - Prevents duplicate data from reaching ClickHouse
 
 ### Temporal Stream Joins
-- Join two Kafka streams in real-time
+- Join two Kafka streams in real-time ([Join](/configuration/transformations/join))
 - Configurable time windows up to 7 days for stream joins
 - Configure join keys and time windows through the UI
 - Simplified join setup process
 - Produce joined streams ready for ClickHouse ingestion
 
+### Filter
+- Expression-based filtering to process only events that match your criteria ([Filter](/configuration/transformations/filter))
+- Configure filter expressions at the pipeline level; non-matching events are dropped before downstream processing
+- Uses the expr language for type-safe, field-based conditions
+
+### Stateless Transformations
+- Reshape event payloads with expression-based field mappings ([Stateless transformations](/configuration/transformations/stateless-transformation))
+- Normalize fields, derive new fields, and map nested JSON to a flat schema
+- Each event transformed independently—no stored state; rich expression language with built-in helpers
+
 ### Kubernetes Native Architecture
-- Robust and scalable architecture natively built for Kubernetes
+- Robust and scalable architecture natively built for Kubernetes ([Architecture](/architecture))
 - Easy installation using Helm
 - Custom Kubernetes controller for managing pipelines
 - Horizontal scalability
 
 ### Built-in Kafka Connector
-- Automatic data extraction from Kafka topics
+- Automatic data extraction from Kafka topics ([Supported Kafka connections](/configuration/supported-kafka-connections))
 - Seamless integration with Kafka clusters
 - No manual data pulling required
 - Supports multiple Kafka topics and partitions
@@ -56,6 +66,7 @@ GlassFlow is an open-source streaming ETL for Kafka to Clickhouse streams. It ha
 - Built-in retry mechanisms
 - Automatic schema detection and management
 - Full support for JSON data types in ClickHouse including nested JSON and arrays
+
 
 </div>
 </div>
