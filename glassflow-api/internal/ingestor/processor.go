@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"hash/fnv"
 	"log/slog"
-	"os"
 	"strconv"
 
 	"github.com/nats-io/nats.go"
@@ -35,6 +34,11 @@ type KafkaMsgProcessor struct {
 	log          *slog.Logger
 	meter        *observability.Meter
 
+	outputSubject      string
+	dedupSubjectPrefix string
+	dedupSubjectCount  int
+	singleDedupSubject string
+
 	pendingPublishesLimit int
 }
 
@@ -42,11 +46,32 @@ func NewKafkaMsgProcessor(
 	publisher, dlqPublisher stream.Publisher,
 	schemaMapper schema.Mapper,
 	topic models.KafkaTopicsConfig,
+	runtimeCfg models.IngestorRuntimeConfig,
 	log *slog.Logger,
 	meter *observability.Meter,
-) *KafkaMsgProcessor {
+) (*KafkaMsgProcessor, error) {
 	if topic.Replicas < 1 {
 		topic.Replicas = 1
+	}
+
+	outputSubject := runtimeCfg.OutputSubject
+	if outputSubject == "" {
+		return nil, fmt.Errorf("output subject is required")
+	}
+
+	dedupSubjectPrefix := runtimeCfg.DedupSubjectPrefix
+	dedupSubjectCount := runtimeCfg.DedupSubjectCount
+	singleDedupSubject := ""
+	if topic.Deduplication.Enabled {
+		if dedupSubjectCount <= 0 {
+			return nil, fmt.Errorf("dedup subject count must be > 0 when deduplication is enabled")
+		}
+		if dedupSubjectPrefix == "" {
+			return nil, fmt.Errorf("dedup subject prefix is required when deduplication is enabled")
+		}
+		if dedupSubjectCount == 1 {
+			singleDedupSubject = outputSubject
+		}
 	}
 
 	pendingPublishesLimit := min(internal.PublisherMaxPendingAcks, internal.NATSMaxBufferedMsgs/topic.Replicas)
@@ -55,10 +80,14 @@ func NewKafkaMsgProcessor(
 		dlqPublisher:          dlqPublisher,
 		schemaMapper:          schemaMapper,
 		topic:                 topic,
+		outputSubject:         outputSubject,
+		dedupSubjectPrefix:    dedupSubjectPrefix,
+		dedupSubjectCount:     dedupSubjectCount,
+		singleDedupSubject:    singleDedupSubject,
 		pendingPublishesLimit: pendingPublishesLimit,
 		log:                   log,
 		meter:                 meter,
-	}
+	}, nil
 }
 
 func (k *KafkaMsgProcessor) pushMsgToDLQ(ctx context.Context, orgMsg []byte, err error) error {
@@ -94,15 +123,14 @@ func (k *KafkaMsgProcessor) setDedupHeader(headers nats.Header, dedupKeyStr stri
 }
 
 // getSubject returns the fixed NATS subject for publishing (from publisher config).
-// Used when dedup is disabled or when NATS_SUBJECT_COUNT is not set.
+// Used when dedup is disabled.
 func (k *KafkaMsgProcessor) getSubject() string {
-	return k.publisher.GetSubject()
+	return k.outputSubject
 }
 
 // getSubjectAndDedupKey returns the NATS subject for this message and, when dedup is enabled, the dedup key string for the header.
 // Resolves the dedup key at most once: same key is used for subject routing (hash % M) and for Nats-Msg-Id header.
-// When deduplication is enabled and NATS_SUBJECT_COUNT and NATS_SUBJECT_PREFIX are set,
-// subject is NATS_SUBJECT_PREFIX.(hash(dedupKey) % M). Otherwise returns the fixed subject.
+// When deduplication is enabled, subject is DedupSubjectPrefix.(hash(dedupKey) % DedupSubjectCount).
 func (k *KafkaMsgProcessor) getSubjectAndDedupKey(msgData []byte) (subject string, dedupKeyStr string, err error) {
 	if !k.topic.Deduplication.Enabled {
 		return k.getSubject(), "", nil
@@ -116,19 +144,14 @@ func (k *KafkaMsgProcessor) getSubjectAndDedupKey(msgData []byte) (subject strin
 	}
 	strKey := fmt.Sprintf("%v", keyValue)
 
-	prefix := os.Getenv("NATS_SUBJECT_PREFIX")
-	countStr := os.Getenv("NATS_SUBJECT_COUNT")
-	if prefix == "" || countStr == "" {
-		return k.getSubject(), strKey, nil
+	if k.singleDedupSubject != "" {
+		return k.singleDedupSubject, strKey, nil
 	}
-	M, parseErr := strconv.Atoi(countStr)
-	if parseErr != nil || M <= 0 {
-		return k.getSubject(), strKey, nil
-	}
+
 	h := fnv.New64a()
 	_, _ = h.Write([]byte(strKey))
-	idx := int(h.Sum64() % uint64(M))
-	return fmt.Sprintf("%s.%d", prefix, idx), strKey, nil
+	idx := int(h.Sum64() % uint64(k.dedupSubjectCount))
+	return fmt.Sprintf("%s.%d", k.dedupSubjectPrefix, idx), strKey, nil
 }
 
 func (k *KafkaMsgProcessor) prepareMesssage(ctx context.Context, msg *kgo.Record) (*nats.Msg, error) {
