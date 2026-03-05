@@ -206,7 +206,10 @@ func (s *IngestorTestSuite) aKafkaTopicWithPartitions(topicName string, partitio
 func (s *IngestorTestSuite) aSchemaRegistryContainsSchemaWithIDAndFields(schemaID int, fields *godog.Table) error {
 	var schemaFields []models.Field
 
-	s.mockSRClient = testutils.NewMockSchemaRegistryClient(s.logger)
+	if s.mockSRClient == nil {
+		s.mockSRClient = testutils.NewMockSchemaRegistryClient(s.logger)
+	}
+
 	for _, row := range fields.Rows[1:] {
 		if len(row.Cells) < 2 {
 			return fmt.Errorf("each field row must have at least 2 columns (name, type)")
