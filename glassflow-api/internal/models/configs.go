@@ -210,15 +210,12 @@ type JoinSourceConfig struct {
 }
 
 type JoinComponentConfig struct {
-	Type           string             `json:"type"`
-	Enabled        bool               `json:"enabled"`
-	Sources        []JoinSourceConfig `json:"sources"`
-	OutputStreamID string             `json:"output_stream_id"`
+	Type    string             `json:"type"`
+	Enabled bool               `json:"enabled"`
+	Sources []JoinSourceConfig `json:"sources"`
 
-	NATSLeftConsumerName  string       `json:"nats_left_consumer_name"`
-	NATSRightConsumerName string       `json:"nats_right_consumer_name"`
-	LeftBufferTTL         JSONDuration `json:"left_buffer_ttl"`
-	RightBufferTTL        JSONDuration `json:"right_buffer_ttl"`
+	LeftBufferTTL  JSONDuration `json:"left_buffer_ttl"`
+	RightBufferTTL JSONDuration `json:"right_buffer_ttl"`
 }
 
 type JoinOrder string

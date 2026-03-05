@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
@@ -17,8 +18,9 @@ import (
 )
 
 type JoinRunner struct {
-	log *slog.Logger
-	nc  *client.NATSClient
+	log        *slog.Logger
+	nc         *client.NATSClient
+	pipelineID string
 
 	joinCfg      models.JoinComponentConfig
 	schemaMapper schema.Mapper
@@ -28,55 +30,13 @@ type JoinRunner struct {
 	doneCh    chan struct{}
 }
 
-// getJoinInputStreamName returns the NATS stream name the join consumes from.
-// When an explicit env var is set for a side (left/right), it is used directly.
-// Otherwise it falls back to the stream ID from the pipeline config.
-func getJoinInputStreamName(fallbackStreamID, envVarName string) string {
-	streamName := os.Getenv(envVarName)
-	if streamName != "" {
-		return streamName
-	}
-	return fallbackStreamID
-}
-
-// getJoinOutputSubject returns the NATS subject the join publishes to.
-// When GLASSFLOW_POD_INDEX and NATS_SUBJECT_PREFIX are set, subject is "NATS_SUBJECT_PREFIX.GLASSFLOW_POD_INDEX".
-// Otherwise it falls back to the default subject derived from outputStreamID.
-func getJoinOutputSubject(outputStreamID string) string {
-	prefix := os.Getenv("NATS_SUBJECT_PREFIX")
-	podIndex := os.Getenv("GLASSFLOW_POD_INDEX")
-	if prefix != "" && podIndex != "" {
-		return fmt.Sprintf("%s.%s", prefix, podIndex)
-	}
-	return models.GetNATSSubjectNameDefault(outputStreamID)
-}
-
-func getLeftRightInputStreamsFromJoinConfig(joinCfg models.JoinComponentConfig) (leftStream, rightStream string, err error) {
-	if len(joinCfg.Sources) != 2 {
-		return "", "", fmt.Errorf("join must have exactly 2 sources, got %d", len(joinCfg.Sources))
-	}
-
-	if joinCfg.Sources[0].Orientation == "left" {
-		leftStream = joinCfg.Sources[0].StreamID
-		rightStream = joinCfg.Sources[1].StreamID
-	} else {
-		leftStream = joinCfg.Sources[1].StreamID
-		rightStream = joinCfg.Sources[0].StreamID
-	}
-
-	if leftStream == "" || rightStream == "" {
-		return "", "", fmt.Errorf("both left and right streams must be specified in join sources")
-	}
-
-	return leftStream, rightStream, nil
-}
-
-func NewJoinRunner(log *slog.Logger, nc *client.NATSClient, joinCfg models.JoinComponentConfig, schemaMapper schema.Mapper) *JoinRunner {
+func NewJoinRunner(log *slog.Logger, nc *client.NATSClient, pipelineConfig models.PipelineConfig, schemaMapper schema.Mapper) *JoinRunner {
 	return &JoinRunner{
-		nc:  nc,
-		log: log,
+		nc:         nc,
+		log:        log,
+		pipelineID: pipelineConfig.ID,
 
-		joinCfg:      joinCfg,
+		joinCfg:      pipelineConfig.Join,
 		schemaMapper: schemaMapper,
 
 		component: nil,
@@ -103,42 +63,52 @@ func (j *JoinRunner) Start(ctx context.Context) error {
 	}
 
 	var (
-		leftConsumer    jetstream.Consumer
-		rightConsumer   jetstream.Consumer
-		leftBuffer      kv.KeyValueStore
-		rightBuffer     kv.KeyValueStore
-		leftStreamName  string
-		rightStreamName string
-		err             error
+		leftConsumer  jetstream.Consumer
+		rightConsumer jetstream.Consumer
+		leftBuffer    kv.KeyValueStore
+		rightBuffer   kv.KeyValueStore
+		err           error
 	)
 
-	leftStreamName = mapper.GetLeftStream()
-	rightStreamName = mapper.GetRightStream()
-
-	leftInputFallback, rightInputFallback, err := getLeftRightInputStreamsFromJoinConfig(j.joinCfg)
+	leftInputStreamName, err := getJoinLeftInputStreamName()
 	if err != nil {
-		j.log.ErrorContext(ctx, "invalid join stream configuration", "error", err)
-		return fmt.Errorf("resolve left/right join streams: %w", err)
+		j.log.ErrorContext(ctx, "failed to resolve join left input stream", "error", err)
+		return fmt.Errorf("resolve join left input stream: %w", err)
 	}
 
-	if j.joinCfg.OutputStreamID == "" {
-		return fmt.Errorf("join output stream ID cannot be empty")
+	rightInputStreamName, err := getJoinRightInputStreamName()
+	if err != nil {
+		j.log.ErrorContext(ctx, "failed to resolve join right input stream", "error", err)
+		return fmt.Errorf("resolve join right input stream: %w", err)
 	}
 
-	leftInputStreamName := getJoinInputStreamName(leftInputFallback, "NATS_LEFT_INPUT_STREAM_PREFIX")
-	rightInputStreamName := getJoinInputStreamName(rightInputFallback, "NATS_RIGHT_INPUT_STREAM_PREFIX")
-	outputSubject := getJoinOutputSubject(j.joinCfg.OutputStreamID)
+	outputSubject, err := getJoinOutputSubject()
+	if err != nil {
+		j.log.ErrorContext(ctx, "failed to resolve join output subject", "error", err)
+		return fmt.Errorf("resolve join output subject: %w", err)
+	}
+
+	// Mapper stream names are schema source IDs and are required for join-key extraction.
+	leftSourceID := mapper.GetLeftStream()
+	rightSourceID := mapper.GetRightStream()
+	if leftSourceID == "" || rightSourceID == "" {
+		return fmt.Errorf("join mapper stream names are required; got left=%q right=%q", leftSourceID, rightSourceID)
+	}
+
 	j.log.InfoContext(ctx, "Join will read/write NATS resources",
 		"left_input_stream", leftInputStreamName,
 		"right_input_stream", rightInputStreamName,
-		"output_subject", outputSubject)
+		"output_subject", outputSubject,
+		"left_source", leftSourceID,
+		"right_source", rightSourceID,
+	)
 
 	leftConsumer, err = stream.NewNATSConsumer(
 		ctx,
 		j.nc.JetStream(),
 		jetstream.ConsumerConfig{
-			Name:          j.joinCfg.NATSLeftConsumerName,
-			Durable:       j.joinCfg.NATSLeftConsumerName,
+			Name:          models.GetNATSJoinLeftConsumerName(j.pipelineID),
+			Durable:       models.GetNATSJoinLeftConsumerName(j.pipelineID),
 			FilterSubject: models.GetWildcardNATSSubjectName(leftInputStreamName),
 			AckPolicy:     jetstream.AckExplicitPolicy,
 			AckWait:       internal.NatsDefaultAckWait,
@@ -155,8 +125,8 @@ func (j *JoinRunner) Start(ctx context.Context) error {
 		ctx,
 		j.nc.JetStream(),
 		jetstream.ConsumerConfig{
-			Name:          j.joinCfg.NATSRightConsumerName,
-			Durable:       j.joinCfg.NATSRightConsumerName,
+			Name:          models.GetNATSJoinRightConsumerName(j.pipelineID),
+			Durable:       models.GetNATSJoinRightConsumerName(j.pipelineID),
 			FilterSubject: models.GetWildcardNATSSubjectName(rightInputStreamName),
 			AckPolicy:     jetstream.AckExplicitPolicy,
 			AckWait:       internal.NatsDefaultAckWait,
@@ -198,8 +168,8 @@ func (j *JoinRunner) Start(ctx context.Context) error {
 		j.schemaMapper,
 		leftBuffer,
 		rightBuffer,
-		leftStreamName,
-		rightStreamName,
+		leftSourceID,
+		rightSourceID,
 		j.doneCh,
 		j.log,
 	)
@@ -233,4 +203,35 @@ func (j *JoinRunner) Shutdown() {
 // Done returns a channel that signals when the component stops by itself
 func (j *JoinRunner) Done() <-chan struct{} {
 	return j.doneCh
+}
+
+// getJoinInputStreamName returns the NATS stream name the join consumes from.
+func getJoinLeftInputStreamName() (string, error) {
+	return getRequiredEnvVar("NATS_LEFT_INPUT_STREAM_PREFIX")
+}
+func getJoinRightInputStreamName() (string, error) {
+	return getRequiredEnvVar("NATS_RIGHT_INPUT_STREAM_PREFIX")
+}
+
+// getJoinOutputSubject returns the NATS subject the join publishes to
+func getJoinOutputSubject() (string, error) {
+	prefix, err := getRequiredEnvVar("NATS_SUBJECT_PREFIX")
+	if err != nil {
+		return "", err
+	}
+
+	podIndex, err := getRequiredEnvVar("GLASSFLOW_POD_INDEX")
+	if err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("%s.%s", prefix, podIndex), nil
+}
+
+func getRequiredEnvVar(name string) (string, error) {
+	val := strings.TrimSpace(os.Getenv(name))
+	if val == "" {
+		return "", fmt.Errorf("required environment variable %s is missing or empty", name)
+	}
+	return val, nil
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
 	"sync"
 	"time"
 
@@ -93,6 +94,9 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 	//nolint: contextcheck // new context for long running processes
 	ctx = context.Background()
 
+	// Ensure stale join-specific env does not leak across local test pipelines.
+	d.clearJoinEnvVars(ctx)
+
 	var (
 		sinkConsumerStream  string
 		sinkConsumerSubject string
@@ -177,7 +181,12 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 		}
 		d.log.DebugContext(ctx, "created join right buffer KV store successfully")
 
-		d.joinRunner = service.NewJoinRunner(d.log.With("component", "join"), d.nc, pi.Join, schemaMapper)
+		// Join runner resolves these from env (operator-style contract).
+		os.Setenv("NATS_LEFT_INPUT_STREAM_PREFIX", leftInputStreamName)
+		os.Setenv("NATS_RIGHT_INPUT_STREAM_PREFIX", rightInputStreamName)
+		os.Setenv("NATS_SUBJECT_PREFIX", sinkConsumerStream)
+		os.Setenv("GLASSFLOW_POD_INDEX", internal.DefaultSubjectName)
+		d.joinRunner = service.NewJoinRunner(d.log.With("component", "join"), d.nc, *pi, schemaMapper)
 		err = d.joinRunner.Start(ctx)
 		if err != nil {
 			d.log.ErrorContext(ctx, "failed to start join runner", "left_stream", leftInputStreamName, "right_stream", rightInputStreamName, "error", err)
@@ -440,7 +449,23 @@ func (d *LocalOrchestrator) terminatePipelineComponents(ctx context.Context, pid
 	// Clear pipeline config at the end (similar to cleaning d.id)
 	d.pipelineConfig = nil
 
+	// Remove join-specific env for the next local pipeline setup.
+	d.clearJoinEnvVars(ctx)
+
 	return nil
+}
+
+func (d *LocalOrchestrator) clearJoinEnvVars(ctx context.Context) {
+	for _, key := range []string{
+		"NATS_LEFT_INPUT_STREAM_PREFIX",
+		"NATS_RIGHT_INPUT_STREAM_PREFIX",
+		"NATS_SUBJECT_PREFIX",
+		"GLASSFLOW_POD_INDEX",
+	} {
+		if err := os.Unsetenv(key); err != nil {
+			d.log.WarnContext(ctx, "failed to unset env var", "key", key, "error", err)
+		}
+	}
 }
 
 // cleanupNATSResources cleans up NATS streams and KV stores for a pipeline
@@ -471,11 +496,12 @@ func (d *LocalOrchestrator) cleanupNATSResources(ctx context.Context, pipeline *
 	// Clean up join resources if join is enabled
 	if pipeline.Join.Enabled {
 		// Clean up join output stream
-		if pipeline.Join.OutputStreamID != "" {
-			d.log.DebugContext(ctx, "deleting join output stream", "stream", pipeline.Join.OutputStreamID)
-			err := d.nc.DeleteStream(ctx, pipeline.Join.OutputStreamID)
+		outputStreamID := models.GetJoinedStreamName(pipeline.ID)
+		if outputStreamID != "" {
+			d.log.DebugContext(ctx, "deleting join output stream", "stream", outputStreamID)
+			err := d.nc.DeleteStream(ctx, outputStreamID)
 			if err != nil {
-				d.log.ErrorContext(ctx, "failed to delete join output stream", "error", err, "stream", pipeline.Join.OutputStreamID)
+				d.log.ErrorContext(ctx, "failed to delete join output stream", "error", err, "stream", outputStreamID)
 				// Continue with other cleanup even if this fails
 			}
 		}

@@ -376,16 +376,12 @@ func mainJoin(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 		return fmt.Errorf("join must have exactly 2 sources")
 	}
 
-	if pipelineCfg.Join.OutputStreamID == "" {
-		return fmt.Errorf("join output stream ID must be specified")
-	}
-
 	schemaMapper, err := schema.NewMapper(pipelineCfg.Mapper)
 	if err != nil {
 		return fmt.Errorf("create schema mapper: %w", err)
 	}
 
-	joinRunner := service.NewJoinRunner(log, nc, pipelineCfg.Join, schemaMapper)
+	joinRunner := service.NewJoinRunner(log, nc, pipelineCfg, schemaMapper)
 
 	usageStatsClient := newUsageStatsClient(cfg, log, nil)
 
