@@ -217,10 +217,7 @@ Feature: Kafka to CH pipeline
                             "orientation": "right",
                             "stream_id": "gf-609e6e0a-test_users"
                         }
-                    ],
-                    "output_stream_id": "gf-609e6e0a-joined",
-                    "nats_left_consumer_name": "gf-nats-jl-609e6e0a",
-                    "nats_right_consumer_name": "gf-nats-jr-609e6e0a"
+                    ]
                 },
                 "sink": {
                     "type": "clickhouse",
@@ -376,10 +373,7 @@ Feature: Kafka to CH pipeline
                             "orientation": "right",
                             "stream_id": "gf-a75779b0-test_users"
                         }
-                    ],
-                    "output_stream_id": "gf-a75779b0-joined",
-                    "nats_left_consumer_name": "gf-nats-jl-a75779b0",
-                    "nats_right_consumer_name": "gf-nats-jr-a75779b0"
+                    ]
                 },
                 "sink": {
                     "type": "clickhouse",

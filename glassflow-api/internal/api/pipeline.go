@@ -249,9 +249,6 @@ func newJoinComponentConfig(p pipelineJSON) (zero models.JoinComponentConfig, _ 
 	if err != nil {
 		return zero, fmt.Errorf("create join config: %w", err)
 	}
-	joinComponentConfig.OutputStreamID = models.GetJoinedStreamName(p.PipelineID)
-	joinComponentConfig.NATSLeftConsumerName = models.GetNATSJoinLeftConsumerName(p.PipelineID)
-	joinComponentConfig.NATSRightConsumerName = models.GetNATSJoinRightConsumerName(p.PipelineID)
 
 	return joinComponentConfig, nil
 }
