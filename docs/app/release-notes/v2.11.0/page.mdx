@@ -7,7 +7,7 @@ description: Release notes for the GlassFlow ClickHouse ETL v2.11.0 - Pipeline r
 
 # Release Notes v2.11.0
 
-Version 2.11.0 introduces **pipeline resources management** with APIs to get and update per-pipeline resource settings (replicas, CPU/memory), a **transformations playground** in the UI to try expressions with sample data. It also adds **pipeline ID length validation**, fixes for **config upload and review**, **encryption of credentials in pipeline history events**, and **UI and design system** updates.
+Version 2.11.0 introduces **pipeline resources management** with APIs to get and update per-pipeline resource settings (replicas, CPU/memory), **horizontal scaling** support for ingestor, transform, and sink components and a **transformations playground** in the UI to try expressions with sample data. 
 
 ## What's New
 
@@ -15,17 +15,24 @@ Version 2.11.0 introduces **pipeline resources management** with APIs to get and
 
 You can now **manage pipeline resources** (replicas and optional CPU/memory) via the API and pipeline configuration:
 
-- **Get and update pipeline resources** — New API endpoints to get and update `pipeline_resources` for a pipeline (ingestor, transform, sink, join, NATS)
-- **Validation** — Validation of pipeline resources on update; default values applied when resources are empty so pipelines run with sensible defaults
+- **Get and update pipeline resources** — New API endpoints to get and update `pipeline_resources` for a pipeline (ingestor, transform, sink, join, NATS). Pipeline resources can be set when the pipeline is created or updated later
+- **Validation** — Validation of pipeline resources on update, including replica count hierarchy; default values applied when resources are empty; reduced default resource values (CPU/memory) where applicable
 - **Pipeline JSON and reference** — Pipeline resources documented and configurable in the pipeline JSON; see the [Pipeline JSON Reference](/configuration/pipeline-json-reference#pipeline-resources-configuration)
-- **Replica configuration** — Replica count is no longer blocked by API checks; you can configure replicas for ingestor (base/left/right), transform, and sink as needed for horizontal scaling
+- **Replica configuration** — You can configure replicas for ingestor (base/left/right), transform, sink, and dedup as allowed by the pipeline topology. When **join** is enabled, only the ingestor can be scaled; join, transform, and sink run with one replica. When **deduplication** is enabled, transform replica count cannot be changed after pipeline creation
+
+### Horizontal Scaling (Multi-stream support)
+
+Support horizontal scaling of ingestor, transform, and sink components to write and read to multiple streams.
+
+- **Multi-stream** — Sink and ingestor updated for multi-stream pipeline support; subject and stream naming aligned with pipeline topology
+- **Dedup component** — Dedup component stream and subject handling updated; ingestor subject is determined from `dedup_key` when deduplication is enabled. Fix for dedup-enabled flag check so dedup behavior is applied correctly
 
 ### 🧪 Transformations Playground
 
 - **Transformations playground** — In the transformation step, you can use a **playground** to try expressions against sample or empty JSON. The playground is available in edit mode with a default raw-expression view
 - **Labeling** — Clear labeling of the field used in the playground so you can see which input is used for expression evaluation
 
-![](/assets/ui_stateless_transformation_configuration_playground.png)
+![UI - Transformations Playground](/assets/ui_stateless_transformation_configuration_playground.png)
 
 ### 🔧 Transformations and Validation
 

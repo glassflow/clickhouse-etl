@@ -19,7 +19,7 @@ Together, scaling these components allows you to fully scale a pipeline horizont
 
 | Component | Scalable | Notes |
 | --- | --- | --- |
-| **Ingestor** (base / left / right) | Yes | Increase replicas to consume from more Kafka partitions in parallel. |
+| **Ingestor** | Yes | Increase replicas to consume from more Kafka partitions in parallel. |
 | **Transform** | Yes | Increase replicas when transformation is the bottleneck. Transform replicas can not be changed after the pipeline is created when deduplication is enabled. |
 | **Sink** | Yes | Increase replicas to write to ClickHouse with higher throughput. |
 | **Join** | No | Join must run with 1 replica. Use multiple pipelines or filter-based routing if you need more join capacity. |
@@ -78,6 +78,6 @@ For higher throughput than a single pipeline can provide, add more pipelines and
 
 ## Summary
 
-- **Ingestor, transform, and sink** can be scaled via `pipeline_resources` in the pipeline configuration.
+- **Ingestor, transform, and sink** can be scaled via [pipeline resources](/configuration/pipeline-json-reference#pipeline-resources-configuration) in the pipeline configuration.
 - **Join** pipelines support scaling ingestors and sink only; the join stage is single-replica.
 - Align ingestor replicas with Kafka partitions, use metrics to find bottlenecks, and combine component scaling with multi-pipeline scaling when needed.
