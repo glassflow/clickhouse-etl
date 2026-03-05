@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/signal"
 	"path"
+	"strconv"
 	"sync"
 	"syscall"
 	"time"
@@ -409,7 +410,17 @@ func mainIngestor(ctx context.Context, nc *client.NATSClient, cfg *config, log *
 		return fmt.Errorf("create schema mapper: %w", err)
 	}
 
-	ingestorRunner := service.NewIngestorRunner(log, nc, cfg.IngestorTopic, pipelineCfg, schemaMapper, meter)
+	topicCfg, err := getIngestorTopicConfig(pipelineCfg, cfg.IngestorTopic)
+	if err != nil {
+		return fmt.Errorf("resolve ingestor topic config: %w", err)
+	}
+
+	runtimeCfg, err := getIngestorRuntimeConfigFromEnv(topicCfg.Deduplication.Enabled)
+	if err != nil {
+		return fmt.Errorf("resolve ingestor runtime config: %w", err)
+	}
+
+	ingestorRunner := service.NewIngestorRunner(log, nc, cfg.IngestorTopic, pipelineCfg, runtimeCfg, schemaMapper, meter)
 
 	usageStatsClient := newUsageStatsClient(cfg, log, nil)
 
@@ -420,6 +431,50 @@ func mainIngestor(ctx context.Context, nc *client.NATSClient, cfg *config, log *
 		internal.RoleIngestor,
 		usageStatsClient,
 	)
+}
+
+func getIngestorTopicConfig(pipelineCfg models.PipelineConfig, topicName string) (models.KafkaTopicsConfig, error) {
+	for _, topic := range pipelineCfg.Ingestor.KafkaTopics {
+		if topic.Name == topicName {
+			return topic, nil
+		}
+	}
+
+	return models.KafkaTopicsConfig{}, fmt.Errorf("topic %q not found in ingestor config", topicName)
+}
+
+func getIngestorRuntimeConfigFromEnv(dedupEnabled bool) (models.IngestorRuntimeConfig, error) {
+	prefix := os.Getenv("NATS_SUBJECT_PREFIX")
+	if prefix == "" {
+		return models.IngestorRuntimeConfig{}, fmt.Errorf("required environment variable NATS_SUBJECT_PREFIX is missing or empty")
+	}
+
+	podIndex := os.Getenv("GLASSFLOW_POD_INDEX")
+	if podIndex == "" {
+		return models.IngestorRuntimeConfig{}, fmt.Errorf("required environment variable GLASSFLOW_POD_INDEX is missing or empty")
+	}
+
+	cfg := models.IngestorRuntimeConfig{
+		OutputSubject:      fmt.Sprintf("%s.%s", prefix, podIndex),
+		DedupSubjectPrefix: prefix,
+	}
+
+	if !dedupEnabled {
+		return cfg, nil
+	}
+
+	subjectCountRaw := os.Getenv("NATS_SUBJECT_COUNT")
+	if subjectCountRaw == "" {
+		return models.IngestorRuntimeConfig{}, fmt.Errorf("required environment variable NATS_SUBJECT_COUNT is missing or empty when deduplication is enabled")
+	}
+
+	subjectCount, err := strconv.Atoi(subjectCountRaw)
+	if err != nil || subjectCount <= 0 {
+		return models.IngestorRuntimeConfig{}, fmt.Errorf("invalid NATS_SUBJECT_COUNT=%q: must be a positive integer when deduplication is enabled", subjectCountRaw)
+	}
+
+	cfg.DedupSubjectCount = subjectCount
+	return cfg, nil
 }
 
 func runWithGracefulShutdown(

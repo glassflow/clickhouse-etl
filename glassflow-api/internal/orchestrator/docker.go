@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -117,8 +119,8 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 	d.log = d.log.With("pipeline_id", d.id)
 
 	for _, t := range pi.Ingestor.KafkaTopics {
-		streamName := t.OutputStreamID
-		subjectName := t.OutputStreamSubject
+		streamName := models.GetIngestorStreamName(d.id, t.Name)
+		subjectName := models.GetPipelineNATSSubject(d.id, t.Name)
 		err := d.nc.CreateOrUpdateStream(ctx, streamName, subjectName, t.Deduplication.Window.Duration())
 		if err != nil {
 			d.log.ErrorContext(ctx, "failed to create ingestion stream", "stream_name", streamName, "subject_name", subjectName, "error", err)
@@ -132,8 +134,32 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 	for _, t := range pi.Ingestor.KafkaTopics {
 		for i := range t.Replicas {
 			d.log.DebugContext(ctx, "create ingestor for the topic", "topic", t.Name, "replica", i)
-			ingestorRunner := service.NewIngestorRunner(d.log.With("component", "ingestor", "topic", t.Name), d.nc, t.Name, *pi,
-				schemaMapper, nil) // nil meter for docker orchestrator
+			subjectCount := 0
+			if t.Deduplication.Enabled {
+				subjectCount = max(t.Replicas, 1)
+			}
+
+			subjectPattern := models.GetPipelineNATSSubject(d.id, t.Name)
+			outputSubject := resolveReplicaOutputSubject(subjectPattern, i)
+			if outputSubject == "" {
+				return fmt.Errorf("setup ingestor runtime config for topic %s: output stream subject is empty", t.Name)
+			}
+
+			runtimeCfg := models.IngestorRuntimeConfig{
+				OutputSubject:      outputSubject,
+				DedupSubjectPrefix: resolveDedupSubjectPrefix(subjectPattern),
+				DedupSubjectCount:  subjectCount,
+			}
+
+			ingestorRunner := service.NewIngestorRunner(
+				d.log.With("component", "ingestor", "topic", t.Name),
+				d.nc,
+				t.Name,
+				*pi,
+				runtimeCfg,
+				schemaMapper,
+				nil, // nil meter for docker orchestrator
+			)
 
 			err = ingestorRunner.Start(ctx)
 			if err != nil {
@@ -156,14 +182,10 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 		}
 		d.log.DebugContext(ctx, "created join stream successfully")
 
-		// Get the pipeline-specific stream names for the input streams
-		var leftInputStreamName, rightInputStreamName string
-		if pi.Join.Sources[0].Orientation == "left" {
-			leftInputStreamName = pi.Join.Sources[0].StreamID
-			rightInputStreamName = pi.Join.Sources[1].StreamID
-		} else {
-			leftInputStreamName = pi.Join.Sources[1].StreamID
-			rightInputStreamName = pi.Join.Sources[0].StreamID
+		// Resolve join input stream names from join source IDs.
+		leftInputStreamName, rightInputStreamName, err := resolveJoinStreamNames(pi)
+		if err != nil {
+			return fmt.Errorf("resolve join input stream names: %w", err)
 		}
 
 		// Create join KV stores for left and right buffers
@@ -211,6 +233,75 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 	d.startRunnerWatcher(ctx)
 
 	return nil
+}
+
+func resolveReplicaOutputSubject(subjectPattern string, replica int) string {
+	subjectPattern = strings.TrimSpace(subjectPattern)
+	if subjectPattern == "" {
+		return ""
+	}
+
+	if strings.Contains(subjectPattern, "*") {
+		return strings.Replace(subjectPattern, "*", strconv.Itoa(replica), 1)
+	}
+
+	return subjectPattern
+}
+
+func resolveDedupSubjectPrefix(subjectPattern string) string {
+	subjectPattern = strings.TrimSpace(subjectPattern)
+	if strings.HasSuffix(subjectPattern, ".*") {
+		return strings.TrimSuffix(subjectPattern, ".*")
+	}
+
+	return subjectPattern
+}
+
+func resolveJoinStreamNames(pipeline *models.PipelineConfig) (left string, right string, err error) {
+	if pipeline == nil {
+		return "", "", fmt.Errorf("pipeline config is nil")
+	}
+	if len(pipeline.Join.Sources) != internal.MaxStreamsSupportedWithJoin {
+		return "", "", fmt.Errorf("join sources must contain exactly %d sources", internal.MaxStreamsSupportedWithJoin)
+	}
+
+	for _, source := range pipeline.Join.Sources {
+		streamName, resolveErr := resolveJoinInputStreamName(pipeline, source.SourceID)
+		if resolveErr != nil {
+			return "", "", resolveErr
+		}
+
+		switch source.Orientation {
+		case internal.JoinLeft:
+			left = streamName
+		case internal.JoinRight:
+			right = streamName
+		default:
+			return "", "", fmt.Errorf("unsupported join orientation %q", source.Orientation)
+		}
+	}
+
+	if left == "" || right == "" {
+		return "", "", fmt.Errorf("resolved join stream names are incomplete: left=%q right=%q", left, right)
+	}
+
+	return left, right, nil
+}
+
+func resolveJoinInputStreamName(pipeline *models.PipelineConfig, sourceID string) (string, error) {
+	sourceID = strings.TrimSpace(sourceID)
+	if sourceID == "" {
+		return "", fmt.Errorf("join source_id cannot be empty")
+	}
+
+	for _, topic := range pipeline.Ingestor.KafkaTopics {
+		if topic.Name != sourceID {
+			continue
+		}
+		return models.GetIngestorStreamName(pipeline.ID, sourceID), nil
+	}
+
+	return "", fmt.Errorf("join source_id %q not found in ingestor topics", sourceID)
 }
 
 // StopPipeline implements Orchestrator.
@@ -288,11 +379,13 @@ func (d *LocalOrchestrator) pausePipelineComponents(ctx context.Context) error {
 
 			leftConsumerName := models.GetNATSJoinLeftConsumerName(pipeline.ID)
 			rightConsumerName := models.GetNATSJoinRightConsumerName(pipeline.ID)
-			leftStreamName := pipeline.Join.Sources[0].StreamID
-			rightStreamName := pipeline.Join.Sources[1].StreamID
+			leftStreamName, rightStreamName, err := resolveJoinStreamNames(pipeline)
+			if err != nil {
+				return fmt.Errorf("resolve join stream names: %w", err)
+			}
 
 			// Check left stream
-			err := d.checkConsumerPendingMessages(ctx, leftStreamName, leftConsumerName)
+			err = d.checkConsumerPendingMessages(ctx, leftStreamName, leftConsumerName)
 			if err != nil {
 				d.log.ErrorContext(ctx, "left join consumer has pending messages", "left_consumer", leftConsumerName, "left_stream", leftStreamName, "error", err)
 				return fmt.Errorf("left join consumer: %w", err)
@@ -483,13 +576,16 @@ func (d *LocalOrchestrator) cleanupNATSResources(ctx context.Context, pipeline *
 
 	// Clean up ingestion streams
 	for _, topic := range pipeline.Ingestor.KafkaTopics {
-		if topic.OutputStreamID != "" {
-			d.log.DebugContext(ctx, "deleting ingestion stream", "stream", topic.OutputStreamID)
-			err := d.nc.DeleteStream(ctx, topic.OutputStreamID)
-			if err != nil {
-				d.log.ErrorContext(ctx, "failed to delete ingestion stream", "error", err, "stream", topic.OutputStreamID)
-				// Continue with other cleanup even if this fails
-			}
+		streamName := models.GetIngestorStreamName(pipeline.ID, topic.Name)
+		if streamName == "" {
+			continue
+		}
+
+		d.log.DebugContext(ctx, "deleting ingestion stream", "stream", streamName)
+		err := d.nc.DeleteStream(ctx, streamName)
+		if err != nil {
+			d.log.ErrorContext(ctx, "failed to delete ingestion stream", "error", err, "stream", streamName)
+			// Continue with other cleanup even if this fails
 		}
 	}
 
@@ -507,14 +603,24 @@ func (d *LocalOrchestrator) cleanupNATSResources(ctx context.Context, pipeline *
 		}
 
 		// Clean up join KV stores
+		joinStores := make(map[string]struct{}, len(pipeline.Join.Sources))
 		for _, source := range pipeline.Join.Sources {
-			if source.StreamID != "" {
-				d.log.DebugContext(ctx, "deleting join KV store", "store", source.StreamID)
-				err := d.nc.DeleteKeyValueStore(ctx, source.StreamID)
-				if err != nil {
-					d.log.ErrorContext(ctx, "failed to delete join KV store", "error", err, "store", source.StreamID)
-					// Continue with other cleanup even if this fails
-				}
+			streamName, resolveErr := resolveJoinInputStreamName(pipeline, source.SourceID)
+			if resolveErr != nil {
+				d.log.ErrorContext(ctx, "failed to resolve join KV store name from source", "source_id", source.SourceID, "error", resolveErr)
+				continue
+			}
+			if streamName != "" {
+				joinStores[streamName] = struct{}{}
+			}
+		}
+
+		for store := range joinStores {
+			d.log.DebugContext(ctx, "deleting join KV store", "store", store)
+			err := d.nc.DeleteKeyValueStore(ctx, store)
+			if err != nil {
+				d.log.ErrorContext(ctx, "failed to delete join KV store", "error", err, "store", store)
+				// Continue with other cleanup even if this fails
 			}
 		}
 	}

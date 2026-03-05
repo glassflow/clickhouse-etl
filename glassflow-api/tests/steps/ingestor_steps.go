@@ -37,6 +37,7 @@ type IngestorTestSuite struct {
 
 	consumerCfg jetstream.ConsumerConfig
 	streamCfg   jetstream.StreamConfig
+	subjectBase string
 
 	dlqStreamCfg   jetstream.StreamConfig
 	dlqConsumerCfg jetstream.ConsumerConfig
@@ -101,15 +102,18 @@ func (s *IngestorTestSuite) theNatsStreamConfig(cfg *godog.DocString) error {
 		return fmt.Errorf("failed to unmarshal NATS stream config: %w", err)
 	}
 
+	wildcardSubject := models.GetWildcardNATSSubjectName(tempCfg.Subject)
+	s.subjectBase = tempCfg.Subject
+
 	// Convert to jetstream configs
 	s.streamCfg = jetstream.StreamConfig{
 		Name:     tempCfg.Stream,
-		Subjects: []string{tempCfg.Subject},
+		Subjects: []string{wildcardSubject},
 	}
 	s.consumerCfg = jetstream.ConsumerConfig{
 		Name:          tempCfg.Consumer,
 		Durable:       tempCfg.Consumer,
-		FilterSubject: tempCfg.Subject,
+		FilterSubject: wildcardSubject,
 	}
 
 	return nil
@@ -241,7 +245,7 @@ func (s *IngestorTestSuite) iRunningIngestorComponent() error {
 	streamConsumer := stream.NewNATSPublisher(
 		nc.JetStream(),
 		stream.PublisherConfig{
-			Subject: s.streamCfg.Subjects[0],
+			Subject: fmt.Sprintf("%s.%d", s.subjectBase, 0),
 		},
 	)
 
@@ -251,12 +255,26 @@ func (s *IngestorTestSuite) iRunningIngestorComponent() error {
 			Subject: s.dlqStreamCfg.Subjects[0],
 		},
 	)
+	dedupEnabled := false
+	if len(s.ingestorCfg.KafkaTopics) == 1 {
+		dedupEnabled = s.ingestorCfg.KafkaTopics[0].Deduplication.Enabled
+	}
+
+	runtimeCfg := models.IngestorRuntimeConfig{
+		OutputSubject:      fmt.Sprintf("%s.%d", s.subjectBase, 0),
+		DedupSubjectPrefix: s.subjectBase,
+	}
+	if dedupEnabled {
+		runtimeCfg.DedupSubjectCount = 1
+	}
+
 	ingestor, err := component.NewIngestorComponent(
 		models.PipelineConfig{
 			Ingestor: s.ingestorCfg,
 			Filter:   s.filterCfg,
 		},
 		s.topicName,
+		runtimeCfg,
 		streamConsumer,
 		dlqStreamPublisher,
 		s.schemaMapper,

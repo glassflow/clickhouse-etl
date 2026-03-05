@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"os"
+	"strings"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/component"
@@ -20,6 +20,7 @@ type IngestorRunner struct {
 
 	topicName    string
 	pipelineCfg  models.PipelineConfig
+	runtimeCfg   models.IngestorRuntimeConfig
 	schemaMapper schema.Mapper
 	meter        *observability.Meter
 
@@ -28,25 +29,22 @@ type IngestorRunner struct {
 	doneCh    chan struct{}
 }
 
-// getIngestorOutputSubject returns the NATS subject the ingestor publishes to.
-// When GLASSFLOW_POD_INDEX and NATS_SUBJECT_PREFIX are set, subject is "NATS_SUBJECT_PREFIX.GLASSFLOW_POD_INDEX".
-// Otherwise it falls back to the default subject derived from outputStreamID.
-func getIngestorOutputSubject(outputStreamID string) string {
-	prefix := os.Getenv("NATS_SUBJECT_PREFIX")
-	podIndex := os.Getenv("GLASSFLOW_POD_INDEX")
-	if prefix != "" && podIndex != "" {
-		return fmt.Sprintf("%s.%s", prefix, podIndex)
-	}
-	return models.GetNATSSubjectNameDefault(outputStreamID)
-}
-
-func NewIngestorRunner(log *slog.Logger, nc *client.NATSClient, topicName string, pipelineCfg models.PipelineConfig, schemaMapper schema.Mapper, meter *observability.Meter) *IngestorRunner {
+func NewIngestorRunner(
+	log *slog.Logger,
+	nc *client.NATSClient,
+	topicName string,
+	pipelineCfg models.PipelineConfig,
+	runtimeCfg models.IngestorRuntimeConfig,
+	schemaMapper schema.Mapper,
+	meter *observability.Meter,
+) *IngestorRunner {
 	return &IngestorRunner{
 		nc:  nc,
 		log: log,
 
 		topicName:    topicName,
 		pipelineCfg:  pipelineCfg,
+		runtimeCfg:   runtimeCfg,
 		schemaMapper: schemaMapper,
 		meter:        meter,
 
@@ -63,24 +61,35 @@ func (i *IngestorRunner) Start(ctx context.Context) error {
 		return fmt.Errorf("topic name cannot be empty")
 	}
 
-	var outputStreamID string
-	for _, topic := range i.pipelineCfg.Ingestor.KafkaTopics {
-		if topic.Name == i.topicName {
-			outputStreamID = topic.OutputStreamID
+	topicCfg, err := i.getTopicConfig()
+	if err != nil {
+		i.log.ErrorContext(ctx, "failed to resolve ingestor topic config", "topic_name", i.topicName, "error", err)
+		return fmt.Errorf("resolve ingestor topic config: %w", err)
+	}
+
+	outputSubject := strings.TrimSpace(i.runtimeCfg.OutputSubject)
+	if outputSubject == "" {
+		return fmt.Errorf("ingestor runtime output subject is required")
+	}
+
+	if topicCfg.Deduplication.Enabled {
+		if strings.TrimSpace(i.runtimeCfg.DedupSubjectPrefix) == "" {
+			return fmt.Errorf("ingestor runtime dedup subject prefix is required when deduplication is enabled")
+		}
+		if i.runtimeCfg.DedupSubjectCount <= 0 {
+			return fmt.Errorf("ingestor runtime dedup subject count must be > 0 when deduplication is enabled")
 		}
 	}
 
-	i.log.DebugContext(ctx, "Starting ingestor", "pipelineId", i.pipelineCfg.Status.PipelineID, "streamId", outputStreamID)
-
-	if outputStreamID == "" {
-		i.log.ErrorContext(ctx, "output stream name cannot be empty", "topic_name", i.topicName)
-		return fmt.Errorf("output stream name cannot be empty")
-	}
-
-	outputSubject := getIngestorOutputSubject(outputStreamID)
-	i.log.InfoContext(ctx, "Ingestor will write to NATS subject", "subject", outputSubject, "pipelineId", i.pipelineCfg.Status.PipelineID, "topic", i.topicName)
-	if subjectCount := os.Getenv("NATS_SUBJECT_COUNT"); subjectCount != "" {
-		i.log.InfoContext(ctx, "Ingestor will route messages by dedup key to subjects", "prefix", os.Getenv("NATS_SUBJECT_PREFIX"), "subject_count", subjectCount)
+	i.log.InfoContext(ctx, "Ingestor will write to NATS subject",
+		"subject", outputSubject,
+		"pipelineId", i.pipelineCfg.Status.PipelineID,
+		"topic", i.topicName,
+	)
+	if topicCfg.Deduplication.Enabled {
+		i.log.InfoContext(ctx, "Ingestor will route messages by dedup key to subjects",
+			"prefix", i.runtimeCfg.DedupSubjectPrefix,
+			"subject_count", i.runtimeCfg.DedupSubjectCount)
 	}
 
 	streamPublisher := stream.NewNATSPublisher(
@@ -100,6 +109,7 @@ func (i *IngestorRunner) Start(ctx context.Context) error {
 	component, err := component.NewIngestorComponent(
 		i.pipelineCfg,
 		i.topicName,
+		i.runtimeCfg,
 		streamPublisher,
 		dlqStreamPublisher,
 		i.schemaMapper,
@@ -123,6 +133,16 @@ func (i *IngestorRunner) Start(ctx context.Context) error {
 	}()
 
 	return nil
+}
+
+func (i *IngestorRunner) getTopicConfig() (models.KafkaTopicsConfig, error) {
+	for _, topic := range i.pipelineCfg.Ingestor.KafkaTopics {
+		if topic.Name == i.topicName {
+			return topic, nil
+		}
+	}
+
+	return models.KafkaTopicsConfig{}, fmt.Errorf("topic %q not found in ingestor config", i.topicName)
 }
 
 func (i *IngestorRunner) Shutdown() {

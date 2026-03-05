@@ -30,6 +30,7 @@ type IngestorComponent struct {
 func NewIngestorComponent(
 	config models.PipelineConfig,
 	topicName string,
+	runtimeCfg models.IngestorRuntimeConfig,
 	streamPublisher stream.Publisher,
 	dlqStreamPublisher stream.Publisher,
 	schemaMapper schema.Mapper,
@@ -44,6 +45,7 @@ func NewIngestorComponent(
 	ingestor, err := ingestor.NewKafkaIngestor(
 		config,
 		topicName,
+		runtimeCfg,
 		streamPublisher,
 		dlqStreamPublisher,
 		schemaMapper,
