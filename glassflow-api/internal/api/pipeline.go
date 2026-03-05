@@ -196,8 +196,6 @@ func newIngestorComponentConfig(p pipelineJSON) (zero models.IngestorComponentCo
 				Type:    internal.NormalizeToBasicKafkaType(t.Deduplication.Type),
 				Window:  t.Deduplication.Window,
 			},
-			OutputStreamID:      models.GetIngestorStreamName(p.PipelineID, t.Topic),
-			OutputStreamSubject: models.GetPipelineNATSSubject(p.PipelineID, t.Topic),
 		})
 	}
 
@@ -214,31 +212,10 @@ func newJoinComponentConfig(p pipelineJSON) (zero models.JoinComponentConfig, _ 
 		return zero, nil
 	}
 
-	// Create a map of topic names to their deduplication status for quick lookup
-	topicDedupMap := make(map[string]bool)
-	for _, topic := range p.Source.Topics {
-		dedupEnabled := topic.Deduplication.Enabled
-		if p.StatelessTransformation.Enabled || p.Filter.Enabled {
-			dedupEnabled = true
-		}
-		topicDedupMap[topic.Topic] = dedupEnabled
-	}
-
 	var sources []models.JoinSourceConfig
 	for _, s := range p.Join.Sources {
-		// Generate stream ID based on whether deduplication is enabled for this topic
-		var streamID string
-		if topicDedupMap[s.SourceID] {
-			// If deduplication is enabled, join consumes from dedup output stream
-			streamID = models.GetDedupOutputStreamName(p.PipelineID, s.SourceID)
-		} else {
-			// Otherwise, join consumes from ingestor output stream
-			streamID = models.GetIngestorStreamName(p.PipelineID, s.SourceID)
-		}
-
 		sources = append(sources, models.JoinSourceConfig{
 			SourceID:    s.SourceID,
-			StreamID:    streamID,
 			JoinKey:     s.JoinKey,
 			Window:      s.Window,
 			Orientation: s.Orientation,
