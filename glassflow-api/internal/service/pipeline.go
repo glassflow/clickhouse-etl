@@ -58,7 +58,7 @@ var (
 )
 
 func (p *PipelineService) NewPipelineResources(ctx context.Context, cfg *models.PipelineConfig) (models.PipelineResources, error) {
-	defaults := models.NewDefaultPipelineResources()
+	defaults := models.NewDefaultPipelineResources(cfg)
 
 	if cfg.PipelineResources.IsZero() {
 		return defaults, nil
@@ -75,6 +75,15 @@ func (p *PipelineService) NewPipelineResources(ctx context.Context, cfg *models.
 
 	existing, err := p.db.GetPipelineResources(ctx, cfg.ID)
 	if err != nil {
+		if errors.Is(err, ErrPipelineNotExists) {
+			err = models.ValidateResourceQuantities(cfg.PipelineResources)
+			if err != nil {
+				return models.PipelineResources{}, fmt.Errorf("%w: %w", ErrPipelineResourcesValidation, err)
+			}
+
+			return models.MergeWithDefaults(cfg, cfg.PipelineResources, defaults), nil
+		}
+
 		return models.PipelineResources{}, fmt.Errorf("get pipeline resources: %w", err)
 	}
 	oldResources := existing.Resources
@@ -253,7 +262,7 @@ func (p *PipelineService) UpdatePipelineResources(ctx context.Context, pid strin
 		return models.PipelineResourcesWithPolicy{}, fmt.Errorf("%w: %w", ErrPipelineResourcesValidation, err)
 	}
 
-	merged := models.MergeWithDefaults(pipeline, resources, models.NewDefaultPipelineResources())
+	merged := models.MergeWithDefaults(pipeline, resources, models.NewDefaultPipelineResources(pipeline))
 	pipeline.PipelineResources = merged
 
 	err = p.orchestrator.EditPipeline(ctx, pid, pipeline)
@@ -343,7 +352,7 @@ func (p *PipelineService) ResumePipeline(ctx context.Context, pid string) error 
 	}
 
 	if pipeline.PipelineResources.IsZero() {
-		defaultResources := models.NewDefaultPipelineResources()
+		defaultResources := models.NewDefaultPipelineResources(pipeline)
 		if _, err = p.db.UpsertPipelineResources(ctx, pid, defaultResources); err != nil {
 			return fmt.Errorf("upsert default pipeline resources: %w", err)
 		}

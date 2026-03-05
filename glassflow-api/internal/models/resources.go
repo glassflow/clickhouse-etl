@@ -61,30 +61,15 @@ func newDefaultIngestorComponentResources() *ComponentResources {
 	}
 }
 
-func NewDefaultPipelineResources() PipelineResources {
-	return PipelineResources{
+func NewDefaultPipelineResources(cfg *PipelineConfig) PipelineResources {
+	r := PipelineResources{
 		Nats: &NatsResources{
 			Stream: &NatsStreamResources{
 				MaxAge:   getEnvOrDefault("NATS_MAX_STREAM_AGE", "24h"),
 				MaxBytes: getEnvOrDefault("NATS_MAX_STREAM_BYTES", "0"),
 			},
 		},
-		Ingestor: &IngestorResources{
-			Base:  newDefaultIngestorComponentResources(),
-			Left:  newDefaultIngestorComponentResources(),
-			Right: newDefaultIngestorComponentResources(),
-		},
-		Join: &ComponentResources{
-			Requests: &ResourceList{
-				CPU:    getEnvOrDefault("JOIN_CPU_REQUEST", "100m"),
-				Memory: getEnvOrDefault("JOIN_MEMORY_REQUEST", "128Mi"),
-			},
-			Limits: &ResourceList{
-				CPU:    getEnvOrDefault("JOIN_CPU_LIMIT", "1500m"),
-				Memory: getEnvOrDefault("JOIN_MEMORY_LIMIT", "1.5Gi"),
-			},
-			Replicas: ptrInt64(1),
-		},
+		Ingestor: &IngestorResources{},
 		Sink: &ComponentResources{
 			Requests: &ResourceList{
 				CPU:    getEnvOrDefault("SINK_CPU_REQUEST", "100m"),
@@ -96,7 +81,28 @@ func NewDefaultPipelineResources() PipelineResources {
 			},
 			Replicas: ptrInt64(1),
 		},
-		Transform: &ComponentResources{
+	}
+
+	if cfg.Join.Enabled {
+		r.Ingestor.Left = newDefaultIngestorComponentResources()
+		r.Ingestor.Right = newDefaultIngestorComponentResources()
+		r.Join = &ComponentResources{
+			Requests: &ResourceList{
+				CPU:    getEnvOrDefault("JOIN_CPU_REQUEST", "100m"),
+				Memory: getEnvOrDefault("JOIN_MEMORY_REQUEST", "128Mi"),
+			},
+			Limits: &ResourceList{
+				CPU:    getEnvOrDefault("JOIN_CPU_LIMIT", "1500m"),
+				Memory: getEnvOrDefault("JOIN_MEMORY_LIMIT", "1.5Gi"),
+			},
+			Replicas: ptrInt64(1),
+		}
+	} else {
+		r.Ingestor.Base = newDefaultIngestorComponentResources()
+	}
+
+	if transformEnabled(cfg) {
+		r.Transform = &ComponentResources{
 			Requests: &ResourceList{
 				CPU:    getEnvOrDefault("DEDUP_CPU_REQUEST", "100m"),
 				Memory: getEnvOrDefault("DEDUP_MEMORY_REQUEST", "128Mi"),
@@ -109,8 +115,10 @@ func NewDefaultPipelineResources() PipelineResources {
 				Size: getEnvOrDefault("DEDUP_STORAGE_SIZE", "10Gi"),
 			},
 			Replicas: ptrInt64(1),
-		},
+		}
 	}
+
+	return r
 }
 
 type NatsResources struct {

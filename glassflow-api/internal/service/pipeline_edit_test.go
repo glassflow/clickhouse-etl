@@ -145,7 +145,7 @@ func TestEditPipeline_Success(t *testing.T) {
 
 	// expectedConfig is what UpdatePipeline will receive: newConfig with defaults applied and CreatedAt preserved.
 	expectedConfig := *newConfig
-	expectedConfig.PipelineResources = models.NewDefaultPipelineResources()
+	expectedConfig.PipelineResources = models.NewDefaultPipelineResources(newConfig)
 	expectedConfig.CreatedAt = currentPipeline.CreatedAt
 
 	// Setup mock expectations
@@ -267,7 +267,7 @@ func TestEditPipeline_UpdatePipelineFails(t *testing.T) {
 	}
 
 	expectedConfig := *newConfig
-	expectedConfig.PipelineResources = models.NewDefaultPipelineResources()
+	expectedConfig.PipelineResources = models.NewDefaultPipelineResources(newConfig)
 	expectedConfig.CreatedAt = currentPipeline.CreatedAt
 
 	// Setup mock expectations
@@ -312,7 +312,7 @@ func TestEditPipeline_OrchestratorFails(t *testing.T) {
 	}
 
 	expectedConfig := *newConfig
-	expectedConfig.PipelineResources = models.NewDefaultPipelineResources()
+	expectedConfig.PipelineResources = models.NewDefaultPipelineResources(newConfig)
 	expectedConfig.CreatedAt = currentPipeline.CreatedAt
 
 	// Setup mock expectations
