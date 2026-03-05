@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -205,11 +206,60 @@ func validateNatsResources(n *NatsResources) error {
 		}
 	}
 	if n.Stream.MaxBytes != "" {
-		if _, err := resource.ParseQuantity(n.Stream.MaxBytes); err != nil {
+		if _, err := ParseNATSMaxBytesQuantity(n.Stream.MaxBytes); err != nil {
 			return fmt.Errorf("invalid nats stream maxBytes %q: %w", n.Stream.MaxBytes, err)
 		}
 	}
 	return nil
+}
+
+// ParseNATSMaxBytesQuantity parses maxBytes as either a Kubernetes resource quantity
+// (e.g. "10Gi", "25G", "1048576") or as compatibility human-byte format ("100GB", "1TB").
+func ParseNATSMaxBytesQuantity(val string) (resource.Quantity, error) {
+	if q, err := resource.ParseQuantity(val); err == nil {
+		return q, nil
+	}
+
+	bytes, err := parseHumanBytes(val)
+	if err != nil {
+		return resource.Quantity{}, err
+	}
+
+	return *resource.NewQuantity(bytes, resource.BinarySI), nil
+}
+
+func parseHumanBytes(val string) (int64, error) {
+	s := strings.ToUpper(strings.TrimSpace(val))
+	if s == "" {
+		return 0, fmt.Errorf("empty value")
+	}
+
+	var multiplier int64
+	var numStr string
+
+	switch {
+	case strings.HasSuffix(s, "KB"):
+		multiplier = 1024
+		numStr = strings.TrimSuffix(s, "KB")
+	case strings.HasSuffix(s, "MB"):
+		multiplier = 1024 * 1024
+		numStr = strings.TrimSuffix(s, "MB")
+	case strings.HasSuffix(s, "GB"):
+		multiplier = 1024 * 1024 * 1024
+		numStr = strings.TrimSuffix(s, "GB")
+	case strings.HasSuffix(s, "TB"):
+		multiplier = 1024 * 1024 * 1024 * 1024
+		numStr = strings.TrimSuffix(s, "TB")
+	default:
+		return 0, fmt.Errorf("invalid byte format: %s", val)
+	}
+
+	num, err := strconv.ParseFloat(strings.TrimSpace(numStr), 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid number in byte format %q: %w", val, err)
+	}
+
+	return int64(num * float64(multiplier)), nil
 }
 
 func validateResourceRequirements(r *ComponentResources) error {

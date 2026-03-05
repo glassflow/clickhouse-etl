@@ -670,7 +670,11 @@ func toOperatorNatsResources(n *models.NatsResources) (*operator.NatsResources, 
 			stream.MaxAge = metav1.Duration{Duration: d}
 		}
 		if n.Stream.MaxBytes != "" {
-			stream.MaxBytes = resource.MustParse(n.Stream.MaxBytes)
+			maxBytes, err := models.ParseNATSMaxBytesQuantity(n.Stream.MaxBytes)
+			if err != nil {
+				return nil, fmt.Errorf("invalid nats stream maxBytes %q: %w", n.Stream.MaxBytes, err)
+			}
+			stream.MaxBytes = maxBytes
 		}
 		res.Stream = stream
 	}
