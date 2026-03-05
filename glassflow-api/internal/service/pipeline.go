@@ -223,6 +223,14 @@ func (p *PipelineService) GetPipeline(ctx context.Context, pid string) (zero mod
 	return *pi, nil
 }
 
+func (p *PipelineService) GetPipelineResourcesValidation(ctx context.Context, pid string) ([]string, error) {
+	pipeline, err := p.db.GetPipeline(ctx, pid)
+	if err != nil {
+		return nil, fmt.Errorf("load pipeline: %w", err)
+	}
+	return models.GetImmutableFields(pipeline), nil
+}
+
 func (p *PipelineService) GetPipelineResources(ctx context.Context, pid string) (models.PipelineResourcesWithPolicy, error) {
 	pipeline, err := p.db.GetPipeline(ctx, pid)
 	if err != nil {
