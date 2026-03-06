@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"os"
-	"strings"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
@@ -207,31 +205,23 @@ func (j *JoinRunner) Done() <-chan struct{} {
 
 // getJoinInputStreamName returns the NATS stream name the join consumes from.
 func getJoinLeftInputStreamName() (string, error) {
-	return getRequiredEnvVar("NATS_LEFT_INPUT_STREAM_PREFIX")
+	return models.GetRequiredEnvVar("NATS_LEFT_INPUT_STREAM_PREFIX")
 }
 func getJoinRightInputStreamName() (string, error) {
-	return getRequiredEnvVar("NATS_RIGHT_INPUT_STREAM_PREFIX")
+	return models.GetRequiredEnvVar("NATS_RIGHT_INPUT_STREAM_PREFIX")
 }
 
 // getJoinOutputSubject returns the NATS subject the join publishes to
 func getJoinOutputSubject() (string, error) {
-	prefix, err := getRequiredEnvVar("NATS_SUBJECT_PREFIX")
+	prefix, err := models.GetRequiredEnvVar("NATS_SUBJECT_PREFIX")
 	if err != nil {
 		return "", err
 	}
 
-	podIndex, err := getRequiredEnvVar("GLASSFLOW_POD_INDEX")
+	podIndex, err := models.GetRequiredEnvVar("GLASSFLOW_POD_INDEX")
 	if err != nil {
 		return "", err
 	}
 
 	return fmt.Sprintf("%s.%s", prefix, podIndex), nil
-}
-
-func getRequiredEnvVar(name string) (string, error) {
-	val := strings.TrimSpace(os.Getenv(name))
-	if val == "" {
-		return "", fmt.Errorf("required environment variable %s is missing or empty", name)
-	}
-	return val, nil
 }
