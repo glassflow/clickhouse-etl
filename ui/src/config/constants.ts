@@ -11,6 +11,7 @@ export enum StepKeys {
   JOIN_CONFIGURATOR = 'join-configurator',
   CLICKHOUSE_CONNECTION = 'clickhouse-connection',
   CLICKHOUSE_MAPPER = 'clickhouse-mapper',
+  PIPELINE_RESOURCES = 'pipeline-resources',
   REVIEW_CONFIGURATION = 'review-configuration',
   DEPLOY_PIPELINE = 'deploy-pipeline',
 }
@@ -248,6 +249,13 @@ export const stepsMetadata = {
     description: 'Map event fields to ClickHouse table columns.',
     formTitle: 'Mapping',
     formDescription: 'Map event fields to ClickHouse table columns.',
+  },
+  [StepKeys.PIPELINE_RESOURCES]: {
+    key: StepKeys.PIPELINE_RESOURCES,
+    title: 'Pipeline Resources',
+    description: 'Configure CPU, memory, and storage for each pipeline component.',
+    formTitle: 'Pipeline Resources',
+    formDescription: 'Configure CPU, memory, and storage for deployment.',
   },
   [StepKeys.REVIEW_CONFIGURATION]: {
     key: StepKeys.REVIEW_CONFIGURATION,

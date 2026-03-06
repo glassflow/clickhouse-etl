@@ -191,6 +191,7 @@ export class DistributedValidationEngine {
       [StepKeys.JOIN_CONFIGURATOR]: 'join-configurator',
       [StepKeys.CLICKHOUSE_CONNECTION]: 'clickhouse-connection',
       [StepKeys.CLICKHOUSE_MAPPER]: 'clickhouse-mapper',
+      [StepKeys.PIPELINE_RESOURCES]: 'pipeline-resources',
       [StepKeys.REVIEW_CONFIGURATION]: 'review-configuration',
       [StepKeys.DEPLOY_PIPELINE]: 'deploy-pipeline',
     }
@@ -210,6 +211,7 @@ export class DistributedValidationEngine {
       'join-configurator': StepKeys.JOIN_CONFIGURATOR,
       'clickhouse-connection': StepKeys.CLICKHOUSE_CONNECTION,
       'clickhouse-mapper': StepKeys.CLICKHOUSE_MAPPER,
+      'pipeline-resources': StepKeys.PIPELINE_RESOURCES,
     }
   }
 }
