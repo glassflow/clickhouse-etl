@@ -43,6 +43,7 @@ export const stepIcons: Record<StepKeys, StepIconComponent> = {
   [StepKeys.JOIN_CONFIGURATOR]: createIconComponent(JoinIcon, 'Join'),
   [StepKeys.CLICKHOUSE_CONNECTION]: createIconComponent(ClickhouseIcon, 'ClickHouse'),
   [StepKeys.CLICKHOUSE_MAPPER]: createIconComponent(MapDestinationIcon, 'Destination'),
+  [StepKeys.PIPELINE_RESOURCES]: createIconComponent(IconCheck, 'Pipeline Resources'),
   [StepKeys.REVIEW_CONFIGURATION]: createIconComponent(IconCheck, 'Review'),
   [StepKeys.DEPLOY_PIPELINE]: createIconComponent(IconCheck, 'Deploy'),
 }

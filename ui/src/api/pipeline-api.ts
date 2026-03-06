@@ -10,6 +10,8 @@ import type {
   ApiResponse,
   ApiError,
   PipelineMetadata,
+  PipelineResources,
+  PipelineResourcesResponse,
 } from '@/src/types/pipeline'
 import {
   parsePipelineStatus,
@@ -231,6 +233,77 @@ export const updatePipeline = async (id: string, updates: Partial<Pipeline>): Pr
   } catch (error: any) {
     if (error.code) throw error
     throw { code: 500, message: error.message || 'Failed to update pipeline' } as ApiError
+  }
+}
+
+/**
+ * Get pipeline resources (CPU, memory, storage, replicas) for a pipeline.
+ * Returns pipeline_resources and fields_policy.immutable (paths that cannot be edited after create).
+ */
+export const getPipelineResources = async (id: string): Promise<PipelineResourcesResponse> => {
+  try {
+    const url = getApiUrl(`pipeline/${id}/resources`)
+    const response = await fetch(url)
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}))
+      const errorMessage = data?.error || data?.message || 'Failed to fetch pipeline resources'
+      throw { code: response.status, message: errorMessage } as ApiError
+    }
+
+    const data = await response.json()
+    if (data.pipeline_resources !== undefined) {
+      return {
+        pipeline_resources: data.pipeline_resources,
+        fields_policy: data.fields_policy || { immutable: [] },
+      }
+    }
+    throw { code: 500, message: 'Invalid response from pipeline resources endpoint' } as ApiError
+  } catch (error: any) {
+    if (error.code) throw error
+    throw { code: 500, message: error.message || 'Failed to fetch pipeline resources' } as ApiError
+  }
+}
+
+/**
+ * Update pipeline resources. Pipeline must be stopped or failed.
+ * Changes apply when the pipeline is resumed.
+ */
+export const updatePipelineResources = async (
+  id: string,
+  pipeline_resources: PipelineResources
+): Promise<PipelineResourcesResponse> => {
+  try {
+    const url = getApiUrl(`pipeline/${id}/resources`)
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pipeline_resources }),
+    })
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}))
+      const errorMessage = data?.error || data?.message || 'Failed to update pipeline resources'
+
+      if (response.status === 409) {
+        throw {
+          code: 409,
+          message: 'Pipeline must be stopped to edit resources. Please stop the pipeline first.',
+          requiresStop: true,
+        } as ApiError
+      }
+
+      throw { code: response.status, message: errorMessage } as ApiError
+    }
+
+    const data = await response.json()
+    return {
+      pipeline_resources: data.pipeline_resources || pipeline_resources,
+      fields_policy: data.fields_policy || { immutable: [] },
+    }
+  } catch (error: any) {
+    if (error.code) throw error
+    throw { code: 500, message: error.message || 'Failed to update pipeline resources' } as ApiError
   }
 }
 
