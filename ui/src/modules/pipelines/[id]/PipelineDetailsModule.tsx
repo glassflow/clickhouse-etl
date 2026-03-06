@@ -7,7 +7,7 @@ import PipelineStatusOverviewSection from './PipelineStatusOverviewSection'
 import TransformationSection from './sections/TransformationSection'
 import StandaloneStepRenderer from '@/src/modules/pipelines/[id]/StandaloneStepRenderer'
 import { StepKeys } from '@/src/config/constants'
-import { isSourceStep, isSinkStep, ANIMATION_DELAYS } from './config/pipeline-details.constants'
+import { isSourceStep, isSinkStep, isResourcesStep, ANIMATION_DELAYS } from './config/pipeline-details.constants'
 import { Pipeline } from '@/src/types/pipeline'
 import { useRouter } from 'next/navigation'
 import { shouldDisablePipelineOperation } from '@/src/utils/pipeline-actions'
@@ -18,6 +18,7 @@ import { getPipeline, updatePipelineMetadata } from '@/src/api/pipeline-api'
 import { cn, isDemoMode } from '@/src/utils/common.client'
 import { KafkaConnectionSection } from './sections/KafkaConnectionSection'
 import { ClickhouseConnectionSection } from './sections/ClickhouseConnectionSection'
+import { PipelineResourcesSection } from './sections/PipelineResourcesSection'
 import PipelineTagsModal from '@/src/modules/pipelines/components/PipelineTagsModal'
 import { handleApiError } from '@/src/notifications/api-error-handler'
 import { notify } from '@/src/notifications'
@@ -295,6 +296,7 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
   // Section selection highlighting - determine which overview card should be highlighted
   const isSourceSelected = isSourceStep(activeStep)
   const isSinkSelected = isSinkStep(activeStep)
+  const isResourcesSelected = isResourcesStep(activeStep)
 
   return (
     <div className="container mx-auto px-4 sm:px-0">
@@ -366,6 +368,11 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
                   <ClickhouseConnectionSection
                     disabled={isEditingDisabled && !demoMode}
                     selected={isSinkSelected}
+                    onStepClick={handleStepClick}
+                  />
+                  <PipelineResourcesSection
+                    disabled={isEditingDisabled && !demoMode}
+                    selected={isResourcesSelected}
                     onStepClick={handleStepClick}
                   />
                 </div>
