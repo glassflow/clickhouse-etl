@@ -249,7 +249,6 @@ func newSinkComponentConfig(
 		Password:             p.Sink.Password,
 		Table:                p.Sink.Table,
 		Secure:               p.Sink.Secure,
-		StreamID:             sinkStreamID,
 		MaxBatchSize:         p.Sink.MaxBatchSize,
 		MaxDelayTime:         maxDelayTime,
 		SkipCertificateCheck: p.Sink.SkipCertificateVerification,

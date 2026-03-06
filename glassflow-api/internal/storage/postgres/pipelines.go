@@ -699,7 +699,6 @@ func (s *PostgresStorage) insertClickHouseSink(ctx context.Context, tx pgx.Tx, p
 	sinkConnConfig := models.SinkComponentConfig{
 		ClickHouseConnectionParams: p.Sink.ClickHouseConnectionParams,
 		Batch:                      p.Sink.Batch,
-		StreamID:                   p.Sink.StreamID,
 		Type:                       p.Sink.Type,
 		NATSConsumerName:           p.Sink.NATSConsumerName,
 	}
@@ -727,7 +726,6 @@ func (s *PostgresStorage) updateClickHouseSink(ctx context.Context, tx pgx.Tx, c
 	sinkConnConfig := models.SinkComponentConfig{
 		ClickHouseConnectionParams: p.Sink.ClickHouseConnectionParams,
 		Batch:                      p.Sink.Batch,
-		StreamID:                   p.Sink.StreamID,
 		NATSConsumerName:           p.Sink.NATSConsumerName,
 		Type:                       p.Sink.Type,
 	}
