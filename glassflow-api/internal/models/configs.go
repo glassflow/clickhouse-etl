@@ -305,9 +305,8 @@ type BatchConfig struct {
 }
 
 type SinkComponentConfig struct {
-	Type     string      `json:"type"`
-	StreamID string      `json:"stream_id"`
-	Batch    BatchConfig `json:"batch"`
+	Type  string      `json:"type"`
+	Batch BatchConfig `json:"batch"`
 
 	NATSConsumerName string `json:"nats_consumer_name"`
 
@@ -323,7 +322,6 @@ type ClickhouseSinkArgs struct {
 	Password             string
 	Table                string
 	Secure               bool
-	StreamID             string
 	MaxBatchSize         int
 	MaxDelayTime         JSONDuration
 	SkipCertificateCheck bool
@@ -358,18 +356,13 @@ func NewClickhouseSinkComponent(args ClickhouseSinkArgs) (zero SinkComponentConf
 		return zero, PipelineConfigError{Msg: "clickhouse max_batch_size must be greater than 0"}
 	}
 
-	if len(strings.TrimSpace(args.StreamID)) == 0 {
-		return zero, PipelineConfigError{Msg: "stream_id cannot be empty"}
-	}
-
 	maxDelayTime := args.MaxDelayTime
 	if maxDelayTime.Duration() == 0 {
 		maxDelayTime = JSONDuration{t: 60 * time.Second}
 	}
 
 	return SinkComponentConfig{
-		Type:     internal.ClickHouseSinkType,
-		StreamID: args.StreamID,
+		Type: internal.ClickHouseSinkType,
 		Batch: BatchConfig{
 			MaxBatchSize: args.MaxBatchSize,
 			MaxDelayTime: maxDelayTime,

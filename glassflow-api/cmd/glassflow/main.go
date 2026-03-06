@@ -336,10 +336,6 @@ func mainSink(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 		return fmt.Errorf("create schema mapper: %w", err)
 	}
 
-	if pipelineCfg.Sink.StreamID == "" {
-		return fmt.Errorf("stream_id in sink config cannot be empty")
-	}
-
 	sinkRunner := service.NewSinkRunner(
 		log,
 		nc,
