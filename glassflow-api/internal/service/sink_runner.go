@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"os"
 
 	"github.com/nats-io/nats.go/jetstream"
 
@@ -30,16 +29,26 @@ type SinkRunner struct {
 	doneCh    chan struct{}
 }
 
-// getSinkInputStreamName returns the NATS stream name the sink consumes from.
-// When GLASSFLOW_POD_INDEX and NATS_INPUT_STREAM_PREFIX are set, stream name is "NATS_INPUT_STREAM_PREFIX_GLASSFLOW_POD_INDEX".
-// Otherwise it falls back to the pipeline's sink stream ID.
-func getSinkInputStreamName(fallbackStreamID string) string {
-	prefix := os.Getenv("NATS_INPUT_STREAM_PREFIX")
-	podIndex := os.Getenv("GLASSFLOW_POD_INDEX")
-	if prefix != "" && podIndex != "" {
-		return fmt.Sprintf("%s_%s", prefix, podIndex)
+// getSinkInputStreamNameFromEnv returns the NATS stream name the sink consumes from.
+func getSinkInputStreamNameFromEnv() (string, error) {
+	prefix, err := models.GetRequiredEnvVar("NATS_INPUT_STREAM_PREFIX")
+	if err != nil {
+		return "", err
 	}
-	return fallbackStreamID
+	podIndex, err := models.GetRequiredEnvVar("GLASSFLOW_POD_INDEX")
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s_%s", prefix, podIndex), nil
+}
+
+// getSinkConsumerNameFromEnv returns sink consumer durable name derived from operator pipeline ID.
+func getSinkConsumerNameFromEnv() (string, error) {
+	pipelineID, err := models.GetRequiredEnvVar("GLASSFLOW_OTEL_PIPELINE_ID")
+	if err != nil {
+		return "", err
+	}
+	return models.GetNATSSinkConsumerName(pipelineID), nil
 }
 
 func NewSinkRunner(
@@ -72,15 +81,22 @@ func (s *SinkRunner) Start(ctx context.Context) error {
 		"max_ack_pending", maxAckPending,
 		"max_batch_size", maxBatchSize)
 
-	inputStreamName := getSinkInputStreamName(s.pipelineCfg.Sink.StreamID)
+	inputStreamName, err := getSinkInputStreamNameFromEnv()
+	if err != nil {
+		return fmt.Errorf("resolve sink input stream from env: %w", err)
+	}
+	consumerName, err := getSinkConsumerNameFromEnv()
+	if err != nil {
+		return fmt.Errorf("resolve sink consumer name from env: %w", err)
+	}
 	s.log.InfoContext(ctx, "Sink will read from NATS stream", "stream", inputStreamName, "pipelineId", s.pipelineCfg.Status.PipelineID)
 
 	consumer, err := stream.NewNATSConsumer(
 		ctx,
 		s.nc.JetStream(),
 		jetstream.ConsumerConfig{
-			Name:          s.pipelineCfg.Sink.NATSConsumerName,
-			Durable:       s.pipelineCfg.Sink.NATSConsumerName,
+			Name:          consumerName,
+			Durable:       consumerName,
 			AckPolicy:     jetstream.AckExplicitPolicy,
 			AckWait:       internal.NatsDefaultAckWait,
 			MaxAckPending: maxAckPending,
