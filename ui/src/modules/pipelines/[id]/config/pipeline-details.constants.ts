@@ -36,6 +36,11 @@ export const TRANSFORMATION_STEPS = new Set<StepKeys>([
 export const SINK_STEPS = new Set<StepKeys>([StepKeys.CLICKHOUSE_CONNECTION])
 
 /**
+ * Steps that belong to the resources section of the pipeline.
+ */
+export const RESOURCES_STEPS = new Set<StepKeys>([StepKeys.PIPELINE_RESOURCES])
+
+/**
  * Helper function to determine if a step belongs to the source section.
  */
 export function isSourceStep(step: StepKeys | null): boolean {
@@ -54,6 +59,13 @@ export function isTransformationStep(step: StepKeys | null): boolean {
  */
 export function isSinkStep(step: StepKeys | null): boolean {
   return step !== null && SINK_STEPS.has(step)
+}
+
+/**
+ * Helper function to determine if a step belongs to the resources section.
+ */
+export function isResourcesStep(step: StepKeys | null): boolean {
+  return step !== null && RESOURCES_STEPS.has(step)
 }
 
 /**
