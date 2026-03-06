@@ -62,6 +62,8 @@ func NewLocalOrchestrator(
 
 var _ service.Orchestrator = (*LocalOrchestrator)(nil)
 
+const localSingleReplicaPodIndex = "0"
+
 // GetType implements Orchestrator.
 func (d *LocalOrchestrator) GetType() string {
 	return "local"
@@ -96,13 +98,10 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 	//nolint: contextcheck // new context for long running processes
 	ctx = context.Background()
 
-	// Ensure stale join-specific env does not leak across local test pipelines.
-	d.clearJoinEnvVars(ctx)
+	// Ensure stale component env does not leak across local test pipelines.
+	d.clearComponentEnvVars(ctx)
 
-	var (
-		sinkConsumerStream  string
-		sinkConsumerSubject string
-	)
+	var sinkInputStreamPrefix string
 
 	// TODO: transfer all schema mapper validations in models.NewPipeline
 	// so validation errors are handled the same way with correct HTTPStatus
@@ -115,6 +114,10 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 
 	// Store pipeline config in memory for cleanup
 	d.pipelineConfig = pi
+	sinkInputStreamPrefix, err = resolveSinkInputStreamPrefix(pi)
+	if err != nil {
+		return fmt.Errorf("resolve sink input stream prefix: %w", err)
+	}
 
 	d.log = d.log.With("pipeline_id", d.id)
 
@@ -130,6 +133,26 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 	d.log.DebugContext(ctx, "created ingestion streams successfully")
 
 	err = d.nc.CreateOrUpdateStream(ctx, models.GetDLQStreamName(d.id), models.GetDLQStreamSubjectName(d.id), 0)
+	if err != nil {
+		d.log.ErrorContext(ctx, "failed to create DLQ stream", "stream_name", models.GetDLQStreamName(d.id), "error", err)
+		return fmt.Errorf("setup DLQ stream for pipeline: %w", err)
+	}
+
+	sinkInputStreamName := getLocalSingleReplicaStreamName(sinkInputStreamPrefix)
+	sinkInputSubject, err := resolveSinkInputSubject(pi, sinkInputStreamPrefix)
+	if err != nil {
+		return fmt.Errorf("resolve sink input subject: %w", err)
+	}
+	sinkInputDedupWindow, err := resolveSinkInputDedupWindow(pi)
+	if err != nil {
+		return fmt.Errorf("resolve sink input dedup window: %w", err)
+	}
+	err = d.nc.CreateOrUpdateStream(ctx, sinkInputStreamName, sinkInputSubject, sinkInputDedupWindow)
+	if err != nil {
+		d.log.ErrorContext(ctx, "failed to create sink input stream", "stream_name", sinkInputStreamName, "subject_name", sinkInputSubject, "error", err)
+		return fmt.Errorf("setup sink input stream for pipeline: %w", err)
+	}
+	d.log.DebugContext(ctx, "created sink input stream successfully")
 
 	for _, t := range pi.Ingestor.KafkaTopics {
 		for i := range t.Replicas {
@@ -140,6 +163,9 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 			}
 
 			subjectPattern := models.GetPipelineNATSSubject(d.id, t.Name)
+			if !pi.Join.Enabled {
+				subjectPattern = models.GetWildcardNATSSubjectName(sinkInputStreamName)
+			}
 			outputSubject := resolveReplicaOutputSubject(subjectPattern, i)
 			if outputSubject == "" {
 				return fmt.Errorf("setup ingestor runtime config for topic %s: output stream subject is empty", t.Name)
@@ -172,15 +198,6 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 	}
 
 	if pi.Join.Enabled {
-		sinkConsumerStream = pi.Sink.StreamID
-		sinkConsumerSubject = models.GetNATSSubjectNameDefault(sinkConsumerStream)
-
-		err = d.nc.CreateOrUpdateStream(ctx, sinkConsumerStream, sinkConsumerSubject, 0)
-		if err != nil {
-			d.log.ErrorContext(ctx, "failed to create join stream", "stream_name", sinkConsumerStream, "subject_name", sinkConsumerSubject, "error", err)
-			return fmt.Errorf("setup join stream for pipeline: %w", err)
-		}
-		d.log.DebugContext(ctx, "created join stream successfully")
 
 		// Resolve join input stream names from join source IDs.
 		leftInputStreamName, rightInputStreamName, err := resolveJoinStreamNames(pi)
@@ -206,8 +223,8 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 		// Join runner resolves these from env (operator-style contract).
 		os.Setenv("NATS_LEFT_INPUT_STREAM_PREFIX", leftInputStreamName)
 		os.Setenv("NATS_RIGHT_INPUT_STREAM_PREFIX", rightInputStreamName)
-		os.Setenv("NATS_SUBJECT_PREFIX", sinkConsumerStream)
-		os.Setenv("GLASSFLOW_POD_INDEX", internal.DefaultSubjectName)
+		os.Setenv("NATS_SUBJECT_PREFIX", sinkInputStreamPrefix)
+		os.Setenv("GLASSFLOW_POD_INDEX", localSingleReplicaPodIndex)
 		d.joinRunner = service.NewJoinRunner(d.log.With("component", "join"), d.nc, *pi, schemaMapper)
 		err = d.joinRunner.Start(ctx)
 		if err != nil {
@@ -215,6 +232,10 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 			return fmt.Errorf("setup join component: %w", err)
 		}
 	}
+
+	os.Setenv("NATS_INPUT_STREAM_PREFIX", sinkInputStreamPrefix)
+	os.Setenv("GLASSFLOW_POD_INDEX", localSingleReplicaPodIndex)
+	os.Setenv("GLASSFLOW_OTEL_PIPELINE_ID", d.id)
 
 	d.sinkRunner = service.NewSinkRunner(
 		d.log.With("component", "clickhouse_sink"),
@@ -302,6 +323,51 @@ func resolveJoinInputStreamName(pipeline *models.PipelineConfig, sourceID string
 	}
 
 	return "", fmt.Errorf("join source_id %q not found in ingestor topics", sourceID)
+}
+
+func resolveSinkInputStreamPrefix(pipeline *models.PipelineConfig) (string, error) {
+	if pipeline == nil {
+		return "", fmt.Errorf("pipeline config is nil")
+	}
+	if pipeline.Join.Enabled {
+		return models.GetJoinedStreamName(pipeline.ID), nil
+	}
+	if len(pipeline.Ingestor.KafkaTopics) == 0 {
+		return "", fmt.Errorf("ingestor topics are not configured")
+	}
+	return models.GetIngestorStreamName(pipeline.ID, pipeline.Ingestor.KafkaTopics[0].Name), nil
+}
+
+func getLocalSingleReplicaStreamName(prefix string) string {
+	return fmt.Sprintf("%s_%s", prefix, localSingleReplicaPodIndex)
+}
+
+func resolveSinkInputSubject(pipeline *models.PipelineConfig, sinkInputStreamPrefix string) (string, error) {
+	if pipeline == nil {
+		return "", fmt.Errorf("pipeline config is nil")
+	}
+	if pipeline.Join.Enabled {
+		return models.GetNATSSubjectName(sinkInputStreamPrefix, localSingleReplicaPodIndex), nil
+	}
+	if len(pipeline.Ingestor.KafkaTopics) == 0 {
+		return "", fmt.Errorf("ingestor topics are not configured")
+	}
+	return models.GetWildcardNATSSubjectName(getLocalSingleReplicaStreamName(sinkInputStreamPrefix)), nil
+}
+
+func resolveSinkInputDedupWindow(pipeline *models.PipelineConfig) (time.Duration, error) {
+	if pipeline == nil {
+		return 0, fmt.Errorf("pipeline config is nil")
+	}
+	if pipeline.Join.Enabled {
+		// Join output stream should not deduplicate joined records.
+		return 0, nil
+	}
+	if len(pipeline.Ingestor.KafkaTopics) == 0 {
+		return 0, fmt.Errorf("ingestor topics are not configured")
+	}
+
+	return pipeline.Ingestor.KafkaTopics[0].Deduplication.Window.Duration(), nil
 }
 
 // StopPipeline implements Orchestrator.
@@ -428,9 +494,13 @@ func (d *LocalOrchestrator) pausePipelineComponents(ctx context.Context) error {
 		// Wait for sink pending messages to clear
 		checkSinkFunc := func(ctx context.Context, pipeline *models.PipelineConfig) error {
 			sinkConsumerName := models.GetNATSSinkConsumerName(pipeline.ID)
-			sinkStreamName := pipeline.Sink.StreamID
+			sinkStreamPrefix, err := resolveSinkInputStreamPrefix(pipeline)
+			if err != nil {
+				return fmt.Errorf("resolve sink input stream prefix: %w", err)
+			}
+			sinkStreamName := getLocalSingleReplicaStreamName(sinkStreamPrefix)
 
-			err := d.checkConsumerPendingMessages(ctx, sinkStreamName, sinkConsumerName)
+			err = d.checkConsumerPendingMessages(ctx, sinkStreamName, sinkConsumerName)
 			if err != nil {
 				d.log.ErrorContext(ctx, "sink consumer has pending messages", "sink_consumer", sinkConsumerName, "sink_stream", sinkStreamName, "error", err)
 				return fmt.Errorf("sink consumer: %w", err)
@@ -542,18 +612,20 @@ func (d *LocalOrchestrator) terminatePipelineComponents(ctx context.Context, pid
 	// Clear pipeline config at the end (similar to cleaning d.id)
 	d.pipelineConfig = nil
 
-	// Remove join-specific env for the next local pipeline setup.
-	d.clearJoinEnvVars(ctx)
+	// Remove component env for the next local pipeline setup.
+	d.clearComponentEnvVars(ctx)
 
 	return nil
 }
 
-func (d *LocalOrchestrator) clearJoinEnvVars(ctx context.Context) {
+func (d *LocalOrchestrator) clearComponentEnvVars(ctx context.Context) {
 	for _, key := range []string{
 		"NATS_LEFT_INPUT_STREAM_PREFIX",
 		"NATS_RIGHT_INPUT_STREAM_PREFIX",
+		"NATS_INPUT_STREAM_PREFIX",
 		"NATS_SUBJECT_PREFIX",
 		"GLASSFLOW_POD_INDEX",
+		"GLASSFLOW_OTEL_PIPELINE_ID",
 	} {
 		if err := os.Unsetenv(key); err != nil {
 			d.log.WarnContext(ctx, "failed to unset env var", "key", key, "error", err)
@@ -586,6 +658,25 @@ func (d *LocalOrchestrator) cleanupNATSResources(ctx context.Context, pipeline *
 		if err != nil {
 			d.log.ErrorContext(ctx, "failed to delete ingestion stream", "error", err, "stream", streamName)
 			// Continue with other cleanup even if this fails
+		}
+	}
+
+	// Clean up sink input stream(s). Remove both current and legacy layouts
+	// so local test runs are stable across naming migrations.
+	sinkStreamPrefix, resolveErr := resolveSinkInputStreamPrefix(pipeline)
+	if resolveErr != nil {
+		d.log.ErrorContext(ctx, "failed to resolve sink input stream prefix for cleanup", "error", resolveErr)
+	} else {
+		for streamName := range map[string]struct{}{
+			getLocalSingleReplicaStreamName(sinkStreamPrefix): {},
+			sinkStreamPrefix: {},
+		} {
+			d.log.DebugContext(ctx, "deleting sink input stream", "stream", streamName)
+			err := d.nc.DeleteStream(ctx, streamName)
+			if err != nil {
+				d.log.ErrorContext(ctx, "failed to delete sink input stream", "error", err, "stream", streamName)
+				// Continue with other cleanup even if this fails
+			}
 		}
 	}
 
