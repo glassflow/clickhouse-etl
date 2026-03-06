@@ -3,8 +3,9 @@
 import React, { useEffect, useState } from 'react'
 import { useStore } from '@/src/store'
 import { getResourceDefaults } from '@/src/config/resource-defaults'
-import { getPipelineResources, updatePipelineResources } from '@/src/api/pipeline-api'
+import { getPipelineResources, getPipelineResourcesValidation, updatePipelineResources } from '@/src/api/pipeline-api'
 import { PipelineResourcesFormManager, resourcesToFormValues } from './PipelineResourcesFormManager'
+import { sanitizePipelineResourcesForSubmit } from './utils'
 import { StepKeys } from '@/src/config/constants'
 import { notify } from '@/src/notifications'
 import type { StepBaseProps } from '@/src/modules/pipelines/[id]/step-renderer/stepProps'
@@ -45,10 +46,19 @@ export function PipelineResourcesConfigurator({
           resourcesStore.hydrateResources(res.pipeline_resources, res.fields_policy?.immutable ?? [])
           setInitialValues(resourcesToFormValues(res.pipeline_resources))
         })
-        .catch(() => {
+        .catch(async () => {
           setInitialValues(resourcesToFormValues(pipeline.pipeline_resources ?? null))
           if (pipeline.pipeline_resources) {
-            resourcesStore.hydrateResources(pipeline.pipeline_resources, pipeline.fields_policy?.immutable ?? [])
+            let immutable = pipeline.fields_policy?.immutable ?? []
+            if (immutable.length === 0 && pipeline.pipeline_id) {
+              try {
+                const validation = await getPipelineResourcesValidation(pipeline.pipeline_id)
+                immutable = validation.fields_policy?.immutable ?? []
+              } catch {
+                // Keep empty immutable
+              }
+            }
+            resourcesStore.hydrateResources(pipeline.pipeline_resources, immutable)
           }
         })
         .finally(() => setInitialized(true))
@@ -64,11 +74,17 @@ export function PipelineResourcesConfigurator({
   }, [standalone, pipeline?.pipeline_id])
 
   const handleSave = async (resources: import('@/src/types/pipeline').PipelineResources) => {
-    resourcesStore.setResources(resources)
+    const currentResources = resourcesStore.pipeline_resources ?? undefined
+    const sanitized = sanitizePipelineResourcesForSubmit(
+      currentResources,
+      resources,
+      resourcesStore.fields_policy?.immutable ?? []
+    )
+    resourcesStore.setResources(sanitized)
 
     if (standalone && pipeline?.pipeline_id) {
       try {
-        await updatePipelineResources(pipeline.pipeline_id, resources)
+        await updatePipelineResources(pipeline.pipeline_id, sanitized)
         notify({ variant: 'success', title: 'Resources updated. Changes apply when the pipeline is resumed.' })
         onCompleteStandaloneEditing?.()
       } catch (err: any) {
