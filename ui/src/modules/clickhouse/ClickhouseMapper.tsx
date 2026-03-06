@@ -29,6 +29,7 @@ import {
   filterUserMappableColumns,
   hasDefaultExpression,
 } from './utils'
+import { sanitizePipelineResourcesForSubmit } from '@/src/modules/resources/utils'
 import { extractEventFields } from '@/src/utils/common.client'
 
 import { useStore } from '@/src/store'
@@ -104,7 +105,8 @@ export function ClickhouseMapper({
 
   const { connectionStatus, connectionError, connectionType } = clickhouseConnection
   const { getTopic } = topicsStore
-  const { setApiConfig, setPipelineId, pipelineId, pipelineName, pipelineVersion, topicCount } = coreStore
+  const { setApiConfig, setPipelineId, pipelineId, pipelineName, pipelineVersion, topicCount, lastSavedConfig } =
+    coreStore
 
   // Determine operation mode and indices based on topic count
   const isJoinOperation = topicCount === 2
@@ -1374,6 +1376,17 @@ export function ClickhouseMapper({
       maxDelayTimeUnit: currentMaxDelayTimeUnit,
     }
 
+    // Sanitize pipeline_resources: preserve original values for immutable paths (edit flow)
+    const rawResources = resourcesStore.pipeline_resources
+    const pipeline_resources =
+      rawResources && lastSavedConfig?.pipeline_resources
+        ? sanitizePipelineResourcesForSubmit(
+            lastSavedConfig.pipeline_resources,
+            rawResources,
+            resourcesStore.fields_policy?.immutable ?? []
+          )
+        : rawResources
+
     // Generate config with the updated destination
     const apiConfig = generateApiConfig({
       pipelineId,
@@ -1388,7 +1401,7 @@ export function ClickhouseMapper({
       deduplicationStore,
       filterStore,
       transformationStore,
-      pipeline_resources: resourcesStore.pipeline_resources,
+      pipeline_resources,
       version: pipelineVersion, // Respect the original pipeline version
     })
 
