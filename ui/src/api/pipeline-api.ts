@@ -10,6 +10,8 @@ import type {
   ApiResponse,
   ApiError,
   PipelineMetadata,
+  PipelineResources,
+  PipelineResourcesResponse,
 } from '@/src/types/pipeline'
 import {
   parsePipelineStatus,
@@ -234,6 +236,112 @@ export const updatePipeline = async (id: string, updates: Partial<Pipeline>): Pr
   }
 }
 
+/**
+ * Get pipeline resources validation rules (field immutability policy).
+ * Returns only fields_policy.immutable - lightweight alternative to getPipelineResources when policy alone is needed.
+ */
+export const getPipelineResourcesValidation = async (
+  id: string
+): Promise<{ fields_policy: { immutable: string[] } }> => {
+  try {
+    const url = getApiUrl(`pipeline/${id}/resources/validation`)
+    const response = await fetch(url)
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}))
+      const errorMessage = data?.error || data?.message || 'Failed to fetch pipeline resources validation'
+      throw { code: response.status, message: errorMessage } as ApiError
+    }
+
+    const data = await response.json()
+    if (data.fields_policy !== undefined) {
+      return {
+        fields_policy: data.fields_policy || { immutable: [] },
+      }
+    }
+    throw { code: 500, message: 'Invalid response from pipeline resources validation endpoint' } as ApiError
+  } catch (error: any) {
+    if (error.code) throw error
+    throw { code: 500, message: error.message || 'Failed to fetch pipeline resources validation' } as ApiError
+  }
+}
+
+/**
+ * Get pipeline resources (CPU, memory, storage, replicas) for a pipeline.
+ * Returns pipeline_resources and fields_policy.immutable (paths that cannot be edited after create).
+ */
+export const getPipelineResources = async (id: string): Promise<PipelineResourcesResponse> => {
+  try {
+    const url = getApiUrl(`pipeline/${id}/resources`)
+    const response = await fetch(url)
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}))
+      const errorMessage = data?.error || data?.message || 'Failed to fetch pipeline resources'
+      throw { code: response.status, message: errorMessage } as ApiError
+    }
+
+    const data = await response.json()
+    if (data.pipeline_resources !== undefined) {
+      return {
+        pipeline_resources: data.pipeline_resources,
+        fields_policy: data.fields_policy || { immutable: [] },
+      }
+    }
+    throw { code: 500, message: 'Invalid response from pipeline resources endpoint' } as ApiError
+  } catch (error: any) {
+    if (error.code) throw error
+    throw { code: 500, message: error.message || 'Failed to fetch pipeline resources' } as ApiError
+  }
+}
+
+/**
+ * Update pipeline resources. Pipeline must be stopped or failed.
+ * Changes apply when the pipeline is resumed.
+ */
+export const updatePipelineResources = async (
+  id: string,
+  pipeline_resources: PipelineResources
+): Promise<PipelineResourcesResponse> => {
+  try {
+    const url = getApiUrl(`pipeline/${id}/resources`)
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pipeline_resources }),
+    })
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}))
+      let errorMessage = data?.error || data?.message || 'Failed to update pipeline resources'
+
+      if (response.status === 409) {
+        throw {
+          code: 409,
+          message: 'Pipeline must be stopped to edit resources. Please stop the pipeline first.',
+          requiresStop: true,
+        } as ApiError
+      }
+
+      if (response.status === 422) {
+        errorMessage =
+          'Some resource fields cannot be changed after pipeline creation. Please revert changes to locked fields.'
+      }
+
+      throw { code: response.status, message: errorMessage } as ApiError
+    }
+
+    const data = await response.json()
+    return {
+      pipeline_resources: data.pipeline_resources || pipeline_resources,
+      fields_policy: data.fields_policy || { immutable: [] },
+    }
+  } catch (error: any) {
+    if (error.code) throw error
+    throw { code: 500, message: error.message || 'Failed to update pipeline resources' } as ApiError
+  }
+}
+
 export const editPipeline = async (id: string, config: Pipeline): Promise<Pipeline> => {
   try {
     const url = getApiUrl(`pipeline/${id}/edit`)
@@ -247,7 +355,13 @@ export const editPipeline = async (id: string, config: Pipeline): Promise<Pipeli
     if (data.success) {
       return data.pipeline
     } else {
-      const errorMessage = data.error || 'Failed to edit pipeline'
+      let errorMessage = data.error || 'Failed to edit pipeline'
+
+      // Handle resource validation errors (immutable fields)
+      if (response.status === 422) {
+        errorMessage =
+          'Some resource fields cannot be changed after pipeline creation. Please revert changes to locked fields.'
+      }
 
       // Handle specific backend validation errors
       if (response.status === 400 && errorMessage.includes('Pipeline must be stopped')) {

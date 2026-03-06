@@ -16,7 +16,7 @@ const buttonVariants = cva(
         primary:
           'rounded-md bg-gradient-to-br from-[var(--button-primary-gradient-start)] to-[var(--button-primary-gradient-end)] shadow-[0px_0px_4px_0px_rgba(0,0,0,0.20),0px_4px_8px_0px_rgba(0,0,0,0.30)] hover:shadow-[0px_0px_6px_0px_rgba(0,0,0,0.25),0px_6px_12px_0px_rgba(0,0,0,0.35)] hover:opacity-90 active:bg-[var(--button-primary-gradient-end)] active:shadow-[var(--shadow-raised)] disabled:bg-gradient-to-br disabled:from-[var(--button-primary-gradient-disabled-start)] disabled:to-[var(--button-primary-gradient-disabled-end)] disabled:shadow-[0px_0px_2px_0px_rgba(0,0,0,0.10),0px_2px_4px_0px_rgba(0,0,0,0.15)] disabled:pointer-events-none text-[var(--button-primary-text)] btn-text',
         destructive:
-          'bg-destructive text-white shadow-xs hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 disabled:opacity-50 disabled:pointer-events-none',
+          'bg-[var(--color-background-critical)] text-[var(--color-on-background-critical)] border border-[var(--color-border-critical)] shadow-[var(--btn-shadow)] hover:opacity-90 active:opacity-95 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 disabled:opacity-50 disabled:pointer-events-none',
         outline:
           'border border-input bg-background shadow-xs hover:bg-accent hover:text-accent-foreground disabled:opacity-50 disabled:pointer-events-none',
         secondary:

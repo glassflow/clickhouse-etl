@@ -30,6 +30,7 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
     deduplicationStore,
     filterStore,
     transformationStore,
+    resourcesStore,
   } = useStore()
   const { apiConfig, pipelineId, setPipelineId, pipelineName, pipelineVersion } = coreStore
   const { clickhouseConnection } = clickhouseConnectionStore
@@ -59,6 +60,7 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
       deduplicationStore,
       filterStore,
       transformationStore,
+      pipeline_resources: resourcesStore.pipeline_resources,
       version: pipelineVersion,
     })
     return result
@@ -74,6 +76,7 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
     deduplicationStore,
     filterStore,
     transformationStore,
+    resourcesStore.pipeline_resources,
     pipelineVersion,
   ])
 

@@ -9,6 +9,7 @@ import { TransformationConfigurator } from '../transformation/TransformationConf
 import { ClickhouseConnectionContainer } from '../clickhouse/ClickhouseConnectionContainer'
 import { ClickhouseMapper } from '../clickhouse/ClickhouseMapper'
 import { ReviewConfiguration } from '../review/ReviewConfiguration'
+import { PipelineResourcesConfigurator } from '../resources/PipelineResourcesConfigurator'
 import { JoinConfigurator } from '../join/JoinConfigurator'
 import { OperationKeys } from '@/src/config/constants'
 import type { SidebarStep } from './WizardSidebar'
@@ -74,6 +75,10 @@ const sidebarStepConfig: Record<StepKeys, Omit<SidebarStep, 'id' | 'key'>> = {
   },
   [StepKeys.CLICKHOUSE_MAPPER]: {
     title: 'Mapping',
+    parent: null,
+  },
+  [StepKeys.PIPELINE_RESOURCES]: {
+    title: 'Pipeline Resources',
     parent: null,
   },
   [StepKeys.REVIEW_CONFIGURATION]: {
@@ -174,7 +179,7 @@ export const getSingleTopicJourney = (): StepKeys[] => {
     structuredLogger.info('Transformations feature is disabled')
   }
 
-  steps.push(StepKeys.CLICKHOUSE_CONNECTION, StepKeys.CLICKHOUSE_MAPPER)
+  steps.push(StepKeys.CLICKHOUSE_CONNECTION, StepKeys.CLICKHOUSE_MAPPER, StepKeys.PIPELINE_RESOURCES)
 
   // Only include Review step if preview mode is enabled
   if (isPreviewModeEnabled()) {
@@ -199,6 +204,7 @@ export const getTwoTopicJourney = (): StepKeys[] => {
     StepKeys.JOIN_CONFIGURATOR,
     StepKeys.CLICKHOUSE_CONNECTION,
     StepKeys.CLICKHOUSE_MAPPER,
+    StepKeys.PIPELINE_RESOURCES,
   ]
 
   // Only include Review step if preview mode is enabled
@@ -506,6 +512,7 @@ export const componentsMap = {
   [StepKeys.JOIN_CONFIGURATOR]: JoinConfigurator,
   [StepKeys.CLICKHOUSE_CONNECTION]: ClickhouseConnectionContainer,
   [StepKeys.CLICKHOUSE_MAPPER]: ClickhouseMapper,
+  [StepKeys.PIPELINE_RESOURCES]: PipelineResourcesConfigurator,
   [StepKeys.REVIEW_CONFIGURATION]: ReviewConfiguration,
 }
 

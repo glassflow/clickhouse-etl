@@ -229,6 +229,8 @@ export interface Pipeline {
       }>
     }
   }
+  pipeline_resources?: PipelineResources
+  fields_policy?: { immutable: string[] }
   sink: {
     type: string
     host: string
@@ -294,6 +296,51 @@ export interface ApiError {
 export interface PipelineError {
   code: number
   message: string
+}
+
+// Resource management types (mirroring backend models/resources.go)
+export interface ResourceList {
+  cpu?: string
+  memory?: string
+}
+
+export interface StorageConfig {
+  size?: string
+}
+
+export interface ComponentResources {
+  requests?: ResourceList
+  limits?: ResourceList
+  storage?: StorageConfig
+  replicas?: number
+}
+
+export interface IngestorResources {
+  base?: ComponentResources
+  left?: ComponentResources
+  right?: ComponentResources
+}
+
+export interface NatsStreamResources {
+  maxAge?: string
+  maxBytes?: string
+}
+
+export interface NatsResources {
+  stream?: NatsStreamResources
+}
+
+export interface PipelineResources {
+  nats?: NatsResources
+  ingestor?: IngestorResources
+  join?: ComponentResources
+  sink?: ComponentResources
+  transform?: ComponentResources
+}
+
+export interface PipelineResourcesResponse {
+  pipeline_resources: PipelineResources
+  fields_policy?: { immutable: string[] }
 }
 
 export interface PipelineResponse {
