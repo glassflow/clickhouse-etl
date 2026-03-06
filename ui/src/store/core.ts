@@ -545,7 +545,7 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
             await hydrateClickhouseDestination(config)
             break
           case 'resources':
-            hydrateResources(config)
+            await hydrateResources(config)
             break
           case 'all':
             // Hydrate sync sections first (including filter and transformation - don't need event schema)
@@ -557,7 +557,7 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
             // Then async sections that require network calls
             await hydrateKafkaTopics(config)
             await hydrateClickhouseDestination(config)
-            hydrateResources(config)
+            await hydrateResources(config)
             break
           default:
             structuredLogger.warn('Unknown section for hydration', { section })
