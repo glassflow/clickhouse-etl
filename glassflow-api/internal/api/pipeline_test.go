@@ -387,6 +387,199 @@ func TestCreatePipeline_CRDAlignedValidations(t *testing.T) {
 	}
 }
 
+func TestCreatePipeline_JoinEnabledRejectsIncompatibleComponents(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockPipelineService := mocks.NewMockPipelineService(ctrl)
+	handler := &handler{
+		log:             slog.Default(),
+		pipelineService: mockPipelineService,
+	}
+
+	tests := []struct {
+		name        string
+		modify      func(map[string]interface{})
+		wantContain string
+	}{
+		{
+			name: "deduplication enabled",
+			modify: func(b map[string]interface{}) {
+				b["join"].(map[string]interface{})["enabled"] = true
+				source := b["source"].(map[string]interface{})
+				topics := source["topics"].([]map[string]interface{})
+				topics[0]["deduplication"] = map[string]interface{}{
+					"enabled":       true,
+					"id_field":      "id",
+					"id_field_type": "string",
+					"time_window":   "5m",
+				}
+			},
+			wantContain: "join cannot be enabled when deduplication is enabled",
+		},
+		{
+			name: "stateless transformation enabled",
+			modify: func(b map[string]interface{}) {
+				b["join"].(map[string]interface{})["enabled"] = true
+				b["stateless_transformation"] = map[string]interface{}{
+					"id":      "test-transform",
+					"type":    "expr_lang_transform",
+					"enabled": true,
+					"config": map[string]interface{}{
+						"transform": []map[string]interface{}{
+							{
+								"expression":  "lower(id)",
+								"output_name": "out",
+								"output_type": "string",
+							},
+						},
+					},
+				}
+			},
+			wantContain: "join cannot be enabled when stateless transformation is enabled",
+		},
+		{
+			name: "filter enabled",
+			modify: func(b map[string]interface{}) {
+				b["join"].(map[string]interface{})["enabled"] = true
+				b["filter"] = map[string]interface{}{
+					"enabled":    true,
+					"expression": `id == "1"`,
+				}
+			},
+			wantContain: "join cannot be enabled when filter is enabled",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body := validCreatePipelineBody()
+			tt.modify(body)
+
+			jsonBytes, err := json.Marshal(body)
+			require.NoError(t, err)
+
+			var pipelineBody pipelineJSON
+			err = json.Unmarshal(jsonBytes, &pipelineBody)
+			require.NoError(t, err)
+
+			input := &CreatePipelineInput{Body: pipelineBody}
+			response, err := handler.createPipeline(context.Background(), input)
+
+			require.Error(t, err)
+			require.Nil(t, response)
+
+			var errDetail *ErrorDetail
+			require.ErrorAs(t, err, &errDetail)
+			assert.Equal(t, http.StatusUnprocessableEntity, errDetail.Status)
+			assert.Equal(t, "unprocessable_entity", errDetail.Code)
+			if errDetail.Details != nil {
+				if e, ok := errDetail.Details["error"].(string); ok {
+					assert.Contains(t, e, tt.wantContain)
+				}
+			}
+		})
+	}
+}
+
+func TestEditPipeline_JoinEnabledRejectsIncompatibleComponents(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockPipelineService := mocks.NewMockPipelineService(ctrl)
+	handler := &handler{
+		log:             slog.Default(),
+		pipelineService: mockPipelineService,
+	}
+
+	tests := []struct {
+		name        string
+		modify      func(map[string]interface{})
+		wantContain string
+	}{
+		{
+			name: "deduplication enabled",
+			modify: func(b map[string]interface{}) {
+				b["join"].(map[string]interface{})["enabled"] = true
+				source := b["source"].(map[string]interface{})
+				topics := source["topics"].([]map[string]interface{})
+				topics[0]["deduplication"] = map[string]interface{}{
+					"enabled":       true,
+					"id_field":      "id",
+					"id_field_type": "string",
+					"time_window":   "5m",
+				}
+			},
+			wantContain: "join cannot be enabled when deduplication is enabled",
+		},
+		{
+			name: "stateless transformation enabled",
+			modify: func(b map[string]interface{}) {
+				b["join"].(map[string]interface{})["enabled"] = true
+				b["stateless_transformation"] = map[string]interface{}{
+					"id":      "test-transform",
+					"type":    "expr_lang_transform",
+					"enabled": true,
+					"config": map[string]interface{}{
+						"transform": []map[string]interface{}{
+							{
+								"expression":  "lower(id)",
+								"output_name": "out",
+								"output_type": "string",
+							},
+						},
+					},
+				}
+			},
+			wantContain: "join cannot be enabled when stateless transformation is enabled",
+		},
+		{
+			name: "filter enabled",
+			modify: func(b map[string]interface{}) {
+				b["join"].(map[string]interface{})["enabled"] = true
+				b["filter"] = map[string]interface{}{
+					"enabled":    true,
+					"expression": `id == "1"`,
+				}
+			},
+			wantContain: "join cannot be enabled when filter is enabled",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body := validCreatePipelineBody()
+			tt.modify(body)
+
+			jsonBytes, err := json.Marshal(body)
+			require.NoError(t, err)
+
+			var pipelineBody pipelineJSON
+			err = json.Unmarshal(jsonBytes, &pipelineBody)
+			require.NoError(t, err)
+
+			input := &EditPipelineInput{
+				ID:   body["pipeline_id"].(string),
+				Body: pipelineBody,
+			}
+			response, err := handler.editPipeline(context.Background(), input)
+
+			require.Error(t, err)
+			require.Nil(t, response)
+
+			var errDetail *ErrorDetail
+			require.ErrorAs(t, err, &errDetail)
+			assert.Equal(t, http.StatusUnprocessableEntity, errDetail.Status)
+			assert.Equal(t, "unprocessable_entity", errDetail.Code)
+			if errDetail.Details != nil {
+				if e, ok := errDetail.Details["error"].(string); ok {
+					assert.Contains(t, e, tt.wantContain)
+				}
+			}
+		})
+	}
+}
+
 // validCreatePipelineBody returns a minimal valid pipeline JSON for create (used as base for validation tests).
 func validCreatePipelineBody() map[string]interface{} {
 	return map[string]interface{}{

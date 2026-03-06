@@ -232,9 +232,7 @@ func newJoinComponentConfig(p pipelineJSON) (zero models.JoinComponentConfig, _ 
 }
 
 func newSinkComponentConfig(
-	p pipelineJSON,
-	sinkStreamID string,
-) (zero models.SinkComponentConfig, _ error) {
+	p pipelineJSON) (zero models.SinkComponentConfig, _ error) {
 	maxDelayTime := p.Sink.MaxDelayTime
 	if maxDelayTime.Duration() == 0 {
 		maxDelayTime = *models.NewJSONDuration(60 * time.Second)
@@ -259,29 +257,6 @@ func newSinkComponentConfig(
 	sinkComponentConfig.NATSConsumerName = models.GetNATSSinkConsumerName(p.PipelineID)
 
 	return sinkComponentConfig, nil
-}
-
-func getSinkStreamID(p pipelineJSON) (string, error) {
-	var sinkStreamID string
-	if p.Join.Enabled {
-		// If join is enabled, sink consumes from the joined stream
-		sinkStreamID = models.GetJoinedStreamName(p.PipelineID)
-	} else {
-		// If join is not enabled, sink consumes from the first topic's stream
-		if len(p.Source.Topics) > 0 {
-			firstTopic := p.Source.Topics[0]
-			// If deduplication is enabled for this topic, use the dedup output stream
-			if firstTopic.Deduplication.Enabled || p.StatelessTransformation.Enabled || p.Filter.Enabled {
-				sinkStreamID = models.GetDedupOutputStreamName(p.PipelineID, firstTopic.Topic)
-			} else {
-				sinkStreamID = models.GetIngestorStreamName(p.PipelineID, firstTopic.Topic)
-			}
-		} else {
-			return "", fmt.Errorf("no topics defined for sink when join is disabled")
-		}
-	}
-
-	return sinkStreamID, nil
 }
 
 func validateJoinKeysInSchema(schema schema, joinSources []joinSource) error {
@@ -333,6 +308,28 @@ func validateDedupKeysInSchema(schema schema, topics []kafkaTopic) error {
 		if !sourceFields[t.Deduplication.ID] {
 			return fmt.Errorf("deduplication key '%s' not found in schema fields for source_id '%s'", t.Deduplication.ID, t.Topic)
 		}
+	}
+
+	return nil
+}
+
+func validateJoinCompatibility(pipeline pipelineJSON) error {
+	if !pipeline.Join.Enabled {
+		return nil
+	}
+
+	for _, topic := range pipeline.Source.Topics {
+		if topic.Deduplication.Enabled {
+			return fmt.Errorf("join cannot be enabled when deduplication is enabled")
+		}
+	}
+
+	if pipeline.StatelessTransformation.Enabled {
+		return fmt.Errorf("join cannot be enabled when stateless transformation is enabled")
+	}
+
+	if pipeline.Filter.Enabled {
+		return fmt.Errorf("join cannot be enabled when filter is enabled")
 	}
 
 	return nil
@@ -517,6 +514,9 @@ func (pipeline pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
 			return zero, fmt.Errorf("topic name at index %d cannot be empty", i)
 		}
 	}
+	if err := validateJoinCompatibility(pipeline); err != nil {
+		return zero, err
+	}
 
 	ingestorComponentConfig, err := newIngestorComponentConfig(pipeline)
 	if err != nil {
@@ -527,13 +527,11 @@ func (pipeline pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
 	if err != nil {
 		return zero, fmt.Errorf("create join component config: %w", err)
 	}
-
-	sinkStreamID, err := getSinkStreamID(pipeline)
 	if err != nil {
 		return zero, fmt.Errorf("get sink stream id: %w", err)
 	}
 
-	sinkComponentConfig, err := newSinkComponentConfig(pipeline, sinkStreamID)
+	sinkComponentConfig, err := newSinkComponentConfig(pipeline)
 	if err != nil {
 		return zero, fmt.Errorf("create sink component config: %w", err)
 	}
