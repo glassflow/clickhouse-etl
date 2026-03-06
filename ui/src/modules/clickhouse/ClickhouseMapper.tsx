@@ -93,6 +93,7 @@ export function ClickhouseMapper({
     deduplicationStore,
     filterStore,
     transformationStore,
+    resourcesStore,
   } = useStore()
   const analytics = useJourneyAnalytics()
   const validationEngine = useValidationEngine()
@@ -1387,6 +1388,7 @@ export function ClickhouseMapper({
       deduplicationStore,
       filterStore,
       transformationStore,
+      pipeline_resources: resourcesStore.pipeline_resources,
       version: pipelineVersion, // Respect the original pipeline version
     })
 

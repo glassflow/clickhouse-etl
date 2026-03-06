@@ -7,6 +7,7 @@ import { isFiltersEnabled } from '@/src/config/feature-flags'
  */
 export type SidebarSection =
   | 'monitor'
+  | 'resources'
   | 'kafka-connection'
   | 'topic'
   | 'left-topic'
@@ -173,6 +174,19 @@ export function getSinkItems(): SidebarItem[] {
 }
 
 /**
+ * Get resources section items
+ */
+export function getResourcesItems(): SidebarItem[] {
+  return [
+    {
+      key: 'resources',
+      label: 'Pipeline Resources',
+      stepKey: StepKeys.PIPELINE_RESOURCES,
+    },
+  ]
+}
+
+/**
  * Get all sidebar items for a pipeline
  * Combines monitor, source, transformation, and sink items
  */
@@ -182,5 +196,6 @@ export function getSidebarItems(pipeline: Pipeline): SidebarItem[] {
     ...getSourceItems(pipeline),
     ...getTransformationItems(pipeline),
     ...getSinkItems(),
+    ...getResourcesItems(),
   ]
 }

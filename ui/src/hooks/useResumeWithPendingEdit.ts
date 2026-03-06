@@ -100,6 +100,7 @@ export function useResumeWithPendingEdit(
       deduplicationStore,
       filterStore,
       transformationStore,
+      resourcesStore,
     } = useStore.getState()
 
     // Generate the API configuration
@@ -122,6 +123,7 @@ export function useResumeWithPendingEdit(
       deduplicationStore,
       filterStore,
       transformationStore,
+      pipeline_resources: resourcesStore.pipeline_resources,
       version: coreStore.pipelineVersion, // Respect the original pipeline version
     })
 

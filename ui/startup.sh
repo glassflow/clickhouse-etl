@@ -57,6 +57,7 @@ export NEXT_PUBLIC_OTEL_EXPORTER_OTLP_ENDPOINT=${NEXT_PUBLIC_OTEL_EXPORTER_OTLP_
 export NEXT_PUBLIC_OTEL_EXPORTER_OTLP_HEADERS=${NEXT_PUBLIC_OTEL_EXPORTER_OTLP_HEADERS:-}
 export NEXT_PUBLIC_LOG_LEVEL=${NEXT_PUBLIC_LOG_LEVEL:-info}
 export NEXT_PUBLIC_OTEL_CONSOLE_LOGS_ENABLED=${NEXT_PUBLIC_OTEL_CONSOLE_LOGS_ENABLED:-}
+export NEXT_PUBLIC_RESOURCE_DEFAULTS=${NEXT_PUBLIC_RESOURCE_DEFAULTS:-}
 
 # Export server-side only Auth0 variables (not prefixed with NEXT_PUBLIC_)
 # These are used by auth-config.server.ts and should be available at runtime
@@ -95,7 +96,8 @@ echo "  NEXT_PUBLIC_OTEL_SERVICE_INSTANCE_ID: \"$NEXT_PUBLIC_OTEL_SERVICE_INSTAN
 echo "  NEXT_PUBLIC_OTEL_EXPORTER_OTLP_ENDPOINT: \"$NEXT_PUBLIC_OTEL_EXPORTER_OTLP_ENDPOINT\"," >> /app/public/env.js
 echo "  NEXT_PUBLIC_OTEL_EXPORTER_OTLP_HEADERS: \"$NEXT_PUBLIC_OTEL_EXPORTER_OTLP_HEADERS\"," >> /app/public/env.js
 echo "  NEXT_PUBLIC_LOG_LEVEL: \"$NEXT_PUBLIC_LOG_LEVEL\"," >> /app/public/env.js
-echo "  NEXT_PUBLIC_OTEL_CONSOLE_LOGS_ENABLED: \"$NEXT_PUBLIC_OTEL_CONSOLE_LOGS_ENABLED\"" >> /app/public/env.js
+echo "  NEXT_PUBLIC_OTEL_CONSOLE_LOGS_ENABLED: \"$NEXT_PUBLIC_OTEL_CONSOLE_LOGS_ENABLED\"," >> /app/public/env.js
+echo "  NEXT_PUBLIC_RESOURCE_DEFAULTS: \"$(printf '%s' "$NEXT_PUBLIC_RESOURCE_DEFAULTS" | sed 's/"/\\"/g')\"" >> /app/public/env.js
 echo "};" >> /app/public/env.js
 
 # Generate runtime configuration for server-side

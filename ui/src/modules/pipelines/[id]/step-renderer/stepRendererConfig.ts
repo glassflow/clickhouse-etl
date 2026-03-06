@@ -10,6 +10,7 @@ import { KafkaTypeVerification } from '@/src/modules/kafka/KafkaTypeVerification
 import { JoinConfigurator } from '@/src/modules/join/JoinConfigurator'
 import { FilterConfigurator } from '@/src/modules/filter/FilterConfigurator'
 import { TransformationConfigurator } from '@/src/modules/transformation/TransformationConfigurator'
+import { PipelineResourcesConfigurator } from '@/src/modules/resources/PipelineResourcesConfigurator'
 import { isFiltersEnabled } from '@/src/config/feature-flags'
 import type { ComponentType } from 'react'
 
@@ -86,6 +87,11 @@ export const STEP_RENDERER_CONFIG: Record<StepKeys, StepConfig | undefined> = {
     component: ClickhouseMapper,
     title: 'ClickHouse Mapping',
     description: 'Configure ClickHouse table mapping',
+  },
+  [StepKeys.PIPELINE_RESOURCES]: {
+    component: PipelineResourcesConfigurator,
+    title: 'Pipeline Resources',
+    description: 'Configure CPU, memory, and storage for each pipeline component',
   },
   [StepKeys.KAFKA_TYPE_VERIFICATION]: {
     component: KafkaTypeVerification,
