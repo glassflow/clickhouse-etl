@@ -42,8 +42,6 @@ import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 
 import { TableColumn, TableSchema, DatabaseAccessTestFn, TableAccessTestFn, ConnectionConfig } from './types'
 
-import { getRuntimeEnv } from '@/src/utils/common.client'
-
 type MappingMode = 'single' | 'join' | 'dedup'
 
 interface ClickhouseMapperProps {
@@ -54,9 +52,6 @@ interface ClickhouseMapperProps {
   pipelineActionState?: any
   onCompleteStandaloneEditing?: () => void
 }
-
-const runtimeEnv = getRuntimeEnv()
-const isPreviewMode = runtimeEnv.NEXT_PUBLIC_PREVIEW_MODE === 'true' || process.env.NEXT_PUBLIC_PREVIEW_MODE === 'true'
 
 /**
  * Gets the verified type for a field from the topic's schema (set during KafkaTypeVerification step).
@@ -1434,13 +1429,8 @@ export function ClickhouseMapper({
     }
 
     // For non-standalone mode (regular pipeline creation flow)
-    if (isPreviewMode) {
-      // Navigate to the review configuration step for preview
-      onCompleteStep(StepKeys.CLICKHOUSE_MAPPER)
-    } else {
-      // Direct mode: Deploy pipeline immediately and then navigate to pipelines page
-      deployPipelineAndNavigate(apiConfig)
-    }
+    // Always advance to the next step (Resources); deploy happens in Resources or Review step
+    onCompleteStep(StepKeys.CLICKHOUSE_MAPPER)
 
   }, [
     clickhouseDestination,
