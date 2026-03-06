@@ -76,7 +76,7 @@ export const CLICKHOUSE_DATA_TYPES = [
   'Decimal64',
   'Decimal128',
   'Decimal256',
-  'Boolean',
+  'Bool',
   'UUID',
   'Date',
   'Date32',

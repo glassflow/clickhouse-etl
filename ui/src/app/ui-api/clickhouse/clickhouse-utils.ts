@@ -135,11 +135,40 @@ export async function executeQuery(connection: ClickHouseConnection, query: stri
   }
 }
 
+/**
+ * Execute a DDL command (CREATE TABLE, DROP TABLE, etc.). Does not parse response.
+ * Throws on error.
+ */
+export async function executeCommand(connection: ClickHouseConnection, query: string): Promise<void> {
+  if (connection.type === 'direct' && connection.directFetch) {
+    await connection.directFetch(query)
+  } else if (connection.type === 'client' && connection.client) {
+    const result = await connection.client.query({ query, format: 'TabSeparated' })
+    await result.text() // Consume the stream so the request completes; required for DDL
+  } else {
+    throw new Error('Invalid connection type or missing connection method')
+  }
+}
+
 export async function closeConnection(connection: ClickHouseConnection): Promise<void> {
   if (connection.type === 'client' && connection.client) {
     await connection.client.close()
   }
   // Direct connections don't need explicit closing
+}
+
+/**
+ * Quote a ClickHouse identifier (database, table, column) so special chars (e.g. hyphens) are safe.
+ * Uses backticks; escapes backticks inside by doubling.
+ */
+export function quoteClickHouseIdentifier(name: string): string {
+  const s = String(name).replace(/`/g, '``')
+  return `\`${s}\``
+}
+
+/** Build fully-qualified table reference: `database`.`table` */
+export function quoteTableRef(database: string, table: string): string {
+  return `${quoteClickHouseIdentifier(database)}.${quoteClickHouseIdentifier(table)}`
 }
 
 // Specialized function for schema queries
@@ -151,14 +180,14 @@ export function buildSchemaQuery(database: string, table: string): string {
     // For system database, use ClickHouse system tables
     return `SELECT name, type, default_kind, default_expression FROM system.columns WHERE database = '${database}' AND table = '${table}' FORMAT JSONEachRow`
   } else {
-    // For regular databases, use DESCRIBE TABLE
-    return `DESCRIBE TABLE \`${database}\`.\`${table}\` FORMAT JSONEachRow`
+    // For regular databases, use DESCRIBE TABLE (quoted for identifiers with hyphens etc.)
+    return `DESCRIBE TABLE ${quoteTableRef(database, table)} FORMAT JSONEachRow`
   }
 }
 
-// Fallback schema query without backticks
+// Fallback schema query with quoted identifiers
 export function buildFallbackSchemaQuery(database: string, table: string): string {
-  return `DESCRIBE TABLE ${database}.${table} FORMAT JSONEachRow`
+  return `DESCRIBE TABLE ${quoteTableRef(database, table)} FORMAT JSONEachRow`
 }
 
 // Specialized functions for test-connection queries
@@ -168,10 +197,10 @@ export function buildTestQuery(testType: string, database?: string, table?: stri
       return 'SHOW DATABASES FORMAT TabSeparated'
     case 'database':
       if (!database) throw new Error('Database name required for database test')
-      return `SHOW TABLES FROM ${database} FORMAT TabSeparated`
+      return `SHOW TABLES FROM ${quoteClickHouseIdentifier(database)} FORMAT TabSeparated`
     case 'table':
       if (!database || !table) throw new Error('Database and table names required for table test')
-      return `SELECT * FROM ${database}.${table} LIMIT 1 FORMAT JSONEachRow`
+      return `SELECT * FROM ${quoteTableRef(database, table)} LIMIT 1 FORMAT JSONEachRow`
     default:
       throw new Error(`Invalid test type: ${testType}`)
   }

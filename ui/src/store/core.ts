@@ -550,9 +550,12 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
             hydrateJoinConfiguration(config)
             hydrateFilter(config)
             hydrateTransformation(config)
-            // Then async sections that require network calls
-            await hydrateKafkaTopics(config)
-            await hydrateClickhouseDestination(config)
+            // Run async sections in parallel so destination store is populated sooner
+            // (hydrateClickhouseDestination does step 1 synchronously, then fetches schema)
+            await Promise.all([
+              hydrateKafkaTopics(config),
+              hydrateClickhouseDestination(config),
+            ])
             break
           default:
             structuredLogger.warn('Unknown section for hydration', { section })
