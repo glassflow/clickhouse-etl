@@ -2,6 +2,7 @@ package processor
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"github.com/nats-io/nats.go"
@@ -17,12 +18,14 @@ type statelessTransformer interface {
 type StatelessTransformerProcessor struct {
 	transformer statelessTransformer
 	meter       *observability.Meter
+	log         *slog.Logger
 }
 
-func NewStatelessTransformerProcessor(transformer statelessTransformer, meter *observability.Meter) *StatelessTransformerProcessor {
+func NewStatelessTransformerProcessor(transformer statelessTransformer, meter *observability.Meter, log *slog.Logger) *StatelessTransformerProcessor {
 	return &StatelessTransformerProcessor{
 		transformer: transformer,
 		meter:       meter,
+		log:         log,
 	}
 }
 
@@ -67,6 +70,14 @@ func (stp *StatelessTransformerProcessor) ProcessBatch(
 		if len(result.FailedMessages) > 0 {
 			stp.meter.RecordProcessorMessages(ctx, "transform", "error", int64(len(result.FailedMessages)))
 		}
+	}
+
+	if stp.log != nil {
+		dlqCount := len(result.FailedMessages)
+		stp.log.InfoContext(ctx, "Transform batch completed",
+			slog.Int("success", len(result.Messages)),
+			slog.Int("dlq_count", dlqCount),
+		)
 	}
 
 	return result
