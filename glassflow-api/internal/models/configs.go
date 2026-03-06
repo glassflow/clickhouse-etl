@@ -104,9 +104,7 @@ type KafkaTopicsConfig struct {
 	ConsumerGroupName          string `json:"consumer_group_name"`
 	Replicas                   int    `json:"replicas" default:"1"`
 
-	Deduplication       DeduplicationConfig `json:"deduplication,omitempty"`
-	OutputStreamID      string              `json:"output_stream_id"`
-	OutputStreamSubject string              `json:"output_stream_subject"`
+	Deduplication DeduplicationConfig `json:"deduplication,omitempty"`
 }
 
 type IngestorComponentConfig struct {
@@ -203,7 +201,6 @@ func NewIngestorComponentConfig(provider string, conn KafkaConnectionParamsConfi
 
 type JoinSourceConfig struct {
 	SourceID    string       `json:"source_id"`
-	StreamID    string       `json:"stream_id"`
 	JoinKey     string       `json:"join_key"`
 	Window      JSONDuration `json:"time_window"`
 	Orientation string       `json:"orientation"`
@@ -249,10 +246,6 @@ func NewJoinComponentConfig(kind string, sources []JoinSourceConfig) (zero JoinC
 	for _, so := range sources {
 		if len(strings.TrimSpace(so.SourceID)) == 0 {
 			return zero, PipelineConfigError{Msg: "join source cannot be empty"}
-		}
-
-		if len(strings.TrimSpace(so.StreamID)) == 0 {
-			return zero, PipelineConfigError{Msg: "join stream_id cannot be empty"}
 		}
 
 		jo, err := NewJoinOrder(so.Orientation)

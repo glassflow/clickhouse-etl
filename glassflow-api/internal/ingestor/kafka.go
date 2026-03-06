@@ -27,6 +27,7 @@ type KafkaIngestor struct {
 func NewKafkaIngestor(
 	config models.PipelineConfig,
 	topicName string,
+	runtimeCfg models.IngestorRuntimeConfig,
 	natsPub, dlqPub stream.Publisher,
 	schema schema.Mapper,
 	log *slog.Logger,
@@ -60,14 +61,18 @@ func NewKafkaIngestor(
 		return nil, fmt.Errorf("failed to create Kafka consumer: %w", err)
 	}
 
-	msgProcessor := NewKafkaMsgProcessor(
+	msgProcessor, err := NewKafkaMsgProcessor(
 		natsPub,
 		dlqPub,
 		schema,
 		topic,
+		runtimeCfg,
 		log,
 		meter,
 	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create kafka message processor: %w", err)
+	}
 
 	return &KafkaIngestor{
 		consumer:  consumer,

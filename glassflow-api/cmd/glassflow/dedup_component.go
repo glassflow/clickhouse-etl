@@ -74,12 +74,12 @@ func mainDeduplicatorV2(
 		return fmt.Errorf("topic %s not found in pipeline config", cfg.DedupTopic)
 	}
 
-	// Input: read from stream (env-based when NATS_INPUT_STREAM_PREFIX and GLASSFLOW_POD_INDEX are set)
-	inputStreamID := topicConfig.OutputStreamID
-	if inputStreamID == "" {
-		return fmt.Errorf("output stream ID not set for topic %s", cfg.DedupTopic)
-	}
-	inputStreamName := getInputStreamNameFromEnv(inputStreamID)
+	// TODO - to be addressed in dedup cleanup PR, we should not use any fallback inputStreamID
+	//inputStreamID := topicConfig.OutputStreamID
+	//if inputStreamID == "" {
+	//	return fmt.Errorf("output stream ID not set for topic %s", cfg.DedupTopic)
+	//}
+	inputStreamName := getInputStreamNameFromEnv("")
 	log.InfoContext(ctx, "Dedup/transform will read from NATS stream", "stream", inputStreamName, "pipeline_id", pipelineCfg.ID)
 
 	// Output: write to dedup-specific output stream

@@ -115,9 +115,12 @@ func (m *UsageStatsCollector) sendPipelineMetrics(ctx context.Context, pipeline 
 	// Collect ingestor stream metrics
 	ingestorMetrics := []map[string]interface{}{}
 	for i, topic := range pipeline.Ingestor.KafkaTopics {
-		streamName := topic.OutputStreamID
+		streamName := ""
+		if topic.Name != "" {
+			streamName = models.GetIngestorStreamName(pipelineID, topic.Name)
+		}
 		if streamName == "" {
-			// If OutputStreamID is not present, send null
+			// If stream name cannot be determined, send null.
 			ingestorMetrics = append(ingestorMetrics, map[string]interface{}{
 				"component":     "ingestor",
 				"topic_index":   i + 1,
