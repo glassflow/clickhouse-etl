@@ -177,7 +177,7 @@ func (k *KafkaMsgProcessor) prepareMesssage(ctx context.Context, msg *kgo.Record
 			slog.String("dedupKey", k.topic.Deduplication.ID),
 		)
 
-		if err := k.setupDeduplicationHeader(ctx, nMsg.Header, msg.Value, version, k.topic.Deduplication.ID); err != nil {
+		if err := k.setupDeduplicationHeader(ctx, nMsg.Header, nMsg.Data, version, k.topic.Deduplication.ID); err != nil {
 			k.log.Error("Failed to setup deduplication header",
 				slog.Any("error", err),
 				slog.String("topic", k.topic.Name),

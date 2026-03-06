@@ -22,12 +22,13 @@ type SchemaInterface interface {
 }
 
 type Schema struct {
-	pipelineID string
-	sourceID   string
-	external   bool
-	dbClient   DBClient
-	srClient   SchemaRegistryClient
-	store      Store
+	pipelineID     string
+	sourceID       string
+	external       bool
+	dbClient       DBClient
+	srClient       SchemaRegistryClient
+	store          Store
+	validatorCache map[string]*jsonValidator // cached per schema version ID
 }
 
 func NewSchema(pipelineID, sourceID string, dbClient DBClient, srClient SchemaRegistryClient) (*Schema, error) {
@@ -42,12 +43,13 @@ func NewSchema(pipelineID, sourceID string, dbClient DBClient, srClient SchemaRe
 
 	store := NewSchemaStore(dbClient, pipelineID, sourceID)
 	return &Schema{
-		pipelineID: pipelineID,
-		sourceID:   sourceID,
-		external:   external,
-		dbClient:   dbClient,
-		srClient:   srClient,
-		store:      store,
+		pipelineID:     pipelineID,
+		sourceID:       sourceID,
+		external:       external,
+		dbClient:       dbClient,
+		srClient:       srClient,
+		store:          store,
+		validatorCache: make(map[string]*jsonValidator),
 	}, nil
 }
 
@@ -124,7 +126,15 @@ func (s *Schema) validateInternalSchema(ctx context.Context, data []byte) (zero 
 		return zero, fmt.Errorf("unsupported schema data format: %s", currentVersion.DataType)
 	}
 
-	err = validateJSONToSchema(data, currentVersion.Fields)
+	// Use cached validator for this schema version (precomputed field checks,
+	// escaped paths, and type mappings — avoids per-message overhead).
+	validator, ok := s.validatorCache[currentVersion.VersionID]
+	if !ok {
+		validator = newJSONValidator(currentVersion.Fields)
+		s.validatorCache[currentVersion.VersionID] = validator
+	}
+
+	err = validator.validate(data)
 	if err != nil {
 		return zero, fmt.Errorf("validate json data against fields: %w", err)
 	}
