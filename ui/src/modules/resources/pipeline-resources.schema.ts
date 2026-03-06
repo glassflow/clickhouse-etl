@@ -1,14 +1,43 @@
 import { z } from 'zod'
+import {
+  validateKubernetesQuantity,
+  validateNatsMaxBytes,
+  validateNatsMaxAge,
+} from './quantity-parser'
 
 const optionalString = z.string().optional().or(z.literal(''))
 
+const kubernetesQuantityOptional = optionalString.refine(
+  (val) => !val || validateKubernetesQuantity(val).valid,
+  (val) => {
+    const result = validateKubernetesQuantity(val || '')
+    return { message: result.valid ? 'Invalid format' : result.error }
+  }
+)
+
+const natsMaxBytesOptional = optionalString.refine(
+  (val) => !val || validateNatsMaxBytes(val).valid,
+  (val) => {
+    const result = validateNatsMaxBytes(val || '')
+    return { message: result.valid ? 'Invalid format' : result.error }
+  }
+)
+
+const natsMaxAgeOptional = optionalString.refine(
+  (val) => !val || validateNatsMaxAge(val).valid,
+  (val) => {
+    const result = validateNatsMaxAge(val || '')
+    return { message: result.valid ? 'Invalid format' : result.error }
+  }
+)
+
 const resourceListSchema = z.object({
-  cpu: optionalString,
-  memory: optionalString,
+  cpu: kubernetesQuantityOptional,
+  memory: kubernetesQuantityOptional,
 })
 
 const storageSchema = z.object({
-  size: optionalString,
+  size: kubernetesQuantityOptional,
 })
 
 const componentResourcesSchema = z.object({
@@ -25,8 +54,8 @@ const ingestorResourcesSchema = z.object({
 })
 
 const natsStreamSchema = z.object({
-  maxAge: optionalString,
-  maxBytes: optionalString,
+  maxAge: natsMaxAgeOptional,
+  maxBytes: natsMaxBytesOptional,
 })
 
 const natsResourcesSchema = z.object({
