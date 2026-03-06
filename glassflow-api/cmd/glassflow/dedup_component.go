@@ -271,7 +271,7 @@ func getOutputSubjectFromEnv() (string, error) {
 		return "", fmt.Errorf("subject prefix and pod index is required")
 	}
 
-	return fmt.Sprintf("%s_%s", prefix, podIndex), nil
+	return fmt.Sprintf("%s.%s", prefix, podIndex), nil
 }
 
 // getInputStreamNameFromEnv returns the NATS stream name to consume from.
