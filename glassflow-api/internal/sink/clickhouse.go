@@ -292,10 +292,11 @@ func (ch *ClickHouseSink) worker() {
 				return
 			}
 
-			ctx, cancel := context.WithCancel(ch.workerCtx)
-
 			processed := make([]processedMessage, 0, len(job.messages))
 			var jobErr error
+
+			// Cache config per schema version to avoid repeated GetSinkConfig calls
+			workerConfigsCache := make(map[string]map[string]models.Mapping, 1)
 
 			for _, msg := range job.messages {
 				// Get metadata
@@ -319,13 +320,17 @@ func (ch *ClickHouseSink) worker() {
 					continue
 				}
 
-				mappingConfig, err := ch.cfgStore.GetSinkConfig(ctx, schemaVersionID)
-				if err != nil {
-					processed = append(processed, processedMessage{
-						msg: msg,
-						err: fmt.Errorf("failed to get sink config for schema version %s: %w", schemaVersionID, err),
-					})
-					continue
+				mappingConfig, ok := workerConfigsCache[schemaVersionID]
+				if !ok {
+					mappingConfig, err = ch.cfgStore.GetSinkConfig(ch.workerCtx, schemaVersionID)
+					if err != nil {
+						processed = append(processed, processedMessage{
+							msg: msg,
+							err: fmt.Errorf("failed to get sink config for schema version %s: %w", schemaVersionID, err),
+						})
+						continue
+					}
+					workerConfigsCache[schemaVersionID] = mappingConfig
 				}
 
 				values, err = ch.mapper.Map(msg.Data(), schemaVersionID, mappingConfig)
@@ -345,7 +350,6 @@ func (ch *ClickHouseSink) worker() {
 					err:             nil,
 				})
 			}
-			cancel()
 
 			// Send a result back to the parent routine
 			ch.workerResultChan <- workerResult{

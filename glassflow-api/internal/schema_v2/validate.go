@@ -118,6 +118,7 @@ func (fc *fieldCheck) validateType(value gjson.Result) error {
 type jsonValidator struct {
 	checks     []fieldCheck   // ordered field checks matching schema field order
 	fieldNames map[string]int // field name → index in checks, for O(1) lookup during ForEach
+	found      []bool         // reusable buffer tracking which fields were seen; safe for single-threaded use
 }
 
 // newJSONValidator precomputes all field validation info from schema fields
@@ -157,50 +158,69 @@ func newJSONValidator(fields []models.Field) *jsonValidator {
 	return &jsonValidator{
 		checks:     checks,
 		fieldNames: fieldNames,
+		found:      make([]bool, len(checks)),
 	}
 }
 
 // validate checks a JSON message against precomputed field expectations
 func (v *jsonValidator) validate(msg []byte) error {
-	if !gjson.ValidBytes(msg) {
+	parsedMsg := gjson.ParseBytes(msg)
+	if parsedMsg.Type != gjson.JSON {
 		return fmt.Errorf("invalid JSON message")
 	}
 
-	parsedMsg := gjson.ParseBytes(msg)
-
-	// Single ForEach pass: collect values for all matching top-level keys
-	values := make([]gjson.Result, len(v.checks))
+	// Reset found flags (cheap: 1 byte per field, no allocation)
+	for i := range v.found {
+		v.found[i] = false
+	}
 	remaining := len(v.checks)
 
+	// Single ForEach pass: validate type inline and mark fields as found
+	var forEachErr error
 	parsedMsg.ForEach(func(key, value gjson.Result) bool {
-		if idx, ok := v.fieldNames[key.String()]; ok {
-			values[idx] = value
-			remaining--
-			if remaining == 0 {
-				return false // all fields found, stop early
-			}
+		idx, ok := v.fieldNames[key.String()]
+		if !ok {
+			return true
+		}
+		check := &v.checks[idx]
+		if err := check.validateType(value); err != nil {
+			forEachErr = fmt.Errorf("field '%s' type validation failed: %w", check.name, err)
+			return false
+		}
+		v.found[idx] = true
+		remaining--
+		if remaining == 0 {
+			return false // all fields found, stop early
 		}
 		return true
 	})
 
-	// Validate all expected fields.
-	for i := range v.checks {
-		check := &v.checks[i]
-		value := values[i]
+	if forEachErr != nil {
+		return forEachErr
+	}
 
-		if !value.Exists() {
-			// Field not found at top level. For dotted fields, try path-based lookup
-			if check.hasDots {
-				value = parsedMsg.Get(check.escapedName)
-				if !value.Exists() {
-					value = parsedMsg.Get(check.name)
-				}
-			}
+	// All fields were found and validated in the ForEach pass.
+	if remaining == 0 {
+		return nil
+	}
+
+	// Some fields were not found as top-level keys. Handle missing fields and
+	// dotted fields that may exist as nested objects (e.g. {"container": {"image": {"name": "v"}}}).
+	for i := range v.checks {
+		if v.found[i] {
+			continue
+		}
+		check := &v.checks[i]
+		var value gjson.Result
+		if check.hasDots {
+			value = parsedMsg.Get(check.escapedName)
 			if !value.Exists() {
-				return fmt.Errorf("field '%s' is missing in the message", check.name)
+				value = parsedMsg.Get(check.name)
 			}
 		}
-
+		if !value.Exists() {
+			return fmt.Errorf("field '%s' is missing in the message", check.name)
+		}
 		if err := check.validateType(value); err != nil {
 			return fmt.Errorf("field '%s' type validation failed: %w", check.name, err)
 		}

@@ -12,13 +12,15 @@ import (
 )
 
 type columnInfo struct {
-	idx        int
-	columnType ClickHouseDataType
+	idx         int
+	columnType  ClickHouseDataType
+	sourceField string
+	sourceType  KafkaDataType
 }
 
 type columnMetadata struct {
 	columns          []string
-	columnLookUpInfo map[string]columnInfo
+	columnLookUpInfo map[string]columnInfo // keyed by source field name
 }
 
 type KafkaToClickHouseMapper struct {
@@ -49,9 +51,11 @@ func (m *KafkaToClickHouseMapper) Map(data []byte, schemaVersionID string, confi
 		for idx, key := range sortedKeys {
 			field := config[key]
 			columnsList[idx] = field.DestinationField
-			lookUpMap[field.DestinationField] = columnInfo{
-				idx:        idx,
-				columnType: ClickHouseDataType(field.DestinationType),
+			lookUpMap[field.SourceField] = columnInfo{
+				idx:         idx,
+				columnType:  ClickHouseDataType(field.DestinationType),
+				sourceField: field.SourceField,
+				sourceType:  KafkaDataType(internal.NormalizeToBasicKafkaType(field.SourceType)),
 			}
 		}
 
@@ -75,14 +79,11 @@ func (m *KafkaToClickHouseMapper) Map(data []byte, schemaVersionID string, confi
 	var conversionErr error
 
 	parsedJson.ForEach(func(key, value gjson.Result) bool {
-		mapping := config[key.String()]
-
-		info, exists := metadata.columnLookUpInfo[mapping.DestinationField]
+		info, exists := metadata.columnLookUpInfo[key.String()]
 		if exists {
-			sourceType := KafkaDataType(internal.NormalizeToBasicKafkaType(mapping.SourceType))
-			convertedValue, err := ConvertValueFromJson(info.columnType, sourceType, value)
+			convertedValue, err := ConvertValueFromJson(info.columnType, info.sourceType, value)
 			if err != nil {
-				conversionErr = fmt.Errorf("failed to convert field %s: %w", sourceType, err)
+				conversionErr = fmt.Errorf("failed to convert field %s: %w", key.String(), err)
 				return false
 			}
 
@@ -96,22 +97,18 @@ func (m *KafkaToClickHouseMapper) Map(data []byte, schemaVersionID string, confi
 		return nil, conversionErr
 	}
 
-	for columnName, info := range metadata.columnLookUpInfo {
+	// Fallback for dotted source field names (e.g. "container.image.name") that
+	// ForEach cannot resolve as top-level keys when stored as nested JSON objects.
+	for _, info := range metadata.columnLookUpInfo {
 		if values[info.idx] != nil {
-			continue // Already found via top-level iteration
+			continue // Already found via top-level ForEach iteration
 		}
 
-		mapping, ok := config[columnName]
-		if !ok {
-			continue // No mapping for this column, skip it
-		}
-
-		value := getFieldValue(parsedJson, mapping.SourceField)
+		value := getFieldValue(parsedJson, info.sourceField)
 		if value.Exists() {
-			sourceType := KafkaDataType(internal.NormalizeToBasicKafkaType(mapping.SourceType))
-			convertedValue, err := ConvertValueFromJson(info.columnType, sourceType, value)
+			convertedValue, err := ConvertValueFromJson(info.columnType, info.sourceType, value)
 			if err != nil {
-				return nil, fmt.Errorf("failed to convert field %s: %w", sourceType, err)
+				return nil, fmt.Errorf("failed to convert field %s: %w", info.sourceField, err)
 			}
 			values[info.idx] = convertedValue
 		}

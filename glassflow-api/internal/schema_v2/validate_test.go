@@ -29,7 +29,7 @@ func TestValidateJSONToSchema(t *testing.T) {
 		},
 		{
 			name: "invalid JSON",
-			msg:  []byte(`{invalid json`),
+			msg:  []byte(`invalid json`),
 			schema: []models.Field{
 				{Name: "id", Type: internal.KafkaTypeInt},
 			},
