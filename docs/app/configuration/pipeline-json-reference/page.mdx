@@ -9,243 +9,8 @@ The pipeline configuration is defined in a JSON file that specifies the source, 
 
 The pipeline configuration is a JSON object that defines how data flows from Kafka topics to ClickHouse tables.
 
-## Root Configuration
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `version` | string | No | Version of the pipeline configuration. Current supported version is "v2". |
-| `pipeline_id` | string | Yes | Unique identifier for the pipeline. Must be non-empty. |
-| `name` | string | No | Name of the pipeline that will be displayed in the UI. |
-| `source` | object | Yes | Configuration for the Kafka source. See [Source Configuration](#source-configuration). |
-| `sink` | object | Yes | Configuration for the ClickHouse sink. See [Sink Configuration](#sink-configuration). |
-| `schema` | object | Yes | Configuration for the schema of the pipeline. See [Schema Configuration](#schema-configuration). |
-| `join` | object | No | Configuration for joining multiple Kafka topics. See [Join Configuration](#join-configuration). |
-| `filter` | object | No | Configuration for filtering the data. See [Filter Configuration](#filter-configuration). |
-| `stateless_transformation` | object | No | Configuration for stateless JSON transformations. See [Stateless Transformation Configuration](#stateless-transformation-configuration). |
-| `metadata` | object | No | Metadata for the pipeline. See [Metadata Configuration](#metadata-configuration). |
-
-
-## Source Configuration
-
-The source configuration defines how to connect to and consume from Kafka topics.
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `type` | string | Yes | "kafka" is the only supported source |
-| `provider` | string | No | Kafka provider, e.g. "aiven" |
-| `topics` | array | Yes | List of Kafka topics to consume from. See [Topic Configuration](#topic-configuration). |
-| `connection_params` | object | Yes | Kafka connection parameters. See [Kafka Connection Parameters](#kafka-connection-parameters). |
-
-### Kafka Connection Parameters
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `brokers` | array | Yes | List of Kafka broker addresses (e.g., `["localhost:9092"]`). |
-| `protocol` | string | Yes | Security protocol for Kafka connection (e.g., `SASL_SSL`). |
-| `mechanism` | string | No | Authentication mechanism (e.g., `SCRAM-SHA-256`). Mandatory when `skip_auth` is `false`. |
-| `username` | string | Yes | Username for Kafka authentication. |
-| `password` | string | Yes | Password for Kafka authentication. |
-| `kerberos_service_name` | string | No | Kerberos service name. |
-| `kerberos_keytab` | string | No | Kerberos keytab file. |
-| `kerberos_realm` | string | No | Kerberos realm. |
-| `kerberos_config` | string | No | Kerberos configuration file. |
-| `root_ca` | string | No | Cert. file for Kafka authentication. |
-| `skip_tls_verification` | boolean | No | Skip TLS verification. Default is `false`. |
-
-Supported Protocol:
-- `PLAINTEXT` - Plaintext protocol.
-- `SSL` - SSL protocol.
-- `SASL_SSL` - SASL over SSL protocol.
-- `SASL_PLAINTEXT` - SASL over plaintext protocol.
-
-Supported Mechanism:
-- `NO_AUTH` - No authentication mechanism.
-- `PLAIN` - Plaintext authentication.
-- `SCRAM-SHA-256` - SCRAM-SHA-256 authentication.
-- `SCRAM-SHA-512` - SCRAM-SHA-512 authentication.
-- `GSSAPI` - GSSAPI authentication.
-
-### Topic Configuration
-
-Each topic in the `topics` array has the following configuration:
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `name` | string | Yes | Name of the Kafka topic. |
-| `consumer_group_initial_offset` | string | No | Initial offset for the consumer group (`earliest` or `latest`). Defaults to `latest`. |
-| `replicas` | integer | No | Number of replicas for the Kafka topic. Defaults to 1. |
-| `deduplication` | object | Yes | Deduplication settings. See [Deduplication Configuration](#deduplication-configuration). |
-
-### Deduplication Configuration
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `enabled` | boolean | Yes | Whether deduplication is enabled. |
-| `id_field` | string | Yes | Field name used for message deduplication. |
-| `id_field_type` | string | Yes | Type of the ID field (e.g., "string"). |
-| `time_window` | string | Yes | Time window for deduplication (e.g., "1h" for one hour). See [Time windows](#time-windows). |
-
-
-## Sink Configuration
-
-The sink configuration defines how to connect to and write to ClickHouse.
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `type` | string | Yes | Must be "clickhouse". |
-| `host` | string | Yes | ClickHouse server hostname. |
-| `port` | string | Yes | ClickHouse server port. |
-| `http_port` | string | No | ClickHouse server http port (only used for UI connection) |
-| `database` | string | Yes | ClickHouse database name. |
-| `username` | string | Yes | ClickHouse username. |
-| `password` | string | Yes | ClickHouse password. It must be base64 encoded. |
-| `table` | string | Yes | Target table name. |
-| `secure` | boolean | No | Whether to use secure connection (TLS). Defaults to false. |
-| `skip_certificate_verification` | boolean | No | Whether to skip certificate verification. Defaults to false. |
-| `max_batch_size` | integer | No | Maximum number of records to batch before writing. Defaults to 1000. |
-| `max_delay_time` | string | No | Maximum delay time before the messages are flushed into the sink. Defaults to "10m". |
-
-
-## Schema Configuration
-
-The schema configuration defines the schema of the pipeline.
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `fields` | array | Yes | List of field definitions. See [Field Configuration](#field-configuration). |
-
-### Field Configuration
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `source_id` | string | Yes | Source ID. This is the ID of the source topic or transformation. |
-| `name` | string | Yes | Source field name. Nested structures are supported by using a dot notation (e.g. `data.name`). |
-| `type` | string | Yes | Source field type. |
-| `column_name` | string | No | ClickHouse column name. |
-| `column_type` | string | No | ClickHouse column type. |
-
-The `type` parameter accepts the following Kafka data types:
-
-- `'string'` - For text data, including datetime strings
-- `'int'`, `'int8'`, `'int16'`, `'int32'`, `'int64'` - For integer values
-- `'uint'`, `'uint8'`, `'uint16'`, `'uint32'`, `'uint64'` - For unsigned integer values
-- `'float'`, `'float32'`, `'float64'` - For floating-point numbers
-- `'bool'` - For boolean values
-- `'bytes'` - For binary data
-- `'array'` - For array data
-- `'map'` - For key-value pair data
-
-The `column_type` parameter accepts the following ClickHouse data types:
-
-**Basic Types:**
-- `'Int8'`, `'Int16'`, `'Int32'`, `'Int64'` - For integer values
-- `'UInt8'`, `'UInt16'`, `'UInt32'`, `'UInt64'` - For unsigned integer values
-- `'Float32'`, `'Float64'` - For float values
-- `'String'` - For string values
-- `'FixedString'` - For fixedstring values
-- `'DateTime'`, `'DateTime64'` - For datetime values
-- `'Bool'` - For bool values
-- `'UUID'` - For uuid values
-- `'Enum8'`, `'Enum16'` - For enum values
-
-**LowCardinality Types:**
-- `'LowCardinality(Int8)'`, `'LowCardinality(Int16)'`, `'LowCardinality(Int32)'`, `'LowCardinality(Int64)'` - For low cardinality int values
-- `'LowCardinality(UInt8)'`, `'LowCardinality(UInt16)'`, `'LowCardinality(UInt32)'`, `'LowCardinality(UInt64)'` - For low cardinality uint values
-- `'LowCardinality(Float32)'`, `'LowCardinality(Float64)'` - For low cardinality float values
-- `'LowCardinality(String)'` - For low cardinality string values
-- `'LowCardinality(FixedString)'` - For low cardinality fixedstring values
-- `'LowCardinality(DateTime)'` - For low cardinality datetime values
-
-**Array Types:**
-- `'Array(String)'` - For array of string values
-- `'Array(Int8)'`, `'Array(Int16)'`, `'Array(Int32)'`, `'Array(Int64)'` - For array of int values
-- `'Array(UInt8)'`, `'Array(UInt16)'`, `'Array(UInt32)'`, `'Array(UInt64)'` - For array of uint values
-- `'Array(Float32)'`, `'Array(Float64)'` - For array of float values
-- `'Array(Bool)'` - For array of bool values
-- `'Array(Map(String, String))'` - For array of maps
-
-**Map Types:**
-- `'Map(String, String)'` - For key-value pairs
-
-> 💡 **Note**: For comprehensive type mapping information, see the [Supported Data Formats](/configuration/data-format) documentation.
-
-## Join Configuration
-
-The join configuration defines how to join data from multiple Kafka topics.
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `enabled` | boolean | Yes | Whether joining is enabled. |
-| `type` | string | Yes | Join type (e.g., "temporal"). |
-| `sources` | array | Yes | List of sources to join. See [Join Source Configuration](#join-source-configuration). |
-
-### Join Source Configuration
-
-Each source in the `sources` array has the following configuration:
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `source_id` | string | Yes | Name of the Kafka topic to join. |
-| `join_key` | string | Yes | Field name used for joining records. |
-| `time_window` | string | Yes | Time window for joining records (e.g., "1h" for one hour). See [Time windows](#time-windows). |
-| `orientation` | string | Yes | Join orientation ("left" or "right"). |
-
-## Filter Configuration
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `enabled` | boolean | Yes | Whether filtering is enabled. |
-| `expression` | string | Yes | Filter expression. |
-
-## Stateless Transformation Configuration
-
-The `stateless_transformation` section defines expression-based, per-event JSON transformations that are applied before data is mapped to ClickHouse.
-These transformations are stateless and operate on each event independently.
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `enabled` | boolean | No | Whether stateless transformations are enabled. Defaults to `false` when omitted. |
-| `id` | string | Yes | Optional identifier for the transformation configuration. |
-| `type` | string | No | Transformation type identifier. Reserved for future use. Default is `expr_lang_transform`. |
-| `config` | object | Yes (when `enabled` is `true`) | Stateless transformation configuration. See [Stateless Transformations Config](#stateless-transformations-config). |
-
-### Stateless Transformations Config
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `transform` | array | Yes | List of individual stateless transformations. See [Transform Definition](#transform-definition). |
-
-### Transform Definition
-
-Each entry in the `transform` array defines one derived field computed from the input JSON using an expression:
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `expression` | string | Yes | Expression evaluated against the input JSON event (using the `expr` engine and GlassFlow helper functions). |
-| `output_name` | string | Yes | Name of the field in the transformed payload that will be produced by this expression. |
-| `output_type` | string | Yes | Expected output type. Supported values: `"string"`, `"int"`, `"int64"`, `"float64"`, `"bool"`, `"[]string"`. |
-
-> 💡 **Note**: For a conceptual overview, examples, and the list of helper functions (e.g. `parseQuery`, `parseISO8601`, `parseUserAgent`), see the [Stateless Transformations](/configuration/transformations/stateless-transformation) documentation.
-
-## Metadata Configuration
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `tags` | array | No | List of tags for the pipeline. |
-
-## Other configuration notes
-
-### Time windows
-
-Time windows use string format, for example:
-- `"30s"` - 30 seconds
-- `"1m"` - 1 minute
-- `"1h"` - 1 hour
-- `"12h"` - 12 hours
-- `"24h"` - 24 hours
-
-## Example Configuration
-
+<details>
+<summary>Pipeline JSON Example</summary>
 ```json
 {
   "version": "v2",
@@ -360,8 +125,321 @@ Time windows use string format, for example:
         "column_type": "DateTime"
       }
     ]
+  },
+  "pipeline_resources": {
+    "ingestor": {
+      "left": {
+        "replicas": 5,
+        "requests": {
+          "cpu": "1000m",
+          "memory": "1Gi"
+        },
+        "limits": {
+          "cpu": "1500m",
+          "memory": "1.5Gi"
+        }
+      },
+      "right": {
+        "replicas": 2,
+        "requests": {
+          "cpu": "1000m",
+          "memory": "1Gi"
+        },
+        "limits": {
+          "cpu": "1500m",
+          "memory": "1.5Gi"
+        }
+      }
+    }
   }
 }
 ```
+</details>
 
 > 💡 **Note**: The web interface automatically generates this configuration based on user input, so manual editing is not required.
+
+## Root Configuration
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `version` | string | No | Version of the pipeline configuration. Current supported version is "v2". |
+| `pipeline_id` | string | Yes | Unique identifier for the pipeline. Must be non-empty. |
+| `name` | string | No | Name of the pipeline that will be displayed in the UI. |
+| [`source`](#source-configuration) | object | Yes | Configuration for the Kafka source. |
+| [`sink`](#sink-configuration) | object | Yes | Configuration for the ClickHouse sink. |
+| [`schema`](#schema-configuration) | object | Yes | Configuration for the schema of the pipeline. |
+| [`join`](#join-configuration) | object | No | Configuration for joining multiple Kafka topics. |
+| [`filter`](#filter-configuration) | object | No | Configuration for filtering the data. |
+| [`stateless_transformation`](#stateless-transformation-configuration) | object | No | Configuration for stateless JSON transformations. |
+| [`pipeline_resources`](#pipeline-resources-configuration) | object | No | Configuration for the kubernetes resources for the pipeline. |
+| [`metadata`](#metadata-configuration) | object | No | Metadata for the pipeline. |
+
+
+## Source Configuration
+
+The source configuration defines how to connect to and consume from Kafka topics.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `type` | string | Yes | "kafka" is the only supported source |
+| `provider` | string | No | Kafka provider, e.g. "aiven" |
+| [`topics`](#topic-configuration) | array | Yes | List of Kafka topics to consume from. |
+| [`connection_params`](#kafka-connection-parameters) | object | Yes | Kafka connection parameters. |
+
+### Kafka Connection Parameters
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `brokers` | array | Yes | List of Kafka broker addresses (e.g., `["localhost:9092"]`). |
+| `protocol` | string | Yes | Security protocol for Kafka connection (e.g., `SASL_SSL`). |
+| `mechanism` | string | No | Authentication mechanism (e.g., `SCRAM-SHA-256`). Mandatory when `skip_tls_verification` is `false`. |
+| `username` | string | No | Username for Kafka authentication. Mandatory when `skip_tls_verification` is `false`.|
+| `password` | string | No | Password for Kafka authentication. Mandatory when `skip_tls_verification` is `false`.|
+| `kerberos_service_name` | string | No | Kerberos service name. |
+| `kerberos_keytab` | string | No | Kerberos keytab file. |
+| `kerberos_realm` | string | No | Kerberos realm. |
+| `kerberos_config` | string | No | Kerberos configuration file. |
+| `root_ca` | string | No | Cert. file for Kafka authentication. |
+| `skip_tls_verification` | boolean | No | Skip TLS verification. Default is `false`. |
+
+
+> 💡 **Note**: For a full list of supported protocols and mechanisms, see the [Supported Kafka Connections](/configuration/supported-kafka-connections) documentation.
+
+### Topic Configuration
+
+Each topic in the `topics` array has the following configuration:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Name of the Kafka topic. |
+| `consumer_group_initial_offset` | string | No | Initial offset for the consumer group (`earliest` or `latest`). Defaults to `latest`. |
+| `replicas` | integer | No | Number of replicas for the Kafka topic. Defaults to `1`. Deprecated field, use `pipeline_resources.ingestor.<base\|left\|right>.replicas` instead. |
+| [`deduplication`](#deduplication-configuration) | object | Yes | Deduplication settings. |
+
+### Deduplication Configuration
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `enabled` | boolean | Yes | Whether deduplication is enabled. |
+| `id_field` | string | Yes | Field name used for message deduplication. |
+| `id_field_type` | string | Yes | Type of the ID field (e.g., "string"). |
+| `time_window` | string | Yes | Time window for deduplication (e.g., "1h" for one hour). See [Time windows](#time-windows). |
+
+
+## Sink Configuration
+
+The sink configuration defines how to connect to and write to ClickHouse.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `type` | string | Yes | Must be "clickhouse". |
+| `host` | string | Yes | ClickHouse server hostname. |
+| `port` | string | Yes | ClickHouse server port. |
+| `http_port` | string | No | ClickHouse server http port (only used for UI connection) |
+| `database` | string | Yes | ClickHouse database name. |
+| `username` | string | Yes | ClickHouse username. |
+| `password` | string | Yes | ClickHouse password. It must be base64 encoded. |
+| `table` | string | Yes | Target table name. |
+| `secure` | boolean | No | Whether to use secure connection (TLS). Defaults to false. |
+| `skip_certificate_verification` | boolean | No | Whether to skip certificate verification. Defaults to false. |
+| `max_batch_size` | integer | No | Maximum number of records to batch before writing. Defaults to 1000. |
+| `max_delay_time` | string | No | Maximum delay time before the messages are flushed into the sink. Defaults to "10m". |
+
+
+## Schema Configuration
+
+The schema configuration defines the schema of the pipeline.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| [`fields`](#field-configuration) | array | Yes | List of field definitions. |
+
+### Field Configuration
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `source_id` | string | Yes | Source ID. This is the ID of the source topic or transformation. |
+| `name` | string | Yes | Source field name. Nested structures are supported by using a dot notation (e.g. `data.name`). |
+| `type` | string | Yes | Source field type. |
+| `column_name` | string | No | ClickHouse column name. |
+| `column_type` | string | No | ClickHouse column type. |
+
+> 💡 **Note**: For comprehensive list of supported data types, see the [Supported Data Formats](/configuration/data-format) documentation.
+
+## Join Configuration
+
+The join configuration defines how to join data from multiple Kafka topics.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `enabled` | boolean | Yes | Whether joining is enabled. |
+| `type` | string | Yes | Join type (e.g., "temporal"). |
+| [`sources`](#join-source-configuration) | array | Yes | List of sources to join. |
+
+### Join Source Configuration
+
+Each source in the `sources` array has the following configuration:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `source_id` | string | Yes | Name of the Kafka topic to join. |
+| `join_key` | string | Yes | Field name used for joining records. |
+| `time_window` | string | Yes | Time window for joining records (e.g., "1h" for one hour). See [Time windows](#time-windows). |
+| `orientation` | string | Yes | Join orientation ("left" or "right"). |
+
+## Filter Configuration
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `enabled` | boolean | Yes | Whether filtering is enabled. |
+| `expression` | string | Yes | Filter expression. See [Filters Transformation](/configuration/transformations/filter) documentation. |
+
+## Stateless Transformation Configuration
+
+The `stateless_transformation` section defines expression-based, per-event JSON transformations that are applied before data is mapped to ClickHouse.
+These transformations are stateless and operate on each event independently.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `enabled` | boolean | No | Whether stateless transformations are enabled. Defaults to `false` when omitted. |
+| `id` | string | Yes | Optional identifier for the transformation configuration. |
+| `type` | string | No | Transformation type identifier. Reserved for future use. Default is `expr_lang_transform`. |
+| [`config`](#stateless-transformations-config) | object | Yes (when `enabled` is `true`) | Stateless transformation configuration. |
+
+### Stateless Transformations Config
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| [`transform`](#transform-definition) | array | Yes | List of individual stateless transformations. |
+
+### Transform Definition
+
+Each entry in the `transform` array defines one derived field computed from the input JSON using an expression:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `expression` | string | Yes | Expression evaluated against the input JSON event. See [Stateless Transformations](/configuration/transformations/stateless-transformation) documentation for more details on the supported transformations. |
+| `output_name` | string | Yes | Name of the field in the transformed payload that will be produced by this expression. |
+| `output_type` | string | Yes | Expected output type. |
+
+## Pipeline Resources Configuration
+
+The pipeline resources configuration defines the kubernetes resources for the pipeline. If not specified, the default values from the chart values will be used.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| [`ingestor`](#ingestor-resources-configuration) | object | No | Ingestor resources configuration. |
+| [`join`](#join-resources-configuration) | object | No | Join resources configuration. |
+| [`sink`](#sink-resources-configuration) | object | No | Sink resources configuration. |
+| [`transform`](#transform-resources-configuration) | object | No | Transform resources configuration. |
+| [`nats`](#nats-resources-configuration) | object | No | Nats resources configuration. |
+
+### Ingestor Resources Configuration
+
+The ingestor resources configuration defines the resources for the ingestor.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| [`base`](#base-ingestor-resources-configuration) | object | No | Ingestor resources configuration when join is disabled. |
+| [`left`](#left-ingestor-resources-configuration) | object | No | Left ingestor resources configuration. |
+| [`right`](#right-ingestor-resources-configuration) | object | No | Right ingestor resources configuration. |
+
+#### Base Ingestor Resources Configuration
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `replicas` | integer | No | Number of replicas for the base ingestor. Defaults to 1. |
+| [`requests`](#resources-configuration) | object | No | Requests resources configuration. |
+| [`limits`](#resources-configuration) | object | No | Limits resources configuration. |
+
+#### Left Ingestor Resources Configuration
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `replicas` | integer | No | Number of replicas for the left ingestor. Defaults to 1. |
+| [`requests`](#resources-configuration) | object | No | Requests resources configuration. |
+| [`limits`](#resources-configuration) | object | No | Limits resources configuration. |
+
+#### Right Ingestor Resources Configuration
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `replicas` | integer | No | Number of replicas for the right ingestor. Defaults to 1. |
+| [`requests`](#resources-configuration) | object | No | Requests resources configuration. |
+| [`limits`](#resources-configuration) | object | No | Limits resources configuration. |
+
+### Join Resources Configuration
+
+The join resources configuration defines the resources for the join.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `replicas` | integer | No | Number of replicas for the join. Defaults to 1. Currently, the number of replicas can only be equal to 1. |
+| [`requests`](#resources-configuration) | object | No | Requests resources configuration. |
+| [`limits`](#resources-configuration) | object | No | Limits resources configuration. |
+
+### Sink Resources Configuration
+
+The sink resources configuration defines the resources for the sink.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `replicas` | integer | No | Number of replicas for the sink. Defaults to 1. |
+| [`requests`](#resources-configuration) | object | No | Requests resources configuration. |
+| [`limits`](#resources-configuration) | object | No | Limits resources configuration. |
+
+### Transform Resources Configuration
+
+The transform resources configuration defines the resources for the transform.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `replicas` | integer | No | Number of replicas for the transform. Defaults to 1. This parameter is only mutable when deduplication is disabled. |
+| [`requests`](#resources-configuration) | object | No | Requests resources configuration. |
+| [`limits`](#resources-configuration) | object | No | Limits resources configuration. |
+| [`storage`](#storage-resources-configuration) | object | No | Storage resources configuration, only used when deduplication is enabled. |
+
+### Resources Configuration
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `cpu` | string | No | CPU request or limit. |
+| `memory` | string | No | Memory request or limit. |
+
+#### Storage Resources Configuration
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `size` | string | No | Size of the storage. This parameter is immutable and cannot be changed after the pipeline is created. |
+
+### Nats Resources Configuration
+
+The nats resources configuration defines the resources for the nats.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| [`stream`](#stream-resources-configuration) | object | No | Stream resources configuration. |
+
+#### Stream Resources Configuration
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `max_age` | string | No | Maximum age of the stream. Defaults to "24h". This parameter is immutable and cannot be changed after the pipeline is created. |
+| `max_bytes` | string | No | Maximum bytes of the stream. Defaults to "0 bytes" which will not limit the stream size and will not reserve memory for the stream. This parameter is immutable and cannot be changed after the pipeline is created. |
+
+## Metadata Configuration
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `tags` | array | No | List of tags for the pipeline. |
+
+## Other configuration notes
+
+### Time windows
+
+Time windows use string format, for example:
+- `"30s"` - 30 seconds
+- `"1m"` - 1 minute
+- `"1h"` - 1 hour
+- `"12h"` - 12 hours
+- `"24h"` - 24 hours

@@ -105,28 +105,23 @@ GlassFlow consists of the following components running as Kubernetes pods in the
   - Partition-based processing
   - Fault tolerance with multiple replicas
 
-### 12. Deduplicator Deployment
+### 12. Transformation Deployment
 - **Deployment Name**: `dedup-{partition-id}`
 - **Purpose**: Deduplicates data
 - **Features**:
-  - Single replica
-  - Uses BadgerDB for deduplication in disk and memory
+  - Horizontal scaling (5 replicas in example)
+  - If deduplication is enabled, uses BadgerDB for deduplication in disk and memory
+  - If filter is enabled, uses expr to filter data
+  - If stateless transformation is enabled, uses expr to transform data
 
 ### 13. Sink Deployment
 - **Deployment Name**: `sink-{partition-id}`
 - **Purpose**: Writes processed data to ClickHouse
 - **Features**:
-  - Single replica for consistency
+  - Horizontal scaling (5 replicas in example)
   - Handles final data persistence
   - Error handling and retry logic
   - Connection pooling for efficiency
-
-### 14. ReplicaSets
-- **Purpose**: Manages the desired number of pod replicas
-- **Features**:
-  - Automatic pod replacement on failure
-  - Rolling updates for deployments
-  - Resource management per pipeline
 
 ## Namespace and Resources
 

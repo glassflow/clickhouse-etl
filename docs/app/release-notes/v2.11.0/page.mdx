@@ -1,0 +1,86 @@
+---
+title: Release Notes v2.11.0
+sidebarTitle: v2.11.0
+icon: FileIcon
+description: Release notes for the GlassFlow ClickHouse ETL v2.11.0 - Pipeline resources management, horizontal scaling, transformations playground, and validation improvements.
+---
+
+# Release Notes v2.11.0
+
+Version 2.11.0 introduces **pipeline resources management** with APIs to get and update per-pipeline resource settings (replicas, CPU/memory), **horizontal scaling** support for ingestor, transform, and sink components and a **transformations playground** in the UI to try expressions with sample data. 
+
+## What's New
+
+### 📦 Pipeline Resources Management
+
+You can now **manage pipeline resources** (replicas and optional CPU/memory) via the API and pipeline configuration:
+
+- **Get and update pipeline resources** — New API endpoints to get and update `pipeline_resources` for a pipeline (ingestor, transform, sink, join, NATS). Pipeline resources can be set when the pipeline is created or updated later
+- **Validation** — Validation of pipeline resources on update, including replica count hierarchy; default values applied when resources are empty; reduced default resource values (CPU/memory) where applicable
+- **Pipeline JSON and reference** — Pipeline resources documented and configurable in the pipeline JSON; see the [Pipeline JSON Reference](/configuration/pipeline-json-reference#pipeline-resources-configuration)
+- **Replica configuration** — You can configure replicas for ingestor (base/left/right), transform, sink, and dedup as allowed by the pipeline topology. When **join** is enabled, only the ingestor can be scaled; join, transform, and sink run with one replica. When **deduplication** is enabled, transform replica count cannot be changed after pipeline creation
+
+### Horizontal Scaling (Multi-stream support)
+
+Support horizontal scaling of ingestor, transform, and sink components to write and read to multiple streams.
+
+- **Multi-stream** — Sink and ingestor updated for multi-stream pipeline support; subject and stream naming aligned with pipeline topology
+- **Dedup component** — Dedup component stream and subject handling updated; ingestor subject is determined from `dedup_key` when deduplication is enabled. Fix for dedup-enabled flag check so dedup behavior is applied correctly
+
+### 🧪 Transformations Playground
+
+- **Transformations playground** — In the transformation step, you can use a **playground** to try expressions against sample or empty JSON. The playground is available in edit mode with a default raw-expression view
+- **Labeling** — Clear labeling of the field used in the playground so you can see which input is used for expression evaluation
+
+![UI - Transformations Playground](/assets/ui_stateless_transformation_configuration_playground.png)
+
+### 🔧 Transformations and Validation
+
+- **Expression validation** — Empty data validation removed for transforms where some expr functions cannot be run with nil; validation improved for transform expressions with empty JSON and for ClickHouse-supported types in the API layer
+- **New helper functions** — [`floor`](/configuration/transformations/stateless-transformation#floor), [`ceil`](/configuration/transformations/stateless-transformation#ceil), and [`round`](/configuration/transformations/stateless-transformation#round) added as custom expression functions for numeric rounding
+- **Transform `join` bug** — Fixes for transformation `join` where it would return an empty string when concatenated with split function
+
+### 📤 Config Upload and Review
+
+- **Upload and hydration** — Duplicated fields removed when hydrating from an uploaded config; fix for wrong config produced when uploading a pipeline config
+- **Review step** — Review configuration aligned with latest pipeline config shape; pipeline ID correctly passed to the review component
+
+### 🔒 Security
+
+- **Pipeline history** — Credentials are now **encrypted** when stored as part of pipeline history events, so sensitive data in history is protected
+
+### 🐛 Bug Fixes
+
+- **Config upload** — Fixed duplicated fields on hydration and wrong config produced for uploaded config
+- **Transform validation** — Empty data and expr validation adjusted so valid expressions are not rejected; ClickHouse type validation in API
+- **Pipeline ID** — Validation and error handling for pipeline ID length and duplicate ID on create
+
+## Migration Notes
+
+### For Existing Users
+
+- **No breaking changes** — This release is fully backward compatible
+- **Pipeline resources** — Existing pipelines continue to run; default resources are applied when none are set. Use the new API or pipeline JSON to adjust replicas and resources if you want to scale
+- **Credentials in history** — New pipeline history events store credentials encrypted; existing history is unchanged
+
+### Configuration Updates
+
+- **No new required Helm values** — Existing deployments continue to work without changes
+- **Optional** — Use the [Scaling Guide](/usage-guide/scaling) and pipeline resources API/JSON to configure replicas and horizontal scaling
+
+## Try It Out
+
+To try the new features in v2.11.0:
+
+1. **Deploy the latest version** using our [Kubernetes Helm charts](/installation/kubernetes)
+2. **Configure pipeline resources** — Use the API or pipeline JSON to set replicas for ingestor, transform, or sink; see the [Scaling Guide](/usage-guide/scaling) for best practices
+3. **Use the transformations playground** — Edit a pipeline’s transformation step and try expressions in the playground with sample or empty JSON
+4. **Use floor, ceil, round** — Use the new `floor`, `ceil`, and `round` helpers in transformation expressions
+5. **Upload a config** — Upload a pipeline JSON and confirm the review step shows the correct config without duplicated fields
+6. **Read the Scaling Guide** — Check [Scaling Guide](/usage-guide/scaling) for what can be scaled and how to configure it
+
+## Full Changelog
+
+For a complete list of all changes, improvements, and bug fixes in v2.11.0, see our [GitHub release v2.11.0](https://github.com/glassflow/clickhouse-etl/releases/tag/v2.11.0).
+
+*GlassFlow v2.11.0 continues our commitment to making streaming ETL more manageable, scalable, and secure for production use.*

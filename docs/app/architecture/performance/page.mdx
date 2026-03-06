@@ -54,7 +54,9 @@ The average monthly price for the machine is ~$552.65.
 
 ## Horizontal scaling
 
-Because GlassFlow pipelines operate independently, throughput scales horizontally by adding pipelines.
+You can scale in two ways: **within a pipeline** (multiple replicas of ingestor, transform, and sink) and **across pipelines** (adding more pipelines). For component-level scaling and best practices, see [Scaling Pipelines](/usage-guide/scaling).
+
+Because GlassFlow pipelines operate independently, throughput also scales horizontally by adding pipelines.
 
 ![Horizontal scaling](/assets/architecture_horizontal_scaling.png)
 
