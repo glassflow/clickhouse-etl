@@ -45,7 +45,7 @@ function StepRendererPageComponent({
       </CardHeader>
 
       {/* Content */}
-      <CardContent className="overflow-y-auto max-h-[calc(90vh-120px)]">{children}</CardContent>
+      <CardContent>{children}</CardContent>
     </Card>
   )
 }

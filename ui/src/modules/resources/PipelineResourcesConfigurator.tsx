@@ -1,13 +1,17 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useStore } from '@/src/store'
 import { getResourceDefaults } from '@/src/config/resource-defaults'
-import { getPipelineResources, getPipelineResourcesValidation, updatePipelineResources } from '@/src/api/pipeline-api'
+import { createPipeline, getPipelineResources, getPipelineResourcesValidation, updatePipelineResources } from '@/src/api/pipeline-api'
 import { PipelineResourcesFormManager, resourcesToFormValues } from './PipelineResourcesFormManager'
 import { sanitizePipelineResourcesForSubmit } from './utils'
 import { StepKeys } from '@/src/config/constants'
 import { notify } from '@/src/notifications'
+import { isPreviewModeEnabled } from '@/src/config/feature-flags'
+import { generateApiConfig, getMappingType } from '@/src/modules/clickhouse/utils'
+import { structuredLogger } from '@/src/observability'
 import type { StepBaseProps } from '@/src/modules/pipelines/[id]/step-renderer/stepProps'
 
 export function PipelineResourcesConfigurator({
@@ -19,7 +23,19 @@ export function PipelineResourcesConfigurator({
   pipeline,
   pipelineActionState,
 }: StepBaseProps) {
-  const { resourcesStore, joinStore, topicsStore, filterStore, transformationStore, deduplicationStore } = useStore()
+  const router = useRouter()
+  const {
+    resourcesStore,
+    joinStore,
+    topicsStore,
+    filterStore,
+    transformationStore,
+    deduplicationStore,
+    coreStore,
+    clickhouseConnectionStore,
+    clickhouseDestinationStore,
+    kafkaStore,
+  } = useStore()
   const [initialized, setInitialized] = useState(false)
   const [initialValues, setInitialValues] = useState(resourcesToFormValues(null))
 
@@ -92,10 +108,53 @@ export function PipelineResourcesConfigurator({
         throw err
       }
     } else {
-      if (onCompleteStep) {
-        onCompleteStep(StepKeys.PIPELINE_RESOURCES)
-      } else if (onCompleteStandaloneEditing) {
-        onCompleteStandaloneEditing()
+      // Create flow: either advance to Review step or deploy (when Resources is the last step)
+      if (isPreviewModeEnabled()) {
+        if (onCompleteStep) {
+          onCompleteStep(StepKeys.PIPELINE_RESOURCES)
+        } else if (onCompleteStandaloneEditing) {
+          onCompleteStandaloneEditing()
+        }
+      } else {
+        // Resources is the last step when preview mode is off – deploy pipeline
+        const { pipelineId, setPipelineId, pipelineName, pipelineVersion } = coreStore
+        const { clickhouseConnection } = clickhouseConnectionStore
+        const { clickhouseDestination } = clickhouseDestinationStore
+        const selectedTopics = Object.values(topicsStore.topics || {})
+
+        const payload = generateApiConfig({
+          pipelineId,
+          pipelineName: pipelineName || 'Pipeline',
+          setPipelineId,
+          clickhouseConnection,
+          clickhouseDestination,
+          selectedTopics,
+          getMappingType,
+          joinStore,
+          kafkaStore,
+          deduplicationStore,
+          filterStore,
+          transformationStore,
+          pipeline_resources: resourcesStore.pipeline_resources,
+          version: pipelineVersion,
+        })
+
+        if (payload && typeof payload === 'object' && !('error' in payload)) {
+          try {
+            const created = await createPipeline(payload as any)
+            setPipelineId(created.pipeline_id || (payload as any).pipeline_id || '')
+            router.push(`/pipelines/${created.pipeline_id || (payload as any).pipeline_id}?deployment=progress`)
+          } catch (err: any) {
+            structuredLogger.error('PipelineResourcesConfigurator failed to deploy pipeline', {
+              error: err instanceof Error ? err.message : String(err),
+            })
+            notify({ variant: 'error', title: err?.message || 'Failed to deploy pipeline' })
+            throw err
+          }
+        } else {
+          notify({ variant: 'error', title: 'Invalid pipeline configuration' })
+          throw new Error('Invalid pipeline configuration')
+        }
       }
     }
   }
