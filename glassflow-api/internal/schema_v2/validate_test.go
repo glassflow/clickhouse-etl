@@ -29,7 +29,7 @@ func TestValidateJSONToSchema(t *testing.T) {
 		},
 		{
 			name: "invalid JSON",
-			msg:  []byte(`{invalid json`),
+			msg:  []byte(`invalid json`),
 			schema: []models.Field{
 				{Name: "id", Type: internal.KafkaTypeInt},
 			},
@@ -130,11 +130,32 @@ func TestValidateJSONToSchema(t *testing.T) {
 			wantError: true,
 			errorMsg:  "field 'container.image.name' type validation failed",
 		},
+		{
+			name: "mixed dotted fields - flat and nested in same message",
+			msg:  []byte(`{"container.image.name": "postgres:16", "host": {"name": "server-1", "role": "role-1"}, "log.level": "warn"}`),
+			schema: []models.Field{
+				{Name: "container.image.name", Type: internal.KafkaTypeString},
+				{Name: "host.name", Type: internal.KafkaTypeString},
+				{Name: "log.level", Type: internal.KafkaTypeString},
+			},
+			wantError: false,
+		},
+		{
+			name: "all dotted fields nested - none match top-level keys",
+			msg:  []byte(`{"container": {"image": {"name": "postgres:16"}}, "host": {"name": "server-1"}, "log": {"level": "warn"}}`),
+			schema: []models.Field{
+				{Name: "container.image.name", Type: internal.KafkaTypeString},
+				{Name: "host.name", Type: internal.KafkaTypeString},
+				{Name: "log.level", Type: internal.KafkaTypeString},
+			},
+			wantError: false,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateJSONToSchema(tt.msg, tt.schema)
+			v := newJSONValidator(tt.schema)
+			err := v.validate(tt.msg)
 			if tt.wantError {
 				assert.Error(t, err)
 				if tt.errorMsg != "" {
@@ -307,8 +328,10 @@ func TestValidateFieldType(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			v := newJSONValidator([]models.Field{tt.field})
+			fc := &v.checks[0]
 			value := gjson.Parse(tt.jsonValue)
-			err := validateFieldType(tt.field, value)
+			err := fc.validateType(value)
 			if tt.wantError {
 				assert.Error(t, err)
 				if tt.errorMsg != "" {

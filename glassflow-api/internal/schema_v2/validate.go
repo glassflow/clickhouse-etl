@@ -10,6 +10,27 @@ import (
 	"github.com/tidwall/gjson"
 )
 
+// fieldCheckType represents the precomputed expected gjson type for a schema field.
+type fieldCheckType int
+
+const (
+	isNone   fieldCheckType = iota
+	isString                // gjson.String
+	isNumber                // gjson.Number (covers int, uint, float)
+	isBool                  // gjson.True or gjson.False
+	isArray                 // IsArray()
+	isObject                // IsObject()
+)
+
+// fieldCheck holds precomputed validation info for a single schema field,
+// avoiding repeated string operations and type normalization per message.
+type fieldCheck struct {
+	name        string
+	escapedName string         // pre-escaped gjson path (dots escaped); empty if no dots
+	hasDots     bool           // whether the field name contains dots
+	checkType   fieldCheckType // precomputed expected type
+}
+
 // validate schema to schema - validate that all schema fields from previous schema exist in the new schema with the same types
 func validateSchemaToSchema(newSchemaFields, previousSchemaFields []models.Field) error {
 	// Create a map of new schema fields for quick lookup
@@ -65,53 +86,143 @@ func getFieldValue(parsedMsg gjson.Result, fieldName string) gjson.Result {
 	return parsedMsg.Get(fieldName)
 }
 
-// validateJSONToSchema - validate message against schema fields
-func validateJSONToSchema(msg []byte, schema []models.Field) error {
-	if !gjson.ValidBytes(msg) {
-		return fmt.Errorf("invalid JSON message")
-	}
-
-	parsedMsg := gjson.ParseBytes(msg)
-
-	for _, field := range schema {
-		fieldValue := getFieldValue(parsedMsg, field.Name)
-
-		if !fieldValue.Exists() {
-			return fmt.Errorf("field '%s' is missing in the message", field.Name)
+// validateType checks if the gjson.Result matches the precomputed expected type
+func (fc *fieldCheck) validateType(value gjson.Result) error {
+	switch fc.checkType {
+	case isString:
+		if value.Type != gjson.String {
+			return fmt.Errorf("expected string, got %s", value.Type.String())
 		}
-
-		// Basic type checking
-		err := validateFieldType(field, fieldValue)
-		if err != nil {
-			return fmt.Errorf("field '%s' type validation failed: %w", field.Name, err)
+	case isNumber:
+		if value.Type != gjson.Number {
+			return fmt.Errorf("expected number, got %s", value.Type.String())
+		}
+	case isBool:
+		if value.Type != gjson.True && value.Type != gjson.False {
+			return fmt.Errorf("expected boolean, got %s", value.Type.String())
+		}
+	case isArray:
+		if !value.IsArray() {
+			return fmt.Errorf("expected array, got %s", value.Type.String())
+		}
+	case isObject:
+		if !value.IsObject() {
+			return fmt.Errorf("expected object, got %s", value.Type.String())
 		}
 	}
 
 	return nil
 }
 
-// validateFieldType checks if the gjson.Result matches the expected type
-func validateFieldType(expected models.Field, value gjson.Result) error {
-	switch expected.Type {
-	case internal.KafkaTypeString:
-		if value.Type != gjson.String {
-			return fmt.Errorf("expected string, got %s", value.Type.String())
+// jsonValidator holds precomputed field validation info for reuse across messages
+type jsonValidator struct {
+	checks     []fieldCheck   // ordered field checks matching schema field order
+	fieldNames map[string]int // field name → index in checks, for O(1) lookup during ForEach
+	found      []bool         // reusable buffer tracking which fields were seen; safe for single-threaded use
+}
+
+// newJSONValidator precomputes all field validation info from schema fields
+func newJSONValidator(fields []models.Field) *jsonValidator {
+	checks := make([]fieldCheck, len(fields))
+	fieldNames := make(map[string]int, len(fields))
+
+	for i, field := range fields {
+		check := fieldCheck{
+			name:    field.Name,
+			hasDots: strings.Contains(field.Name, "."),
 		}
-	case internal.KafkaTypeInt, internal.KafkaTypeUint, internal.KafkaTypeFloat:
-		if value.Type != gjson.Number {
-			return fmt.Errorf("expected number, got %s", value.Type.String())
+		if check.hasDots {
+			check.escapedName = strings.ReplaceAll(field.Name, ".", `\.`)
 		}
-	case internal.KafkaTypeBool:
-		if value.Type != gjson.True && value.Type != gjson.False {
-			return fmt.Errorf("expected boolean, got %s", value.Type.String())
+
+		normalizedType := internal.NormalizeToBasicKafkaType(field.Type)
+		switch normalizedType {
+		case internal.KafkaTypeString:
+			check.checkType = isString
+		case internal.KafkaTypeInt, internal.KafkaTypeUint, internal.KafkaTypeFloat:
+			check.checkType = isNumber
+		case internal.KafkaTypeBool:
+			check.checkType = isBool
+		case internal.KafkaTypeArray:
+			check.checkType = isArray
+		case internal.KafkaTypeMap:
+			check.checkType = isObject
+		default:
+			check.checkType = isNone // no type validation for unknown types
 		}
-	case internal.KafkaTypeArray:
-		if !value.IsArray() {
-			return fmt.Errorf("expected array, got %s", value.Type.String())
+
+		checks[i] = check
+		fieldNames[check.name] = i
+	}
+
+	return &jsonValidator{
+		checks:     checks,
+		fieldNames: fieldNames,
+		found:      make([]bool, len(checks)),
+	}
+}
+
+// validate checks a JSON message against precomputed field expectations
+func (v *jsonValidator) validate(msg []byte) error {
+	parsedMsg := gjson.ParseBytes(msg)
+	if parsedMsg.Type != gjson.JSON {
+		return fmt.Errorf("invalid JSON message")
+	}
+
+	// Reset found flags (cheap: 1 byte per field, no allocation)
+	for i := range v.found {
+		v.found[i] = false
+	}
+	remaining := len(v.checks)
+
+	// Single ForEach pass: validate type inline and mark fields as found
+	var forEachErr error
+	parsedMsg.ForEach(func(key, value gjson.Result) bool {
+		idx, ok := v.fieldNames[key.String()]
+		if !ok {
+			return true
 		}
-	case internal.KafkaTypeMap:
-		if !value.IsObject() {
-			return fmt.Errorf("expected object, got %s", value.Type.String())
+		check := &v.checks[idx]
+		if err := check.validateType(value); err != nil {
+			forEachErr = fmt.Errorf("field '%s' type validation failed: %w", check.name, err)
+			return false
+		}
+		v.found[idx] = true
+		remaining--
+		if remaining == 0 {
+			return false // all fields found, stop early
+		}
+		return true
+	})
+
+	if forEachErr != nil {
+		return forEachErr
+	}
+
+	// All fields were found and validated in the ForEach pass.
+	if remaining == 0 {
+		return nil
+	}
+
+	// Some fields were not found as top-level keys. Handle missing fields and
+	// dotted fields that may exist as nested objects (e.g. {"container": {"image": {"name": "v"}}}).
+	for i := range v.checks {
+		if v.found[i] {
+			continue
+		}
+		check := &v.checks[i]
+		var value gjson.Result
+		if check.hasDots {
+			value = parsedMsg.Get(check.escapedName)
+			if !value.Exists() {
+				value = parsedMsg.Get(check.name)
+			}
+		}
+		if !value.Exists() {
+			return fmt.Errorf("field '%s' is missing in the message", check.name)
+		}
+		if err := check.validateType(value); err != nil {
+			return fmt.Errorf("field '%s' type validation failed: %w", check.name, err)
 		}
 	}
 
