@@ -2,6 +2,7 @@ package schema
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -533,6 +534,40 @@ func TestConvertValue(t *testing.T) {
 			}
 			if !tt.wantErr && !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("ConvertValue() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestValidateSchemaFieldToColumnType(t *testing.T) {
+	tests := []struct {
+		name      string
+		fieldType KafkaDataType
+		columnType ClickHouseDataType
+		wantErr   bool
+		errSubstr string
+	}{
+		{"int to Int32 allowed", internal.KafkaTypeInt, internal.CHTypeInt32, false, ""},
+		{"uint to UInt32 allowed", internal.KafkaTypeUint, internal.CHTypeUInt32, false, ""},
+		{"int to UInt32 rejected", internal.KafkaTypeInt, internal.CHTypeUInt32, true, "unsigned integer"},
+		{"uint to Int32 rejected", internal.KafkaTypeUint, internal.CHTypeInt32, true, "signed integer"},
+		{"string to String allowed", internal.KafkaTypeString, internal.CHTypeString, false, ""},
+		{"string to UInt32 rejected", internal.KafkaTypeString, internal.CHTypeUInt32, true, "unsigned integer"},
+		{"float to DateTime allowed", internal.KafkaTypeFloat, internal.CHTypeDateTime, false, ""},
+		{"int to DateTime allowed", internal.KafkaTypeInt, internal.CHTypeDateTime, false, ""},
+		{"bool to DateTime rejected", internal.KafkaTypeBool, internal.CHTypeDateTime, true, "int, float or string"},
+		{"map to Map allowed", internal.KafkaTypeMap, "Map(String, String)", false, ""},
+		{"array to Array allowed", internal.KafkaTypeArray, "Array(String)", false, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateSchemaFieldToColumnType(tt.fieldType, tt.columnType)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateSchemaFieldToColumnType() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if tt.wantErr && tt.errSubstr != "" && err != nil && !strings.Contains(err.Error(), tt.errSubstr) {
+				t.Errorf("ValidateSchemaFieldToColumnType() error = %v, want substring %q", err.Error(), tt.errSubstr)
 			}
 		})
 	}

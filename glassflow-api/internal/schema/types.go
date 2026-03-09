@@ -188,6 +188,78 @@ func ConvertValue(columnType ClickHouseDataType, fieldType KafkaDataType, data a
 	}
 }
 
+// ValidateSchemaFieldToColumnType checks whether the sink can convert source field type
+// to the given ClickHouse column type. It mirrors the type rules in ConvertValue so
+// invalid mappings (e.g. int -> UInt32) are rejected at pipeline create/edit time
+// instead of at sink runtime.
+func ValidateSchemaFieldToColumnType(fieldType KafkaDataType, columnType ClickHouseDataType) error {
+	switch columnType {
+	case internal.CHTypeBool:
+		if fieldType != internal.KafkaTypeBool {
+			return fmt.Errorf("schema type %q cannot be converted to ClickHouse %q: sink requires %q for this column type", fieldType, columnType, internal.KafkaTypeBool)
+		}
+		return nil
+	case internal.CHTypeInt8, internal.CHTypeLCInt8, internal.CHTypeInt16, internal.CHTypeLCInt16,
+		internal.CHTypeInt32, internal.CHTypeLCInt32, internal.CHTypeInt64, internal.CHTypeLCInt64:
+		if fieldType != internal.KafkaTypeInt {
+			return fmt.Errorf("schema type %q cannot be converted to ClickHouse %q: sink requires %q for signed integer column types", fieldType, columnType, internal.KafkaTypeInt)
+		}
+		return nil
+	case internal.CHTypeUInt8, internal.CHTypeLCUInt8, internal.CHTypeUInt16, internal.CHTypeLCUInt16,
+		internal.CHTypeUInt32, internal.CHTypeLCUInt32, internal.CHTypeUInt64, internal.CHTypeLCUInt64:
+		if fieldType != internal.KafkaTypeUint {
+			return fmt.Errorf("schema type %q cannot be converted to ClickHouse %q: sink requires %q for unsigned integer column types", fieldType, columnType, internal.KafkaTypeUint)
+		}
+		return nil
+	case internal.CHTypeFloat32, internal.CHTypeLCFloat32, internal.CHTypeFloat64, internal.CHTypeLCFloat64:
+		if fieldType != internal.KafkaTypeFloat {
+			return fmt.Errorf("schema type %q cannot be converted to ClickHouse %q: sink requires %q for this column type", fieldType, columnType, internal.KafkaTypeFloat)
+		}
+		return nil
+	case internal.CHTypeEnum8, internal.CHTypeEnum16, internal.CHTypeUUID, internal.CHTypeFString,
+		internal.CHTypeLCString, internal.CHTypeLCFString, internal.CHTypeString:
+		if fieldType != internal.KafkaTypeString {
+			return fmt.Errorf("schema type %q cannot be converted to ClickHouse %q: sink requires %q for this column type", fieldType, columnType, internal.KafkaTypeString)
+		}
+		return nil
+	case internal.CHTypeDateTime, internal.CHTypeDateTime64, internal.CHTypeLCDateTime:
+		switch fieldType {
+		case internal.KafkaTypeInt, internal.KafkaTypeFloat, internal.KafkaTypeString:
+			return nil
+		default:
+			return fmt.Errorf("schema type %q cannot be converted to ClickHouse %q: sink requires int, float or string for DateTime column types", fieldType, columnType)
+		}
+	default:
+		if internal.IsFixedStringType(string(columnType)) {
+			if fieldType != internal.KafkaTypeString {
+				return fmt.Errorf("schema type %q cannot be converted to ClickHouse %q: sink requires %q for this column type", fieldType, columnType, internal.KafkaTypeString)
+			}
+			return nil
+		}
+		if strings.HasPrefix(string(columnType), "DateTime") {
+			switch fieldType {
+			case internal.KafkaTypeInt, internal.KafkaTypeFloat, internal.KafkaTypeString:
+				return nil
+			default:
+				return fmt.Errorf("schema type %q cannot be converted to ClickHouse %q: sink requires int, float or string for DateTime column types", fieldType, columnType)
+			}
+		}
+		if strings.HasPrefix(string(columnType), "Map(") {
+			if fieldType != internal.KafkaTypeMap {
+				return fmt.Errorf("schema type %q cannot be converted to ClickHouse %q: sink requires %q for Map column types", fieldType, columnType, internal.KafkaTypeMap)
+			}
+			return nil
+		}
+		if strings.HasPrefix(string(columnType), "Array(") {
+			if fieldType != internal.KafkaTypeArray {
+				return fmt.Errorf("schema type %q cannot be converted to ClickHouse %q: sink requires %q for Array column types", fieldType, columnType, internal.KafkaTypeArray)
+			}
+			return nil
+		}
+		return fmt.Errorf("unsupported ClickHouse column type: %s", columnType)
+	}
+}
+
 func GetDefaultValueForKafkaType(kafkaType KafkaDataType) (any, error) {
 	// we would get invalid zeroValue only if there's unknown type
 	zeroValue, err := ExtractEventValue(kafkaType, "")

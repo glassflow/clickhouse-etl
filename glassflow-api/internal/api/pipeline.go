@@ -413,6 +413,18 @@ func newMapperConfig(pipeline pipelineJSON) (zero models.MapperConfig, _ error) 
 		}
 	}
 
+	// Validate schema field type -> column type conversions supported by sink (e.g. int->UInt32 is not allowed)
+	for _, field := range pipeline.Schema.Fields {
+		if field.ColumnName == "" || field.ColumnType == "" {
+			continue
+		}
+		fieldType := schemapkg.KafkaDataType(internal.NormalizeToBasicKafkaType(field.Type))
+		columnType := schemapkg.ClickHouseDataType(field.ColumnType)
+		if err := schemapkg.ValidateSchemaFieldToColumnType(fieldType, columnType); err != nil {
+			return zero, fmt.Errorf("field %q (column %q): %w", field.Name, field.ColumnName, err)
+		}
+	}
+
 	mapperConfig := models.MapperConfig{
 		Type:        internal.SchemaMapperJSONToCHType,
 		Streams:     streamsCfg,
