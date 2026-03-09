@@ -530,6 +530,11 @@ func (k *K8sOrchestrator) buildPipelineSpec(ctx context.Context, cfg *models.Pip
 		Sink: operator.Sink{
 			Type: cfg.Sink.Type,
 		},
+		Transform: operator.Transform{
+			IsDedupEnabled:              src[0].Deduplication.Enabled,
+			IsFilterEnabled:             cfg.Filter.Enabled,
+			IsStatelessTransformEnabled: cfg.StatelessTransformation.Enabled,
+		},
 		Resources: operatorResources,
 		// Config field is intentionally omitted - stored in secret instead
 	}
