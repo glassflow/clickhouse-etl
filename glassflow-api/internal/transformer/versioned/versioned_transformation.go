@@ -29,6 +29,7 @@ type statelessTransformer interface {
 type VersionedTransformer struct {
 	config      *models.TransformationConfig
 	transformer statelessTransformer
+	bypass      bool
 }
 
 type SourceSchemaVersionID string
@@ -72,7 +73,12 @@ func (t *Transformer) Transform(ctx context.Context, inputMessage models.Message
 
 	versionedTransformer, err = t.getNewVersionTransformer(ctx, sourceSchemaVersionID)
 	if err != nil {
-		if errors.Is(err, models.ErrRecordNotFound) || errors.Is(err, models.ErrCompileTransformation) {
+		if errors.Is(err, models.ErrRecordNotFound) {
+			t.versionedTransformations[sourceSchemaVersionID] = VersionedTransformer{bypass: true}
+			return inputMessage, nil
+		}
+
+		if errors.Is(err, models.ErrCompileTransformation) {
 			signalErr := t.componentSignal.SendSignal(ctx, models.ComponentSignal{
 				Component:  internal.RoleDeduplicator,
 				PipelineID: t.pipelineID,
@@ -93,6 +99,10 @@ func (t *Transformer) Transform(ctx context.Context, inputMessage models.Message
 }
 
 func (t *Transformer) transformMessage(ctx context.Context, inputMessage models.Message, versionedTransformer VersionedTransformer) (models.Message, error) {
+	if versionedTransformer.bypass {
+		return inputMessage, nil
+	}
+
 	transformedMessage, err := versionedTransformer.transformer.Transform(ctx, inputMessage)
 	if err != nil {
 		return models.Message{}, fmt.Errorf("versioned transform: %w", err)

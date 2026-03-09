@@ -271,14 +271,14 @@ func TestVersionedTransformer_Transform(t *testing.T) {
 			expectSignal:    false,
 		},
 		{
-			name:            "missing config - signal sent",
+			name:            "bypass non-existent schema version",
 			schemaVersionID: "non-existent-version",
 			transforms:      nil,
-			outputVersionID: "",
+			outputVersionID: "non-existent-version",
 			input:           `{"name":"dave"}`,
-			expectedOutput:  "",
+			expectedOutput:  `{"name":"dave"}`,
 			wantErr:         false,
-			expectSignal:    true,
+			expectSignal:    false,
 		},
 	}
 
