@@ -57,7 +57,28 @@ export NEXT_PUBLIC_OTEL_EXPORTER_OTLP_ENDPOINT=${NEXT_PUBLIC_OTEL_EXPORTER_OTLP_
 export NEXT_PUBLIC_OTEL_EXPORTER_OTLP_HEADERS=${NEXT_PUBLIC_OTEL_EXPORTER_OTLP_HEADERS:-}
 export NEXT_PUBLIC_LOG_LEVEL=${NEXT_PUBLIC_LOG_LEVEL:-info}
 export NEXT_PUBLIC_OTEL_CONSOLE_LOGS_ENABLED=${NEXT_PUBLIC_OTEL_CONSOLE_LOGS_ENABLED:-}
-export NEXT_PUBLIC_RESOURCE_DEFAULTS=${NEXT_PUBLIC_RESOURCE_DEFAULTS:-}
+
+# Pipeline resource defaults (individual vars for build/runtime override)
+export NEXT_PUBLIC_NATS_MAX_STREAM_AGE=${NEXT_PUBLIC_NATS_MAX_STREAM_AGE:-}
+export NEXT_PUBLIC_NATS_MAX_STREAM_BYTES=${NEXT_PUBLIC_NATS_MAX_STREAM_BYTES:-}
+export NEXT_PUBLIC_INGESTOR_CPU_REQUEST=${NEXT_PUBLIC_INGESTOR_CPU_REQUEST:-}
+export NEXT_PUBLIC_INGESTOR_CPU_LIMIT=${NEXT_PUBLIC_INGESTOR_CPU_LIMIT:-}
+export NEXT_PUBLIC_INGESTOR_MEMORY_REQUEST=${NEXT_PUBLIC_INGESTOR_MEMORY_REQUEST:-}
+export NEXT_PUBLIC_INGESTOR_MEMORY_LIMIT=${NEXT_PUBLIC_INGESTOR_MEMORY_LIMIT:-}
+export NEXT_PUBLIC_JOIN_CPU_REQUEST=${NEXT_PUBLIC_JOIN_CPU_REQUEST:-}
+export NEXT_PUBLIC_JOIN_CPU_LIMIT=${NEXT_PUBLIC_JOIN_CPU_LIMIT:-}
+export NEXT_PUBLIC_JOIN_MEMORY_REQUEST=${NEXT_PUBLIC_JOIN_MEMORY_REQUEST:-}
+export NEXT_PUBLIC_JOIN_MEMORY_LIMIT=${NEXT_PUBLIC_JOIN_MEMORY_LIMIT:-}
+export NEXT_PUBLIC_SINK_CPU_REQUEST=${NEXT_PUBLIC_SINK_CPU_REQUEST:-}
+export NEXT_PUBLIC_SINK_CPU_LIMIT=${NEXT_PUBLIC_SINK_CPU_LIMIT:-}
+export NEXT_PUBLIC_SINK_MEMORY_REQUEST=${NEXT_PUBLIC_SINK_MEMORY_REQUEST:-}
+export NEXT_PUBLIC_SINK_MEMORY_LIMIT=${NEXT_PUBLIC_SINK_MEMORY_LIMIT:-}
+export NEXT_PUBLIC_DEDUP_CPU_REQUEST=${NEXT_PUBLIC_DEDUP_CPU_REQUEST:-}
+export NEXT_PUBLIC_DEDUP_CPU_LIMIT=${NEXT_PUBLIC_DEDUP_CPU_LIMIT:-}
+export NEXT_PUBLIC_DEDUP_MEMORY_REQUEST=${NEXT_PUBLIC_DEDUP_MEMORY_REQUEST:-}
+export NEXT_PUBLIC_DEDUP_MEMORY_LIMIT=${NEXT_PUBLIC_DEDUP_MEMORY_LIMIT:-}
+export NEXT_PUBLIC_DEDUP_STORAGE_SIZE=${NEXT_PUBLIC_DEDUP_STORAGE_SIZE:-}
+export NEXT_PUBLIC_DEDUP_STORAGE_CLASS=${NEXT_PUBLIC_DEDUP_STORAGE_CLASS:-}
 
 # Export server-side only Auth0 variables (not prefixed with NEXT_PUBLIC_)
 # These are used by auth-config.server.ts and should be available at runtime
@@ -97,7 +118,26 @@ echo "  NEXT_PUBLIC_OTEL_EXPORTER_OTLP_ENDPOINT: \"$NEXT_PUBLIC_OTEL_EXPORTER_OT
 echo "  NEXT_PUBLIC_OTEL_EXPORTER_OTLP_HEADERS: \"$NEXT_PUBLIC_OTEL_EXPORTER_OTLP_HEADERS\"," >> /app/public/env.js
 echo "  NEXT_PUBLIC_LOG_LEVEL: \"$NEXT_PUBLIC_LOG_LEVEL\"," >> /app/public/env.js
 echo "  NEXT_PUBLIC_OTEL_CONSOLE_LOGS_ENABLED: \"$NEXT_PUBLIC_OTEL_CONSOLE_LOGS_ENABLED\"," >> /app/public/env.js
-echo "  NEXT_PUBLIC_RESOURCE_DEFAULTS: \"$(printf '%s' "$NEXT_PUBLIC_RESOURCE_DEFAULTS" | sed 's/"/\\"/g')\"" >> /app/public/env.js
+echo "  NEXT_PUBLIC_NATS_MAX_STREAM_AGE: \"$(printf '%s' "$NEXT_PUBLIC_NATS_MAX_STREAM_AGE" | sed 's/"/\\"/g')\"," >> /app/public/env.js
+echo "  NEXT_PUBLIC_NATS_MAX_STREAM_BYTES: \"$(printf '%s' "$NEXT_PUBLIC_NATS_MAX_STREAM_BYTES" | sed 's/"/\\"/g')\"," >> /app/public/env.js
+echo "  NEXT_PUBLIC_INGESTOR_CPU_REQUEST: \"$(printf '%s' "$NEXT_PUBLIC_INGESTOR_CPU_REQUEST" | sed 's/"/\\"/g')\"," >> /app/public/env.js
+echo "  NEXT_PUBLIC_INGESTOR_CPU_LIMIT: \"$(printf '%s' "$NEXT_PUBLIC_INGESTOR_CPU_LIMIT" | sed 's/"/\\"/g')\"," >> /app/public/env.js
+echo "  NEXT_PUBLIC_INGESTOR_MEMORY_REQUEST: \"$(printf '%s' "$NEXT_PUBLIC_INGESTOR_MEMORY_REQUEST" | sed 's/"/\\"/g')\"," >> /app/public/env.js
+echo "  NEXT_PUBLIC_INGESTOR_MEMORY_LIMIT: \"$(printf '%s' "$NEXT_PUBLIC_INGESTOR_MEMORY_LIMIT" | sed 's/"/\\"/g')\"," >> /app/public/env.js
+echo "  NEXT_PUBLIC_JOIN_CPU_REQUEST: \"$(printf '%s' "$NEXT_PUBLIC_JOIN_CPU_REQUEST" | sed 's/"/\\"/g')\"," >> /app/public/env.js
+echo "  NEXT_PUBLIC_JOIN_CPU_LIMIT: \"$(printf '%s' "$NEXT_PUBLIC_JOIN_CPU_LIMIT" | sed 's/"/\\"/g')\"," >> /app/public/env.js
+echo "  NEXT_PUBLIC_JOIN_MEMORY_REQUEST: \"$(printf '%s' "$NEXT_PUBLIC_JOIN_MEMORY_REQUEST" | sed 's/"/\\"/g')\"," >> /app/public/env.js
+echo "  NEXT_PUBLIC_JOIN_MEMORY_LIMIT: \"$(printf '%s' "$NEXT_PUBLIC_JOIN_MEMORY_LIMIT" | sed 's/"/\\"/g')\"," >> /app/public/env.js
+echo "  NEXT_PUBLIC_SINK_CPU_REQUEST: \"$(printf '%s' "$NEXT_PUBLIC_SINK_CPU_REQUEST" | sed 's/"/\\"/g')\"," >> /app/public/env.js
+echo "  NEXT_PUBLIC_SINK_CPU_LIMIT: \"$(printf '%s' "$NEXT_PUBLIC_SINK_CPU_LIMIT" | sed 's/"/\\"/g')\"," >> /app/public/env.js
+echo "  NEXT_PUBLIC_SINK_MEMORY_REQUEST: \"$(printf '%s' "$NEXT_PUBLIC_SINK_MEMORY_REQUEST" | sed 's/"/\\"/g')\"," >> /app/public/env.js
+echo "  NEXT_PUBLIC_SINK_MEMORY_LIMIT: \"$(printf '%s' "$NEXT_PUBLIC_SINK_MEMORY_LIMIT" | sed 's/"/\\"/g')\"," >> /app/public/env.js
+echo "  NEXT_PUBLIC_DEDUP_CPU_REQUEST: \"$(printf '%s' "$NEXT_PUBLIC_DEDUP_CPU_REQUEST" | sed 's/"/\\"/g')\"," >> /app/public/env.js
+echo "  NEXT_PUBLIC_DEDUP_CPU_LIMIT: \"$(printf '%s' "$NEXT_PUBLIC_DEDUP_CPU_LIMIT" | sed 's/"/\\"/g')\"," >> /app/public/env.js
+echo "  NEXT_PUBLIC_DEDUP_MEMORY_REQUEST: \"$(printf '%s' "$NEXT_PUBLIC_DEDUP_MEMORY_REQUEST" | sed 's/"/\\"/g')\"," >> /app/public/env.js
+echo "  NEXT_PUBLIC_DEDUP_MEMORY_LIMIT: \"$(printf '%s' "$NEXT_PUBLIC_DEDUP_MEMORY_LIMIT" | sed 's/"/\\"/g')\"," >> /app/public/env.js
+echo "  NEXT_PUBLIC_DEDUP_STORAGE_SIZE: \"$(printf '%s' "$NEXT_PUBLIC_DEDUP_STORAGE_SIZE" | sed 's/"/\\"/g')\"," >> /app/public/env.js
+echo "  NEXT_PUBLIC_DEDUP_STORAGE_CLASS: \"$(printf '%s' "$NEXT_PUBLIC_DEDUP_STORAGE_CLASS" | sed 's/"/\\"/g')\"" >> /app/public/env.js
 echo "};" >> /app/public/env.js
 
 # Generate runtime configuration for server-side
