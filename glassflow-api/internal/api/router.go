@@ -81,6 +81,7 @@ func NewRouter(
 	registerHumaHandler("/api/v1/pipeline/{id}/dlq/purge", h.purgeDLQ, log, PurgeDLQDocs(), humaAPI, h.usageStatsClient)
 	registerHumaHandler("/api/v1/pipeline/{id}/dlq/consume", h.consumeDLQ, log, ConsumeDLQDocs(), humaAPI, h.usageStatsClient)
 	registerHumaHandler("/api/v1/pipeline/{id}/dlq/state", h.getDLQState, log, GetDLQStateDocs(), humaAPI, h.usageStatsClient)
+	registerHumaHandler("/api/v1/pipeline/validate", h.validatePipeline, log, ValidatePipelineDocs(), humaAPI, h.usageStatsClient)
 	registerHumaHandler("/api/v1/pipeline", h.createPipeline, log, CreatePipelineDocs(), humaAPI, h.usageStatsClient)
 	registerHumaHandler("/api/v1/pipeline/{id}/stop", h.stopPipeline, log, StopPipelineDocs(), humaAPI, h.usageStatsClient)
 	registerHumaHandler("/api/v1/pipeline/{id}/terminate", h.terminatePipeline, log, TerminatePipelineDocs(), humaAPI, h.usageStatsClient)
