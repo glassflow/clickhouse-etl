@@ -269,7 +269,7 @@ export function SearchableSelect({
               onFocus={() => !disabled && !readOnly && setOpen(true)}
               error={!!error}
               readOnly={readOnly}
-              className="w-full pr-10 text-content"
+              className="w-full min-w-0 pr-14 overflow-hidden text-ellipsis text-content"
               disabled={disabled}
               aria-expanded={open}
               aria-controls="searchable-select-dropdown"
