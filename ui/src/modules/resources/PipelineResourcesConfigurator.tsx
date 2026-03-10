@@ -1,7 +1,9 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
+import { XCircleIcon } from '@heroicons/react/24/outline'
 import { useStore } from '@/src/store'
 import { getResourceDefaults } from '@/src/config/resource-defaults'
 import { createPipeline, getPipelineResources, getPipelineResourcesValidation, updatePipelineResources } from '@/src/api/pipeline-api'
@@ -12,6 +14,9 @@ import { notify } from '@/src/notifications'
 import { isPreviewModeEnabled } from '@/src/config/feature-flags'
 import { generateApiConfig, getMappingType } from '@/src/modules/clickhouse/utils'
 import { structuredLogger } from '@/src/observability'
+import { Button } from '@/src/components/ui/button'
+import DownloadIconWhite from '@/src/images/download-white.svg'
+import { LATEST_PIPELINE_VERSION } from '@/src/config/pipeline-versions'
 import type { StepBaseProps } from '@/src/modules/pipelines/[id]/step-renderer/stepProps'
 
 export function PipelineResourcesConfigurator({
@@ -38,6 +43,8 @@ export function PipelineResourcesConfigurator({
   } = useStore()
   const [initialized, setInitialized] = useState(false)
   const [initialValues, setInitialValues] = useState(resourcesToFormValues(null))
+  const [deployError, setDeployError] = useState<string | null>(null)
+  const [failedDeploymentConfig, setFailedDeploymentConfig] = useState<any>(null)
 
   const hasJoin = joinStore?.enabled === true
   const topics = topicsStore?.topics ? Object.values(topicsStore.topics) : []
@@ -140,6 +147,8 @@ export function PipelineResourcesConfigurator({
         })
 
         if (payload && typeof payload === 'object' && !('error' in payload)) {
+          setDeployError(null)
+          setFailedDeploymentConfig(null)
           try {
             const created = await createPipeline(payload as any)
             setPipelineId(created.pipeline_id || (payload as any).pipeline_id || '')
@@ -148,8 +157,9 @@ export function PipelineResourcesConfigurator({
             structuredLogger.error('PipelineResourcesConfigurator failed to deploy pipeline', {
               error: err instanceof Error ? err.message : String(err),
             })
+            setDeployError(err?.message || 'Failed to deploy pipeline')
+            setFailedDeploymentConfig(payload)
             notify({ variant: 'error', title: err?.message || 'Failed to deploy pipeline' })
-            throw err
           }
         } else {
           notify({ variant: 'error', title: 'Invalid pipeline configuration' })
@@ -173,6 +183,42 @@ export function PipelineResourcesConfigurator({
     toggleEditMode?.()
   }
 
+  const handleDownloadFailedConfig = useCallback(() => {
+    if (!failedDeploymentConfig) return
+
+    try {
+      const downloadConfig = {
+        ...failedDeploymentConfig,
+        exported_at: new Date().toISOString(),
+        exported_by: 'GlassFlow UI',
+        version: LATEST_PIPELINE_VERSION,
+      }
+
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0]
+      const configName = failedDeploymentConfig.name || coreStore.pipelineName || 'pipeline'
+      const sanitizedName = configName.replace(/[^a-zA-Z0-9-_]/g, '_')
+      const filename = `${sanitizedName}_config_${timestamp}.json`
+
+      const blob = new Blob([JSON.stringify(downloadConfig, null, 2)], {
+        type: 'application/json',
+      })
+
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = filename
+      link.style.display = 'none'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+    } catch (downloadError) {
+      structuredLogger.error('PipelineResourcesConfigurator failed to download configuration', {
+        error: downloadError instanceof Error ? downloadError.message : String(downloadError),
+      })
+    }
+  }, [failedDeploymentConfig, coreStore.pipelineName])
+
   if (!initialized) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -182,17 +228,49 @@ export function PipelineResourcesConfigurator({
   }
 
   return (
-    <PipelineResourcesFormManager
-      initialValues={initialValues}
-      pipelineShape={pipelineShape}
-      immutablePaths={immutablePaths}
-      readOnly={readOnly}
-      standalone={standalone}
-      onSave={handleSave}
-      onDiscard={handleDiscard}
-      toggleEditMode={toggleEditMode}
-      pipelineActionState={pipelineActionState}
-      onClose={onCompleteStandaloneEditing}
-    />
+    <>
+      <PipelineResourcesFormManager
+        initialValues={initialValues}
+        pipelineShape={pipelineShape}
+        immutablePaths={immutablePaths}
+        readOnly={readOnly}
+        standalone={standalone}
+        onSave={handleSave}
+        onDiscard={handleDiscard}
+        toggleEditMode={toggleEditMode}
+        pipelineActionState={pipelineActionState}
+        onClose={onCompleteStandaloneEditing}
+      />
+      {deployError && (
+        <div className="space-y-3 mt-6">
+          <div className="p-3 bg-background-neutral-faded text-[var(--text-error)] rounded-md flex items-center border border-[var(--color-border-neutral-faded)]">
+            <XCircleIcon className="h-5 w-5 mr-2 flex-shrink-0" />
+            <span>{deployError}</span>
+          </div>
+          {failedDeploymentConfig && (
+            <div className="flex items-center gap-3 p-3 bg-background-neutral-faded rounded-md border border-[var(--color-border-neutral-faded)] text-content">
+              <span className="text-sm text-muted-foreground">
+                You can download the configuration to save your work and try again later.
+              </span>
+              <Button
+                size="sm"
+                onClick={handleDownloadFailedConfig}
+                variant="ghost"
+                className="group flex items-center gap-2 whitespace-nowrap !px-3 !py-2 text-sm h-auto hover:cursor-pointer"
+              >
+                <Image
+                  src={DownloadIconWhite}
+                  alt="Download"
+                  width={16}
+                  height={16}
+                  className="filter brightness-100 group-hover:brightness-100 hover:cursor-pointer flex-shrink-0"
+                />
+                Download config
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+    </>
   )
 }
