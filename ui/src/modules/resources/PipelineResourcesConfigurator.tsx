@@ -52,14 +52,14 @@ export function PipelineResourcesConfigurator({
     (t: any, i: number) => deduplicationStore?.getDeduplication?.(i)?.enabled === true
   )
   const hasPipelineDedup = pipeline?.source?.topics?.some((t: any) => t?.deduplication?.enabled === true)
+  const hasDedup = hasTopicDedup || hasPipelineDedup
   const hasTransform =
-    hasTopicDedup ||
-    hasPipelineDedup ||
+    hasDedup ||
     filterStore?.filterConfig?.enabled === true ||
     transformationStore?.transformationConfig?.enabled === true ||
     (transformationStore?.transformationConfig?.fields?.length ?? 0) > 0
 
-  const pipelineShape = { hasJoin, hasTransform }
+  const pipelineShape = { hasJoin, hasTransform, hasDedup }
   const immutablePaths = resourcesStore.fields_policy?.immutable ?? []
 
   useEffect(() => {

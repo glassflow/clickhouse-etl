@@ -64,7 +64,7 @@ function formValuesToResources(v: PipelineResourcesFormValues): PipelineResource
 
 interface PipelineResourcesFormManagerProps {
   initialValues: PipelineResourcesFormValues
-  pipelineShape: { hasJoin: boolean; hasTransform: boolean }
+  pipelineShape: { hasJoin: boolean; hasTransform: boolean; hasDedup: boolean }
   immutablePaths: string[]
   readOnly?: boolean
   standalone?: boolean
