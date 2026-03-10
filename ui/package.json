@@ -10,7 +10,8 @@
     "lint": "next lint",
     "test": "vitest",
     "test:run": "vitest run",
-    "sync-tokens": "node figma-sync/sync-tokens-to-figma-via-api/sync-tokens-to-figma.mjs"
+    "sync-tokens": "node figma-sync/sync-tokens-to-figma-via-api/sync-tokens-to-figma.mjs",
+    "analyze-figma-unused": "node figma-sync/analyze-unused-variables/analyze-unused-variables.mjs"
   },
   "dependencies": {
     "@auth0/nextjs-auth0": "^4.12.0",

@@ -1,0 +1,4 @@
+{
+  "description": "Figma file keys to analyze for unused variables. Add your Design Library and any other design files. Do not commit real keys if sensitive; use FIGMA_FILE_KEYS=key1,key2 instead.",
+  "fileKeys": []
+}

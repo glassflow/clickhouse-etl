@@ -24,6 +24,25 @@ function toFigmaValue(value) {
 }
 
 /**
+ * GET file document (node tree). Used for analyzing boundVariables on nodes.
+ * Requires file_content:read scope in addition to file_variables:read for unused analysis.
+ * @returns { Promise<{ document: Object, name?: string }> }
+ */
+export async function getFileDocument(fileKey, accessToken) {
+  const url = `${FIGMA_API_BASE}/files/${fileKey}`;
+  const res = await fetch(url, {
+    headers: { "X-Figma-Token": accessToken },
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Figma API GET file failed (${res.status}): ${text}`);
+  }
+  const data = await res.json();
+  if (data.error) throw new Error(data.message || "Figma API error");
+  return { document: data.document, name: data.name };
+}
+
+/**
  * GET local variables from a file.
  * @returns { Promise<{ variables: Object, variableCollections: Object }> }
  */

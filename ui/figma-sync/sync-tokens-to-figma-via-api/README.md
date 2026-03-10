@@ -61,6 +61,16 @@ Full mapping and rationale: see `src/themes/DESIGN-KIT-TOKEN-ALIGNMENT.md` and `
 
 Button tokens (e.g. `button-primary-bg`, `button-primary-gradient-start/end`) are included in the full payload from `npm run sync-tokens -- --dry-run`. For the button token table and Figma variable names, see `docs/design/FIGMA_TOKEN_REFERENCE.md`.
 
+## Multi-file unused variable analysis
+
+To find variables that are **not used** across all project Figma files (for cleanup and UI token alignment), use the separate script:
+
+```bash
+FIGMA_ACCESS_TOKEN=... FIGMA_FILE_KEYS=key1,key2 npm run analyze-figma-unused
+```
+
+See [analyze-unused-variables/README.md](../analyze-unused-variables/README.md) for file keys config and output formats.
+
 ## Troubleshooting
 
 - **403 / Limited by Figma plan:** Variables API requires Enterprise.

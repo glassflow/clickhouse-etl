@@ -581,7 +581,10 @@ figma.ui.onmessage = async (msg: {
         figma.notify("Analyzing variable usage…");
         const result = await analyzeUnusedVariables();
         figma.notify(`Found ${result.unused.length} unused variable(s)`);
-        figma.ui.postMessage({ type: "UNUSED_ANALYSIS_RESULT", result });
+        figma.ui.postMessage({
+          type: "UNUSED_ANALYSIS_RESULT",
+          result: { ...result, fileName: figma.root.name || "current-file" },
+        });
       } catch (e) {
         figma.notify(`Analysis failed: ${String(e)}`, { error: true });
         figma.ui.postMessage({

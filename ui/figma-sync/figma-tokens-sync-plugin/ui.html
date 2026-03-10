@@ -25,6 +25,25 @@
 </head>
 <body>
   <h2>Token Sync</h2>
+
+  <h2 style="margin-top:0; font-size:13px; color:#0d99ff;">Unused variables (this file)</h2>
+  <p style="margin:0 0 10px;">Find local variables in <strong>this Figma file</strong> that are not used on any layer or style and are not referenced by other variables (e.g. aliases).</p>
+  <div>
+    <button class="primary" id="analyzeUnused">Analyze unused variables</button>
+  </div>
+  <div id="unusedStatus" class="status" style="display:none; margin-top:8px;"></div>
+  <div id="unusedSection" style="display:none; margin-top:10px;">
+    <p id="unusedSummary" style="margin:0 0 8px; font-size:11px; color:#555;"></p>
+    <div id="unusedList" style="max-height:200px; overflow-y:auto; border:1px solid #ddd; border-radius:4px; padding:8px; background:#fafafa; margin-bottom:8px;"></div>
+    <div>
+      <button class="secondary" id="removeSelectedUnused">Remove selected</button>
+      <button class="secondary" id="removeAllUnused">Remove all unused</button>
+      <button class="secondary" id="exportUnusedList">Export list (JSON)</button>
+    </div>
+  </div>
+
+  <hr style="margin:16px 0; border:0; border-top:1px solid #e0e0e0;" />
+  <h2 style="margin-top:0;">Sync tokens from app</h2>
   <p>Load <code>tokens-for-figma.json</code> (or paste JSON) and sync variable values to this file. Optionally add a second file (e.g. <code>button-tokens-for-figma.json</code>) to merge button/control/surface variables into <strong>mode</strong>.</p>
   <label>Upload JSON file</label>
   <input type="file" id="file" accept=".json,application/json" />
@@ -69,22 +88,6 @@
     </div>
   </div>
   <div id="exportStatus" class="status" style="display:none; margin-top:8px;"></div>
-
-  <hr style="margin:16px 0; border:0; border-top:1px solid #e0e0e0;" />
-  <h2 style="margin-top:0;">Unused variables</h2>
-  <p>Find local variables that are not bound to any node or style and are not referenced by other variables (e.g. aliases).</p>
-  <div>
-    <button class="primary" id="analyzeUnused">Analyze</button>
-  </div>
-  <div id="unusedStatus" class="status" style="display:none; margin-top:8px;"></div>
-  <div id="unusedSection" style="display:none; margin-top:10px;">
-    <p id="unusedSummary" style="margin:0 0 8px; font-size:11px; color:#555;"></p>
-    <div id="unusedList" style="max-height:180px; overflow-y:auto; border:1px solid #ddd; border-radius:4px; padding:8px; background:#fafafa; margin-bottom:8px;"></div>
-    <div>
-      <button class="secondary" id="removeSelectedUnused">Remove selected</button>
-      <button class="secondary" id="removeAllUnused">Remove all unused</button>
-    </div>
-  </div>
   <script>
 (function () {
   var fileInput = document.getElementById("file");
@@ -111,6 +114,7 @@
   var unusedListEl = document.getElementById("unusedList");
   var removeSelectedUnusedBtn = document.getElementById("removeSelectedUnused");
   var removeAllUnusedBtn = document.getElementById("removeAllUnused");
+  var exportUnusedListBtn = document.getElementById("exportUnusedList");
 
   var lastExportData = null;
   var lastUnusedResult = null;
@@ -365,6 +369,35 @@
     if (!confirm("Remove all " + ids.length + " unused variable(s)? This cannot be undone.")) return;
     setUnusedStatus("Removing…");
     parent.postMessage({ pluginMessage: { type: "REMOVE_UNUSED", variableIds: ids } }, "*");
+  });
+
+  exportUnusedListBtn.addEventListener("click", function () {
+    if (!lastUnusedResult || !lastUnusedResult.unused) {
+      setUnusedStatus("Run Analyze first to export the unused list.", true);
+      return;
+    }
+    var r = lastUnusedResult;
+    var report = {
+      summary: { filesAnalyzed: 1, filesWithErrors: 0, totalUnusedInAllFiles: r.unused.length },
+      perFile: [{
+        fileKey: "",
+        fileName: r.fileName || "current-file",
+        totalVariables: r.totalVariables,
+        usedCount: r.usedCount,
+        unusedCount: r.unused.length,
+        unused: r.unused,
+      }],
+      unusedInAllFiles: r.unused,
+    };
+    var str = JSON.stringify(report, null, 2);
+    var blob = new Blob([str], { type: "application/json" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = "figma-unused-report.json";
+    a.click();
+    URL.revokeObjectURL(url);
+    setUnusedStatus("Exported figma-unused-report.json");
   });
 
   window.onmessage = function (event) {
