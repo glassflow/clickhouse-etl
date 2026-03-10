@@ -25,7 +25,7 @@ You can now **manage pipeline resources** (replicas and optional CPU/memory) via
 You can now scale the Ingestor, Transform, and Sink components horizontally to support high-throughput environments.
 
 - **Multi-stream** — Sink and ingestor updated for multi-stream pipeline support; subject and stream naming aligned with pipeline topology
-- **Dedup component** — Dedup component stream and subject handling updated; ingestor subject is determined from `dedup_key` when deduplication is enabled. Resolved an issue where the `deduplication.enabled` flag was not being checked out correctly.
+- **Dedup component** — Dedup component stream and subject handling updated; ingestor subject is determined from `dedup_key` when deduplication is enabled. Resolved an issue where the `deduplication.enabled` flag was not consistently applied.
 
 ### 🧪 Transformations Playground
 
