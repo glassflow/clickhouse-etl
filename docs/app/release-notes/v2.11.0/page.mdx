@@ -22,46 +22,46 @@ You can now **manage pipeline resources** (replicas and optional CPU/memory) via
 
 ### Horizontal Scaling (Multi-stream support)
 
-You can now scale the Ingestor, Transform, and Sink components horizontally to support high-throughput environments.
+Enabled horizontal scaling for ingestor, transform, and sink components to support reading and writing across multiple streams.
 
 - **Multi-stream** — Sink and ingestor updated for multi-stream pipeline support; subject and stream naming aligned with pipeline topology
 - **Dedup component** — Dedup component stream and subject handling updated; ingestor subject is determined from `dedup_key` when deduplication is enabled. Resolved an issue where the `deduplication.enabled` flag was not consistently applied.
 
 ### 🧪 Transformations Playground
 
-- **Transformations playground** — In the transformation step, you can use a **playground** to try expressions against sample or empty JSON. The playground is available in edit mode with a default raw-expression view
-- **Labeling** — Clear labeling of the field used in the playground so you can see which input is used for expression evaluation
+- **Transformations playground** — In the transformation step, you can use a **playground** to try expressions against sample or empty JSON. Accessible directly in Edit Mode, the playground defaults to a raw-expression view for rapid iteration.
+- **Labeling** — Clear labeling of the field used in the playground so you can see which input is used for expression evaluation.
 
 ![UI - Transformations Playground](/assets/ui_stateless_transformation_configuration_playground.png)
 
 ### 🔧 Transformations and Validation
 
-- **Expression validation** — Empty data validation removed for transforms where some expr functions cannot be run with nil; validation improved for transform expressions with empty JSON and for ClickHouse-supported types in the API layer
+- **Expression validation** — Removed empty data validation for transforms to prevent errors with specific expression functions; improved validation for transform expressions with empty JSON and ClickHouse-supported types
 - **New helper functions** — [`floor`](/configuration/transformations/stateless-transformation#floor), [`ceil`](/configuration/transformations/stateless-transformation#ceil), and [`round`](/configuration/transformations/stateless-transformation#round) added as custom expression functions for numeric rounding
 - **Transform `join` bug** — Fixes for transformation `join` where it would return an empty string when concatenated with split function
 
 ### 📤 Config Upload and Review
 
-- **Upload and hydration** — Duplicated fields removed when hydrating from an uploaded config; fix for wrong config produced when uploading a pipeline config
-- **Review step** — Review configuration aligned with latest pipeline config shape; pipeline ID correctly passed to the review component
+- **Upload and hydration** — Removed duplicated fields during hydration from uploaded configs and fixed an issue that produced incorrect configurations during the upload process.
+- **Review step** — Aligned the review configuration with the latest pipeline config shape and ensured the pipeline ID passes correctly to the review component.
 
 ### 🔒 Security
 
-- **Pipeline history** — Credentials are now **encrypted** when stored as part of pipeline history events, so sensitive data in history is protected
+- **Pipeline history** — Credentials are now **encrypted** when stored as part of pipeline history events, ensuring sensitive data remains protected within your pipeline audit trail.
 
 ### 🐛 Bug Fixes
 
-- **Config upload** — Fixed duplicated fields on hydration and wrong config produced for uploaded config
-- **Transform validation** — Empty data and expr validation adjusted so valid expressions are not rejected; ClickHouse type validation in API
+- **Config upload** — Resolved duplicated fields on hydration and wrong config produced for the uploaded config
+- **Transform validation** — Adjusted empty data and expression validation to ensure the system does not reject valid expressions. Added ClickHouse type validation in the API
 - **Pipeline ID** — Validation and error handling for pipeline ID length and duplicate ID on create
 
 ## Migration Notes
 
-### For Existing Users
+### Full Backward Compatibility
 
-- **No breaking changes** — This release is fully backward compatible
-- **Pipeline resources** — Existing pipelines continue to run; default resources are applied when none are set. Use the new API or pipeline JSON to adjust replicas and resources if you want to scale
-- **Credentials in history** — New pipeline history events store credentials encrypted; existing history is unchanged
+- Existing pipelines will continue to run without interruption
+- Default resource values will be applied automatically where none are specified
+- New pipeline history event store credentials encrypted; existing history remains unchanged
 
 ### Configuration Updates
 
@@ -76,7 +76,7 @@ To try the new features in v2.11.0:
 2. **Configure pipeline resources** — Use the API or pipeline JSON to set replicas for ingestor, transform, or sink; see the [Scaling Guide](/usage-guide/scaling) for best practices
 3. **Use the transformations playground** — Edit a pipeline’s transformation step and try expressions in the playground with sample or empty JSON
 4. **Use floor, ceil, round** — Use the new `floor`, `ceil`, and `round` helpers in transformation expressions
-5. **Upload a config** — Upload a pipeline JSON and confirm the review step shows the correct config without duplicated fields
+5. **Streamline your workflow** - Upload a pipeline JSON
 6. **Read the Scaling Guide** — Check [Scaling Guide](/usage-guide/scaling) for what can be scaled and how to configure it
 
 ## Full Changelog
