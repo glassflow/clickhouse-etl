@@ -58,6 +58,10 @@ var (
 )
 
 func (p *PipelineService) NewPipelineResources(ctx context.Context, cfg *models.PipelineConfig) (models.PipelineResources, error) {
+	return p.newPipelineResources(ctx, cfg, nil)
+}
+
+func (p *PipelineService) newPipelineResources(ctx context.Context, cfg *models.PipelineConfig, immutableCfg *models.PipelineConfig) (models.PipelineResources, error) {
 	defaults := models.NewDefaultPipelineResources(cfg)
 
 	if cfg.PipelineResources.IsZero() {
@@ -95,7 +99,11 @@ func (p *PipelineService) NewPipelineResources(ctx context.Context, cfg *models.
 		return models.PipelineResources{}, fmt.Errorf("get pipeline resources: %w", err)
 	}
 	oldResources := existing.Resources
-	immutableFields := models.GetImmutableFields(cfg)
+	cfgForImmutability := cfg
+	if immutableCfg != nil {
+		cfgForImmutability = immutableCfg
+	}
+	immutableFields := models.GetImmutableFields(cfgForImmutability)
 
 	if err := models.ValidatePipelineResources(oldResources, cfg.PipelineResources, immutableFields); err != nil {
 		return models.PipelineResources{}, fmt.Errorf("%w: %w", ErrPipelineResourcesValidation, err)
@@ -493,7 +501,7 @@ func (p *PipelineService) EditPipeline(ctx context.Context, pid string, newCfg *
 		return status.NewPipelineNotStoppedForEditError(models.PipelineStatus(currentPipeline.Status.OverallStatus))
 	}
 
-	newResources, err := p.NewPipelineResources(ctx, newCfg)
+	newResources, err := p.newPipelineResources(ctx, newCfg, currentPipeline)
 	if err != nil {
 		return fmt.Errorf("validate pipeline resources: %w", err)
 	}

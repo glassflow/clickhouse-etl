@@ -57,13 +57,14 @@ func (m *mockOrchestrator) EditPipeline(ctx context.Context, pid string, newCfg 
 
 // mockPipelineStore is a mock implementation of the PipelineStore interface
 type mockPipelineStore struct {
-	mu               sync.RWMutex
-	pipelines        map[string]models.PipelineConfig
-	getError         error
-	updateError      error
-	deleteError      error
-	deleteCalled     bool
-	deletePipelineID string
+	mu                sync.RWMutex
+	pipelines         map[string]models.PipelineConfig
+	pipelineResources map[string]models.PipelineResources
+	getError          error
+	updateError       error
+	deleteError       error
+	deleteCalled      bool
+	deletePipelineID  string
 }
 
 func (m *mockPipelineStore) PatchPipelineMetadata(ctx context.Context, pid string, metadata models.PipelineMetadata) error {
@@ -141,7 +142,14 @@ func (m *mockPipelineStore) UpdatePipelineStatus(ctx context.Context, pid string
 	return nil
 }
 
-func (m *mockPipelineStore) GetPipelineResources(_ context.Context, _ string) (*models.PipelineResourcesRow, error) {
+func (m *mockPipelineStore) GetPipelineResources(_ context.Context, pid string) (*models.PipelineResourcesRow, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if m.pipelineResources != nil {
+		if resources, exists := m.pipelineResources[pid]; exists {
+			return &models.PipelineResourcesRow{PipelineID: pid, Resources: resources}, nil
+		}
+	}
 	return nil, ErrPipelineNotExists
 }
 
@@ -154,6 +162,10 @@ func (m *mockPipelineStore) UpsertPipelineResources(_ context.Context, pid strin
 	}
 	pipeline.PipelineResources = resources
 	m.pipelines[pid] = pipeline
+	if m.pipelineResources == nil {
+		m.pipelineResources = make(map[string]models.PipelineResources)
+	}
+	m.pipelineResources[pid] = resources
 	return &models.PipelineResourcesRow{PipelineID: pid, Resources: resources}, nil
 }
 
@@ -502,6 +514,147 @@ func TestValidateJoinSinkReplicas(t *testing.T) {
 			}
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestPipelineService_EditPipeline_TransformReplicasImmutableWhenExistingPipelineUsesDedup(t *testing.T) {
+	ctx := context.Background()
+	pipelineID := "test-pipeline-dedup"
+
+	store := &mockPipelineStore{
+		pipelines: map[string]models.PipelineConfig{
+			pipelineID: {
+				ID:   pipelineID,
+				Name: "Current Pipeline",
+				Ingestor: models.IngestorComponentConfig{
+					KafkaTopics: []models.KafkaTopicsConfig{
+						{
+							Name:          "topic-1",
+							Replicas:      1,
+							Deduplication: models.DeduplicationConfig{Enabled: true},
+						},
+					},
+				},
+				Status: models.PipelineHealth{
+					OverallStatus: internal.PipelineStatusStopped,
+				},
+			},
+		},
+		pipelineResources: map[string]models.PipelineResources{
+			pipelineID: {
+				Transform: &models.ComponentResources{Replicas: ptrInt64(1)},
+			},
+		},
+	}
+
+	manager := NewPipelineService(&mockOrchestrator{orchestratorType: "local"}, store, slog.Default())
+
+	edited := &models.PipelineConfig{
+		ID:   pipelineID,
+		Name: "Edited Pipeline",
+		Ingestor: models.IngestorComponentConfig{
+			KafkaTopics: []models.KafkaTopicsConfig{
+				{
+					Name:          "topic-1",
+					Replicas:      1,
+					Deduplication: models.DeduplicationConfig{Enabled: false},
+				},
+			},
+		},
+		Status: models.PipelineHealth{
+			OverallStatus: internal.PipelineStatusStopped,
+		},
+		PipelineResources: models.PipelineResources{
+			Transform: &models.ComponentResources{Replicas: ptrInt64(3)},
+		},
+	}
+
+	err := manager.EditPipeline(ctx, pipelineID, edited)
+	if err == nil {
+		t.Fatal("expected error when changing transform replicas for an existing dedup pipeline")
+	}
+	if !containsString(err.Error(), `immutable field "transform/replicas" cannot be changed`) {
+		t.Fatalf("expected immutable transform/replicas error, got: %v", err)
+	}
+}
+
+func TestPipelineService_EditPipeline_TransformReplicasMutableWithoutDedup(t *testing.T) {
+	tests := []struct {
+		name       string
+		configure  func(*models.PipelineConfig)
+		pipelineID string
+	}{
+		{
+			name:       "filter pipeline",
+			pipelineID: "test-pipeline-filter",
+			configure: func(cfg *models.PipelineConfig) {
+				cfg.Filter = models.FilterComponentConfig{Enabled: true, Expression: "1 == 1"}
+			},
+		},
+		{
+			name:       "stateless transformation pipeline",
+			pipelineID: "test-pipeline-stateless",
+			configure: func(cfg *models.PipelineConfig) {
+				cfg.StatelessTransformation = models.StatelessTransformation{Enabled: true}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			current := models.PipelineConfig{
+				ID:   tt.pipelineID,
+				Name: "Current Pipeline",
+				Ingestor: models.IngestorComponentConfig{
+					KafkaTopics: []models.KafkaTopicsConfig{
+						{
+							Name:          "topic-1",
+							Replicas:      1,
+							Deduplication: models.DeduplicationConfig{Enabled: false},
+						},
+					},
+				},
+				Status: models.PipelineHealth{
+					OverallStatus: internal.PipelineStatusStopped,
+				},
+			}
+			tt.configure(&current)
+
+			store := &mockPipelineStore{
+				pipelines: map[string]models.PipelineConfig{
+					tt.pipelineID: current,
+				},
+				pipelineResources: map[string]models.PipelineResources{
+					tt.pipelineID: {
+						Transform: &models.ComponentResources{Replicas: ptrInt64(1)},
+					},
+				},
+			}
+			manager := NewPipelineService(&mockOrchestrator{orchestratorType: "local"}, store, slog.Default())
+
+			edited := current
+			edited.Name = "Edited Pipeline"
+			edited.PipelineResources = models.PipelineResources{
+				Transform: &models.ComponentResources{Replicas: ptrInt64(3)},
+			}
+
+			err := manager.EditPipeline(ctx, tt.pipelineID, &edited)
+			if err != nil {
+				t.Fatalf("expected edit to allow transform replica change without dedup, got: %v", err)
+			}
+
+			row, err := store.GetPipelineResources(ctx, tt.pipelineID)
+			if err != nil {
+				t.Fatalf("expected stored pipeline resources, got error: %v", err)
+			}
+			if row.Resources.Transform == nil || row.Resources.Transform.Replicas == nil {
+				t.Fatal("expected transform replicas to be present in stored resources")
+			}
+			if *row.Resources.Transform.Replicas != 3 {
+				t.Fatalf("expected transform replicas to be 3, got %d", *row.Resources.Transform.Replicas)
 			}
 		})
 	}
