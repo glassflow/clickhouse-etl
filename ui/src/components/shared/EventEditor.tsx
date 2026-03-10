@@ -53,6 +53,9 @@ export const EventEditor = ({
     if (event && event !== manualEvent) {
       originalEventRef.current = event
       setIsModified(false)
+      // Clear validation error when event is replaced by fetched content (e.g. after selecting a different topic)
+      setIsValid(true)
+      setErrorMessage('')
     }
     setManualEvent(event)
   }, [event])
