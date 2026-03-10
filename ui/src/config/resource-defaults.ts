@@ -52,6 +52,7 @@ const HARDCODED_DEFAULTS: PipelineResources = {
   sink: {
     requests: { cpu: '100m', memory: '128Mi' },
     limits: { cpu: '1500m', memory: '1.5Gi' },
+    replicas: 1,
   },
   transform: {
     requests: { cpu: '100m', memory: '128Mi' },

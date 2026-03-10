@@ -173,6 +173,7 @@ export function PipelineResourcesFormRenderer({
           { name: 'requests.memory', label: 'Memory Request', placeholder: 'e.g. 128Mi, 1Gi', hint: HINT_K8S_QUANTITY },
           { name: 'limits.cpu', label: 'CPU Limit', placeholder: 'e.g. 1500m, 2', hint: HINT_K8S_QUANTITY },
           { name: 'limits.memory', label: 'Memory Limit', placeholder: 'e.g. 1.5Gi', hint: HINT_K8S_QUANTITY },
+          { name: 'replicas', label: 'Replicas', placeholder: '1', hint: HINT_REPLICAS },
         ]}
       />
 

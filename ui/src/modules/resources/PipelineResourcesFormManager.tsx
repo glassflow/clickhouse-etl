@@ -33,7 +33,7 @@ function resourcesToFormValues(r: PipelineResources | null): PipelineResourcesFo
       }
       : undefined,
     join: ensureComponent(r.join),
-    sink: ensureComponent(r.sink),
+    sink: { ...ensureComponent(r.sink), replicas: r.sink?.replicas != null ? r.sink.replicas : 1 },
     transform: ensureComponent(r.transform),
   }
 }
@@ -55,7 +55,11 @@ function formValuesToResources(v: PipelineResourcesFormValues): PipelineResource
     }
     return Object.keys(copy).length ? copy : undefined
   }
-  return prune(v) as PipelineResources
+  const result = prune(v) as PipelineResources
+  if (result?.sink && result.sink.replicas === undefined) {
+    result.sink = { ...result.sink, replicas: 1 }
+  }
+  return result
 }
 
 interface PipelineResourcesFormManagerProps {

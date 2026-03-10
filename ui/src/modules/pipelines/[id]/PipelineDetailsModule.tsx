@@ -18,7 +18,6 @@ import { getPipeline, updatePipelineMetadata } from '@/src/api/pipeline-api'
 import { cn, isDemoMode } from '@/src/utils/common.client'
 import { KafkaConnectionSection } from './sections/KafkaConnectionSection'
 import { ClickhouseConnectionSection } from './sections/ClickhouseConnectionSection'
-import { PipelineResourcesSection } from './sections/PipelineResourcesSection'
 import PipelineTagsModal from '@/src/modules/pipelines/components/PipelineTagsModal'
 import { handleApiError } from '@/src/notifications/api-error-handler'
 import { notify } from '@/src/notifications'
@@ -364,15 +363,11 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
                       clickhouseDestinationValidation: clickhouseDestinationValidation,
                     }}
                     activeStep={activeStep}
+                    resourcesSelected={isResourcesSelected}
                   />
                   <ClickhouseConnectionSection
                     disabled={isEditingDisabled && !demoMode}
                     selected={isSinkSelected}
-                    onStepClick={handleStepClick}
-                  />
-                  <PipelineResourcesSection
-                    disabled={isEditingDisabled && !demoMode}
-                    selected={isResourcesSelected}
                     onStepClick={handleStepClick}
                   />
                 </div>

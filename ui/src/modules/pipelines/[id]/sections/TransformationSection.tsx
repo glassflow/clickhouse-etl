@@ -9,6 +9,7 @@ import {
   getTransformationTypeLabel,
   type TransformationValidation,
 } from './transformation'
+import { PipelineResourcesSection } from './PipelineResourcesSection'
 
 interface TransformationSectionProps {
   pipeline: any
@@ -16,6 +17,7 @@ interface TransformationSectionProps {
   disabled: boolean
   validation: TransformationValidation
   activeStep: StepKeys | null
+  resourcesSelected?: boolean
 }
 
 /**
@@ -26,7 +28,7 @@ interface TransformationSectionProps {
  * - Whether join is enabled
  * - Whether deduplication is enabled on each topic
  */
-function TransformationSection({ pipeline, onStepClick, disabled, validation, activeStep }: TransformationSectionProps) {
+function TransformationSection({ pipeline, onStepClick, disabled, validation, activeStep, resourcesSelected = false }: TransformationSectionProps) {
   // Get fresh data from store instead of stale pipeline config
   const topicsStore = useStore((state) => state.topicsStore)
   const joinStore = useStore((state) => state.joinStore)
@@ -160,6 +162,11 @@ function TransformationSection({ pipeline, onStepClick, disabled, validation, ac
         </span>
       </div>
       {sectionContent}
+      <PipelineResourcesSection
+        disabled={disabled}
+        selected={resourcesSelected}
+        onStepClick={onStepClick}
+      />
     </div>
   )
 }
