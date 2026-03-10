@@ -1,14 +1,24 @@
 import {
   createClickHouseConnection,
   closeConnection,
+  executeCommand,
   buildTestQuery,
   parseTestResult,
   parseTabSeparated,
   parseJSONEachRow,
   buildSchemaQuery,
   buildFallbackSchemaQuery,
+  quoteClickHouseIdentifier,
+  quoteTableRef,
   type ClickHouseConfig,
 } from '@/src/app/ui-api/clickhouse/clickhouse-utils'
+
+export interface AlterTableAddOperation {
+  op: 'add'
+  name: string
+  type: string
+  nullable?: boolean
+}
 
 export class ClickhouseService {
   async testConnection({
@@ -53,7 +63,7 @@ export class ClickhouseService {
             }
           } else if (testType === 'database' && database) {
             const result = await connection.client.query({
-              query: `SHOW TABLES FROM ${database}`,
+              query: `SHOW TABLES FROM ${quoteClickHouseIdentifier(database)}`,
               format: 'JSONEachRow',
             })
             const rows = (await result.json()) as { name: string }[]
@@ -66,7 +76,7 @@ export class ClickhouseService {
             }
           } else if (testType === 'table' && database && table) {
             const result = await connection.client.query({
-              query: `SELECT * FROM ${database}.${table} LIMIT 1`,
+              query: `SELECT * FROM ${quoteTableRef(database, table)} LIMIT 1`,
               format: 'JSONEachRow',
             })
             const rows = await result.json()
@@ -143,7 +153,7 @@ export class ClickhouseService {
     try {
       const connection = await createClickHouseConnection(config)
       if (connection.type === 'direct' && connection.directFetch) {
-        const data = await connection.directFetch(`SHOW TABLES FROM ${database} FORMAT TabSeparated`)
+        const data = await connection.directFetch(`SHOW TABLES FROM ${quoteClickHouseIdentifier(database)} FORMAT TabSeparated`)
         const tables = parseTabSeparated(data)
         return {
           success: true,
@@ -152,7 +162,7 @@ export class ClickhouseService {
         }
       } else if (connection.type === 'client' && connection.client) {
         const result = await connection.client.query({
-          query: `SHOW TABLES FROM ${database}`,
+          query: `SHOW TABLES FROM ${quoteClickHouseIdentifier(database)}`,
           format: 'JSONEachRow',
         })
         const rows = (await result.json()) as { name: string }[]
@@ -211,7 +221,7 @@ export class ClickhouseService {
         }
       } else if (connection.type === 'client' && connection.client) {
         const result = await connection.client.query({
-          query: `DESCRIBE TABLE ${database}.${table}`,
+          query: `DESCRIBE TABLE ${quoteTableRef(database, table)}`,
           format: 'JSONEachRow',
         })
         const columns = await result.json()
@@ -230,6 +240,100 @@ export class ClickhouseService {
           error instanceof Error
             ? error.message
             : `Failed to fetch schema for table '${table}' in database '${database}'`,
+      }
+    }
+  }
+
+  async createTable(
+    config: ClickHouseConfig,
+    params: { database: string; table: string; engine: string; orderBy: string; columns: Array<{ name: string; type: string }> }
+  ) {
+    const { database, table, engine, orderBy, columns } = params
+    if (!database || !table || !engine || !orderBy || !columns?.length) {
+      return {
+        success: false,
+        error: 'database, table, engine, orderBy, and at least one column are required',
+      }
+    }
+    const columnDefs = columns
+      .filter((c) => c.name && c.type)
+      .map((c) => `\`${c.name.replace(/`/g, '``')}\` ${c.type}`)
+      .join(', ')
+    if (!columnDefs) {
+      return { success: false, error: 'At least one column with name and type is required' }
+    }
+    const query = `CREATE TABLE IF NOT EXISTS \`${database.replace(/`/g, '``')}\`.\`${table.replace(/`/g, '``')}\` (${columnDefs}) ENGINE = ${engine} ORDER BY \`${orderBy.replace(/`/g, '``')}\``
+    try {
+      const connection = await createClickHouseConnection(config)
+      try {
+        await executeCommand(connection, query)
+      } finally {
+        await closeConnection(connection)
+      }
+      return { success: true }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to create table in ClickHouse',
+      }
+    }
+  }
+
+  async alterTable(
+    config: ClickHouseConfig,
+    params: { database: string; table: string; operations: AlterTableAddOperation[] }
+  ) {
+    const { database, table, operations } = params
+    if (!database || !table) {
+      return { success: false, error: 'database and table are required' }
+    }
+    if (!operations?.length) {
+      return { success: false, error: 'at least one operation is required' }
+    }
+    const addOps = operations.filter((o) => o.op === 'add')
+    if (addOps.length === 0) {
+      return { success: false, error: 'only ADD COLUMN operations are supported' }
+    }
+    try {
+      const connection = await createClickHouseConnection(config)
+      try {
+        const tableRef = quoteTableRef(database, table)
+        for (const op of addOps) {
+          if (!op.name || !op.type) continue
+          const quotedName = quoteClickHouseIdentifier(op.name)
+          const typeStr = op.nullable !== false ? `Nullable(${op.type})` : op.type
+          const query = `ALTER TABLE ${tableRef} ADD COLUMN ${quotedName} ${typeStr}`
+          await executeCommand(connection, query)
+        }
+        return { success: true }
+      } finally {
+        await closeConnection(connection)
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to alter table in ClickHouse',
+      }
+    }
+  }
+
+  async dropTable(config: ClickHouseConfig, database: string, table: string) {
+    if (!database || !table) {
+      return { success: false, error: 'database and table are required' }
+    }
+    const query = `DROP TABLE IF EXISTS \`${database.replace(/`/g, '``')}\`.\`${table.replace(/`/g, '``')}\``
+    try {
+      const connection = await createClickHouseConnection(config)
+      try {
+        await executeCommand(connection, query)
+      } finally {
+        await closeConnection(connection)
+      }
+      return { success: true }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to drop table in ClickHouse',
       }
     }
   }

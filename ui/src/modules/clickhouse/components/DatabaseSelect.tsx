@@ -27,22 +27,28 @@ export function DatabaseSelect({
   readOnly,
 }: DatabaseSelectProps) {
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <Label
-          htmlFor="database"
-          className="text-content transform transition-all duration-300 ease-in-out translate-y-4 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]"
-        >
+    <div className="space-y-2 w-full min-w-0">
+      <div className="flex items-center justify-between gap-2 min-h-8">
+        <Label htmlFor="database" className="text-content shrink-0">
           Database
         </Label>
+        {onRefresh && (
+          <CacheRefreshButton
+            disabled={readOnly}
+            type="databases"
+            onRefresh={onRefresh}
+            size="sm"
+            variant="ghost"
+            className="shrink-0"
+          />
+        )}
       </div>
-      <div className="flex items-center justify-between">
-        {/* Always render Select component unless explicitly loading without databases */}
+      <div className="w-full min-w-0">
         {availableDatabases.length > 0 || isLoading ? (
           <Select value={selectedDatabase} onValueChange={setSelectedDatabase} disabled={readOnly || isLoading}>
             <SelectTrigger
               id="database"
-              className="w-full text-content transform transition-all duration-300 ease-in-out translate-y-4 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]"
+              className="w-full text-content input-regular input-border-regular h-10"
             >
               <SelectValue placeholder={isLoading ? 'Loading databases...' : 'Select database'} />
             </SelectTrigger>
@@ -55,29 +61,14 @@ export function DatabaseSelect({
             </SelectContent>
           </Select>
         ) : (
-          <div className="w-full flex gap-4 items-center transform transition-all duration-300 ease-in-out translate-y-4 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]">
-            <Input
-              id="database"
-              placeholder="Enter database name"
-              value={selectedDatabase}
-              onChange={(e) => setSelectedDatabase(e.target.value)}
-              className="w-full text-content"
-              disabled={readOnly}
-            />
-            {/* {renderTestAccessButton()} */}
-          </div>
-        )}
-        {onRefresh && (
-          <div className="flex items-center justify-end ml-2">
-            <CacheRefreshButton
-              disabled={readOnly}
-              type="databases"
-              onRefresh={onRefresh}
-              size="sm"
-              variant="ghost"
-              className="transform transition-all duration-300 ease-in-out translate-y-4 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]"
-            />
-          </div>
+          <Input
+            id="database"
+            placeholder="Enter database name"
+            value={selectedDatabase}
+            onChange={(e) => setSelectedDatabase(e.target.value)}
+            className="w-full text-content input-regular input-border-regular h-10"
+            disabled={readOnly}
+          />
         )}
       </div>
     </div>

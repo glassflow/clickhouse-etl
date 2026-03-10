@@ -10,6 +10,27 @@ const encodeBase64 = (password: string) => {
   return password ? Buffer.from(password).toString('base64') : undefined
 }
 
+// ============================================================================
+// Type Inference Helpers
+// ============================================================================
+
+/**
+ * Gets the verified type for a field from the topic's schema (set during KafkaTypeVerification step).
+ * Falls back to undefined if no verified type is available.
+ * @param topic - The topic object (from topicsStore)
+ * @param fieldName - The field name to look up
+ * @returns The verified type string or undefined if not found
+ */
+export const getVerifiedTypeFromTopic = (topic: any, fieldName: string): string | undefined => {
+  if (!topic?.schema?.fields || !Array.isArray(topic.schema.fields)) {
+    return undefined
+  }
+  // Filter out removed fields and find the matching field
+  const schemaField = topic.schema.fields.find((f: any) => f.name === fieldName && !f.isRemoved)
+  // Prefer userType (explicitly set by user) over type
+  return schemaField?.userType || schemaField?.type
+}
+
 /**
  * Recursively extracts all field names used in a filter tree
  * Handles both simple field references and arithmetic expressions
@@ -506,10 +527,21 @@ export const buildInternalPipelineConfig = ({
             })(),
           }
         : {}),
-      // Ensure missing required fields are handled or typed as optional in InternalPipelineConfig if needed
-      // but assuming they are filled by the spread above or default values
       table: clickhouseDestination?.table,
       table_mapping: tableMappings,
+      ...(clickhouseDestination?.engine ? { engine: clickhouseDestination.engine } : {}),
+      ...(clickhouseDestination?.orderBy
+        ? {
+            order_by: (() => {
+              const mapping = clickhouseDestination?.mapping ?? []
+              const byEventField = mapping.find(
+                (m: any) => m.eventField === clickhouseDestination.orderBy,
+              )
+              const byColumnName = mapping.find((m: any) => m.name === clickhouseDestination.orderBy)
+              return byEventField?.name ?? byColumnName?.name ?? clickhouseDestination.orderBy
+            })(),
+          }
+        : {}),
     } as any, // Type assertion to bypass strict checks on conditional properties for now
     // Include filter configuration only for single-topic pipelines
     // Filter is not available for multi-topic journeys
@@ -804,6 +836,37 @@ export function isTypeCompatible(sourceType: string | undefined, clickhouseType:
 }
 
 /**
+ * Returns a default ClickHouse type for a given JSON/Kafka type (first compatible type).
+ * Used when auto-generating mapping rows for the create-table path.
+ */
+export function getDefaultClickHouseType(jsonType: string): string {
+  if (!jsonType) return 'String'
+  const compatible = TYPE_COMPATIBILITY_MAP[jsonType.toLowerCase()]
+  return compatible?.[0] ?? 'String'
+}
+
+/**
+ * Builds initial mapping rows from event field names and topic schema (create-table path).
+ */
+export function buildInitialMappingFromEventFields(
+  eventFields: string[],
+  getJsonType: (field: string) => string | undefined,
+): TableColumn[] {
+  return eventFields.map((field) => {
+    const jsonType = getJsonType(field) || 'string'
+    const chType = getDefaultClickHouseType(jsonType)
+    return {
+      name: field,
+      type: chType,
+      jsonType,
+      isNullable: true,
+      isKey: false,
+      eventField: field,
+    }
+  })
+}
+
+/**
  * Validates column mappings for compatibility between source and destination types
  * @param mappings Array of column mappings to validate
  * @returns An object containing valid and invalid mappings
@@ -853,4 +916,37 @@ export const getMappingType = (eventField: string, mapping: any) => {
 
   // NOTE: default to string if no mapping entry is found - check this
   return 'string'
+}
+
+export interface AlterTableAddOperation {
+  op: 'add'
+  name: string
+  type: string
+  nullable?: boolean
+}
+
+/**
+ * Compute ALTER TABLE operations for new columns.
+ * Only ADD COLUMN operations; never DROP or MODIFY (data integrity).
+ * Mapping rows with name not in existingColumnNames become ADD operations.
+ */
+export function computeAlterTableOperations(
+  mapping: TableColumn[],
+  existingColumnNames: string[]
+): { add: AlterTableAddOperation[] } {
+  const existingSet = new Set(existingColumnNames.map((n) => n.trim()))
+  const add: AlterTableAddOperation[] = []
+  for (const col of mapping) {
+    const name = (col.name || '').trim()
+    if (!name) continue
+    if (existingSet.has(name)) continue
+    const baseType = (col.type || 'String').replace(/^Nullable\((.*)\)$/, '$1')
+    add.push({
+      op: 'add',
+      name,
+      type: baseType,
+      nullable: col.isNullable !== false,
+    })
+  }
+  return { add }
 }

@@ -205,7 +205,12 @@ export const createPipeline = async (pipelineData: Partial<Pipeline>): Promise<P
       }
       return pipeline
     } else {
-      throw { code: response.status, message: data.error || 'Failed to create pipeline' } as ApiError
+      const apiError = { code: response.status, message: data.error || 'Failed to create pipeline' } as ApiError
+      if (data.orphanTable) {
+        ;(apiError as ApiError & { orphanTable?: { database: string; table: string; message: string } }).orphanTable =
+          data.orphanTable
+      }
+      throw apiError
     }
   } catch (error: any) {
     if (error.code) throw error
