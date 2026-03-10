@@ -16,7 +16,7 @@ Version 2.11.0 introduces **Pipeline Resources Management**, featuring new APIs 
 You can now **manage pipeline resources** (replicas and optional CPU/memory) via the API and pipeline configuration:
 
 - **Get and update pipeline resources** — New API endpoints to get and update `pipeline_resources` for a pipeline (ingestor, transform, sink, join, NATS). Pipeline resources can be set when the pipeline is created or updated later
-- **Validation** — In-place validation, including replica count hierarchy; default values applied when resources are empty; reduced default resource values (CPU/memory) where applicable
+- **Validation** — Validated pipeline resources during updates, including replica count hierarchy. Applied default values when resources are empty and reduced default CPU/memory values where applicable.
 - **Pipeline JSON and reference** — Pipeline resources documented and configurable in the pipeline JSON; see the [Pipeline JSON Reference](/configuration/pipeline-json-reference#pipeline-resources-configuration)
 - **Replica configuration** — You can configure replicas for ingestor (base/left/right), transform, sink, and dedup as allowed by the pipeline topology. When **Join** is enabled, scaling is limited to the Ingestor; Join, Transform, and Sink components will run with a single replica. For pipelines with **Deduplication**, the Transform replica count must be set during creation and cannot be modified later.
 
@@ -25,7 +25,7 @@ You can now **manage pipeline resources** (replicas and optional CPU/memory) via
 Enabled horizontal scaling for ingestor, transform, and sink components to support reading and writing across multiple streams.
 
 - **Multi-stream** — Sink and ingestor updated for multi-stream pipeline support; subject and stream naming aligned with pipeline topology
-- **Dedup component** — Dedup component stream and subject handling updated; ingestor subject is determined from `dedup_key` when deduplication is enabled. Resolved an issue where the `deduplication.enabled` flag was not consistently applied.
+- **Dedup component** — Updated stream and subject handling for the Dedup component; the system now derives the ingestor subject from the `dedup_key` when deduplication is enabled. Fixed the dedup-enabled flag check so dedup behavior is applied correctly
 
 ### 🧪 Transformations Playground
 
