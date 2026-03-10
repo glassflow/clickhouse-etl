@@ -601,6 +601,7 @@ export function ClickhouseMapper({
         } else if (mappedColumns.length > 0 && transformedFields.length > 0) {
           // Try to auto-map based on field names using transformed field names
           const updatedColumns = [...mappedColumns]
+          let hasChanges = false
           updatedColumns.forEach((col, index) => {
             // Try to find a matching field by name similarity in transformed fields
             const matchingField = findBestMatchingField(col.name, transformedFields)
@@ -612,19 +613,19 @@ export function ClickhouseMapper({
                 eventField: matchingField,
                 jsonType: fieldType,
               }
+              hasChanges = true
             } else {
               structuredLogger.debug('ClickhouseMapper no match found for column', { column: col.name })
             }
           })
 
-          setMappedColumns(updatedColumns)
-          setClickhouseDestination({
-            ...clickhouseDestination,
-            mapping: updatedColumns,
-          })
-
-          // Track auto-mapping success (only track once when it happens)
-          const autoMappedCount = updatedColumns.filter((col) => col.eventField).length
+          if (hasChanges) {
+            setMappedColumns(updatedColumns)
+            setClickhouseDestination({
+              ...clickhouseDestination,
+              mapping: updatedColumns,
+            })
+          }
         }
       }
       return
@@ -649,6 +650,7 @@ export function ClickhouseMapper({
         } else if (mappedColumns.length > 0 && fields.length > 0) {
           // Try to auto-map based on field names
           const updatedColumns = [...mappedColumns]
+          let hasChanges = false
           updatedColumns.forEach((col, index) => {
             // Try to find a matching field by name similarity
             const matchingField = findBestMatchingField(col.name, fields)
@@ -660,19 +662,19 @@ export function ClickhouseMapper({
                 eventField: matchingField,
                 jsonType: verifiedType || inferJsonType(getNestedValue(eventData, matchingField)),
               }
+              hasChanges = true
             } else {
               structuredLogger.debug('ClickhouseMapper no match found for column', { column: col.name })
             }
           })
 
-          setMappedColumns(updatedColumns)
-          setClickhouseDestination({
-            ...clickhouseDestination,
-            mapping: updatedColumns,
-          })
-
-          // Track auto-mapping success (only track once when it happens)
-          const autoMappedCount = updatedColumns.filter((col) => col.eventField).length
+          if (hasChanges) {
+            setMappedColumns(updatedColumns)
+            setClickhouseDestination({
+              ...clickhouseDestination,
+              mapping: updatedColumns,
+            })
+          }
         }
       } else {
         structuredLogger.debug('ClickhouseMapper no event data found')

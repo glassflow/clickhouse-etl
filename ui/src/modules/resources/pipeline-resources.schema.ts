@@ -3,6 +3,7 @@ import {
   validateKubernetesQuantity,
   validateNatsMaxBytes,
   validateNatsMaxAge,
+  HINT_REPLICAS,
 } from './quantity-parser'
 
 const optionalString = z.string().optional().or(z.literal(''))
@@ -40,11 +41,30 @@ const storageSchema = z.object({
   size: kubernetesQuantityOptional,
 })
 
+/** Replicas: optional positive integer (string or number). Rejects trailing junk (e.g. "1aaaaa"). */
+const replicasOptional = z
+  .union([z.string(), z.number()])
+  .optional()
+  .nullable()
+  .refine(
+    (val) => {
+      if (val === undefined || val === null) return true
+      if (typeof val === 'number') return Number.isInteger(val) && val >= 1
+      const s = String(val).trim()
+      if (s === '') return true
+      // Only digits, no trailing letters or decimals
+      if (!/^\d+$/.test(s)) return false
+      const n = parseInt(s, 10)
+      return n >= 1
+    },
+    { message: HINT_REPLICAS }
+  )
+
 const componentResourcesSchema = z.object({
   requests: resourceListSchema.optional(),
   limits: resourceListSchema.optional(),
   storage: storageSchema.optional(),
-  replicas: z.union([z.string(), z.number()]).optional().nullable(),
+  replicas: replicasOptional,
 })
 
 const ingestorResourcesSchema = z.object({

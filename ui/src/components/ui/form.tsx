@@ -94,7 +94,7 @@ function FormLabel({ className, ...props }: React.ComponentProps<typeof LabelPri
       data-error={!!error}
       className={cn(
         'transition-colors duration-200 text-content-faded',
-        'data-[error=true]:text-destructive-foreground',
+        'data-[error=true]:text-[var(--color-foreground-critical)]',
         className,
       )}
       htmlFor={formItemId}
@@ -142,7 +142,7 @@ function FormMessage({ className, ...props }: React.ComponentProps<'p'>) {
     <p
       data-slot="form-message"
       id={formMessageId}
-      className={cn('text-destructive-foreground text-sm', className)}
+      className={cn('text-sm text-[var(--color-foreground-critical)]', className)}
       {...props}
     >
       {body}
@@ -155,7 +155,7 @@ function FormGroup({ className, ...props }: React.ComponentProps<'div'>) {
 }
 
 function FormError({ className, ...props }: React.ComponentProps<'div'>) {
-  return <div className={cn('text-destructive-foreground text-sm', className)} {...props} />
+  return <div className={cn('text-sm text-[var(--color-foreground-critical)]', className)} {...props} />
 }
 
 function FormSuccess({ className, ...props }: React.ComponentProps<'div'>) {
