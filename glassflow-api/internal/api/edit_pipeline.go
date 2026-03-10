@@ -43,6 +43,14 @@ func (h *handler) editPipeline(ctx context.Context, input *EditPipelineInput) (*
 			},
 		}
 	}
+	if err := validateJoinExclusivity(input.Body); err != nil {
+		return nil, &ErrorDetail{
+			Status:  http.StatusUnprocessableEntity,
+			Code:    "not_supported",
+			Message: err.Error(),
+			Details: map[string]any{"error": err.Error()},
+		}
+	}
 
 	pipeline, err := input.Body.toModel()
 	if err != nil {

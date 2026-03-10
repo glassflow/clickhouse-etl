@@ -30,6 +30,14 @@ type CreatePipelineResponse struct {
 }
 
 func (h *handler) createPipeline(ctx context.Context, input *CreatePipelineInput) (*CreatePipelineResponse, error) {
+	if err := validateJoinExclusivity(input.Body); err != nil {
+		return nil, &ErrorDetail{
+			Status:  http.StatusUnprocessableEntity,
+			Code:    "not_supported",
+			Message: err.Error(),
+			Details: map[string]any{"error": err.Error()},
+		}
+	}
 	pipeline, err := input.Body.toModel()
 	if err != nil {
 		return nil, &ErrorDetail{

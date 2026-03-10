@@ -166,6 +166,27 @@ type tableMappingEntryV1 struct {
 	ColumnType string `json:"column_type"`
 }
 
+// validateJoinExclusivity returns an error if join is enabled while filter,
+// deduplication (on any topic), or stateless transforms are also enabled.
+// Those features are not supported together with join.
+func validateJoinExclusivity(p pipelineJSON) error {
+	if !p.Join.Enabled {
+		return nil
+	}
+	for _, t := range p.Source.Topics {
+		if t.Deduplication.Enabled {
+			return fmt.Errorf("join cannot be enabled when deduplication is enabled")
+		}
+	}
+	if p.StatelessTransformation.Enabled {
+		return fmt.Errorf("join cannot be enabled when stateless transformation is enabled")
+	}
+	if p.Filter.Enabled {
+		return fmt.Errorf("join cannot be enabled when filter is enabled")
+	}
+	return nil
+}
+
 func newIngestorComponentConfig(p pipelineJSON) (zero models.IngestorComponentConfig, _ error) {
 	kafkaConfig := models.KafkaConnectionParamsConfig{
 		Brokers:             p.Source.ConnectionParams.Brokers,

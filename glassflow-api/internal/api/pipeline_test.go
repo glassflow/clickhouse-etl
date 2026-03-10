@@ -472,7 +472,7 @@ func TestCreatePipeline_JoinEnabledRejectsIncompatibleComponents(t *testing.T) {
 			var errDetail *ErrorDetail
 			require.ErrorAs(t, err, &errDetail)
 			assert.Equal(t, http.StatusUnprocessableEntity, errDetail.Status)
-			assert.Equal(t, "unprocessable_entity", errDetail.Code)
+			assert.Equal(t, "not_supported", errDetail.Code)
 			if errDetail.Details != nil {
 				if e, ok := errDetail.Details["error"].(string); ok {
 					assert.Contains(t, e, tt.wantContain)
@@ -570,7 +570,7 @@ func TestEditPipeline_JoinEnabledRejectsIncompatibleComponents(t *testing.T) {
 			var errDetail *ErrorDetail
 			require.ErrorAs(t, err, &errDetail)
 			assert.Equal(t, http.StatusUnprocessableEntity, errDetail.Status)
-			assert.Equal(t, "unprocessable_entity", errDetail.Code)
+			assert.Equal(t, "not_supported", errDetail.Code)
 			if errDetail.Details != nil {
 				if e, ok := errDetail.Details["error"].(string); ok {
 					assert.Contains(t, e, tt.wantContain)
