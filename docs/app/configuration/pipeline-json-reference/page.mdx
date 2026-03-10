@@ -424,8 +424,10 @@ The nats resources configuration defines the resources for the nats.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `max_age` | string | No | Maximum age of the stream. Defaults to "24h". This parameter is immutable and cannot be changed after the pipeline is created. |
-| `max_bytes` | string | No | Maximum bytes of the stream. Defaults to "0 bytes" which will not limit the stream size and will not reserve memory for the stream. This parameter is immutable and cannot be changed after the pipeline is created. |
+| `maxAge` | string | No | Maximum age of the stream. Defaults to "24h". This parameter is immutable and cannot be changed after the pipeline is created. |
+| `maxBytes` | string | No | Maximum bytes of the stream. Defaults to "0" which will not limit the stream size and will not reserve memory for the stream. This parameter is immutable and cannot be changed after the pipeline is created. |
+
+> 💡 **Note**: You can find more information about the NATS stream configuration parameters in the [NATS Stream Configuration](https://docs.nats.io/nats-concepts/jetstream/streams#configuration) documentation.
 
 ## Metadata Configuration
 
