@@ -4,7 +4,28 @@ import { useEffect } from 'react'
 
 export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
-    console.error(error)
+    const timestamp = new Date().toISOString()
+    const isClient = typeof window !== 'undefined'
+    const context = isClient
+      ? { url: window.location.href, pathname: window.location.pathname, userAgent: navigator.userAgent }
+      : { env: 'server' }
+
+    console.group('[GlobalError] Caught error')
+    console.error('Message:', error.message)
+    console.error('Name:', error.name)
+    if (error.digest) console.error('Digest:', error.digest)
+    if (error.stack) console.error('Stack:', error.stack)
+    console.error('Timestamp:', timestamp)
+    console.error('Context:', context)
+    const customKeys = Object.keys(error).filter((k) => !['message', 'name', 'stack', 'cause'].includes(k))
+    if (customKeys.length > 0) {
+      console.error(
+        'Extra props:',
+        customKeys.reduce((acc, k) => ({ ...acc, [k]: (error as any)[k] }), {})
+      )
+    }
+    if (error.cause) console.error('Cause:', error.cause)
+    console.groupEnd()
   }, [error])
 
   return (

@@ -15,11 +15,11 @@ function resourcesToFormValues(r: PipelineResources | null): PipelineResourcesFo
   const ensureComponent = (c: any) =>
     c
       ? {
-          requests: ensure(c.requests),
-          limits: ensure(c.limits),
-          storage: c.storage ? ensure(c.storage) : undefined,
-          replicas: c.replicas != null ? c.replicas : undefined,
-        }
+        requests: ensure(c.requests),
+        limits: ensure(c.limits),
+        storage: c.storage ? ensure(c.storage) : undefined,
+        replicas: c.replicas != null ? c.replicas : undefined,
+      }
       : {}
   return {
     nats: r.nats
@@ -27,10 +27,10 @@ function resourcesToFormValues(r: PipelineResources | null): PipelineResourcesFo
       : undefined,
     ingestor: r.ingestor
       ? {
-          base: ensureComponent(r.ingestor.base),
-          left: ensureComponent(r.ingestor.left),
-          right: ensureComponent(r.ingestor.right),
-        }
+        base: ensureComponent(r.ingestor.base),
+        left: ensureComponent(r.ingestor.left),
+        right: ensureComponent(r.ingestor.right),
+      }
       : undefined,
     join: ensureComponent(r.join),
     sink: ensureComponent(r.sink),
@@ -120,7 +120,7 @@ export function PipelineResourcesFormManager({
           toggleEditMode={toggleEditMode}
           pipelineActionState={pipelineActionState}
           onClose={onClose}
-          regularText="Save"
+          regularText="Continue"
         />
       </form>
     </FormProvider>

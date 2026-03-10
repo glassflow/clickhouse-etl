@@ -8,9 +8,15 @@
  * - Note: 1GB is invalid for regular quantities (use 1G or 1Gi); 100GB is only valid for NATS maxBytes
  */
 
-const K8S_QUANTITY_ERROR = 'Use Kubernetes format, e.g. 100m, 1Gi, 128Mi'
-const NATS_MAX_BYTES_ERROR = 'Use format like 10Gi, 100GB, or 1TB'
-const NATS_MAX_AGE_ERROR = 'Use duration format, e.g. 24h, 1m, 30s'
+/** User-facing format hints and validation error messages (same text). */
+export const HINT_K8S_QUANTITY = 'Use Kubernetes format, e.g. 100m, 1Gi, 128Mi'
+export const HINT_NATS_MAX_BYTES = 'Use format like 10Gi, 100GB, or 1TB'
+export const HINT_NATS_MAX_AGE = 'Use duration format, e.g. 24h, 1m, 30s'
+export const HINT_REPLICAS = 'Positive integer, e.g. 1'
+
+const K8S_QUANTITY_ERROR = HINT_K8S_QUANTITY
+const NATS_MAX_BYTES_ERROR = HINT_NATS_MAX_BYTES
+const NATS_MAX_AGE_ERROR = HINT_NATS_MAX_AGE
 
 /** Binary SI suffixes (powers of 1024) */
 const BINARY_SUFFIXES = ['Ki', 'Mi', 'Gi', 'Ti', 'Pi', 'Ei'] as const
