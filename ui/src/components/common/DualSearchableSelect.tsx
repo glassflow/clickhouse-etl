@@ -242,7 +242,7 @@ export function DualSearchableSelect({
           }}
           onClick={() => !disabled && setOpen(true)}
           className={cn(
-            'w-full pr-10 text-content',
+            'w-full min-w-0 pr-14 overflow-hidden text-ellipsis text-content',
             disabled && 'opacity-60 cursor-not-allowed',
           )}
           disabled={disabled}
