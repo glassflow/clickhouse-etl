@@ -676,7 +676,7 @@ func toOperatorNatsResources(n *models.NatsResources) (*operator.NatsResources, 
 		}
 		if n.Stream.MaxBytes != "" {
 			if n.Stream.MaxBytes == "0" {
-				return nil, fmt.Errorf("invalid nats stream maxBytes %q: use -1 for unlimited", n.Stream.MaxBytes)
+				n.Stream.MaxBytes = "-1"
 			}
 			maxBytes, err := models.ParseNATSMaxBytesQuantity(n.Stream.MaxBytes)
 			if err != nil {
