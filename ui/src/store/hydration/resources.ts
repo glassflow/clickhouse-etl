@@ -7,7 +7,7 @@ export type HydrateResourcesConfig = {
   pipeline_id?: string
   pipeline_resources?: PipelineResources | null
   fields_policy?: { immutable: string[] }
-  source?: { topics?: Array<{ replicas?: number }> }
+  source?: { topics?: Array<{ replicas?: number } & Record<string, unknown>> }
   join?: { enabled?: boolean }
 }
 
@@ -42,6 +42,7 @@ function applyTopicReplicasFallback(
  * Hydrates resources store with pipeline_resources and fields_policy.
  * When config has pipeline_id but no fields_policy (GET /pipeline/{id} does not return it),
  * fetches policy via getPipelineResources or getPipelineResourcesValidation.
+ * When pipeline_id is missing (e.g. import flow), uses only config.pipeline_resources and does not fetch.
  * When resources exist but ingestor replicas are missing, fills them from source.topics[].replicas for backward compatibility.
  */
 export async function hydrateResources(pipelineConfig: HydrateResourcesConfig): Promise<void> {

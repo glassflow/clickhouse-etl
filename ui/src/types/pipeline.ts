@@ -254,6 +254,12 @@ export interface Pipeline {
   metadata?: PipelineMetadata
 }
 
+/**
+ * Config shape accepted when hydrating the store (e.g. from import).
+ * pipeline_id is optional so import flow can omit it and avoid fetching resources by the exported ID.
+ */
+export type PipelineConfigForHydration = Omit<Pipeline, 'pipeline_id'> & { pipeline_id?: string }
+
 export interface Schema {
   id: string
   name: string

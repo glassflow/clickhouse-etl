@@ -220,8 +220,9 @@ export default function HomePageClient() {
       const newPipelineId = generatePipelineId(pipelineName)
       setPipelineId(newPipelineId)
 
-      // Hydrate the store from the imported configuration
-      await hydrateFromConfig(config)
+      // Hydrate from imported config without pipeline_id so resources hydration does not
+      // fetch by the exported pipeline_id and overwrite uploaded pipeline_resources (e.g. sink replicas)
+      await hydrateFromConfig({ ...config, pipeline_id: undefined })
 
       // Mark stores as valid after successful hydration
       // This ensures the wizard shows steps as completed when data is present
