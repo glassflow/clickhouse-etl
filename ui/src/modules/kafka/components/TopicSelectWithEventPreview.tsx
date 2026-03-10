@@ -7,7 +7,6 @@ import Loader from '@/src/images/loader-small.svg'
 import { INITIAL_OFFSET_OPTIONS } from '@/src/config/constants'
 import { TopicOffsetSelect } from '@/src/modules/kafka/components/TopicOffsetSelect'
 import EventManager from '@/src/components/shared/event-fetcher/EventManager'
-import ReplicaCount from '@/src/modules/kafka/components/ReplicaCount'
 
 export type TopicSelectWithEventPreviewProps = {
   index: number
@@ -41,9 +40,6 @@ export type TopicSelectWithEventPreviewProps = {
   fetchNextEvent?: (topicName: string, currentOffset: number) => Promise<void>
   fetchPreviousEvent?: (topicName: string, currentOffset: number) => Promise<void>
   refreshEvent?: (topicName: string, fetchNext?: boolean) => Promise<void>
-  partitionCount?: number
-  replicas?: number
-  onReplicaCountChange?: (replicas: number) => void
   onRefreshTopics?: () => Promise<void>
 }
 
@@ -75,9 +71,6 @@ export function TopicSelectWithEventPreview({
   fetchNextEvent: hookFetchNextEvent,
   fetchPreviousEvent: hookFetchPreviousEvent,
   refreshEvent: hookRefreshEvent,
-  partitionCount = 1,
-  replicas = 1,
-  onReplicaCountChange,
   onRefreshTopics,
 }: TopicSelectWithEventPreviewProps) {
   // Use hook data if provided, otherwise fall back to local state
@@ -124,16 +117,6 @@ export function TopicSelectWithEventPreview({
     [onManualEventChange],
   )
 
-  // Handle replica count change
-  const handleReplicaCountChange = useCallback(
-    (replicas: number) => {
-      if (onReplicaCountChange) {
-        onReplicaCountChange(replicas)
-      }
-    },
-    [onReplicaCountChange],
-  )
-
   return (
     <div className="flex flex-row gap-6 w-full">
       {/* Form Fields */}
@@ -169,18 +152,6 @@ export function TopicSelectWithEventPreview({
             disableTopicChange={disableTopicChange} // ✅ Pass down the new prop
             onRefreshTopics={onRefreshTopics}
           />
-
-          {/* Replica Count Selection */}
-          {topicName && (
-            <ReplicaCount
-              partitionCount={partitionCount}
-              replicas={replicas}
-              onReplicaCountChange={handleReplicaCountChange}
-              index={index}
-              readOnly={readOnly}
-              isLoading={isLoading}
-            />
-          )}
 
           {isLoading && (
             <div className="flex items-center gap-2 text-sm text-content">
