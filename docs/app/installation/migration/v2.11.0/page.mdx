@@ -18,9 +18,9 @@ This guide explains how to upgrade to GlassFlow v2.11.x (Helm chart **v0.6.0**) 
 
 You do **not** need this migration if:
 
-- You are doing a fresh install of v2.11.x
-- Encryption is disabled (`global.encryption.enabled=false`)
-- You already set `global.encryption.existingSecret` to use your own secret
+- You are doing a fresh install of v2.11.x.
+- Encryption is disabled (`global.encryption.enabled=false`).
+- You already set `global.encryption.existingSecret` to use your own secret.
 
 ## Migration Steps
 
@@ -135,6 +135,7 @@ You can still use `-f values.yaml` in addition to `--set` if you need to apply o
 - Verify that the GlassFlow API and UI pods start correctly and that you can open the UI and list pipelines.
 - **GET pipeline** — Call the API to retrieve a pipeline (e.g. `GET /api/v1/pipeline/{pipeline_id}`). Confirm that the Kafka and ClickHouse connection secrets in the response are correct and match what you expect.
 - **Edit and GET pipeline** — Update the pipeline (e.g. change a name or add a tag) and call GET pipeline again. Confirm that the Kafka and ClickHouse secrets are still correct after the edit.
+- **Check the database** — In PostgreSQL, query the `connections` table. Confirm that both Kafka and ClickHouse credentials are stored in encrypted form.
 
 ## Getting Help
 
