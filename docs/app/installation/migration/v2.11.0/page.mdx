@@ -1,6 +1,6 @@
 ---
 title: 'Migration Guide: v2.10.x to v2.11.x'
-description: 'Migrate from GlassFlow v2.10.x to v2.11.x when using chart-managed encryption. Use chart v0.6.0 to fix encryption secret handling.'
+description: 'Migrate from GlassFlow v2.10.x to v2.11.x when using chart-managed encryption. Use chart v0.5.12 to fix encryption secret handling.'
 ---
 
 import { Callout } from 'nextra/components'
@@ -10,7 +10,7 @@ import { GitHubIcon, DiscordIcon, GlobeIcon } from 'nextra/icons'
 
 # Migration Guide: v2.10.x to v2.11.x
 
-This guide explains how to upgrade to GlassFlow v2.11.x (Helm chart **v0.6.0**) when you use encryption and the chart currently manages your encryption secret. Chart v0.6.0 fixes a bug where the encryption secret could be recreated and credentials rendered unreadable. By migrating your existing secret into the format expected by v0.6.0, you avoid that issue and keep your credentials valid.
+This guide explains how to upgrade to GlassFlow v2.11.x (Helm chart **v0.5.12**) when you use encryption and the chart currently manages your encryption secret. Chart v0.5.12 fixes a bug where the encryption secret could be recreated and credentials rendered unreadable. By migrating your existing secret into the format expected by v0.5.12, you avoid that issue and keep your credentials valid.
 
 ## When This Migration Applies
 
@@ -108,10 +108,10 @@ SUCCESS: target-secret.yaml applied and verified.
 
 ### 2. Upgrade the release and point encryption to the existing secret
 
-Run the Helm upgrade using chart version **0.6.0** and set encryption to use the secret you created in step 3 (replace `<secret-name>` with the name you chose in step 2, e.g. `glassflow-encryption-key-external`):
+Run the Helm upgrade using chart version **0.5.12** and set encryption to use the secret you created in step 3 (replace `<secret-name>` with the name you chose in step 2, e.g. `glassflow-encryption-key-external`):
 
 ```bash
-helm upgrade <release_name> <chart_reference> -n <namespace> --version 0.6.0 \
+helm upgrade <release_name> <chart_reference> -n <namespace> --version 0.5.12 \
   --set global.encryption.enabled=true \
   --set global.encryption.existingSecret.name="<secret-name>" \
   --set global.encryption.existingSecret.key="encryption-key"
@@ -120,7 +120,7 @@ helm upgrade <release_name> <chart_reference> -n <namespace> --version 0.6.0 \
 Example (upgrading from the Helm repo, using secret name `glassflow-encryption-key-external`):
 
 ```bash
-helm upgrade glassflow glassflow/glassflow-etl -n glassflow --version 0.6.0 \
+helm upgrade glassflow glassflow/glassflow-etl -n glassflow --version 0.5.12 \
   --set global.encryption.enabled=true \
   --set global.encryption.existingSecret.name="glassflow-encryption-key-external" \
   --set global.encryption.existingSecret.key="encryption-key"

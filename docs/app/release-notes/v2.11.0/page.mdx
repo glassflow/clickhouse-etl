@@ -7,7 +7,7 @@ description: Release notes for the GlassFlow ClickHouse ETL v2.11.0 - Pipeline r
 
 # Release Notes v2.11.0
 
-Version 2.11.0 introduces **Pipeline Resource Management**, featuring new APIs to retrieve and update per-pipeline resource settings (replicas, CPU and memory). This release also adds **horizontal scaling** for ingestor, transform, and sink components, alongside a new **Transformations Playground** in the UI for testing expressions with sample data. This product release is accompanied by [**Helm chart v0.6.0**](https://github.com/glassflow/charts/releases/tag/glassflow-etl-0.6.0); use the v0.6.0 chart when installing or upgrading to v2.11.x. 
+Version 2.11.0 introduces **Pipeline Resource Management**, featuring new APIs to retrieve and update per-pipeline resource settings (replicas, CPU and memory). This release also adds **horizontal scaling** for ingestor, transform, and sink components, alongside a new **Transformations Playground** in the UI for testing expressions with sample data. This product release is accompanied by [**Helm chart v0.5.12**](https://github.com/glassflow/charts/releases/tag/glassflow-etl-0.5.12); use the v0.5.12 chart when installing or upgrading to v2.11.x. 
 
 ## What's New
 
@@ -74,7 +74,7 @@ If you are doing a fresh install, or you had `global.encryption.enabled=false`, 
 
 To try the new features in v2.11.0:
 
-1. **Deploy the latest version** using our [Kubernetes Helm charts](/installation/kubernetes) (chart **v0.6.0** for product v2.11.x)
+1. **Deploy the latest version** using our [Kubernetes Helm charts](/installation/kubernetes) (chart **v0.5.12** for product v2.11.x)
 2. **Configure pipeline resources** — Use the API or pipeline JSON to set replicas for ingestor, transform, or sink; see the [Scaling Guide](/usage-guide/scaling) for best practices.
 3. **Use the transformations playground** — Edit a pipeline’s transformation step and try expressions in the playground with sample or empty JSON.
 4. **Use floor, ceil, round** — Use the new `floor`, `ceil`, and `round` helpers in transformation expressions.
