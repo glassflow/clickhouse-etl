@@ -1,7 +1,20 @@
-import { Kafka, Consumer, Admin, logLevel, KafkaMessage } from 'kafkajs'
+import { Kafka, Consumer, Admin, logLevel, KafkaMessage, CompressionTypes, CompressionCodecs } from 'kafkajs'
+import lz4js from 'lz4js'
 import { createAwsIamMechanism } from '../utils/common.server'
 import { KafkaConfig } from './kafka-client-interface'
 import { structuredLogger } from '@/src/observability'
+
+// Register LZ4 codec so we can consume topics that use LZ4 compression (KafkaJS does not implement it by default).
+// Kafka uses LZ4 frame format (KIP-57); lz4js is pure JS and supports framed LZ4.
+CompressionCodecs[CompressionTypes.LZ4] = () => ({
+  async compress() {
+    throw new Error('LZ4 compress not implemented')
+  },
+  async decompress(buffer: Buffer) {
+    const out = lz4js.decompress(buffer)
+    return Buffer.isBuffer(out) ? out : Buffer.from(out)
+  },
+})
 
 // Re-export KafkaConfig for backwards compatibility
 export type { KafkaConfig } from './kafka-client-interface'

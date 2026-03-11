@@ -164,6 +164,9 @@ importers:
       lucide-react:
         specifier: ^0.479.0
         version: 0.479.0(react@19.2.4)
+      lz4js:
+        specifier: ^0.2.0
+        version: 0.2.0
       mixpanel-browser:
         specifier: ^2.64.0
         version: 2.67.0
@@ -240,6 +243,9 @@ importers:
       '@testing-library/react':
         specifier: ^16.1.0
         version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.1.6(@types/react@19.1.8))(@types/react@19.1.8)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@types/lz4js':
+        specifier: ^0.2.2
+        version: 0.2.2
       '@typescript-eslint/eslint-plugin':
         specifier: ^8.29.1
         version: 8.38.0(@typescript-eslint/parser@8.38.0(eslint@9.31.0(jiti@2.4.2))(typescript@5.8.3))(eslint@9.31.0(jiti@2.4.2))(typescript@5.8.3)
@@ -2578,6 +2584,9 @@ packages:
   '@types/json5@0.0.29':
     resolution: {integrity: sha512-dRLjCWHYg4oaA77cxO64oO+7JwCwnIzkZPdrrC71jQmQtlhM556pwKo5bUzqvZndkVbeFLIIi+9TC40JNF5hNQ==}
 
+  '@types/lz4js@0.2.2':
+    resolution: {integrity: sha512-pqXfoJ2AwllcLTf1Nia0+HT1KHj8z4wWo3bBP6vn7Aen5ySywBqrh/u1TyBwWxuKDS+mPzVHkPbHivqZEfk6pA==}
+
   '@types/mixpanel-browser@2.66.0':
     resolution: {integrity: sha512-07zYZZ9ZVHc7R4ktM+3a2clZvKkj+EJcYZ/FevTs011Fr9tdp59lVgAskMf6ZQUp3lOHLqi7K3f+9QtmEsqh1w==}
     deprecated: This is a stub types definition. mixpanel-browser provides its own type definitions, so you do not need this installed.
@@ -4081,6 +4090,9 @@ packages:
   lz-string@1.5.0:
     resolution: {integrity: sha512-h5bgJWpxJNswbU7qCrV0tIKQCaS3blPDrqKWx+QxzuzL1zGUzij9XCWLrSLsJPu5t+eWA/ycetzYAO5IOMcWAQ==}
     hasBin: true
+
+  lz4js@0.2.0:
+    resolution: {integrity: sha512-gY2Ia9Lm7Ep8qMiuGRhvUq0Q7qUereeldZPP1PMEJxPtEWHJLqw9pgX68oHajBH0nzJK4MaZEA/YNV3jT8u8Bg==}
 
   magic-string@0.30.17:
     resolution: {integrity: sha512-sNPKHvyjVf7gyjwS4xGTaW/mCnF8wnjtifKBEhxfZ7E/S8tQ0rssrwGNn6q8JH/ohItJfSQp9mBtQYuTlH5QnA==}
@@ -7845,6 +7857,8 @@ snapshots:
 
   '@types/json5@0.0.29': {}
 
+  '@types/lz4js@0.2.2': {}
+
   '@types/mixpanel-browser@2.66.0':
     dependencies:
       mixpanel-browser: 2.67.0
@@ -9469,6 +9483,8 @@ snapshots:
       react: 19.2.4
 
   lz-string@1.5.0: {}
+
+  lz4js@0.2.0: {}
 
   magic-string@0.30.17:
     dependencies:
