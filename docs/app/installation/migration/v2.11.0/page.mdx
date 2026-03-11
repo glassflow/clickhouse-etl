@@ -1,0 +1,110 @@
+---
+title: 'Migration Guide: v2.10.x to v2.11.x'
+description: 'Migrate from GlassFlow v2.10.x to v2.11.x when using chart-managed encryption. Use chart v0.6.0 to fix encryption secret handling.'
+---
+
+import { Callout } from 'nextra/components'
+import { Steps } from 'nextra/components'
+import { Cards } from 'nextra/components'
+import { GitHubIcon, DiscordIcon, GlobeIcon } from 'nextra/icons'
+
+# Migration Guide: v2.10.x to v2.11.x
+
+This guide explains how to upgrade to GlassFlow v2.11.x (Helm chart **v0.6.0**) when you use encryption and the chart currently manages your encryption secret. Chart v0.6.0 fixes a bug where the encryption secret could be recreated and credentials rendered unreadable. By migrating your existing secret into the format expected by v0.6.0, you avoid that issue and keep your credentials valid.
+
+## When This Migration Applies
+
+**Follow this migration only if** your current installation has encryption enabled (`global.encryption.enabled=true`) **and** you did **not** set `global.encryption.existingSecret` (i.e. the chart is managing the encryption secret for you).
+
+You do **not** need this migration if:
+
+- You are doing a fresh install of v2.11.x
+- Encryption is disabled (`global.encryption.enabled=false`)
+- You already set `global.encryption.existingSecret` to use your own secret
+
+## Migration Steps
+
+<Steps>
+
+### 1. Back up the current encryption secret
+
+Export the existing encryption secret from your GlassFlow namespace:
+
+```bash
+kubectl get secret -n <namespace> <release_name>-encryption-key -o yaml > secret-backup.yaml
+```
+
+Example:
+
+```bash
+kubectl get secret -n glassflow glassflow-encryption-key -o yaml > secret-backup.yaml
+```
+
+### 2. Prepare the backup secret for reuse
+
+Edit `secret-backup.yaml` and:
+
+- Remove all annotations and labels (except `metadata.name` and `namespace` if you need to change them).
+- Set `metadata.name` to the secret name you will use for `existingSecret` (e.g. `glassflow-encryption-key-external`).
+- Set `metadata.namespace` to the target namespace if it differs.
+
+### 3. Create the secret in the cluster
+
+Create the edited secret in the target namespace so the chart can reference it:
+
+```bash
+kubectl create -f secret-backup.yaml -n <namespace>
+```
+
+Example:
+
+```bash
+kubectl create -f secret-backup.yaml -n glassflow
+```
+
+### 4. Upgrade the release and point encryption to the existing secret
+
+Run the Helm upgrade using chart version **0.6.0** and set encryption to use the secret you created in step 3 (replace `<secret-name>` with the name you chose in step 2, e.g. `glassflow-encryption-key-external`):
+
+```bash
+helm upgrade <release_name> <chart_reference> -n <namespace> --version 0.6.0 \
+  --set global.encryption.enabled=true \
+  --set global.encryption.existingSecret.name="<secret-name>" \
+  --set global.encryption.existingSecret.key="encryption-key"
+```
+
+Example (upgrading from the Helm repo, using secret name `glassflow-encryption-key-external`):
+
+```bash
+helm upgrade glassflow glassflow/glassflow-etl -n glassflow --version 0.6.0 \
+  --set global.encryption.enabled=true \
+  --set global.encryption.existingSecret.name="glassflow-encryption-key-external" \
+  --set global.encryption.existingSecret.key="encryption-key"
+```
+
+If you are upgrading from a local chart path:
+
+```bash
+helm upgrade glassflow . -n glassflow --version 0.6.0 \
+  --set global.encryption.enabled=true \
+  --set global.encryption.existingSecret.name="glassflow-encryption-key-external" \
+  --set global.encryption.existingSecret.key="encryption-key"
+```
+
+You can still use `-f values.yaml` in addition to `--set` if you need to apply other values from a file.
+
+</Steps>
+
+## After Migration
+
+- Verify that the GlassFlow API and UI pods start correctly and that you can open the UI and list pipelines.
+- Existing pipelines and encrypted credentials should continue to work; the chart now uses your existing secret instead of creating a new one.
+
+## Getting Help
+
+<Cards>
+  <Cards.Card icon={<DiscordIcon />} title="Slack Community" href="https://join.slack.com/t/glassflowhub/shared_invite/zt-349m7lenp-IFeKSGfQwpJfIiQ7oyFFKg" />
+  <Cards.Card icon={<GlobeIcon />} title="Email Support" href="mailto:help@glassflow.dev" />
+  <Cards.Card icon={<GitHubIcon />} title="GitHub Issues" href="https://github.com/glassflow/clickhouse-etl/issues" />
+  <Cards.Card icon={<GitHubIcon />} title="GitHub Discussions" href="https://github.com/glassflow/clickhouse-etl/discussions" />
+</Cards>
