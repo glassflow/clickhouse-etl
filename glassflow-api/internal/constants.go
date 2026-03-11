@@ -20,7 +20,7 @@ const (
 
 	// Stream naming constants
 	MaxStreamNameLength  = 32
-	PipelineStreamPrefix = "gf"
+	PipelineStreamPrefix = "gfm"
 
 	// Pipeline status constants
 	PipelineStatusCreated     = "Created"
