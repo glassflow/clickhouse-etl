@@ -63,8 +63,8 @@ Feature: Working with DLQ
                                 "id_field_type": "string",
                                 "time_window": "1h"
                             },
-                            "output_stream_id": "gf-ee04c824-test_topic",
-                            "output_stream_subject": "gf-ee04c824-test_topic.input"
+                            "output_stream_id": "gfm-ee04c824-test_topic",
+                            "output_stream_subject": "gfm-ee04c824-test_topic.input"
                         }
                     ]
                 },
@@ -83,19 +83,19 @@ Feature: Working with DLQ
                         "secure": false,
                         "table": "events_test"
                     },
-                    "stream_id": "gf-ee04c824-test_topic",
+                    "stream_id": "gfm-ee04c824-test_topic",
                     "nats_consumer_name": "gf-nats-si-ee04c824"
                 }
             }
             """
-    Then I publish a message to NATS stream "gf-ee04c824-test_topic" with subject "gf-ee04c824-test_topic.input"
+    Then I publish a message to NATS stream "gfm-ee04c824-test_topic" with subject "gfm-ee04c824-test_topic.input"
         """json
         {
           "id": "123",
           "name": "world"
         }
         """
-    Then I publish a message to NATS stream "gf-ee04c824-DLQ" with subject "gf-ee04c824-DLQ.failed"
+    Then I publish a message to NATS stream "gfm-ee04c824-DLQ" with subject "gfm-ee04c824-DLQ.failed"
     """json
         {
           "id": "123",
@@ -103,5 +103,5 @@ Feature: Working with DLQ
         }
         """
     Then I send a POST request to "/api/v1/pipeline/kafka-to-ch-pipeline-123/dlq/purge"
-    Then NATS stream "gf-ee04c824-test_topic" with subject "gf-ee04c824-test_topic.input" should contain 1 events
-    Then NATS stream "gf-ee04c824-DLQ" with subject "gf-ee04c824-DLQ.failed" should contain 0 events
+    Then NATS stream "gfm-ee04c824-test_topic" with subject "gfm-ee04c824-test_topic.input" should contain 1 events
+    Then NATS stream "gfm-ee04c824-DLQ" with subject "gfm-ee04c824-DLQ.failed" should contain 0 events
