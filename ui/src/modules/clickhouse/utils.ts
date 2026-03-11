@@ -586,6 +586,7 @@ export const generateApiConfig = ({
   deduplicationStore,
   filterStore,
   transformationStore,
+  pipeline_resources,
   version, // New optional parameter
 }: {
   pipelineId: string
@@ -600,6 +601,7 @@ export const generateApiConfig = ({
   deduplicationStore: any
   filterStore?: any
   transformationStore?: any
+  pipeline_resources?: import('@/src/types/pipeline').PipelineResources | null
   version?: string
 }) => {
   try {
@@ -626,8 +628,13 @@ export const generateApiConfig = ({
     const adapter = getPipelineAdapter(targetVersion)
 
     // 3. Generate the external API configuration
-    // Note: The adapter handles wrapping the configuration in the correct structure for the target version
-    return adapter.generate(internalConfig)
+    const apiConfig = adapter.generate(internalConfig)
+
+    // 4. Merge pipeline_resources from Resources step when present
+    if (pipeline_resources && typeof pipeline_resources === 'object' && Object.keys(pipeline_resources).length > 0) {
+      return { ...apiConfig, pipeline_resources }
+    }
+    return apiConfig
   } catch (error) {
     structuredLogger.error('Error generating API config', { error: error instanceof Error ? error.message : String(error) })
     return { error: 'Failed to generate API configuration' }

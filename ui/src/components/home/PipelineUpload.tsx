@@ -282,7 +282,7 @@ export function PipelineUpload({ onValidConfig, onError, disabled = false }: Pip
             disabled={disabled || isProcessing}
             className="min-h-[200px] font-mono text-sm"
           />
-          <Button onClick={handlePasteValidate} disabled={disabled || isProcessing || !pasteContent.trim()} size="sm">
+          <Button variant="primary" onClick={handlePasteValidate} disabled={disabled || isProcessing || !pasteContent.trim()} size="sm">
             {isProcessing ? 'Validating...' : 'Validate & Import'}
           </Button>
         </div>

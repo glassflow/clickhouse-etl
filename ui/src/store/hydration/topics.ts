@@ -288,9 +288,8 @@ export async function hydrateKafkaTopics(pipelineConfig: any): Promise<void> {
         // Check if topic already exists in store (to preserve event data during re-hydration)
         const existingTopic = useStore.getState().topicsStore.getTopic(idx)
         const existingEvent = existingTopic?.selectedEvent?.event
-        const existingReplicas = existingTopic?.replicas
 
-        // Map topic data with current partition count from Kafka
+        // Map topic data with current partition count from Kafka (replicas from config only; resources are primary for ingestor replicas)
         const topicState = mapBackendTopicToStore(topicConfig, idx)
         topicState.partitionCount = currentPartitionCount
 
@@ -305,11 +304,6 @@ export async function hydrateKafkaTopics(pipelineConfig: any): Promise<void> {
               position: topicConfig.consumer_group_initial_offset || 'latest',
             },
           ]
-        }
-
-        // Preserve existing replica count if available (prevents overwriting user changes)
-        if (existingReplicas && existingReplicas !== topicState.replicas) {
-          topicState.replicas = existingReplicas
         }
 
         useStore.getState().topicsStore.updateTopic(topicState)

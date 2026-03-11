@@ -1,5 +1,5 @@
 import { OperationsSelectedType, OutboundEventPreviewType } from '@/src/scheme'
-import { Pipeline } from '@/src/types/pipeline'
+import { Pipeline, PipelineConfigForHydration } from '@/src/types/pipeline'
 import Cookies from 'js-cookie'
 import { StateCreator } from 'zustand'
 import { trackMode } from '@/src/analytics'
@@ -11,6 +11,7 @@ import { hydrateJoinConfiguration } from './hydration/join-configuration'
 import { structuredLogger } from '@/src/observability'
 import { hydrateFilter } from './hydration/filter'
 import { hydrateTransformation } from './hydration/transformation'
+import { hydrateResources } from './hydration/resources'
 
 // Helper function to compute operation type from topicCount + deduplication + join state
 // This is used for backward compatibility (analytics, display, etc.)
@@ -113,7 +114,7 @@ interface CoreStore extends CoreStoreProps {
   // New mode-related actions
   setMode: (mode: StoreMode) => void
   setBaseConfig: (config: Pipeline | undefined) => void
-  hydrateFromConfig: (config: Pipeline) => Promise<void>
+  hydrateFromConfig: (config: PipelineConfigForHydration) => Promise<void>
   resetToInitial: () => void
   discardChanges: () => void
   enterCreateMode: () => void
@@ -128,7 +129,7 @@ interface CoreStore extends CoreStoreProps {
   clearSaveHistory: () => void
   discardToLastSaved: () => Promise<void>
   // New section-based hydration actions
-  hydrateSection: (section: string, config: Pipeline) => Promise<void>
+  hydrateSection: (section: string, config: PipelineConfigForHydration) => Promise<void>
   discardSection: (section: string) => Promise<void>
   discardSections: (sections: string[]) => void
 }
@@ -315,11 +316,12 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
       set((state) => ({
         coreStore: { ...state.coreStore, baseConfig: config },
       })),
-    hydrateFromConfig: async (config: Pipeline) => {
+    hydrateFromConfig: async (config: PipelineConfigForHydration) => {
       set((state) => ({
         coreStore: {
           ...state.coreStore,
-          pipelineId: config.pipeline_id,
+          // Preserve existing pipelineId when config has none (e.g. import flow after setPipelineId(newId))
+          pipelineId: config.pipeline_id ?? state.coreStore.pipelineId,
           pipelineName: config.name,
           pipelineVersion: config.version, // Store the version from the config
           isDirty: false,
@@ -515,7 +517,7 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
       }
     },
     // New section-based hydration methods
-    hydrateSection: async (section: string, config: Pipeline) => {
+    hydrateSection: async (section: string, config: PipelineConfigForHydration) => {
       try {
         switch (section) {
           case 'kafka':
@@ -543,6 +545,9 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
           case 'clickhouse-destination':
             await hydrateClickhouseDestination(config)
             break
+          case 'resources':
+            await hydrateResources(config)
+            break
           case 'all':
             // Hydrate sync sections first (including filter and transformation - don't need event schema)
             hydrateKafkaConnection(config)
@@ -553,6 +558,7 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
             // Then async sections that require network calls
             await hydrateKafkaTopics(config)
             await hydrateClickhouseDestination(config)
+            await hydrateResources(config)
             break
           default:
             structuredLogger.warn('Unknown section for hydration', { section })

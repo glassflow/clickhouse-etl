@@ -275,9 +275,6 @@ export function KafkaTopicSelector({
             fetchNextEvent={fetchNextEvent}
             fetchPreviousEvent={fetchPreviousEvent}
             refreshEvent={refreshEvent}
-            partitionCount={partitionCount}
-            replicas={replicas}
-            onReplicaCountChange={selectReplicaCount}
             onRefreshTopics={handleRefreshTopics}
           />
         </div>

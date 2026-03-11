@@ -87,8 +87,9 @@ export function useResumeWithPendingEdit(
       return false // No pending edits
     }
 
-    // Dynamically import generateApiConfig to avoid circular dependencies
+    // Dynamically import to avoid circular dependencies
     const { generateApiConfig } = await import('@/src/modules/clickhouse/utils')
+    const { sanitizePipelineResourcesForSubmit } = await import('@/src/modules/resources/utils')
 
     // Get all store states needed for generating the API config
     const {
@@ -100,7 +101,19 @@ export function useResumeWithPendingEdit(
       deduplicationStore,
       filterStore,
       transformationStore,
+      resourcesStore,
     } = useStore.getState()
+
+    // Sanitize pipeline_resources: preserve original values for immutable paths
+    const rawResources = resourcesStore.pipeline_resources
+    const pipeline_resources =
+      rawResources && pipeline.pipeline_resources
+        ? sanitizePipelineResourcesForSubmit(
+            pipeline.pipeline_resources,
+            rawResources,
+            resourcesStore.fields_policy?.immutable ?? []
+          )
+        : rawResources
 
     // Generate the API configuration
     const apiConfig = generateApiConfig({
@@ -122,6 +135,7 @@ export function useResumeWithPendingEdit(
       deduplicationStore,
       filterStore,
       transformationStore,
+      pipeline_resources,
       version: coreStore.pipelineVersion, // Respect the original pipeline version
     })
 

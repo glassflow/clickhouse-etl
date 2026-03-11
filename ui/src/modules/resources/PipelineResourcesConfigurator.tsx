@@ -1,0 +1,276 @@
+'use client'
+
+import React, { useCallback, useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import Image from 'next/image'
+import { XCircleIcon } from '@heroicons/react/24/outline'
+import { useStore } from '@/src/store'
+import { getResourceDefaults } from '@/src/config/resource-defaults'
+import { createPipeline, getPipelineResources, getPipelineResourcesValidation, updatePipelineResources } from '@/src/api/pipeline-api'
+import { PipelineResourcesFormManager, resourcesToFormValues } from './PipelineResourcesFormManager'
+import { sanitizePipelineResourcesForSubmit } from './utils'
+import { StepKeys } from '@/src/config/constants'
+import { notify } from '@/src/notifications'
+import { isPreviewModeEnabled } from '@/src/config/feature-flags'
+import { generateApiConfig, getMappingType } from '@/src/modules/clickhouse/utils'
+import { structuredLogger } from '@/src/observability'
+import { Button } from '@/src/components/ui/button'
+import DownloadIconWhite from '@/src/images/download-white.svg'
+import { LATEST_PIPELINE_VERSION } from '@/src/config/pipeline-versions'
+import type { StepBaseProps } from '@/src/modules/pipelines/[id]/step-renderer/stepProps'
+
+export function PipelineResourcesConfigurator({
+  onCompleteStep,
+  standalone,
+  readOnly = false,
+  toggleEditMode,
+  onCompleteStandaloneEditing,
+  pipeline,
+  pipelineActionState,
+}: StepBaseProps) {
+  const router = useRouter()
+  const {
+    resourcesStore,
+    joinStore,
+    topicsStore,
+    filterStore,
+    transformationStore,
+    deduplicationStore,
+    coreStore,
+    clickhouseConnectionStore,
+    clickhouseDestinationStore,
+    kafkaStore,
+  } = useStore()
+  const [initialized, setInitialized] = useState(false)
+  const [initialValues, setInitialValues] = useState(resourcesToFormValues(null))
+  const [deployError, setDeployError] = useState<string | null>(null)
+  const [failedDeploymentConfig, setFailedDeploymentConfig] = useState<any>(null)
+
+  const hasJoin = joinStore?.enabled === true
+  const topics = topicsStore?.topics ? Object.values(topicsStore.topics) : []
+  const hasTopicDedup = topics.some(
+    (t: any, i: number) => deduplicationStore?.getDeduplication?.(i)?.enabled === true
+  )
+  const hasPipelineDedup = pipeline?.source?.topics?.some((t: any) => t?.deduplication?.enabled === true)
+  const hasDedup = hasTopicDedup || hasPipelineDedup
+  const hasTransform =
+    hasDedup ||
+    filterStore?.filterConfig?.enabled === true ||
+    transformationStore?.transformationConfig?.enabled === true ||
+    (transformationStore?.transformationConfig?.fields?.length ?? 0) > 0
+
+  const pipelineShape = { hasJoin, hasTransform, hasDedup }
+  const immutablePaths = resourcesStore.fields_policy?.immutable ?? []
+
+  useEffect(() => {
+    if (standalone && pipeline?.pipeline_id) {
+      getPipelineResources(pipeline.pipeline_id)
+        .then((res) => {
+          resourcesStore.hydrateResources(res.pipeline_resources, res.fields_policy?.immutable ?? [])
+          setInitialValues(resourcesToFormValues(res.pipeline_resources))
+        })
+        .catch(async () => {
+          setInitialValues(resourcesToFormValues(pipeline.pipeline_resources ?? null))
+          if (pipeline.pipeline_resources) {
+            let immutable = pipeline.fields_policy?.immutable ?? []
+            if (immutable.length === 0 && pipeline.pipeline_id) {
+              try {
+                const validation = await getPipelineResourcesValidation(pipeline.pipeline_id)
+                immutable = validation.fields_policy?.immutable ?? []
+              } catch {
+                // Keep empty immutable
+              }
+            }
+            resourcesStore.hydrateResources(pipeline.pipeline_resources, immutable)
+          }
+        })
+        .finally(() => setInitialized(true))
+    } else {
+      const defaults = resourcesStore.pipeline_resources ?? getResourceDefaults()
+      const values = resourcesToFormValues(defaults)
+      setInitialValues(values)
+      if (!resourcesStore.pipeline_resources) {
+        resourcesStore.setResources(defaults)
+      }
+      setInitialized(true)
+    }
+  }, [standalone, pipeline?.pipeline_id])
+
+  const handleSave = async (resources: import('@/src/types/pipeline').PipelineResources) => {
+    const currentResources = resourcesStore.pipeline_resources ?? undefined
+    const sanitized = sanitizePipelineResourcesForSubmit(
+      currentResources,
+      resources,
+      resourcesStore.fields_policy?.immutable ?? []
+    )
+    resourcesStore.setResources(sanitized)
+
+    if (standalone && pipeline?.pipeline_id) {
+      try {
+        await updatePipelineResources(pipeline.pipeline_id, sanitized)
+        notify({ variant: 'success', title: 'Resources updated. Changes apply when the pipeline is resumed.' })
+        onCompleteStandaloneEditing?.()
+      } catch (err: any) {
+        notify({ variant: 'error', title: err?.message || 'Failed to update resources' })
+        throw err
+      }
+    } else {
+      // Create flow: either advance to Review step or deploy (when Resources is the last step)
+      if (isPreviewModeEnabled()) {
+        if (onCompleteStep) {
+          onCompleteStep(StepKeys.PIPELINE_RESOURCES)
+        } else if (onCompleteStandaloneEditing) {
+          onCompleteStandaloneEditing()
+        }
+      } else {
+        // Resources is the last step when preview mode is off – deploy pipeline
+        const { pipelineId, setPipelineId, pipelineName, pipelineVersion } = coreStore
+        const { clickhouseConnection } = clickhouseConnectionStore
+        const { clickhouseDestination } = clickhouseDestinationStore
+        const selectedTopics = Object.values(topicsStore.topics || {})
+
+        const payload = generateApiConfig({
+          pipelineId,
+          pipelineName: pipelineName || 'Pipeline',
+          setPipelineId,
+          clickhouseConnection,
+          clickhouseDestination,
+          selectedTopics,
+          getMappingType,
+          joinStore,
+          kafkaStore,
+          deduplicationStore,
+          filterStore,
+          transformationStore,
+          pipeline_resources: resourcesStore.pipeline_resources,
+          version: pipelineVersion,
+        })
+
+        if (payload && typeof payload === 'object' && !('error' in payload)) {
+          setDeployError(null)
+          setFailedDeploymentConfig(null)
+          try {
+            const created = await createPipeline(payload as any)
+            setPipelineId(created.pipeline_id || (payload as any).pipeline_id || '')
+            router.push(`/pipelines/${created.pipeline_id || (payload as any).pipeline_id}?deployment=progress`)
+          } catch (err: any) {
+            structuredLogger.error('PipelineResourcesConfigurator failed to deploy pipeline', {
+              error: err instanceof Error ? err.message : String(err),
+            })
+            setDeployError(err?.message || 'Failed to deploy pipeline')
+            setFailedDeploymentConfig(payload)
+            notify({ variant: 'error', title: err?.message || 'Failed to deploy pipeline' })
+          }
+        } else {
+          notify({ variant: 'error', title: 'Invalid pipeline configuration' })
+          throw new Error('Invalid pipeline configuration')
+        }
+      }
+    }
+  }
+
+  const handleDiscard = () => {
+    if (standalone && pipeline?.pipeline_id) {
+      getPipelineResources(pipeline.pipeline_id).then((res) => {
+        setInitialValues(resourcesToFormValues(res.pipeline_resources))
+        resourcesStore.hydrateResources(res.pipeline_resources, res.fields_policy?.immutable ?? [])
+      })
+    } else {
+      const defaults = getResourceDefaults()
+      setInitialValues(resourcesToFormValues(defaults))
+      resourcesStore.setResources(defaults)
+    }
+    toggleEditMode?.()
+  }
+
+  const handleDownloadFailedConfig = useCallback(() => {
+    if (!failedDeploymentConfig) return
+
+    try {
+      const downloadConfig = {
+        ...failedDeploymentConfig,
+        exported_at: new Date().toISOString(),
+        exported_by: 'GlassFlow UI',
+        version: LATEST_PIPELINE_VERSION,
+      }
+
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0]
+      const configName = failedDeploymentConfig.name || coreStore.pipelineName || 'pipeline'
+      const sanitizedName = configName.replace(/[^a-zA-Z0-9-_]/g, '_')
+      const filename = `${sanitizedName}_config_${timestamp}.json`
+
+      const blob = new Blob([JSON.stringify(downloadConfig, null, 2)], {
+        type: 'application/json',
+      })
+
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = filename
+      link.style.display = 'none'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+    } catch (downloadError) {
+      structuredLogger.error('PipelineResourcesConfigurator failed to download configuration', {
+        error: downloadError instanceof Error ? downloadError.message : String(downloadError),
+      })
+    }
+  }, [failedDeploymentConfig, coreStore.pipelineName])
+
+  if (!initialized) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-sm text-[var(--color-foreground-neutral-faded)]">Loading resources...</div>
+      </div>
+    )
+  }
+
+  return (
+    <>
+      <PipelineResourcesFormManager
+        initialValues={initialValues}
+        pipelineShape={pipelineShape}
+        immutablePaths={immutablePaths}
+        readOnly={readOnly}
+        standalone={standalone}
+        onSave={handleSave}
+        onDiscard={handleDiscard}
+        toggleEditMode={toggleEditMode}
+        pipelineActionState={pipelineActionState}
+        onClose={onCompleteStandaloneEditing}
+      />
+      {deployError && (
+        <div className="space-y-3 mt-6">
+          <div className="p-3 bg-background-neutral-faded text-[var(--text-error)] rounded-md flex items-center border border-[var(--color-border-neutral-faded)]">
+            <XCircleIcon className="h-5 w-5 mr-2 flex-shrink-0" />
+            <span>{deployError}</span>
+          </div>
+          {failedDeploymentConfig && (
+            <div className="flex items-center gap-3 p-3 bg-background-neutral-faded rounded-md border border-[var(--color-border-neutral-faded)] text-content">
+              <span className="text-sm text-muted-foreground">
+                You can download the configuration to save your work and try again later.
+              </span>
+              <Button
+                size="sm"
+                onClick={handleDownloadFailedConfig}
+                variant="ghost"
+                className="group flex items-center gap-2 whitespace-nowrap !px-3 !py-2 text-sm h-auto hover:cursor-pointer"
+              >
+                <Image
+                  src={DownloadIconWhite}
+                  alt="Download"
+                  width={16}
+                  height={16}
+                  className="filter brightness-100 group-hover:brightness-100 hover:cursor-pointer flex-shrink-0"
+                />
+                Download config
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  )
+}

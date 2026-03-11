@@ -18,6 +18,7 @@ import { createFilterSlice, FilterSlice } from './filter.store'
 import { createTransformationSlice, TransformationSlice } from './transformation.store'
 import { createCoreSlice, CoreSlice } from './core'
 import { createNotificationsSlice, NotificationsSlice } from './notifications.store'
+import { createResourcesSlice, ResourcesSlice } from './resources.store'
 import Cookies from 'js-cookie'
 
 interface Store
@@ -31,7 +32,8 @@ interface Store
     FilterSlice,
     TransformationSlice,
     CoreSlice,
-    NotificationsSlice {
+    NotificationsSlice,
+    ResourcesSlice {
   // Global reset function that can reset all slices
   resetAllPipelineState: (topicCount: number, force?: boolean) => void
 
@@ -56,6 +58,7 @@ const useActualStore = create<Store>()(
       ...createTransformationSlice(set, get, store),
       ...createCoreSlice(set, get, store),
       ...createNotificationsSlice(set, get, store),
+      ...createResourcesSlice(set, get, store),
 
       // Global reset function that resets all slices
       resetAllPipelineState: (topicCount: number, force = false) => {
@@ -74,6 +77,7 @@ const useActualStore = create<Store>()(
           state.clickhouseConnectionStore.resetClickhouseStore()
           state.clickhouseDestinationStore.resetDestinationStore()
           state.stepsStore.resetStepsStore()
+          state.resourcesStore.resetResources()
 
           // Reset core store with new topic count
           state.coreStore.enterCreateMode()
@@ -139,6 +143,7 @@ const useActualStore = create<Store>()(
         state.clickhouseConnectionStore.resetClickhouseStore()
         state.clickhouseDestinationStore.resetDestinationStore()
         state.stepsStore.resetStepsStore()
+        state.resourcesStore.resetResources()
         state.coreStore.enterCreateMode()
 
         // Clear cookies and local storage
