@@ -14,15 +14,15 @@ This guide will walk you through the process of installing GlassFlow on Kubernet
 
 <Callout type="important">
 - The official Helm chart is available at [github.com/glassflow/charts](https://github.com/glassflow/charts).
-- The current Helm deployment **does not expose GlassFlow to the internet by default**. You must use `kubectl port-forward` to access the UI or API.  
+- The current Helm deployment **does not expose GlassFlow to the internet by default**. You must use `kubectl port-forward` to access the UI or API.
 - To expose GlassFlow externally (e.g., via a domain), you must configure ingress in your `values.yaml`. See the [Ingress Setup Guide](/installation/kubernetes/ingress-setup) for complete instructions.
 </Callout>
 
 ## Prerequisites
 
-- A running Kubernetes cluster
-- [Helm](https://helm.sh/docs/intro/install/) installed
-- [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/) for interacting with your cluster (e.g., port forwarding the UI)
+- A running Kubernetes cluster.
+- [Helm](https://helm.sh/docs/intro/install/) installed.
+- [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/) for interacting with your cluster (e.g., port forwarding the UI).
 
 ## Installation
 
