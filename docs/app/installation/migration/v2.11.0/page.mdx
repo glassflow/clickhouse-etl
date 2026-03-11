@@ -26,43 +26,87 @@ You do **not** need this migration if:
 
 <Steps>
 
-### 1. Back up the current encryption secret
+### 1. Run migration script
 
-Export the existing encryption secret from your GlassFlow namespace:
-
-```bash
-kubectl get secret -n <namespace> <release_name>-encryption-key -o yaml > secret-backup.yaml
-```
-
-Example:
+Run the following migration script to export the existing encryption secret from your GlassFlow namespace:
 
 ```bash
-kubectl get secret -n glassflow glassflow-encryption-key -o yaml > secret-backup.yaml
+#!/usr/bin/env bash
+set -euo pipefail
+
+# ---------- user inputs ----------
+RELEASE_NAME="${RELEASE_NAME:-glassflow}"
+NAMESPACE="${NAMESPACE:-glassflow}"
+
+# ---------- derived names/files ----------
+SOURCE_SECRET_NAME="${SOURCE_SECRET_NAME:-${RELEASE_NAME}-encryption-key}"
+TARGET_SECRET_NAME="${TARGET_SECRET_NAME:-${RELEASE_NAME}-encryption-key-external}"
+SOURCE_FILE="${SOURCE_FILE:-stg-secret.yaml}"
+TARGET_FILE="${TARGET_FILE:-target-secret.yaml}"
+
+echo "Context: $(kubectl config current-context)"
+echo "Source:  ${NAMESPACE}/${SOURCE_SECRET_NAME}"
+echo "Target:  ${NAMESPACE}/${TARGET_SECRET_NAME}"
+
+# 1) Ensure source secret exists
+kubectl get secret -n "${NAMESPACE}" "${SOURCE_SECRET_NAME}" >/dev/null
+
+# 2) Ensure source has encryption-key
+SRC_KEY="$(kubectl get secret -n "${NAMESPACE}" "${SOURCE_SECRET_NAME}" -o jsonpath='{.data.encryption-key}')"
+if [[ -z "${SRC_KEY}" ]]; then
+  echo "ERROR: ${SOURCE_SECRET_NAME} does not contain data.encryption-key"
+  exit 1
+fi
+
+# 3) Backup raw source yaml
+kubectl get secret -n "${NAMESPACE}" "${SOURCE_SECRET_NAME}" -o yaml > "${SOURCE_FILE}"
+
+# 4) Convert to target manifest using sed
+sed -E \
+  -e '/^  annotations:/,/^  [^[:space:]][^:]*:/ { /^[[:space:]]{4}/d; /^  annotations:$/d; }' \
+  -e '/^  labels:/,/^  [^[:space:]][^:]*:/ { /^[[:space:]]{4}/d; /^  labels:$/d; }' \
+  -e '/^  creationTimestamp:/d' \
+  -e '/^  resourceVersion:/d' \
+  -e '/^  uid:/d' \
+  -e "s/^  name: .*/  name: ${TARGET_SECRET_NAME}/" \
+  -e "s/^  namespace: .*/  namespace: ${NAMESPACE}/" \
+  "${SOURCE_FILE}" > "${TARGET_FILE}"
+
+# 5) Validate and apply
+kubectl apply --dry-run=server -f "${TARGET_FILE}"
+kubectl apply -f "${TARGET_FILE}"
+
+# 6) Verify key matches source
+DST_KEY="$(kubectl get secret -n "${NAMESPACE}" "${TARGET_SECRET_NAME}" -o jsonpath='{.data.encryption-key}')"
+if [[ "${SRC_KEY}" != "${DST_KEY}" ]]; then
+  echo "ERROR: encryption-key mismatch after apply"
+  exit 1
+fi
+
+echo "SUCCESS: ${TARGET_FILE} applied and verified."
 ```
 
-### 2. Prepare the backup secret for reuse
+The script will download the existing encryption secret from your GlassFlow namespace and create a new secret without annotations and labels and in the same namespace.
 
-Edit `secret-backup.yaml` and:
-
-- Remove all annotations and labels (except `metadata.name` and `namespace` if you need to change them).
-- Set `metadata.name` to the secret name you will use for `existingSecret` (e.g. `glassflow-encryption-key-external`).
-- Set `metadata.namespace` to the target namespace if it differs.
-
-### 3. Create the secret in the cluster
-
-Create the edited secret in the target namespace so the chart can reference it:
-
+Run the script with your release name and namespace:
 ```bash
-kubectl create -f secret-backup.yaml -n <namespace>
+RELEASE_NAME=<release_name> NAMESPACE=<namespace> ./create-target-secret.sh
+
+# Example
+RELEASE_NAME=glassflow NAMESPACE=glassflow ./create-target-secret.sh
 ```
 
-Example:
-
+If everything goes well, you should see the following output:
 ```bash
-kubectl create -f secret-backup.yaml -n glassflow
+Context: dev
+Source:  glassflow/glassflow-encryption-key
+Target:  glassflow/glassflow-encryption-key-external
+secret/glassflow-encryption-key-external created (server dry run)
+secret/glassflow-encryption-key-external created
+SUCCESS: target-secret.yaml applied and verified.
 ```
 
-### 4. Upgrade the release and point encryption to the existing secret
+### 2. Upgrade the release and point encryption to the existing secret
 
 Run the Helm upgrade using chart version **0.6.0** and set encryption to use the secret you created in step 3 (replace `<secret-name>` with the name you chose in step 2, e.g. `glassflow-encryption-key-external`):
 
@@ -82,15 +126,6 @@ helm upgrade glassflow glassflow/glassflow-etl -n glassflow --version 0.6.0 \
   --set global.encryption.existingSecret.key="encryption-key"
 ```
 
-If you are upgrading from a local chart path:
-
-```bash
-helm upgrade glassflow . -n glassflow --version 0.6.0 \
-  --set global.encryption.enabled=true \
-  --set global.encryption.existingSecret.name="glassflow-encryption-key-external" \
-  --set global.encryption.existingSecret.key="encryption-key"
-```
-
 You can still use `-f values.yaml` in addition to `--set` if you need to apply other values from a file.
 
 </Steps>
@@ -98,7 +133,8 @@ You can still use `-f values.yaml` in addition to `--set` if you need to apply o
 ## After Migration
 
 - Verify that the GlassFlow API and UI pods start correctly and that you can open the UI and list pipelines.
-- Existing pipelines and encrypted credentials should continue to work; the chart now uses your existing secret instead of creating a new one.
+- **GET pipeline** — Call the API to retrieve a pipeline (e.g. `GET /api/v1/pipeline/{pipeline_id}`). Confirm that the Kafka and ClickHouse connection secrets in the response are correct and match what you expect.
+- **Edit and GET pipeline** — Update the pipeline (e.g. change a name or add a tag) and call GET pipeline again. Confirm that the Kafka and ClickHouse secrets are still correct after the edit.
 
 ## Getting Help
 
