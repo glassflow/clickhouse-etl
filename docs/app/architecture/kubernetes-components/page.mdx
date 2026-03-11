@@ -97,25 +97,25 @@ GlassFlow consists of the following components running as Kubernetes pods in the
 - **Example**: `pipeline-load-pipeline-1-7c8e`
 - **Purpose**: Isolates each pipeline's resources for better management and security
 
-### 11. Ingestor Deployment
-- **Deployment Name**: `ingestor-{partition-id}`
+### 11. Ingestor StatefulSet
+- **StatefulSet Name**: `ingestor-{partition-id}`
 - **Purpose**: Consumes data from external sources (Kafka, etc.)
 - **Features**:
   - Horizontal scaling (5 replicas in example)
   - Partition-based processing
   - Fault tolerance with multiple replicas
 
-### 12. Transformation Deployment
-- **Deployment Name**: `dedup-{partition-id}`
-- **Purpose**: Deduplicates data
+### 12. Transformation StatefulSet
+- **StatefulSet Name**: `dedup-{partition-id}`
+- **Purpose**: Component to deal with transforming, filtering and deduplicating data
 - **Features**:
   - Horizontal scaling (5 replicas in example)
   - If deduplication is enabled, uses BadgerDB for deduplication in disk and memory
   - If filter is enabled, uses expr to filter data
   - If stateless transformation is enabled, uses expr to transform data
 
-### 13. Sink Deployment
-- **Deployment Name**: `sink-{partition-id}`
+### 13. Sink StatefulSet
+- **StatefulSet Name**: `sink-{partition-id}`
 - **Purpose**: Writes processed data to ClickHouse
 - **Features**:
   - Horizontal scaling (5 replicas in example)
