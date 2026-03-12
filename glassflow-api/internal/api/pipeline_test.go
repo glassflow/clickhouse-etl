@@ -678,6 +678,56 @@ func TestCreatePipeline_UnsupportedClickHouseColumnType(t *testing.T) {
 	}
 }
 
+func TestCreatePipeline_IntToUInt32SchemaRejected(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockPipelineService := mocks.NewMockPipelineService(ctrl)
+	// CreatePipeline must NOT be called because validation fails in toModel()
+	handler := &handler{
+		log:             slog.Default(),
+		pipelineService: mockPipelineService,
+	}
+
+	body := validCreatePipelineBody()
+	// Schema field type int with column_type UInt32 is not supported by sink (sink requires uint for UInt* columns)
+	body["schema"] = map[string]interface{}{
+		"fields": []map[string]interface{}{
+			{
+				"source_id":   "test-topic",
+				"name":        "user_id",
+				"type":        "int",
+				"column_name": "user_id",
+				"column_type": "UInt32",
+			},
+		},
+	}
+
+	jsonBytes, err := json.Marshal(body)
+	require.NoError(t, err)
+	var pipelineBody pipelineJSON
+	err = json.Unmarshal(jsonBytes, &pipelineBody)
+	require.NoError(t, err)
+
+	input := &CreatePipelineInput{Body: pipelineBody}
+	response, err := handler.createPipeline(context.Background(), input)
+
+	require.Error(t, err)
+	require.Nil(t, response)
+	var errDetail *ErrorDetail
+	require.ErrorAs(t, err, &errDetail)
+	assert.Equal(t, http.StatusUnprocessableEntity, errDetail.Status)
+	assert.Equal(t, "unprocessable_entity", errDetail.Code)
+	assert.Contains(t, errDetail.Message, "failed to convert request to pipeline model")
+	if errDetail.Details != nil {
+		if e, ok := errDetail.Details["error"].(string); ok {
+			assert.Contains(t, e, "user_id")
+			assert.Contains(t, e, "unsigned integer")
+			assert.Contains(t, e, "UInt32")
+		}
+	}
+}
+
 func TestCreatePipeline_InvalidStatelessTransformExpression(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -767,4 +817,70 @@ func TestCreatePipeline_ValidStatelessTransformAccepted(t *testing.T) {
 
 	require.NoError(t, err)
 	require.NotNil(t, response)
+}
+
+func TestValidatePipeline_ValidBody(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	handler := &handler{
+		log:            slog.Default(),
+		pipelineService: mocks.NewMockPipelineService(ctrl),
+	}
+
+	body := validCreatePipelineBody()
+	jsonBytes, err := json.Marshal(body)
+	require.NoError(t, err)
+	var pipelineBody pipelineJSON
+	err = json.Unmarshal(jsonBytes, &pipelineBody)
+	require.NoError(t, err)
+
+	input := &ValidatePipelineInput{Body: pipelineBody}
+	response, err := handler.validatePipeline(context.Background(), input)
+
+	require.NoError(t, err)
+	require.NotNil(t, response)
+}
+
+func TestValidatePipeline_InvalidBodyRejected(t *testing.T) {
+	handler := &handler{
+		log:            slog.Default(),
+		pipelineService: mocks.NewMockPipelineService(gomock.NewController(t)),
+	}
+
+	body := validCreatePipelineBody()
+	body["schema"] = map[string]interface{}{
+		"fields": []map[string]interface{}{
+			{
+				"source_id":   "test-topic",
+				"name":        "user_id",
+				"type":        "int",
+				"column_name": "user_id",
+				"column_type": "UInt32",
+			},
+		},
+	}
+
+	jsonBytes, err := json.Marshal(body)
+	require.NoError(t, err)
+	var pipelineBody pipelineJSON
+	err = json.Unmarshal(jsonBytes, &pipelineBody)
+	require.NoError(t, err)
+
+	input := &ValidatePipelineInput{Body: pipelineBody}
+	response, err := handler.validatePipeline(context.Background(), input)
+
+	require.Error(t, err)
+	require.Nil(t, response)
+	var errDetail *ErrorDetail
+	require.ErrorAs(t, err, &errDetail)
+	assert.Equal(t, http.StatusUnprocessableEntity, errDetail.Status)
+	assert.Equal(t, "unprocessable_entity", errDetail.Code)
+	assert.Contains(t, errDetail.Message, "failed to convert request to pipeline model")
+	if errDetail.Details != nil {
+		if e, ok := errDetail.Details["error"].(string); ok {
+			assert.Contains(t, e, "user_id")
+			assert.Contains(t, e, "unsigned integer")
+		}
+	}
 }
