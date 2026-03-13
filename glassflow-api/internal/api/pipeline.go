@@ -318,12 +318,6 @@ func validateJoinCompatibility(pipeline pipelineJSON) error {
 		return nil
 	}
 
-	for _, topic := range pipeline.Source.Topics {
-		if topic.Deduplication.Enabled {
-			return fmt.Errorf("join cannot be enabled when deduplication is enabled")
-		}
-	}
-
 	if pipeline.StatelessTransformation.Enabled {
 		return fmt.Errorf("join cannot be enabled when stateless transformation is enabled")
 	}
