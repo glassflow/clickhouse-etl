@@ -16,6 +16,8 @@
 import { useCallback } from 'react'
 import { useStore } from '@/src/store'
 import { getPipeline } from '@/src/api/pipeline-api'
+import { alterTable } from '@/src/api/clickhouse-api'
+import { computeAlterTableOperations } from '@/src/modules/clickhouse/utils'
 import type { Pipeline } from '@/src/types/pipeline'
 
 const HYDRATION_CACHE_KEY = 'lastHydratedPipeline'
@@ -103,6 +105,45 @@ export function useResumeWithPendingEdit(
       transformationStore,
       resourcesStore,
     } = useStore.getState()
+
+    const clickhouseDestination = clickhouseDestinationStore.clickhouseDestination
+    const clickhouseConnection = clickhouseConnectionStore.clickhouseConnection
+
+    // For Use Existing path: apply ALTER TABLE ADD COLUMN for new columns before edit
+    if (clickhouseDestination?.destinationPath === 'existing' && clickhouseConnection) {
+      const existingColumnNames = (clickhouseDestination.destinationColumns ?? []).map(
+        (c: { name?: string }) => c.name ?? ''
+      )
+      const { add } = computeAlterTableOperations(
+        clickhouseDestination.mapping ?? [],
+        existingColumnNames
+      )
+      if (add.length > 0) {
+        const conn = clickhouseConnection?.directConnection
+        if (!conn) {
+          throw new Error('ClickHouse connection not configured')
+        }
+        const result = await alterTable(
+          {
+            host: conn.host,
+            httpPort: conn.httpPort,
+            nativePort: conn.nativePort,
+            username: conn.username,
+            password: conn.password,
+            useSSL: conn.useSSL,
+            skipCertificateVerification: conn.skipCertificateVerification,
+          },
+          {
+            database: clickhouseDestination.database ?? '',
+            table: clickhouseDestination.table ?? '',
+            operations: add,
+          }
+        )
+        if (!result.success) {
+          throw new Error(result.error ?? 'Failed to add columns to ClickHouse table')
+        }
+      }
+    }
 
     // Sanitize pipeline_resources: preserve original values for immutable paths
     const rawResources = resourcesStore.pipeline_resources
