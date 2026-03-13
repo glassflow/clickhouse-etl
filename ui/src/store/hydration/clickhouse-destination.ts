@@ -86,6 +86,8 @@ function mapBackendClickhouseDestinationToStore(sink: any, schemaFields?: any[])
     isNullable: (m.column_type || '').includes('Nullable'),
   }))
 
+  const destinationPath: 'create' | 'existing' =
+    sink.destination_path === 'create' ? 'create' : 'existing'
   return {
     scheme: '', // If you use this, fill from config or leave empty
     database: sink.database || '',
@@ -95,6 +97,10 @@ function mapBackendClickhouseDestinationToStore(sink: any, schemaFields?: any[])
     maxBatchSize: sink.max_batch_size || 1000,
     maxDelayTime,
     maxDelayTimeUnit,
+    destinationPath,
+    tableName: sink.table_name ?? (destinationPath === 'create' ? sink.table : undefined),
+    engine: sink.engine,
+    orderBy: sink.order_by,
   }
 }
 
