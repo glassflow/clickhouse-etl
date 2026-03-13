@@ -135,6 +135,21 @@ export async function executeQuery(connection: ClickHouseConnection, query: stri
   }
 }
 
+/** Run a DDL command (CREATE/ALTER/DROP); no return value needed. */
+export async function executeCommand(connection: ClickHouseConnection, query: string): Promise<void> {
+  await executeQuery(connection, query)
+}
+
+/** Quote a ClickHouse identifier (e.g. table or column name) with backticks. */
+export function quoteClickHouseIdentifier(name: string): string {
+  return `\`${name.replace(/`/g, '``')}\``
+}
+
+/** Quote database and table for use in a query (e.g. `db`.`table`). */
+export function quoteTableRef(database: string, table: string): string {
+  return `${quoteClickHouseIdentifier(database)}.${quoteClickHouseIdentifier(table)}`
+}
+
 export async function closeConnection(connection: ClickHouseConnection): Promise<void> {
   if (connection.type === 'client' && connection.client) {
     await connection.client.close()
