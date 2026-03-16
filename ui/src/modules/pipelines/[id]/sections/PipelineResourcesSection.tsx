@@ -13,7 +13,7 @@ export function PipelineResourcesSection({
   onStepClick: (step: StepKeys) => void
 }) {
   return (
-    <div className="flex flex-col gap-4 w-1/5">
+    <div className="flex flex-col gap-4 w-full">
       <div className="text-center">
         <span className="text-lg font-bold">Resources</span>
       </div>
