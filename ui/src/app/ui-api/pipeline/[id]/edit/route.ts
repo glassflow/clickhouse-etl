@@ -18,6 +18,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     // Get the pipeline configuration from request body
     const config = await request.json()
 
+    // Defense in depth: for edit we never create a new table. Strip create-table params
+    // so the backend never receives them (backend returns "validation failed: unexpected
+    // property (body.sink.order_by)" etc. if these are present). Also ensures UI/store
+    // cannot accidentally send create-table semantics on edit.
+    if (config?.sink && typeof config.sink === 'object') {
+      config.sink.destination_path = 'existing'
+      delete config.sink.engine
+      delete config.sink.order_by
+      delete config.sink.table_name
+    }
+
     // Call the backend edit endpoint
     const response = await axios.post(`${API_URL}/pipeline/${id}/edit`, config, {
       timeout: 60000, // 60 seconds timeout for edit operation (might need to stop/update/restart)

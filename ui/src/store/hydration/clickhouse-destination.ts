@@ -3,7 +3,8 @@ import { structuredLogger } from '@/src/observability'
 
 // Helper: Map backend config to your store's destination shape
 // schemaFields is optional and used for V2 format where mapping is in schema.fields instead of sink.table_mapping
-function mapBackendClickhouseDestinationToStore(sink: any, schemaFields?: any[]) {
+// When isDeployedPipeline is true, treat as "existing table" only (no create-table fields stored).
+function mapBackendClickhouseDestinationToStore(sink: any, schemaFields?: any[], isDeployedPipeline?: boolean) {
   // Parse max_delay_time from Go duration format (e.g., "1m", "30s", "2h", "55h0m0s")
   let maxDelayTime = 1
   let maxDelayTimeUnit = 'm'
@@ -87,7 +88,7 @@ function mapBackendClickhouseDestinationToStore(sink: any, schemaFields?: any[])
   }))
 
   const destinationPath: 'create' | 'existing' =
-    sink.destination_path === 'create' ? 'create' : 'existing'
+    isDeployedPipeline ? 'existing' : (sink.destination_path === 'create' ? 'create' : 'existing')
   return {
     scheme: '', // If you use this, fill from config or leave empty
     database: sink.database || '',
@@ -98,9 +99,9 @@ function mapBackendClickhouseDestinationToStore(sink: any, schemaFields?: any[])
     maxDelayTime,
     maxDelayTimeUnit,
     destinationPath,
-    tableName: sink.table_name ?? (destinationPath === 'create' ? sink.table : undefined),
-    engine: sink.engine,
-    orderBy: sink.order_by,
+    tableName: isDeployedPipeline ? undefined : (sink.table_name ?? (destinationPath === 'create' ? sink.table : undefined)),
+    engine: isDeployedPipeline ? undefined : sink.engine,
+    orderBy: isDeployedPipeline ? undefined : sink.order_by,
   }
 }
 
@@ -165,8 +166,13 @@ export async function hydrateClickhouseDestination(pipelineConfig: any) {
     decodedPassword = sink.password || ''
   }
 
-  // 1. Set the basic destination config (pass schema.fields for V2 format support)
-  const destination = mapBackendClickhouseDestinationToStore(sink, pipelineConfig?.schema?.fields)
+  // 1. Set the basic destination config (pass schema.fields for V2 format support).
+  // For deployed pipelines (pipeline_id present), treat as "existing table" only.
+  const destination = mapBackendClickhouseDestinationToStore(
+    sink,
+    pipelineConfig?.schema?.fields,
+    !!pipelineConfig?.pipeline_id,
+  )
   useStore.getState().clickhouseDestinationStore.setClickhouseDestination(destination)
 
   // 2. Fetch databases

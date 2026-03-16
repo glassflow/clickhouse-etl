@@ -91,6 +91,14 @@ export function getStepProps(
     }
   }
 
+  // ClickHouse mapper: disallow "Create New Table" when editing a deployed pipeline
+  if (stepKey === StepKeys.CLICKHOUSE_MAPPER) {
+    return {
+      ...baseProps,
+      allowCreateNewTable: !baseProps.pipeline?.pipeline_id,
+    }
+  }
+
   // Default: return base props
   return baseProps
 }
