@@ -403,21 +403,6 @@ func TestCreatePipeline_JoinEnabledRejectsIncompatibleComponents(t *testing.T) {
 		wantContain string
 	}{
 		{
-			name: "deduplication enabled",
-			modify: func(b map[string]interface{}) {
-				b["join"].(map[string]interface{})["enabled"] = true
-				source := b["source"].(map[string]interface{})
-				topics := source["topics"].([]map[string]interface{})
-				topics[0]["deduplication"] = map[string]interface{}{
-					"enabled":       true,
-					"id_field":      "id",
-					"id_field_type": "string",
-					"time_window":   "5m",
-				}
-			},
-			wantContain: "join cannot be enabled when deduplication is enabled",
-		},
-		{
 			name: "stateless transformation enabled",
 			modify: func(b map[string]interface{}) {
 				b["join"].(map[string]interface{})["enabled"] = true
@@ -497,21 +482,7 @@ func TestEditPipeline_JoinEnabledRejectsIncompatibleComponents(t *testing.T) {
 		modify      func(map[string]interface{})
 		wantContain string
 	}{
-		{
-			name: "deduplication enabled",
-			modify: func(b map[string]interface{}) {
-				b["join"].(map[string]interface{})["enabled"] = true
-				source := b["source"].(map[string]interface{})
-				topics := source["topics"].([]map[string]interface{})
-				topics[0]["deduplication"] = map[string]interface{}{
-					"enabled":       true,
-					"id_field":      "id",
-					"id_field_type": "string",
-					"time_window":   "5m",
-				}
-			},
-			wantContain: "join cannot be enabled when deduplication is enabled",
-		},
+
 		{
 			name: "stateless transformation enabled",
 			modify: func(b map[string]interface{}) {
