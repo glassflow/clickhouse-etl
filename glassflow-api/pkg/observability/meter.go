@@ -35,6 +35,7 @@ type Meter struct {
 	// Unified processor metrics
 	ProcessorDuration metric.Float64Histogram
 	ProcessorMessages metric.Int64Counter
+	BytesProcessed    metric.Int64Counter
 
 	// Component and pipeline info for labeling
 	component  string
@@ -111,6 +112,8 @@ func NewMeter(component, pipelineID string) *Meter {
 			"Duration of processor operations in seconds"),
 		ProcessorMessages: mustCreateCounter(meter, GfMetricPrefix+"_"+"processor_messages_total",
 			"Total number of messages processed by processor"),
+		BytesProcessed: mustCreateCounter(meter, GfMetricPrefix+"_"+"bytes_processed_total",
+			"Total bytes processed by component and direction"),
 		component:  component,
 		pipelineID: pipelineID,
 	}
@@ -199,6 +202,15 @@ func (m *Meter) RecordProcessorMessages(ctx context.Context, processor, status s
 		attribute.String("pipeline_id", m.pipelineID),
 		attribute.String("processor", processor),
 		attribute.String("status", status),
+	))
+}
+
+// RecordBytesProcessed records the number of bytes processed by a stage in a given direction
+func (m *Meter) RecordBytesProcessed(ctx context.Context, component, direction string, bytes int64) {
+	m.BytesProcessed.Add(ctx, bytes, metric.WithAttributes(
+		attribute.String("component", component),
+		attribute.String("pipeline_id", m.pipelineID),
+		attribute.String("direction", direction),
 	))
 }
 

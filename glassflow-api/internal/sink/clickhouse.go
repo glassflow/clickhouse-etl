@@ -374,6 +374,14 @@ func (ch *ClickHouseSink) sendBatch(ctx context.Context, messages []jetstream.Ms
 	if len(messages) == 0 {
 		return nil
 	}
+	var totalBytes int64
+	for _, msg := range messages {
+		totalBytes += int64(len(msg.Data()))
+	}
+
+	if ch.meter != nil {
+		ch.meter.RecordBytesProcessed(ctx, "sink", "in", totalBytes)
+	}
 
 	chBatch, err := ch.createCHBatch(ctx, messages)
 	if err != nil {
@@ -401,6 +409,8 @@ func (ch *ClickHouseSink) sendBatch(ctx context.Context, messages []jetstream.Ms
 			rate := float64(size) / duration
 			ch.meter.RecordSinkRate(ctx, rate)
 		}
+
+		ch.meter.RecordBytesProcessed(ctx, "sink", "out", totalBytes)
 	}
 
 	// Ack ALL messages individually with retry

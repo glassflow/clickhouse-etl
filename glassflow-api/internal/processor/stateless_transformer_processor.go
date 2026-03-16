@@ -32,6 +32,14 @@ func (stp *StatelessTransformerProcessor) ProcessBatch(
 ) ProcessorBatch {
 	start := time.Now()
 
+	var inBytes int64
+	for _, msg := range batch.Messages {
+		inBytes += int64(len(msg.Payload()))
+	}
+	if stp.meter != nil {
+		stp.meter.RecordBytesProcessed(ctx, "transform", "in", inBytes)
+	}
+
 	result := ProcessorBatch{}
 	for _, message := range batch.Messages {
 		transformedBytes, err := stp.transformer.Transform(message.Payload())
@@ -67,6 +75,13 @@ func (stp *StatelessTransformerProcessor) ProcessBatch(
 		if len(result.FailedMessages) > 0 {
 			stp.meter.RecordProcessorMessages(ctx, "transform", "error", int64(len(result.FailedMessages)))
 		}
+
+		var outBytes int64
+		for _, msg := range result.Messages {
+			outBytes += int64(len(msg.Payload()))
+		}
+
+		stp.meter.RecordBytesProcessed(ctx, "transform", "out", outBytes)
 	}
 
 	return result

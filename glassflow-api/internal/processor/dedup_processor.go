@@ -37,6 +37,15 @@ func (dp *DedupProcessor) ProcessBatch(
 ) ProcessorBatch {
 	start := time.Now()
 
+	var inBytes int64
+	for _, msg := range batch.Messages {
+		inBytes += int64(len(msg.Payload()))
+	}
+
+	if dp.meter != nil {
+		dp.meter.RecordBytesProcessed(ctx, "dedup", "in", inBytes)
+	}
+
 	deduplicatedMessages, err := dp.dedup.FilterDuplicates(ctx, batch.Messages)
 	if err != nil {
 		return ProcessorBatch{
@@ -54,6 +63,12 @@ func (dp *DedupProcessor) ProcessBatch(
 		if len(deduplicatedMessages) > 0 {
 			dp.meter.RecordProcessorMessages(ctx, "dedup", "success", int64(len(deduplicatedMessages)))
 		}
+
+		var outBytes int64
+		for _, msg := range deduplicatedMessages {
+			outBytes += int64(len(msg.Payload()))
+		}
+		dp.meter.RecordBytesProcessed(ctx, "dedup", "out", outBytes)
 	}
 
 	commitFn := func() error {

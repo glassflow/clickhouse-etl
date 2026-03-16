@@ -211,6 +211,7 @@ func (k *KafkaMsgProcessor) ProcessBatch(ctx context.Context, batch []*kgo.Recor
 }
 
 func (k *KafkaMsgProcessor) processBatchSync(ctx context.Context, batch []*kgo.Record) error {
+	var outBytes int64
 	for _, msg := range batch {
 		natsMsg, err := k.prepareMesssage(ctx, msg)
 		if err != nil {
@@ -241,6 +242,11 @@ func (k *KafkaMsgProcessor) processBatchSync(ctx context.Context, batch []*kgo.R
 				return fmt.Errorf("failed to publish to NATS: %w", err)
 			}
 		}
+		outBytes += int64(len(natsMsg.Data))
+	}
+
+	if k.meter != nil {
+		k.meter.RecordBytesProcessed(ctx, "ingestor", "out", outBytes)
 	}
 
 	return nil
@@ -289,11 +295,11 @@ func (k *KafkaMsgProcessor) processBatchAsync(_ context.Context, batch []*kgo.Re
 	// Wait for all futures to complete
 	<-k.publisher.WaitForAsyncPublishAcks()
 
+	var outBytes int64
 	for _, fut := range futures {
 		select {
 		case <-fut.Ok():
-			// Successfully published
-			continue
+			outBytes += int64(len(fut.Msg().Data))
 		case err := <-fut.Err():
 			k.log.Error("Failed to receive async publish ack",
 				slog.Any("error", err),
@@ -307,6 +313,10 @@ func (k *KafkaMsgProcessor) processBatchAsync(_ context.Context, batch []*kgo.Re
 				return fmt.Errorf("push mesage to the DLQ %w", dlqErr)
 			}
 		}
+	}
+
+	if k.meter != nil {
+		k.meter.RecordBytesProcessed(ctx, "ingestor", "out", outBytes)
 	}
 
 	return nil
