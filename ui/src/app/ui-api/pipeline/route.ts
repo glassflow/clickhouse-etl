@@ -152,9 +152,13 @@ export async function POST(request: Request) {
 
     // Safety: Backend ClickHouse client uses the native protocol on sink.port.
     // If a client mistakenly sends HTTP port and a separate native_port, prefer native_port for backend.
+    // Ensure http_port is set so the UI (e.g. metrics-from-config) can connect via HTTP when fetching pipeline.
     if (config?.sink?.native_port) {
+      const existingHttpPort = config.sink.http_port ?? config.sink.connection_params?.http_port
+      if (existingHttpPort === undefined || existingHttpPort === '') {
+        config.sink.http_port = '8123'
+      }
       config.sink.port = String(config.sink.native_port)
-      // Do not forward native_port as backend schema does not include it
       delete config.sink.native_port
     }
 

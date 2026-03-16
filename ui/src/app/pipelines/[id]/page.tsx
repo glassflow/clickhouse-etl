@@ -84,7 +84,10 @@ async function PipelinePage({
 
     return <PipelineDetailsModule pipeline={pipeline} />
   } catch (error) {
-    structuredLogger.error('Failed to fetch pipeline during SSR', { error: error instanceof Error ? error.message : String(error) })
+    const err = error as ApiError & Error
+    const message = err?.message ?? (error instanceof Error ? error.message : String(error))
+    const code = err?.code
+    structuredLogger.error('Failed to fetch pipeline during SSR', { error: message, code })
 
     // Check if this is a 404 error (pipeline not found) — use Next.js not-found boundary
     const apiError = error as ApiError
