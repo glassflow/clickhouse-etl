@@ -209,10 +209,15 @@ export function useDestinationSave({
       return
     }
 
-    if (isPreviewMode && onCompleteStep) {
+    // Create flow (wizard): always advance to the next step (Resources) after saving mapping.
+    // Deployment happens from the Resources step (or Review step when preview mode is on).
+    if (onCompleteStep) {
       onCompleteStep(StepKeys.CLICKHOUSE_MAPPER)
     } else {
-      deployPipelineAndNavigateRef.current(apiConfig)
+      // No wizard (e.g. direct call): deploy when preview mode is off
+      if (!isPreviewMode) {
+        deployPipelineAndNavigateRef.current(apiConfig)
+      }
     }
   }, [
     mappedColumns,
