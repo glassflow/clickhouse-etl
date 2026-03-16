@@ -303,6 +303,11 @@ func (c *Consumer) processBatch(ctx context.Context) error {
 
 	c.log.Info("Batch processed successfully", slog.Int("batchSize", size), slog.Duration("duration", time.Duration(time.Since(start).Milliseconds())))
 
+	var totalBytes int64
+	for _, r := range c.batch {
+		totalBytes += int64(len(r.Value))
+	}
+
 	c.batch = c.batch[:0]
 
 	// Record Kafka read metric
@@ -310,6 +315,7 @@ func (c *Consumer) processBatch(ctx context.Context) error {
 		c.meter.RecordKafkaRead(ctx, int64(size))
 		duration := time.Since(start).Seconds()
 		c.meter.RecordProcessingDuration(ctx, duration/float64(size))
+		c.meter.RecordBytesProcessed(ctx, "ingestor", "in", totalBytes)
 	}
 
 	return nil
