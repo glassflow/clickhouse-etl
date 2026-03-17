@@ -52,15 +52,17 @@ func TestEditPipeline_Success(t *testing.T) {
 			"enabled": false,
 		},
 		"sink": map[string]interface{}{
-			"type":           "clickhouse",
-			"host":           "localhost",
-			"port":           "9000",
-			"http_port":      "8123",
-			"database":       "test_db",
+			"type": "clickhouse",
+			"connection_params": map[string]interface{}{
+				"host":      "localhost",
+				"port":      "9000",
+				"http_port": "8123",
+				"database":  "test_db",
+				"username":  "default",
+				"password":  "test_password",
+				"secure":    false,
+			},
 			"table":          "test_table",
-			"username":       "default",
-			"password":       "test_password",
-			"secure":         false,
 			"max_batch_size": 1000,
 			"max_delay_time": "60s",
 		},
@@ -136,15 +138,17 @@ func TestEditPipeline_PipelineNotFound(t *testing.T) {
 			"enabled": false,
 		},
 		"sink": map[string]interface{}{
-			"type":           "clickhouse",
-			"host":           "localhost",
-			"port":           "9000",
-			"http_port":      "8123",
-			"database":       "test_db",
+			"type": "clickhouse",
+			"connection_params": map[string]interface{}{
+				"host":      "localhost",
+				"port":      "9000",
+				"http_port": "8123",
+				"database":  "test_db",
+				"username":  "default",
+				"password":  "test_password",
+				"secure":    false,
+			},
 			"table":          "test_table",
-			"username":       "default",
-			"password":       "test_password",
-			"secure":         false,
 			"max_batch_size": 1000,
 			"max_delay_time": "60s",
 		},
@@ -565,7 +569,16 @@ func validCreatePipelineBody() map[string]interface{} {
 				"protocol":  "SASL_PLAINTEXT",
 			},
 			"topics": []map[string]interface{}{
-				{"name": "test-topic", "id": "topic-1"},
+				{
+					"name": "test-topic",
+					"id":   "test-topic",
+					"schema_fields": []map[string]interface{}{
+						{
+							"name": "id",
+							"type": "string",
+						},
+					},
+				},
 			},
 		},
 		"join": map[string]interface{}{
@@ -573,28 +586,19 @@ func validCreatePipelineBody() map[string]interface{} {
 			"enabled": false,
 		},
 		"sink": map[string]interface{}{
-			"type":           "clickhouse",
-			"host":           "localhost",
-			"port":           "9000",
-			"http_port":      "8123",
-			"database":       "test_db",
+			"type": "clickhouse",
+			"connection_params": map[string]interface{}{
+				"host":      "localhost",
+				"port":      "9000",
+				"http_port": "8123",
+				"database":  "test_db",
+				"username":  "default",
+				"password":  "x",
+				"secure":    false,
+			},
 			"table":          "test_table",
-			"username":       "default",
-			"password":       "x",
-			"secure":         false,
 			"max_batch_size": 1000,
 			"max_delay_time": "60s",
-		},
-		"schema": map[string]interface{}{
-			"fields": []map[string]interface{}{
-				{
-					"source_id":   "test-topic",
-					"name":        "id",
-					"type":        "string",
-					"column_name": "id",
-					"column_type": "String",
-				},
-			},
 		},
 	}
 }
@@ -713,9 +717,10 @@ func TestCreatePipeline_ValidStatelessTransformAccepted(t *testing.T) {
 
 	body := validCreatePipelineBody()
 	body["stateless_transformation"] = map[string]interface{}{
-		"id":      "test-transform",
-		"type":    "expr_lang_transform",
-		"enabled": true,
+		"id":        "test-transform",
+		"type":      "expr_lang_transform",
+		"enabled":   true,
+		"source_id": "test-topic",
 		"config": map[string]interface{}{
 			"transform": []map[string]interface{}{
 				{

@@ -37,6 +37,15 @@ func (dp *DedupProcessor) ProcessBatch(
 ) ProcessorBatch {
 	start := time.Now()
 
+	var inBytes int64
+	for _, msg := range batch.Messages {
+		inBytes += int64(len(msg.Payload()))
+	}
+
+	if dp.meter != nil {
+		dp.meter.RecordBytesProcessed(ctx, "dedup", "in", inBytes)
+	}
+
 	deduplicatedMessages, err := dp.dedup.FilterDuplicates(ctx, batch.Messages)
 	if err != nil {
 		return ProcessorBatch{
@@ -46,7 +55,7 @@ func (dp *DedupProcessor) ProcessBatch(
 
 	lookupDuration := time.Since(start).Seconds()
 	if dp.meter != nil {
-		dp.meter.RecordProcessorDuration(ctx, "dedup_filter", lookupDuration)
+		dp.meter.RecordProcessingDuration(ctx, "dedup_filter", lookupDuration)
 		duplicatesFound := int64(len(batch.Messages) - len(deduplicatedMessages))
 		if duplicatesFound > 0 {
 			dp.meter.RecordProcessorMessages(ctx, "dedup", "duplicate", duplicatesFound)
@@ -54,6 +63,12 @@ func (dp *DedupProcessor) ProcessBatch(
 		if len(deduplicatedMessages) > 0 {
 			dp.meter.RecordProcessorMessages(ctx, "dedup", "success", int64(len(deduplicatedMessages)))
 		}
+
+		var outBytes int64
+		for _, msg := range deduplicatedMessages {
+			outBytes += int64(len(msg.Payload()))
+		}
+		dp.meter.RecordBytesProcessed(ctx, "dedup", "out", outBytes)
 	}
 
 	commitFn := func() error {
@@ -65,7 +80,7 @@ func (dp *DedupProcessor) ProcessBatch(
 
 		commitDuration := time.Since(commitStart).Seconds()
 		if dp.meter != nil {
-			dp.meter.RecordProcessorDuration(ctx, "dedup_write", commitDuration)
+			dp.meter.RecordProcessingDuration(ctx, "dedup_write", commitDuration)
 		}
 
 		return nil

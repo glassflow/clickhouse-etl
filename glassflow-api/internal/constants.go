@@ -229,6 +229,9 @@ const (
 
 	// Encryption constants
 	AESKeySize = 32
+
+	// Schema version id NATS header
+	SchemaVersionIDHeader = "Schema-Version-Id"
 )
 
 // IsFixedStringType reports whether t is a ClickHouse FixedString type (with or without length).

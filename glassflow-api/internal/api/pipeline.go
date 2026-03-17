@@ -9,8 +9,8 @@ import (
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/filter"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/mapper"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	schemapkg "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
 	jsonTransformer "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/transformer/json"
 )
 
@@ -22,7 +22,7 @@ type PipelineService interface { //nolint:interfacebloat //important interface
 	ResumePipeline(ctx context.Context, pid string) error
 	StopPipeline(ctx context.Context, pid string) error
 	EditPipeline(ctx context.Context, pid string, newCfg *models.PipelineConfig) error
-	GetPipeline(ctx context.Context, pid string) (models.PipelineConfig, error)
+	GetPipeline(ctx context.Context, pid string, sourceSchemaVersions map[string]string) (models.PipelineConfig, error)
 	GetPipelines(ctx context.Context) ([]models.ListPipelineConfig, error)
 	UpdatePipelineName(ctx context.Context, id string, name string) error
 	UpdatePipelineMetadata(ctx context.Context, id string, metadata models.PipelineMetadata) error
@@ -42,10 +42,12 @@ type pipelineSource struct {
 }
 
 type pipelineJoin struct {
+	ID      string `json:"id,omitempty"`
 	Kind    string `json:"type,omitempty"`
 	Enabled bool   `json:"enabled"`
 
-	Sources []joinSource `json:"sources,omitempty"`
+	Sources []joinSource      `json:"sources,omitempty"`
+	Fields  []models.JoinRule `json:"fields,omitempty"`
 }
 
 type pipelineFilter struct {
@@ -73,7 +75,7 @@ type pipelineJSON struct {
 	Filter                  pipelineFilter                 `json:"filter,omitempty"`
 	StatelessTransformation models.StatelessTransformation `json:"stateless_transformation,omitempty"`
 	Sink                    clickhouseSink                 `json:"sink"`
-	Schema                  schema                         `json:"schema"`
+	Schema                  schema                         `json:"schema,omitempty"`
 	Metadata                models.PipelineMetadata        `json:"metadata,omitempty"`
 	PipelineResources       models.PipelineResources       `json:"pipeline_resources,omitempty"`
 
@@ -101,11 +103,15 @@ type sourceConnectionParams struct {
 }
 
 type kafkaTopic struct {
-	ID                         string           `json:"id,omitempty"`
-	Topic                      string           `json:"name"`
-	ConsumerGroupInitialOffset string           `json:"consumer_group_initial_offset,omitempty" default:"earliest"`
-	Replicas                   int              `json:"replicas,omitempty" default:"1"`
-	Deduplication              topicDedupConfig `json:"deduplication,omitempty"`
+	ID                         string                      `json:"id,omitempty"`
+	Topic                      string                      `json:"name"`
+	ConsumerGroupInitialOffset string                      `json:"consumer_group_initial_offset,omitempty" default:"earliest"`
+	Replicas                   int                         `json:"replicas,omitempty" default:"1"`
+	Deduplication              topicDedupConfig            `json:"deduplication,omitempty"`
+	SchemaRegistry             models.SchemaRegistryConfig `json:"schema_registry,omitempty"`
+	SchemaVersion              string                      `json:"schema_version,omitempty" default:"1"`
+	SchemaFields               []models.Field              `json:"schema_fields,omitempty"`
+
 	// Old format: schema fields nested in topic for migration
 	SchemaV1 *topicSchemaV1 `json:"schema,omitempty"`
 }
@@ -125,35 +131,42 @@ type topicSchemaFieldV1 struct {
 type topicDedupConfig struct {
 	Enabled bool `json:"enabled"`
 
-	ID     string              `json:"id_field,omitempty"`
-	Type   string              `json:"id_field_type,omitempty"`
+	Key    string              `json:"key,omitempty"`
 	Window models.JSONDuration `json:"time_window,omitempty" format:"duration" example:"5m"`
 }
 
 type joinSource struct {
 	SourceID    string              `json:"source_id"`
-	JoinKey     string              `json:"join_key"`
+	Key         string              `json:"key"`
 	Window      models.JSONDuration `json:"time_window" format:"duration" example:"5m"`
 	Orientation string              `json:"orientation"`
 }
 
+type sinkConnectionParams struct {
+	Host                        string `json:"host"`
+	Port                        string `json:"port"`      // native port used in BE connection
+	HttpPort                    string `json:"http_port"` // http port used by UI for FE connection
+	Database                    string `json:"database"`
+	Username                    string `json:"username"`
+	Password                    string `json:"password"`
+	Secure                      bool   `json:"secure"`
+	SkipCertificateVerification bool   `json:"skip_certificate_verification,omitempty" default:"false"`
+}
+
 type clickhouseSink struct {
-	Kind     string `json:"type"`
-	Provider string `json:"provider,omitempty"`
-	// Add validation for null/empty values
-	Host     string `json:"host"`
-	Port     string `json:"port"`      // native port used in BE connection
-	HttpPort string `json:"http_port"` // http port used by UI for FE connection
-	Database string `json:"database"`
-	Username string `json:"username"`
-	Password string `json:"password"`
-	Table    string `json:"table"`
-	Secure   bool   `json:"secure"`
+	Kind             string               `json:"type"`
+	Provider         string               `json:"provider,omitempty"`
+	ConnectionParams sinkConnectionParams `json:"connection_params"`
+	Table            string               `json:"table"`
 
 	// Add validation for range
-	MaxBatchSize                int                 `json:"max_batch_size"`
-	MaxDelayTime                models.JSONDuration `json:"max_delay_time" format:"duration" doc:"Maximum delay time for batching (e.g., 60s, 1m, 5m)" example:"1m"`
-	SkipCertificateVerification bool                `json:"skip_certificate_verification,omitempty" default:"false"`
+	MaxBatchSize int                 `json:"max_batch_size"`
+	MaxDelayTime models.JSONDuration `json:"max_delay_time" format:"duration" doc:"Maximum delay time for batching (e.g., 60s, 1m, 5m)" example:"1m"`
+
+	// schema evolution related sections
+	SourceID     string              `json:"source_id,omitempty"`
+	TableMapping []tableMappingEntry `json:"mapping,omitempty"`
+
 	// Old format: table_mapping in sink
 	TableMappingV1 []tableMappingEntryV1 `json:"table_mapping,omitempty"`
 }
@@ -166,7 +179,14 @@ type tableMappingEntryV1 struct {
 	ColumnType string `json:"column_type"`
 }
 
-func newIngestorComponentConfig(p pipelineJSON) (zero models.IngestorComponentConfig, _ error) {
+// New format of table mapping
+type tableMappingEntry struct {
+	Name       string `json:"name"`
+	ColumnName string `json:"column_name"`
+	ColumnType string `json:"column_type"`
+}
+
+func newIngestorComponentConfig(p pipelineJSON, schemaVersions map[string]models.SchemaVersion) (zero models.IngestorComponentConfig, _ error) {
 	kafkaConfig := models.KafkaConnectionParamsConfig{
 		Brokers:             p.Source.ConnectionParams.Brokers,
 		SkipAuth:            p.Source.ConnectionParams.SkipAuth,
@@ -193,11 +213,19 @@ func newIngestorComponentConfig(p pipelineJSON) (zero models.IngestorComponentCo
 			Replicas:                   t.Replicas,
 			Deduplication: models.DeduplicationConfig{
 				Enabled: t.Deduplication.Enabled,
-				ID:      t.Deduplication.ID,
-				Type:    internal.NormalizeToBasicKafkaType(t.Deduplication.Type),
+				ID:      t.Deduplication.Key,
 				Window:  t.Deduplication.Window,
 			},
+			SchemaRegistryConfig: t.SchemaRegistry,
 		})
+
+		if len(t.SchemaFields) > 0 {
+			schemaVersions[t.Topic] = models.SchemaVersion{
+				SourceID:  t.Topic,
+				VersionID: t.SchemaVersion,
+				Fields:    t.SchemaFields,
+			}
+		}
 	}
 
 	ingestorComponentConfig, err := models.NewIngestorComponentConfig(p.Source.Provider, kafkaConfig, topics)
@@ -208,7 +236,7 @@ func newIngestorComponentConfig(p pipelineJSON) (zero models.IngestorComponentCo
 	return ingestorComponentConfig, nil
 }
 
-func newJoinComponentConfig(p pipelineJSON) (zero models.JoinComponentConfig, _ error) {
+func newJoinComponentConfig(p pipelineJSON, schemaVersions map[string]models.SchemaVersion) (zero models.JoinComponentConfig, _ error) {
 	if !p.Join.Enabled {
 		return zero, nil
 	}
@@ -217,44 +245,100 @@ func newJoinComponentConfig(p pipelineJSON) (zero models.JoinComponentConfig, _ 
 	for _, s := range p.Join.Sources {
 		sources = append(sources, models.JoinSourceConfig{
 			SourceID:    s.SourceID,
-			JoinKey:     s.JoinKey,
+			JoinKey:     s.Key,
 			Window:      s.Window,
 			Orientation: s.Orientation,
 		})
 	}
 
-	joinComponentConfig, err := models.NewJoinComponentConfig(p.Join.Kind, sources)
+	joinComponentConfig, err := models.NewJoinComponentConfig(p.Join.Kind, p.Join.ID, sources, p.Join.Fields)
 	if err != nil {
 		return zero, fmt.Errorf("create join config: %w", err)
+	}
+
+	joinSchemaFields := make([]models.Field, 0)
+	for _, field := range p.Join.Fields {
+		schemaVersion, found := schemaVersions[field.SourceID]
+		if !found {
+			return zero, fmt.Errorf("schema version for join source_id '%s' not found", field.SourceID)
+		}
+
+		sourceField, found := schemaVersion.GetField(field.SourceName)
+		if !found {
+			return zero, fmt.Errorf("join rule field '%s' not found in schema for source '%s'", field.SourceName, field.SourceID)
+		}
+
+		// OutputName defaults to SourceName (Name) if not provided
+		outputName := field.OutputName
+		if outputName == "" {
+			outputName = field.SourceName
+		}
+
+		joinSchemaFields = append(joinSchemaFields, models.Field{
+			Name: outputName,
+			Type: sourceField.Type,
+		})
+	}
+
+	if len(joinSchemaFields) > 0 {
+		schemaVersions[p.Join.ID] = models.SchemaVersion{
+			SourceID: p.Join.ID,
+			Fields:   joinSchemaFields,
+		}
 	}
 
 	return joinComponentConfig, nil
 }
 
-func newSinkComponentConfig(
-	p pipelineJSON) (zero models.SinkComponentConfig, _ error) {
+func newSinkComponentConfig(p pipelineJSON, schemaVersions map[string]models.SchemaVersion) (zero models.SinkComponentConfig, _ error) {
+	mappings := make([]models.Mapping, 0)
 	maxDelayTime := p.Sink.MaxDelayTime
 	if maxDelayTime.Duration() == 0 {
 		maxDelayTime = *models.NewJSONDuration(60 * time.Second)
 	}
 
+	if len(p.Sink.TableMapping) > 0 {
+		sourceSchemaVersion, found := schemaVersions[p.Sink.SourceID]
+		if !found {
+			return zero, fmt.Errorf("schema version for sink source_id '%s' not found", p.Sink.SourceID)
+		}
+
+		for _, tm := range p.Sink.TableMapping {
+			// Validate that the field exists in the source schema
+			sourceField, found := sourceSchemaVersion.GetField(tm.Name)
+			if !found {
+				return zero, fmt.Errorf("mapping field '%s' not found in schema for source_id '%s'", tm.Name, p.Sink.SourceID)
+			}
+
+			mappings = append(mappings, models.Mapping{
+				SourceField:      sourceField.Name,
+				SourceType:       sourceField.Type,
+				DestinationField: tm.ColumnName,
+				DestinationType:  tm.ColumnType,
+			})
+		}
+	}
+
 	sinkComponentConfig, err := models.NewClickhouseSinkComponent(models.ClickhouseSinkArgs{
-		Host:                 p.Sink.Host,
-		Port:                 p.Sink.Port,
-		HttpPort:             p.Sink.HttpPort,
-		DB:                   p.Sink.Database,
-		User:                 p.Sink.Username,
-		Password:             p.Sink.Password,
+		Host:                 p.Sink.ConnectionParams.Host,
+		Port:                 p.Sink.ConnectionParams.Port,
+		HttpPort:             p.Sink.ConnectionParams.HttpPort,
+		DB:                   p.Sink.ConnectionParams.Database,
+		User:                 p.Sink.ConnectionParams.Username,
+		Password:             p.Sink.ConnectionParams.Password,
+		Secure:               p.Sink.ConnectionParams.Secure,
+		SkipCertificateCheck: p.Sink.ConnectionParams.SkipCertificateVerification,
 		Table:                p.Sink.Table,
-		Secure:               p.Sink.Secure,
 		MaxBatchSize:         p.Sink.MaxBatchSize,
 		MaxDelayTime:         maxDelayTime,
-		SkipCertificateCheck: p.Sink.SkipCertificateVerification,
+		Mappings:             mappings,
 	})
 	if err != nil {
 		return zero, fmt.Errorf("create sink config: %w", err)
 	}
 	sinkComponentConfig.NATSConsumerName = models.GetNATSSinkConsumerName(p.PipelineID)
+	sinkComponentConfig.SourceID = p.Sink.SourceID
+	sinkComponentConfig.Config = mappings
 
 	return sinkComponentConfig, nil
 }
@@ -275,8 +359,8 @@ func validateJoinKeysInSchema(schema schema, joinSources []joinSource) error {
 		if !exists {
 			return fmt.Errorf("join source_id '%s' not found in schema fields", js.SourceID)
 		}
-		if !sourceFields[js.JoinKey] {
-			return fmt.Errorf("join key '%s' not found in schema fields for source_id '%s'", js.JoinKey, js.SourceID)
+		if !sourceFields[js.Key] {
+			return fmt.Errorf("join key '%s' not found in schema fields for source_id '%s'", js.Key, js.SourceID)
 		}
 	}
 
@@ -298,15 +382,15 @@ func validateDedupKeysInSchema(schema schema, topics []kafkaTopic) error {
 		if !t.Deduplication.Enabled {
 			continue
 		}
-		if t.Deduplication.ID == "" {
+		if t.Deduplication.Key == "" {
 			continue
 		}
 		sourceFields, exists := fieldsBySource[t.Topic]
 		if !exists {
 			return fmt.Errorf("deduplication source_id '%s' not found in schema fields", t.Topic)
 		}
-		if !sourceFields[t.Deduplication.ID] {
-			return fmt.Errorf("deduplication key '%s' not found in schema fields for source_id '%s'", t.Deduplication.ID, t.Topic)
+		if !sourceFields[t.Deduplication.Key] {
+			return fmt.Errorf("deduplication key '%s' not found in schema fields for source_id '%s'", t.Deduplication.Key, t.Topic)
 		}
 	}
 
@@ -332,7 +416,7 @@ func validateJoinCompatibility(pipeline pipelineJSON) error {
 func newMapperConfig(pipeline pipelineJSON) (zero models.MapperConfig, _ error) {
 	// Validate schema has fields
 	if len(pipeline.Schema.Fields) == 0 {
-		return zero, fmt.Errorf("schema must have at least one field")
+		return zero, nil
 	}
 
 	// Validate join keys exist in schema
@@ -367,7 +451,7 @@ func newMapperConfig(pipeline pipelineJSON) (zero models.MapperConfig, _ error) 
 		// Add join info if this source is part of a join
 		for _, js := range pipeline.Join.Sources {
 			if js.SourceID == sourceID {
-				streamCfg.JoinKeyField = js.JoinKey
+				streamCfg.JoinKeyField = js.Key
 				streamCfg.JoinOrientation = js.Orientation
 				streamCfg.JoinWindow = js.Window
 				break
@@ -402,7 +486,7 @@ func newMapperConfig(pipeline pipelineJSON) (zero models.MapperConfig, _ error) 
 		if field.ColumnName == "" || field.ColumnType == "" {
 			continue
 		}
-		if err := schemapkg.ValidateClickHouseColumnType(field.ColumnType); err != nil {
+		if err := mapper.ValidateClickHouseColumnType(field.ColumnType); err != nil {
 			return zero, fmt.Errorf("field %q (column %q): %w", field.Name, field.ColumnName, err)
 		}
 	}
@@ -416,7 +500,7 @@ func newMapperConfig(pipeline pipelineJSON) (zero models.MapperConfig, _ error) 
 	return mapperConfig, nil
 }
 
-func newFilterConfig(pipeline pipelineJSON) (models.FilterComponentConfig, error) {
+func newFilterConfig(pipeline pipelineJSON, schemaVersions map[string]models.SchemaVersion) (models.FilterComponentConfig, error) {
 	if !pipeline.Filter.Enabled {
 		return models.FilterComponentConfig{}, nil
 	}
@@ -438,9 +522,24 @@ func newFilterConfig(pipeline pipelineJSON) (models.FilterComponentConfig, error
 		}
 	}
 
-	err := filter.ValidateFilterExpression(pipeline.Filter.Expression, fields)
-	if err != nil {
-		return models.FilterComponentConfig{}, fmt.Errorf("filter validation: %w", err)
+	if len(fields) > 0 {
+		err := filter.ValidateFilterExpression(pipeline.Filter.Expression, fields)
+		if err != nil {
+			return models.FilterComponentConfig{}, fmt.Errorf("filter validation: %w", err)
+		}
+	}
+
+	if len(schemaVersions) != 0 {
+		// Validate that schema version for the source topic exists
+		topicSchema, found := schemaVersions[topicName]
+		if !found {
+			return models.FilterComponentConfig{}, fmt.Errorf("schema version for filter source_id '%s' not found", topicName)
+		}
+
+		err := filter.ValidateFilterExpressionV2(pipeline.Filter.Expression, topicSchema.Fields)
+		if err != nil {
+			return models.FilterComponentConfig{}, fmt.Errorf("filter validation against schema: %w", err)
+		}
 	}
 
 	filterConfig := models.FilterComponentConfig{
@@ -451,7 +550,7 @@ func newFilterConfig(pipeline pipelineJSON) (models.FilterComponentConfig, error
 	return filterConfig, nil
 }
 
-func newStatelessTransformationConfig(pipeline pipelineJSON) (models.StatelessTransformation, error) {
+func newStatelessTransformationConfig(pipeline pipelineJSON, schemaVersions map[string]models.SchemaVersion) (models.StatelessTransformation, error) {
 	cfg := pipeline.StatelessTransformation
 	if !cfg.Enabled || len(cfg.Config.Transform) == 0 {
 		return cfg, nil
@@ -461,7 +560,34 @@ func newStatelessTransformationConfig(pipeline pipelineJSON) (models.StatelessTr
 	if err != nil {
 		return models.StatelessTransformation{}, fmt.Errorf("stateless transformation: %w", statelessTransformValidationError(err))
 	}
-	return cfg, nil
+
+	// Validate transformation config
+	sourceSchemaVersion, found := schemaVersions[pipeline.StatelessTransformation.SourceID]
+	if !found {
+		return models.StatelessTransformation{}, fmt.Errorf("schema version for stateless transformation source_id '%s' not found", pipeline.StatelessTransformation.SourceID)
+	}
+
+	err = jsonTransformer.ValidateTransformationAgainstSchema(pipeline.StatelessTransformation.Config.Transform, sourceSchemaVersion.Fields)
+	if err != nil {
+		return models.StatelessTransformation{}, fmt.Errorf("validate stateless transformation: %w", statelessTransformValidationError(err))
+	}
+
+	schemaFields := make([]models.Field, 0, len(pipeline.StatelessTransformation.Config.Transform))
+	for _, t := range pipeline.StatelessTransformation.Config.Transform {
+		schemaFields = append(schemaFields, models.Field{
+			Name: t.OutputName,
+			Type: t.OutputType,
+		})
+	}
+
+	if len(schemaFields) > 0 {
+		schemaVersions[pipeline.StatelessTransformation.ID] = models.SchemaVersion{
+			SourceID: pipeline.StatelessTransformation.ID,
+			Fields:   schemaFields,
+		}
+	}
+
+	return pipeline.StatelessTransformation, nil
 }
 
 // statelessTransformValidationError returns a human-readable error for transform validation failures.
@@ -485,10 +611,13 @@ func statelessTransformValidationError(err error) error {
 const minPipelineIDLength = 5
 
 func (pipeline pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
+	schemaVersions := make(map[string]models.SchemaVersion)
+
 	id := strings.TrimSpace(pipeline.PipelineID)
 	if len(id) == 0 {
 		return zero, fmt.Errorf("pipeline ID cannot be empty")
 	}
+
 	if len(id) < minPipelineIDLength {
 		return zero, fmt.Errorf("pipeline ID must be at least %d characters", minPipelineIDLength)
 	}
@@ -512,20 +641,22 @@ func (pipeline pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
 		return zero, err
 	}
 
-	ingestorComponentConfig, err := newIngestorComponentConfig(pipeline)
+	ingestorComponentConfig, err := newIngestorComponentConfig(pipeline, schemaVersions)
 	if err != nil {
 		return zero, fmt.Errorf("create ingestor component config: %w", err)
 	}
 
-	joinComponentConfig, err := newJoinComponentConfig(pipeline)
+	joinComponentConfig, err := newJoinComponentConfig(pipeline, schemaVersions)
 	if err != nil {
 		return zero, fmt.Errorf("create join component config: %w", err)
 	}
+
+	statelessTransformationConfig, err := newStatelessTransformationConfig(pipeline, schemaVersions)
 	if err != nil {
-		return zero, fmt.Errorf("get sink stream id: %w", err)
+		return zero, fmt.Errorf("create stateless transformation config: %w", err)
 	}
 
-	sinkComponentConfig, err := newSinkComponentConfig(pipeline)
+	sinkComponentConfig, err := newSinkComponentConfig(pipeline, schemaVersions)
 	if err != nil {
 		return zero, fmt.Errorf("create sink component config: %w", err)
 	}
@@ -535,14 +666,9 @@ func (pipeline pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
 		return zero, fmt.Errorf("create mapper config: %w", err)
 	}
 
-	filterConfig, err := newFilterConfig(pipeline)
+	filterConfig, err := newFilterConfig(pipeline, schemaVersions)
 	if err != nil {
 		return zero, fmt.Errorf("create filter config: %w", err)
-	}
-
-	statelessTransformationConfig, err := newStatelessTransformationConfig(pipeline)
-	if err != nil {
-		return zero, fmt.Errorf("create stateless transformation config: %w", err)
 	}
 
 	return models.NewPipelineConfig(
@@ -556,22 +682,39 @@ func (pipeline pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
 		statelessTransformationConfig,
 		pipeline.Metadata,
 		pipeline.PipelineResources,
+		schemaVersions,
 	), nil
 }
 
 func toPipelineJSON(p models.PipelineConfig) pipelineJSON {
 	topics := make([]kafkaTopic, 0, len(p.Ingestor.KafkaTopics))
 	for _, t := range p.Ingestor.KafkaTopics {
+		var version string
+		var schemaFields []models.Field
+		schema, found := p.SchemaVersions[t.Name]
+		if found {
+			version = schema.VersionID
+			schemaFields = schema.Fields
+		}
 		kt := kafkaTopic{
 			Topic:                      t.Name,
 			ConsumerGroupInitialOffset: t.ConsumerGroupInitialOffset,
 			Replicas:                   t.Replicas,
 			Deduplication: topicDedupConfig{
 				Enabled: t.Deduplication.Enabled,
-				ID:      t.Deduplication.ID,
-				Type:    t.Deduplication.Type,
+				Key:     t.Deduplication.ID,
 				Window:  t.Deduplication.Window,
 			},
+			SchemaRegistry: models.SchemaRegistryConfig{
+				URL:       t.SchemaRegistryConfig.URL,
+				APIKey:    t.SchemaRegistryConfig.APIKey,
+				APISecret: t.SchemaRegistryConfig.APISecret,
+			},
+			SchemaVersion: version,
+			SchemaFields:  schemaFields,
+		}
+		if found {
+			kt.SchemaFields = schema.Fields
 		}
 		topics = append(topics, kt)
 	}
@@ -610,15 +753,28 @@ func toPipelineJSON(p models.PipelineConfig) pipelineJSON {
 	}
 
 	var joinSources []joinSource
+	var joinFields []models.JoinRule
 	if p.Join.Enabled {
+		if p.Join.Config != nil {
+			joinFields = p.Join.Config
+		}
 		for _, s := range p.Join.Sources {
 			joinSources = append(joinSources, joinSource{
 				SourceID:    s.SourceID,
-				JoinKey:     s.JoinKey,
+				Key:         s.JoinKey,
 				Window:      s.Window,
 				Orientation: s.Orientation,
 			})
 		}
+	}
+
+	var sinkMappings []tableMappingEntry
+	for _, m := range p.Sink.Config {
+		sinkMappings = append(sinkMappings, tableMappingEntry{
+			Name:       m.SourceField,
+			ColumnName: m.DestinationField,
+			ColumnType: m.DestinationType,
+		})
 	}
 
 	return pipelineJSON{
@@ -640,23 +796,29 @@ func toPipelineJSON(p models.PipelineConfig) pipelineJSON {
 			Topics: topics,
 		},
 		Join: pipelineJoin{
+			ID:      p.Join.ID,
 			Kind:    internal.TemporalJoinType,
 			Enabled: p.Join.Enabled,
 			Sources: joinSources,
+			Fields:  joinFields,
 		},
 		Sink: clickhouseSink{
-			Kind:                        internal.ClickHouseSinkType,
-			Host:                        p.Sink.ClickHouseConnectionParams.Host,
-			Port:                        p.Sink.ClickHouseConnectionParams.Port,
-			HttpPort:                    p.Sink.ClickHouseConnectionParams.HttpPort,
-			Database:                    p.Sink.ClickHouseConnectionParams.Database,
-			Username:                    p.Sink.ClickHouseConnectionParams.Username,
-			Password:                    p.Sink.ClickHouseConnectionParams.Password,
-			Table:                       p.Sink.ClickHouseConnectionParams.Table,
-			Secure:                      p.Sink.ClickHouseConnectionParams.Secure,
-			MaxBatchSize:                p.Sink.Batch.MaxBatchSize,
-			MaxDelayTime:                p.Sink.Batch.MaxDelayTime,
-			SkipCertificateVerification: p.Sink.ClickHouseConnectionParams.SkipCertificateCheck,
+			Kind: internal.ClickHouseSinkType,
+			ConnectionParams: sinkConnectionParams{
+				Host:                        p.Sink.ClickHouseConnectionParams.Host,
+				Port:                        p.Sink.ClickHouseConnectionParams.Port,
+				HttpPort:                    p.Sink.ClickHouseConnectionParams.HttpPort,
+				Database:                    p.Sink.ClickHouseConnectionParams.Database,
+				Username:                    p.Sink.ClickHouseConnectionParams.Username,
+				Password:                    p.Sink.ClickHouseConnectionParams.Password,
+				Secure:                      p.Sink.ClickHouseConnectionParams.Secure,
+				SkipCertificateVerification: p.Sink.ClickHouseConnectionParams.SkipCertificateCheck,
+			},
+			Table:        p.Sink.ClickHouseConnectionParams.Table,
+			MaxBatchSize: p.Sink.Batch.MaxBatchSize,
+			MaxDelayTime: p.Sink.Batch.MaxDelayTime,
+			SourceID:     p.Sink.SourceID,
+			TableMapping: sinkMappings,
 		},
 		Filter: pipelineFilter{
 			Enabled:    p.Filter.Enabled,
@@ -668,7 +830,7 @@ func toPipelineJSON(p models.PipelineConfig) pipelineJSON {
 		},
 		Metadata:          p.Metadata,
 		PipelineResources: p.PipelineResources,
-		Version:           "v2",
+		Version:           "v3",
 	}
 }
 

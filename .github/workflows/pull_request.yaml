@@ -8,6 +8,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  merge-guard:
+    name: merge-guard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Block merge if build-only label is present
+        if: contains(github.event.pull_request.labels.*.name, 'build-only')
+        run: |
+          echo "::error::This PR has the 'build-only' label and cannot be merged. Remove the label once tests are ready to pass."
+          exit 1
   build-binary:
     uses: ./.github/workflows/build_binary.yaml
   test:

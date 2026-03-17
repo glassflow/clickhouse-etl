@@ -13,12 +13,12 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 )
 
 type LocalOrchestrator struct {
 	nc  *client.NATSClient
+	db  service.PipelineStore
 	log *slog.Logger
 
 	ingestorRunners []service.Runner
@@ -51,11 +51,13 @@ func (d *LocalOrchestrator) DeletePipeline(ctx context.Context, pid string) erro
 
 func NewLocalOrchestrator(
 	nc *client.NATSClient,
+	db service.PipelineStore,
 	log *slog.Logger,
 ) service.Orchestrator {
 	//nolint: exhaustruct // runners will be created on setup
 	return &LocalOrchestrator{
 		nc:  nc,
+		db:  db,
 		log: log,
 	}
 }
@@ -102,13 +104,6 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 	d.clearComponentEnvVars(ctx)
 
 	var sinkInputStreamPrefix string
-
-	// TODO: transfer all schema mapper validations in models.NewPipeline
-	// so validation errors are handled the same way with correct HTTPStatus
-	schemaMapper, err := schema.NewMapper(pi.Mapper)
-	if err != nil {
-		return models.PipelineConfigError{Msg: fmt.Sprintf("new schema mapper: %s", err)}
-	}
 
 	d.id = pi.ID
 
@@ -182,8 +177,8 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 				d.nc,
 				t.Name,
 				*pi,
+				d.db,
 				runtimeCfg,
-				schemaMapper,
 				nil, // nil meter for docker orchestrator
 			)
 
@@ -225,7 +220,7 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 		os.Setenv("NATS_RIGHT_INPUT_STREAM_PREFIX", rightInputStreamName)
 		os.Setenv("NATS_SUBJECT_PREFIX", sinkInputStreamPrefix)
 		os.Setenv("GLASSFLOW_POD_INDEX", localSingleReplicaPodIndex)
-		d.joinRunner = service.NewJoinRunner(d.log.With("component", "join"), d.nc, *pi, schemaMapper)
+		d.joinRunner = service.NewJoinRunner(d.log.With("component", "join"), d.nc, *pi, d.db)
 		err = d.joinRunner.Start(ctx)
 		if err != nil {
 			d.log.ErrorContext(ctx, "failed to start join runner", "left_stream", leftInputStreamName, "right_stream", rightInputStreamName, "error", err)
@@ -241,7 +236,7 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 		d.log.With("component", "clickhouse_sink"),
 		d.nc,
 		*pi,
-		schemaMapper,
+		d.db,
 		nil, // nil meter for docker orchestrator
 	)
 

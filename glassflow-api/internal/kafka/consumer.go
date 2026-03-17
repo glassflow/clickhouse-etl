@@ -22,7 +22,9 @@ import (
 )
 
 type MessageProcessor interface {
-	ProcessBatch(ctx context.Context, batch []*kgo.Record) error
+	// ProcessBatch processes a batch of records.
+	// Returns the last successfully processed record (can be nil if none processed) and any error.
+	ProcessBatch(ctx context.Context, batch []*kgo.Record) (*kgo.Record, error)
 }
 
 type Consumer struct {
@@ -290,9 +292,20 @@ func (c *Consumer) processBatch(ctx context.Context) error {
 	c.log.Info("Processing batch of messages", slog.Int("batchSize", size))
 	start := time.Now()
 
-	err := c.processor.ProcessBatch(ctx, c.batch)
+	lastProcessed, err := c.processor.ProcessBatch(ctx, c.batch)
 	if err != nil {
 		c.log.Error("Batch processing failed", slog.Any("error", err), slog.Int("batchSize", size))
+
+		// Commit offset for successfully processed records
+		if lastProcessed != nil {
+			if commitErr := c.client.CommitRecords(ctx, lastProcessed); commitErr != nil {
+				c.log.Error("Failed to commit partial offset", slog.Any("error", commitErr))
+			} else {
+				c.log.Info("Committed partial offset", slog.Int64("offset", lastProcessed.Offset))
+			}
+		}
+
+		c.batch = c.batch[:0]
 		return fmt.Errorf("batch processing failed: %w", err)
 	}
 
@@ -303,13 +316,19 @@ func (c *Consumer) processBatch(ctx context.Context) error {
 
 	c.log.Info("Batch processed successfully", slog.Int("batchSize", size), slog.Duration("duration", time.Duration(time.Since(start).Milliseconds())))
 
+	var totalBytes int64
+	for _, r := range c.batch {
+		totalBytes += int64(len(r.Value))
+	}
+
 	c.batch = c.batch[:0]
 
 	// Record Kafka read metric
 	if c.meter != nil {
 		c.meter.RecordKafkaRead(ctx, int64(size))
 		duration := time.Since(start).Seconds()
-		c.meter.RecordProcessingDuration(ctx, duration/float64(size))
+		c.meter.RecordProcessingDuration(ctx, "ingestor", duration/float64(size))
+		c.meter.RecordBytesProcessed(ctx, "ingestor", "in", totalBytes)
 	}
 
 	return nil

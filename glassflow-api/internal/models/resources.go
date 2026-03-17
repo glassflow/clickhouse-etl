@@ -299,7 +299,7 @@ func validateResourceRequirements(r *ComponentResources) error {
 
 func validateQuantity(val, field string) error {
 	if val == "" {
-		return fmt.Errorf("%s must be set", field)
+		return nil
 	}
 	if _, err := resource.ParseQuantity(val); err != nil {
 		return fmt.Errorf("invalid %s quantity %q: %w", field, val, err)

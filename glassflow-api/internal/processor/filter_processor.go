@@ -35,6 +35,14 @@ func (fp *FilterProcessor) ProcessBatch(
 ) ProcessorBatch {
 	start := time.Now()
 
+	var inBytes int64
+	for _, msg := range batch.Messages {
+		inBytes += int64(len(msg.Payload()))
+	}
+	if fp.meter != nil {
+		fp.meter.RecordBytesProcessed(ctx, "filter", "in", inBytes)
+	}
+
 	messages := make([]models.Message, 0, len(batch.Messages))
 	failedMessages := make([]models.FailedMessage, 0)
 
@@ -58,7 +66,7 @@ func (fp *FilterProcessor) ProcessBatch(
 
 	duration := time.Since(start).Seconds()
 	if fp.meter != nil {
-		fp.meter.RecordProcessorDuration(ctx, "filter", duration)
+		fp.meter.RecordProcessingDuration(ctx, "filter", duration)
 
 		successCount := int64(len(messages))
 		if successCount > 0 {
@@ -73,6 +81,12 @@ func (fp *FilterProcessor) ProcessBatch(
 		if len(failedMessages) > 0 {
 			fp.meter.RecordProcessorMessages(ctx, "filter", "error", int64(len(failedMessages)))
 		}
+
+		var outBytes int64
+		for _, msg := range messages {
+			outBytes += int64(len(msg.Payload()))
+		}
+		fp.meter.RecordBytesProcessed(ctx, "filter", "out", outBytes)
 	}
 
 	return ProcessorBatch{

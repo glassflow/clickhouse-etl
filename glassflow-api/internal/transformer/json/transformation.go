@@ -1,6 +1,7 @@
 package json
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -18,7 +19,7 @@ type Transformer struct {
 	compiledExpressions []*vm.Program
 }
 
-var predefinedTransfromations = []expr.Option{
+var predefinedTransformations = []expr.Option{
 	expr.Function("parseQuery", parseQueryString),
 	expr.Function("getQueryParam", getQueryParam),
 	expr.Function("getNestedParam", getNestedParam),
@@ -51,10 +52,10 @@ func NewTransformer(transformations []models.Transform) (*Transformer, error) {
 	for i, transformation := range transformations {
 		program, err := expr.Compile(
 			transformation.Expression,
-			predefinedTransfromations...,
+			predefinedTransformations...,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("compile transformation %d expression: %w", i, err)
+			return nil, fmt.Errorf("%w: compile transformation %d expression: %w", models.ErrCompileTransformation, i, err)
 		}
 		compiledExpressions[i] = program
 	}
@@ -66,25 +67,25 @@ func NewTransformer(transformations []models.Transform) (*Transformer, error) {
 }
 
 // Transform applies transformations to input bytes and returns transformed bytes
-func (t *Transformer) Transform(inputBytes []byte) ([]byte, error) {
+func (t *Transformer) Transform(_ context.Context, inputMessage models.Message) (models.Message, error) {
 	if len(t.compiledExpressions) == 0 {
-		return inputBytes, nil
+		return inputMessage, nil
 	}
 	var inputData map[string]any
-	if err := json.Unmarshal(inputBytes, &inputData); err != nil {
-		return nil, fmt.Errorf("unmarshal input data: %w", err)
+	if err := json.Unmarshal(inputMessage.Payload(), &inputData); err != nil {
+		return models.Message{}, fmt.Errorf("unmarshal input data: %w", err)
 	}
 
 	outputData := make(map[string]any)
 	for i, transformation := range t.Transformations {
 		result, err := expr.Run(t.compiledExpressions[i], inputData)
 		if err != nil {
-			return nil, fmt.Errorf("run transformation %d: %w", i, err)
+			return models.Message{}, fmt.Errorf("run transformation %d: %w", i, err)
 		}
 
 		convertedValue, err := convertType(result, transformation.OutputType)
 		if err != nil {
-			return nil, fmt.Errorf("convert result for column %s: %w", transformation.OutputName, err)
+			return models.Message{}, fmt.Errorf("convert result for column %s: %w", transformation.OutputName, err)
 		}
 
 		outputData[transformation.OutputName] = convertedValue
@@ -92,10 +93,10 @@ func (t *Transformer) Transform(inputBytes []byte) ([]byte, error) {
 
 	outputBytes, err := json.Marshal(outputData)
 	if err != nil {
-		return nil, fmt.Errorf("marshal output data: %w", err)
+		return models.Message{}, fmt.Errorf("marshal output data: %w", err)
 	}
 
-	return outputBytes, nil
+	return models.NewNatsMessage(outputBytes, inputMessage.Headers()), nil
 }
 
 func convertType(value any, targetType string) (any, error) {
