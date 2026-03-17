@@ -65,7 +65,7 @@ export function useClickhouseMapperEventFields({
         setEventFields(transformedFields)
         const fieldTypeMap = new Map(intermediarySchema.map((field) => [field.name, field.type]))
 
-        if (clickhouseDestination?.mapping?.length > 0) return
+        if (clickhouseDestination?.mapping?.some((m: any) => m.eventField)) return
         if (mappedColumns.length > 0 && transformedFields.length > 0) {
           const updatedColumns = [...mappedColumns]
           updatedColumns.forEach((col, index) => {
@@ -88,7 +88,7 @@ export function useClickhouseMapperEventFields({
       const fields = extractEventFields(data)
       setEventFields(fields)
 
-      if (clickhouseDestination?.mapping?.length > 0) return
+      if (clickhouseDestination?.mapping?.some((m: any) => m.eventField)) return
       if (mappedColumns.length > 0 && fields.length > 0) {
         const updatedColumns = [...mappedColumns]
         updatedColumns.forEach((col, index) => {
@@ -154,7 +154,7 @@ export function useClickhouseMapperEventFields({
       mappedColumns.length === 0
     )
       return
-    if (clickhouseDestination?.mapping?.length > 0) return
+    if (clickhouseDestination?.mapping?.some((m: any) => m.eventField)) return
 
     const updatedColumns = [...mappedColumns]
     let hasChanges = false

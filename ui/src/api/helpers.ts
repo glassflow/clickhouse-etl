@@ -25,6 +25,7 @@ declare global {
       NEXT_PUBLIC_OTEL_EXPORTER_OTLP_HEADERS?: string
       NEXT_PUBLIC_NOTIFICATIONS_ENABLED?: string
       NEXT_PUBLIC_NOTIFIER_URL?: string
+      NEXT_PUBLIC_AI_ENABLED?: string
     }
   }
 }

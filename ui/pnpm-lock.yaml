@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@anthropic-ai/sdk':
+        specifier: ^0.52.0
+        version: 0.52.0
       '@auth0/nextjs-auth0':
         specifier: ^4.12.0
         version: 4.12.0(next@16.0.10(@babel/core@7.28.0)(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -179,6 +182,9 @@ importers:
       next-themes:
         specifier: ^0.4.6
         version: 0.4.6(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      openai:
+        specifier: ^6.31.0
+        version: 6.31.0(ws@8.19.0)(zod@3.25.76)
       react:
         specifier: 19.2.4
         version: 19.2.4
@@ -304,6 +310,10 @@ packages:
 
   '@antfu/ni@23.3.1':
     resolution: {integrity: sha512-C90iyzm/jLV7Lomv2UzwWUzRv9WZr1oRsFRKsX5HjQL4EXrbi9H/RtBkjCP+NF+ABZXUKpAa4F1dkoTaea4zHg==}
+    hasBin: true
+
+  '@anthropic-ai/sdk@0.52.0':
+    resolution: {integrity: sha512-d4c+fg+xy9e46c8+YnrrgIQR45CZlAi7PwdzIfDXDM6ACxEZli1/fxhURsq30ZpMZy6LvSkr41jGq5aF5TD7rQ==}
     hasBin: true
 
   '@asamuzakjp/css-color@3.2.0':
@@ -4295,6 +4305,18 @@ packages:
     resolution: {integrity: sha512-1FlR+gjXK7X+AsAHso35MnyN5KqGwJRi/31ft6x0M194ht7S+rWAvd7PHss9xSKMzE0asv1pyIHaJYq+BbacAQ==}
     engines: {node: '>=12'}
 
+  openai@6.31.0:
+    resolution: {integrity: sha512-iqEn3QY1NnVrDOynUWA2Fjs04gzZ0m7fbwR9xZVFmcN1cqQwslMQM2sjQBNkTVFK/rrSvV78SXiBgU+Pyqz1Aw==}
+    hasBin: true
+    peerDependencies:
+      ws: ^8.18.0
+      zod: ^3.25 || ^4.0
+    peerDependenciesMeta:
+      ws:
+        optional: true
+      zod:
+        optional: true
+
   openid-client@6.8.1:
     resolution: {integrity: sha512-VoYT6enBo6Vj2j3Q5Ec0AezS+9YGzQo1f5Xc42lreMGlfP4ljiXPKVDvCADh+XHCV/bqPu/wWSiCVXbJKvrODw==}
 
@@ -5245,6 +5267,8 @@ snapshots:
       '@jridgewell/trace-mapping': 0.3.29
 
   '@antfu/ni@23.3.1': {}
+
+  '@anthropic-ai/sdk@0.52.0': {}
 
   '@asamuzakjp/css-color@3.2.0':
     dependencies:
@@ -9678,6 +9702,11 @@ snapshots:
   onetime@6.0.0:
     dependencies:
       mimic-fn: 4.0.0
+
+  openai@6.31.0(ws@8.19.0)(zod@3.25.76):
+    optionalDependencies:
+      ws: 8.19.0
+      zod: 3.25.76
 
   openid-client@6.8.1:
     dependencies:
