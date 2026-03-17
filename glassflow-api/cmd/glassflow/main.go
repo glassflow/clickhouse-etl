@@ -158,7 +158,9 @@ func mainErr(cfg *config, role models.Role) error {
 
 	log.Info("Starting App", slog.String("version", version))
 
-	meter := observability.ConfigureMeter(obsConfig, log)
+	if err := observability.InitMetrics(obsConfig); err != nil {
+		return fmt.Errorf("init metrics: %w", err)
+	}
 
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
@@ -200,15 +202,15 @@ func mainErr(cfg *config, role models.Role) error {
 
 	switch role {
 	case internal.RoleSink:
-		return mainSink(ctx, nc, cfg, db, log, meter)
+		return mainSink(ctx, nc, cfg, db, log)
 	case internal.RoleJoin:
-		return mainJoin(ctx, nc, cfg, db, log, meter)
+		return mainJoin(ctx, nc, cfg, db, log)
 	case internal.RoleIngestor:
-		return mainIngestor(ctx, nc, cfg, db, log, meter)
+		return mainIngestor(ctx, nc, cfg, db, log)
 	case internal.RoleETL:
-		return mainEtl(ctx, nc, cfg, db, log, meter)
+		return mainEtl(ctx, nc, cfg, db, log)
 	case internal.RoleDeduplicator:
-		return mainDeduplicatorV2(ctx, nc, cfg, log, meter)
+		return mainDeduplicatorV2(ctx, nc, cfg, log)
 	default:
 		return fmt.Errorf("unknown role: %s", role)
 	}
@@ -220,7 +222,6 @@ func mainEtl(
 	cfg *config,
 	db service.PipelineStore,
 	log *slog.Logger,
-	meter *observability.Meter,
 ) error {
 	// Run data migration from NATS KV to Postgres
 	kvStoreName := cfg.NATSPipelineKV
@@ -263,7 +264,7 @@ func mainEtl(
 		log.Error("failed to clean up pipelines on startup", slog.Any("error", err))
 	}
 
-	handler := api.NewRouter(log, pipelineSvc, dlq, meter, usageStatsClient)
+	handler := api.NewRouter(log, pipelineSvc, dlq, usageStatsClient)
 
 	apiServer := server.NewHTTPServer(
 		cfg.ServerAddr,
@@ -326,11 +327,17 @@ func mainEtl(
 	return nil
 }
 
-func mainSink(ctx context.Context, nc *client.NATSClient, cfg *config, db service.PipelineStore, log *slog.Logger, meter *observability.Meter) error {
+func mainSink(ctx context.Context, nc *client.NATSClient, cfg *config, db service.PipelineStore, log *slog.Logger) error {
 	pipelineCfg, err := getPipelineConfigFromJSON(cfg.PipelineConfig)
 	if err != nil {
 		return fmt.Errorf("failed to get pipeline config: %w", err)
 	}
+
+	if pipelineCfg.ID == "" {
+		return fmt.Errorf("pipeline ID is empty")
+	}
+
+	observability.SetPipelineID(pipelineCfg.ID)
 
 	if pipelineCfg.Sink.SourceID == "" {
 		return fmt.Errorf("stream_id in sink config cannot be empty")
@@ -341,7 +348,6 @@ func mainSink(ctx context.Context, nc *client.NATSClient, cfg *config, db servic
 		nc,
 		pipelineCfg,
 		db,
-		meter,
 	)
 
 	usageStatsClient := newUsageStatsClient(cfg, log, nil)
@@ -355,7 +361,7 @@ func mainSink(ctx context.Context, nc *client.NATSClient, cfg *config, db servic
 	)
 }
 
-func mainJoin(ctx context.Context, nc *client.NATSClient, cfg *config, db service.PipelineStore, log *slog.Logger, _ *observability.Meter) error {
+func mainJoin(ctx context.Context, nc *client.NATSClient, cfg *config, db service.PipelineStore, log *slog.Logger) error {
 	if cfg.JoinType == "" {
 		return fmt.Errorf("join type must be specified")
 	}
@@ -364,6 +370,12 @@ func mainJoin(ctx context.Context, nc *client.NATSClient, cfg *config, db servic
 	if err != nil {
 		return fmt.Errorf("failed to get pipeline config: %w", err)
 	}
+
+	if pipelineCfg.ID == "" {
+		return fmt.Errorf("pipeline ID is empty")
+	}
+
+	observability.SetPipelineID(pipelineCfg.ID)
 
 	if !pipelineCfg.Join.Enabled {
 		return fmt.Errorf("join is not enabled in pipeline config")
@@ -386,7 +398,7 @@ func mainJoin(ctx context.Context, nc *client.NATSClient, cfg *config, db servic
 	)
 }
 
-func mainIngestor(ctx context.Context, nc *client.NATSClient, cfg *config, db service.PipelineStore, log *slog.Logger, meter *observability.Meter) error {
+func mainIngestor(ctx context.Context, nc *client.NATSClient, cfg *config, db service.PipelineStore, log *slog.Logger) error {
 	if cfg.IngestorTopic == "" {
 		return fmt.Errorf("ingestor topic must be specified")
 	}
@@ -395,6 +407,12 @@ func mainIngestor(ctx context.Context, nc *client.NATSClient, cfg *config, db se
 	if err != nil {
 		return fmt.Errorf("failed to get pipeline config: %w", err)
 	}
+
+	if pipelineCfg.ID == "" {
+		return fmt.Errorf("pipeline ID is empty")
+	}
+
+	observability.SetPipelineID(pipelineCfg.ID)
 
 	topicCfg, err := getIngestorTopicConfig(pipelineCfg, cfg.IngestorTopic)
 	if err != nil {
@@ -406,7 +424,7 @@ func mainIngestor(ctx context.Context, nc *client.NATSClient, cfg *config, db se
 		return fmt.Errorf("resolve ingestor runtime config: %w", err)
 	}
 
-	ingestorRunner := service.NewIngestorRunner(log, nc, cfg.IngestorTopic, pipelineCfg, db, runtimeCfg, meter)
+	ingestorRunner := service.NewIngestorRunner(log, nc, cfg.IngestorTopic, pipelineCfg, db, runtimeCfg)
 
 	usageStatsClient := newUsageStatsClient(cfg, log, nil)
 

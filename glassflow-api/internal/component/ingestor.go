@@ -12,7 +12,6 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	schemav2 "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema_v2"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 )
 
 type Ingestor interface {
@@ -38,7 +37,6 @@ func NewIngestorComponent(
 	signalPublisher *componentsignals.ComponentSignalPublisher,
 	doneCh chan struct{},
 	log *slog.Logger,
-	meter *observability.Meter,
 ) (*IngestorComponent, error) {
 	if config.Ingestor.Type != internal.KafkaIngestorType {
 		return nil, fmt.Errorf("unknown ingestor type")
@@ -53,7 +51,6 @@ func NewIngestorComponent(
 		schema,
 		signalPublisher,
 		log,
-		meter,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("error creating kafka source ingestor: %w", err)

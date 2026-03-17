@@ -3,7 +3,6 @@ package observability
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"time"
 
 	"go.opentelemetry.io/otel"
@@ -14,218 +13,108 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 )
 
-// Meter holds all the metrics for glassflow components
-type Meter struct {
-	// Ingestor metrics
-	KafkaRecordsRead  metric.Int64Counter
-	DLQRecordsWritten metric.Int64Counter
-	RecordsFiltered   metric.Int64Counter
-
-	// Sink metrics
-	ClickHouseRecordsWritten metric.Int64Counter
-	SinkRecordsPerSec        metric.Float64Gauge
-
-	// Common metrics
-	ProcessorMessages  metric.Int64Counter
-	ProcessingDuration metric.Float64Histogram
-
-	HTTPRequestCount metric.Int64Counter
-
-	HTTPRequestDuration metric.Float64Histogram
-	BytesProcessed      metric.Int64Counter
-
-	// Component and pipeline info for labeling
-	component  string
-	pipelineID string
-}
-
 const GfMetricPrefix = "gfm"
 
-// ConfigureMeter creates and configures metrics based on the provided configuration
-func ConfigureMeter(cfg *Config, log *slog.Logger) *Meter {
+// Package-level instrument vars (nil when metrics disabled).
+var (
+	KafkaRecordsRead         metric.Int64Counter
+	DLQRecordsWritten        metric.Int64Counter
+	ClickHouseRecordsWritten metric.Int64Counter
+	SinkRecordsPerSec        metric.Float64Gauge
+	ProcessorMessages        metric.Int64Counter
+	ProcessingDuration       metric.Float64Histogram
+	HTTPRequestCount         metric.Int64Counter
+	HTTPRequestDuration      metric.Float64Histogram
+	BytesProcessed           metric.Int64Counter
+)
+
+// pipelineID is set once at component startup (not used by the API which handles multiple pipelines).
+var pipelineID string
+
+// SetPipelineID stores the pipeline ID for use in all metric recording functions.
+// Call this once at component startup before recording any metrics.
+func SetPipelineID(id string) {
+	pipelineID = id
+}
+
+// GetPipelineID returns the pipeline ID set via SetPipelineID.
+func GetPipelineID() string {
+	return pipelineID
+}
+
+// InitMetrics sets up the OTel provider and initialises all instrument vars.
+// Returns nil immediately when metrics are disabled; vars remain nil and all
+// wrapper functions become no-ops.
+func InitMetrics(cfg *Config) error {
 	if !cfg.MetricsEnabled {
-		// Return nil meter when metrics are disabled
 		return nil
 	}
 
-	// Set up OTLP metrics exporter
 	ctx := context.Background()
 
-	// Create OTLP metrics exporter with default configuration
-	// This will automatically read OTEL_EXPORTER_OTLP_ENDPOINT from environment
 	exporter, err := otlpmetrichttp.New(ctx)
 	if err != nil {
-		log.Error("Failed to create OTLP metrics exporter", "error", err)
-		return nil
+		return fmt.Errorf("create OTLP metrics exporter: %w", err)
 	}
 
-	// Create resource with service information
 	attrs := buildResourceAttributes(cfg)
-
 	res, err := resource.New(ctx, resource.WithAttributes(attrs...))
 	if err != nil {
-		log.Error("Failed to create resource", "error", err)
-		return nil
+		return fmt.Errorf("create resource: %w", err)
 	}
 
-	// Create MeterProvider with OTLP exporter
 	meterProvider := sdkmetric.NewMeterProvider(
 		sdkmetric.WithResource(res),
 		sdkmetric.WithReader(sdkmetric.NewPeriodicReader(exporter,
 			sdkmetric.WithInterval(10*time.Second),
 		)),
 	)
-
-	// Set the global MeterProvider
 	otel.SetMeterProvider(meterProvider)
 
-	return NewMeter(cfg.ServiceName, cfg.PipelineID)
+	m := otel.Meter("glassflow-etl")
+
+	KafkaRecordsRead = mustCreateCounter(m, GfMetricPrefix+"_"+"kafka_records_read_total",
+		"Total number of records read from Kafka")
+	DLQRecordsWritten = mustCreateCounter(m, GfMetricPrefix+"_"+"dlq_records_written_total",
+		"Total number of records written to dead letter queue")
+	ClickHouseRecordsWritten = mustCreateCounter(m, GfMetricPrefix+"_"+"clickhouse_records_written_total",
+		"Total number of records written to ClickHouse")
+	SinkRecordsPerSec = mustCreateGauge(m, GfMetricPrefix+"_"+"clickhouse_records_written_per_second",
+		"Number of records written to ClickHouse per second")
+	ProcessingDuration = mustCreateHistogram(m, GfMetricPrefix+"_"+"processing_duration_seconds",
+		"Processing duration in seconds")
+	HTTPRequestCount = mustCreateCounter(m, GfMetricPrefix+"_"+"http_server_request_count",
+		"Total number of HTTP requests")
+	HTTPRequestDuration = mustCreateHistogram(m, GfMetricPrefix+"_"+"http_server_request_duration_seconds",
+		"Duration of HTTP requests")
+	ProcessorMessages = mustCreateCounter(m, GfMetricPrefix+"_"+"processor_messages_total",
+		"Total number of messages processed by processor")
+	BytesProcessed = mustCreateCounter(m, GfMetricPrefix+"_"+"bytes_processed_total",
+		"Total bytes processed by component and direction")
+
+	return nil
 }
 
-// NewMeter creates a new Meter instance with all the required metrics
-func NewMeter(component, pipelineID string) *Meter {
-	meter := otel.Meter("glassflow-etl")
-
-	return &Meter{
-		KafkaRecordsRead: mustCreateCounter(meter, GfMetricPrefix+"_"+"kafka_records_read_total",
-			"Total number of records read from Kafka"),
-		DLQRecordsWritten: mustCreateCounter(meter, GfMetricPrefix+"_"+"dlq_records_written_total",
-			"Total number of records written to dead letter queue"),
-		RecordsFiltered: mustCreateCounter(meter, GfMetricPrefix+"_"+"records_filtered_total",
-			"Total number of records filtered out"),
-		ClickHouseRecordsWritten: mustCreateCounter(meter, GfMetricPrefix+"_"+"clickhouse_records_written_total",
-			"Total number of records written to ClickHouse"),
-		SinkRecordsPerSec: mustCreateGauge(meter, GfMetricPrefix+"_"+"clickhouse_records_written_per_second",
-			"Number of records written to ClickHouse per second"),
-		ProcessingDuration: mustCreateHistogram(meter, GfMetricPrefix+"_"+"processing_duration_seconds",
-			"Processing duration in seconds"),
-		HTTPRequestCount: mustCreateCounter(meter, GfMetricPrefix+"_"+"http_server_request_count",
-			"Total number of HTTP requests"),
-		HTTPRequestDuration: mustCreateHistogram(meter, GfMetricPrefix+"_"+"http_server_request_duration_seconds",
-			"Duration of HTTP requests"),
-		ProcessorMessages: mustCreateCounter(meter, GfMetricPrefix+"_"+"processor_messages_total",
-			"Total number of messages processed by processor"),
-		BytesProcessed: mustCreateCounter(meter, GfMetricPrefix+"_"+"bytes_processed_total",
-			"Total bytes processed by component and direction"),
-		component:  component,
-		pipelineID: pipelineID,
-	}
-}
-
-// RecordKafkaRead records a Kafka record read
-func (m *Meter) RecordKafkaRead(ctx context.Context, count int64) {
-	m.KafkaRecordsRead.Add(ctx, count, metric.WithAttributes(
-		attribute.String("component", m.component),
-		attribute.String("pipeline_id", m.pipelineID),
-	))
-}
-
-// RecordDLQWrite records a record written to DLQ
-func (m *Meter) RecordDLQWrite(ctx context.Context, count int64) {
-	m.DLQRecordsWritten.Add(ctx, count, metric.WithAttributes(
-		attribute.String("component", m.component),
-		attribute.String("pipeline_id", m.pipelineID),
-	))
-}
-
-// RecordFilteredMessage records a message that was filtered out
-func (m *Meter) RecordFilteredMessage(ctx context.Context, count int64) {
-	m.RecordsFiltered.Add(ctx, count, metric.WithAttributes(
-		attribute.String("component", m.component),
-		attribute.String("pipeline_id", m.pipelineID),
-	))
-}
-
-// RecordClickHouseWrite records a record written to ClickHouse
-func (m *Meter) RecordClickHouseWrite(ctx context.Context, count int64) {
-	m.ClickHouseRecordsWritten.Add(ctx, count, metric.WithAttributes(
-		attribute.String("component", m.component),
-		attribute.String("pipeline_id", m.pipelineID),
-	))
-}
-
-// RecordSinkRate records the current sink write rate
-func (m *Meter) RecordSinkRate(ctx context.Context, rate float64) {
-	m.SinkRecordsPerSec.Record(ctx, rate, metric.WithAttributes(
-		attribute.String("component", m.component),
-		attribute.String("pipeline_id", m.pipelineID),
-	))
-}
-
-// RecordProcessingDuration records processing duration
-func (m *Meter) RecordProcessingDuration(ctx context.Context, component string, duration float64) {
-	m.ProcessingDuration.Record(ctx, duration, metric.WithAttributes(
-		attribute.String("component", component),
-		attribute.String("pipeline_id", m.pipelineID),
-	))
-}
-
-func (m *Meter) RecordProcessingDurationWithStage(
-	ctx context.Context,
-	component string,
-	duration float64,
-	stage string,
-) {
-	m.ProcessingDuration.Record(ctx, duration, metric.WithAttributes(
-		attribute.String("component", component),
-		attribute.String("pipeline_id", m.pipelineID),
-		attribute.String("stage", stage),
-	))
-}
-
-// RecordProcessorMessages records the number of messages processed with a given status
-// processor: filter, transform, dedup
-// status: success, error, filtered, duplicate
-func (m *Meter) RecordProcessorMessages(ctx context.Context, component, status string, count int64) {
-	m.ProcessorMessages.Add(ctx, count, metric.WithAttributes(
-		attribute.String("component", component),
-		attribute.String("pipeline_id", m.pipelineID),
-		attribute.String("status", status),
-	))
-}
-
-// RecordBytesProcessed records the number of bytes processed by a stage in a given direction
-func (m *Meter) RecordBytesProcessed(ctx context.Context, component, direction string, bytes int64) {
-	m.BytesProcessed.Add(ctx, bytes, metric.WithAttributes(
-		attribute.String("component", component),
-		attribute.String("pipeline_id", m.pipelineID),
-		attribute.String("direction", direction),
-	))
-}
-
-// Helper functions to create metrics with error handling
-
-func mustCreateCounter(meter metric.Meter, name, description string) metric.Int64Counter {
-	counter, err := meter.Int64Counter(
-		name,
-		metric.WithDescription(description),
-		metric.WithUnit("1"), // unit for counters
-	)
+func mustCreateCounter(m metric.Meter, name, description string) metric.Int64Counter {
+	counter, err := m.Int64Counter(name, metric.WithDescription(description), metric.WithUnit("1"))
 	if err != nil {
-		slog.Error("Failed to create counter", "name", name, "error", err)
 		panic(fmt.Sprintf("failed to create counter %s: %v", name, err))
 	}
 	return counter
 }
 
-func mustCreateGauge(meter metric.Meter, name, description string) metric.Float64Gauge {
-	gauge, err := meter.Float64Gauge(
-		name,
-		metric.WithDescription(description),
-		metric.WithUnit("1/s"), // records per second
-	)
+func mustCreateGauge(m metric.Meter, name, description string) metric.Float64Gauge {
+	gauge, err := m.Float64Gauge(name, metric.WithDescription(description), metric.WithUnit("1/s"))
 	if err != nil {
-		slog.Error("Failed to create gauge", "name", name, "error", err)
 		panic(fmt.Sprintf("failed to create gauge %s: %v", name, err))
 	}
 	return gauge
 }
 
-func mustCreateHistogram(meter metric.Meter, name, description string) metric.Float64Histogram {
-	histogram, err := meter.Float64Histogram(
-		name,
+func mustCreateHistogram(m metric.Meter, name, description string) metric.Float64Histogram {
+	histogram, err := m.Float64Histogram(name,
 		metric.WithDescription(description),
-		metric.WithUnit("s"), // seconds
+		metric.WithUnit("s"),
 		metric.WithExplicitBucketBoundaries(
 			0.001, // 1ms
 			0.005, // 5ms
@@ -239,11 +128,106 @@ func mustCreateHistogram(meter metric.Meter, name, description string) metric.Fl
 			2.5,   // 2.5s
 			5.0,   // 5s
 			10.0,  // 10s
-		),
-	)
+		))
 	if err != nil {
-		slog.Error("Failed to create histogram", "name", name, "error", err)
 		panic(fmt.Sprintf("failed to create histogram %s: %v", name, err))
 	}
 	return histogram
+}
+
+func RecordKafkaRead(ctx context.Context, component string, count int64) {
+	if KafkaRecordsRead == nil {
+		return
+	}
+	KafkaRecordsRead.Add(ctx, count, metric.WithAttributes(
+		attribute.String("component", component),
+		attribute.String("pipeline_id", pipelineID),
+	))
+}
+
+func RecordDLQWrite(ctx context.Context, component string, count int64) {
+	if DLQRecordsWritten == nil {
+		return
+	}
+	DLQRecordsWritten.Add(ctx, count, metric.WithAttributes(
+		attribute.String("component", component),
+		attribute.String("pipeline_id", pipelineID),
+	))
+}
+
+func RecordClickHouseWrite(ctx context.Context, component string, count int64) {
+	if ClickHouseRecordsWritten == nil {
+		return
+	}
+	ClickHouseRecordsWritten.Add(ctx, count, metric.WithAttributes(
+		attribute.String("component", component),
+		attribute.String("pipeline_id", pipelineID),
+	))
+}
+
+func RecordSinkRate(ctx context.Context, component string, rate float64) {
+	if SinkRecordsPerSec == nil {
+		return
+	}
+	SinkRecordsPerSec.Record(ctx, rate, metric.WithAttributes(
+		attribute.String("component", component),
+		attribute.String("pipeline_id", pipelineID),
+	))
+}
+
+func RecordProcessingDuration(ctx context.Context, component string, duration float64) {
+	if ProcessingDuration == nil {
+		return
+	}
+	ProcessingDuration.Record(ctx, duration, metric.WithAttributes(
+		attribute.String("component", component),
+		attribute.String("pipeline_id", pipelineID),
+	))
+}
+
+func RecordProcessingDurationWithStage(ctx context.Context, component, stage string, duration float64) {
+	if ProcessingDuration == nil {
+		return
+	}
+	ProcessingDuration.Record(ctx, duration, metric.WithAttributes(
+		attribute.String("component", component),
+		attribute.String("pipeline_id", pipelineID),
+		attribute.String("stage", stage),
+	))
+}
+
+func RecordProcessorMessages(ctx context.Context, component, status string, count int64) {
+	if ProcessorMessages == nil {
+		return
+	}
+	ProcessorMessages.Add(ctx, count, metric.WithAttributes(
+		attribute.String("component", component),
+		attribute.String("pipeline_id", pipelineID),
+		attribute.String("status", status),
+	))
+}
+
+func RecordBytesProcessed(ctx context.Context, component, direction string, bytes int64) {
+	if BytesProcessed == nil {
+		return
+	}
+	BytesProcessed.Add(ctx, bytes, metric.WithAttributes(
+		attribute.String("component", component),
+		attribute.String("pipeline_id", pipelineID),
+		attribute.String("direction", direction),
+	))
+}
+
+func RecordHTTPRequest(ctx context.Context, method, route string, status int, duration float64) {
+	attrs := []attribute.KeyValue{
+		attribute.String("method", method),
+		attribute.String("path", route),
+		attribute.Int("status", status),
+	}
+	if HTTPRequestCount != nil {
+		HTTPRequestCount.Add(ctx, 1, metric.WithAttributes(attrs...))
+	}
+	if HTTPRequestDuration != nil {
+		HTTPRequestDuration.Record(ctx, duration, metric.WithAttributes(attrs...))
+	}
 }

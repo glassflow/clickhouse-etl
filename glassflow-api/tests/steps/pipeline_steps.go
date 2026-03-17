@@ -398,7 +398,7 @@ func (p *PipelineSteps) setupPipelineService() error {
 		p.log,
 	)
 
-	p.httpRouter = api.NewRouter(p.log, p.pipelineService, dlq.NewClient(natsClient), nil, usageStatsClient)
+	p.httpRouter = api.NewRouter(p.log, p.pipelineService, dlq.NewClient(natsClient), usageStatsClient)
 
 	return nil
 }

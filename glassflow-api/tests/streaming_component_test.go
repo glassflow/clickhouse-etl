@@ -58,7 +58,7 @@ func createStreamingComponent(
 	if dedupConfig != nil && dedupConfig.Enabled {
 		ttl := dedupConfig.Window.Duration()
 		badgerDedup := dedupBadger.NewDeduplicator(suite.GetBadgerDB(), ttl)
-		dedupProcessor = processor.NewDedupProcessor(badgerDedup, nil)
+		dedupProcessor = processor.NewDedupProcessor(badgerDedup)
 	} else {
 		dedupProcessor = &processor.NoopProcessor{}
 	}
@@ -68,7 +68,7 @@ func createStreamingComponent(
 	if statelessTransform != nil && statelessTransform.Enabled {
 		transformer, err := jsonTransformer.NewTransformer(statelessTransform.Config.Transform)
 		require.NoError(t, err)
-		statelessTransformerProcessorBase := processor.NewStatelessTransformerProcessor(transformer, nil)
+		statelessTransformerProcessorBase := processor.NewStatelessTransformerProcessor(transformer)
 		statelessTransformerProcessor = processor.ChainProcessors(
 			processor.ChainMiddlewares(processor.DLQMiddleware(dlqWriter, role)),
 			statelessTransformerProcessorBase,
@@ -82,7 +82,7 @@ func createStreamingComponent(
 	if filterConfig != nil && filterConfig.Enabled {
 		filterJson, err := filterJSON.New(filterConfig.Expression, filterConfig.Enabled)
 		require.NoError(t, err)
-		filterProcessorBase := processor.NewFilterProcessor(filterJson, nil) // nil meter for tests
+		filterProcessorBase := processor.NewFilterProcessor(filterJson)
 		filterProcessor = processor.ChainProcessors(
 			processor.ChainMiddlewares(processor.DLQMiddleware(dlqWriter, role)),
 			filterProcessorBase,

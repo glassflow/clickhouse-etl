@@ -14,7 +14,6 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/mapper"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 )
 
 type SinkRunner struct {
@@ -23,7 +22,6 @@ type SinkRunner struct {
 
 	pipelineCfg models.PipelineConfig
 	db          PipelineStore
-	meter       *observability.Meter
 
 	component component.Component
 	c         chan error
@@ -57,7 +55,6 @@ func NewSinkRunner(
 	nc *client.NATSClient,
 	pipelineCfg models.PipelineConfig,
 	db PipelineStore,
-	meter *observability.Meter,
 ) *SinkRunner {
 	return &SinkRunner{
 		nc:  nc,
@@ -65,7 +62,6 @@ func NewSinkRunner(
 
 		pipelineCfg: pipelineCfg,
 		db:          db,
-		meter:       meter,
 
 		component: nil,
 	}
@@ -128,7 +124,6 @@ func (s *SinkRunner) Start(ctx context.Context) error {
 		configs.NewConfigStore(s.db, s.pipelineCfg.ID, s.pipelineCfg.Sink.SourceID),
 		s.doneCh,
 		s.log,
-		s.meter,
 		dlqStreamPublisher,
 		streamSourceID,
 	)

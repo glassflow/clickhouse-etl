@@ -29,7 +29,6 @@ type KafkaMsgProcessor struct {
 	topic           models.KafkaTopicsConfig
 	signalPublisher *componentsignals.ComponentSignalPublisher
 	log             *slog.Logger
-	meter           *observability.Meter
 
 	outputSubject      string
 	dedupSubjectPrefix string
@@ -47,7 +46,6 @@ func NewKafkaMsgProcessor(
 	runtimeCfg models.IngestorRuntimeConfig,
 	signalPublisher *componentsignals.ComponentSignalPublisher,
 	log *slog.Logger,
-	meter *observability.Meter,
 ) (*KafkaMsgProcessor, error) {
 	if topic.Replicas < 1 {
 		topic.Replicas = 1
@@ -87,7 +85,6 @@ func NewKafkaMsgProcessor(
 		pendingPublishesLimit: pendingPublishesLimit,
 		signalPublisher:       signalPublisher,
 		log:                   log,
-		meter:                 meter,
 	}, nil
 }
 
@@ -287,9 +284,7 @@ func (k *KafkaMsgProcessor) processBatchSync(ctx context.Context, batch []*kgo.R
 		lastProcessed = msg
 	}
 
-	if k.meter != nil {
-		k.meter.RecordBytesProcessed(ctx, "ingestor", "out", outBytes)
-	}
+	observability.RecordBytesProcessed(ctx, "ingestor", "out", outBytes)
 
 	return lastProcessed, nil
 }
@@ -372,9 +367,7 @@ func (k *KafkaMsgProcessor) processBatchAsync(_ context.Context, batch []*kgo.Re
 		}
 	}
 
-	if k.meter != nil {
-		k.meter.RecordBytesProcessed(ctx, "ingestor", "out", outBytes)
-	}
+	observability.RecordBytesProcessed(ctx, "ingestor", "out", outBytes)
 
 	return lastProcessed, nil
 }

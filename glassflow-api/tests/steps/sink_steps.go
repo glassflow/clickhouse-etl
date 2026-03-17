@@ -277,7 +277,6 @@ func (s *SinkTestSuite) iRunClickHouseSink() error {
 		cfgStore,
 		make(chan struct{}),
 		logger,
-		nil, // nil meter for e2e tests
 		dlqStreamPublisher,
 		"",
 	)
