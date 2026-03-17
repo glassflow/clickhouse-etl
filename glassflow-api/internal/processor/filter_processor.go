@@ -3,6 +3,7 @@ package processor
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
@@ -16,16 +17,18 @@ type filter interface {
 type FilterProcessor struct {
 	filter filter
 	meter  *observability.Meter
+	log    *slog.Logger
 }
 
 func (fp *FilterProcessor) Close(_ context.Context) error {
 	return nil
 }
 
-func NewFilterProcessor(filter filter, meter *observability.Meter) *FilterProcessor {
+func NewFilterProcessor(filter filter, meter *observability.Meter, log *slog.Logger) *FilterProcessor {
 	return &FilterProcessor{
 		filter: filter,
 		meter:  meter,
+		log:    log,
 	}
 }
 
@@ -87,6 +90,15 @@ func (fp *FilterProcessor) ProcessBatch(
 			outBytes += int64(len(msg.Payload()))
 		}
 		fp.meter.RecordBytesProcessed(ctx, "filter", "out", outBytes)
+	}
+
+	if fp.log != nil {
+		filteredOut := len(batch.Messages) - len(messages) - len(failedMessages)
+		fp.log.InfoContext(ctx, "Filter batch completed",
+			slog.Int("passed", len(messages)),
+			slog.Int("filtered", filteredOut),
+			slog.Int("dlq_count", len(failedMessages)),
+		)
 	}
 
 	return ProcessorBatch{
