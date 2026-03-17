@@ -327,7 +327,7 @@ func (c *Consumer) processBatch(ctx context.Context) error {
 	if c.meter != nil {
 		c.meter.RecordKafkaRead(ctx, int64(size))
 		duration := time.Since(start).Seconds()
-		c.meter.RecordProcessingDuration(ctx, duration/float64(size))
+		c.meter.RecordProcessingDuration(ctx, "ingestor", duration/float64(size))
 		c.meter.RecordBytesProcessed(ctx, "ingestor", "in", totalBytes)
 	}
 

@@ -66,7 +66,7 @@ func (fp *FilterProcessor) ProcessBatch(
 
 	duration := time.Since(start).Seconds()
 	if fp.meter != nil {
-		fp.meter.RecordProcessorDuration(ctx, "filter", duration)
+		fp.meter.RecordProcessingDuration(ctx, "filter", duration)
 
 		successCount := int64(len(messages))
 		if successCount > 0 {
