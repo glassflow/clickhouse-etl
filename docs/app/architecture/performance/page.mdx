@@ -22,7 +22,7 @@ This benchmark provides concrete numbers for how GlassFlow scales horizontally w
 
 ## Summary at a glance
 
-- **70 million events** ingested end-to-end (~1.5 KB each)
+- **70 million events** (~1.5 KB each) pre-loaded into a single Kafka topic — each replica configuration consumed the full dataset end-to-end
 - **Peak throughput:** ~510k events/sec at 10 replicas (ingestor and sink)
 - Throughput scales **roughly linearly** with replica count
 - Higher replica runs (8–10) completed the full 70M event load in **3–4 minutes**
