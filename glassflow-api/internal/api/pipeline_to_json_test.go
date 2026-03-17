@@ -36,14 +36,11 @@ func TestToPipelineJSON_BasicConfig(t *testing.T) {
 						Type:    "string",
 						Window:  *models.NewJSONDuration(1 * time.Hour),
 					},
-					OutputStreamID:      "stream-1",
-					OutputStreamSubject: "subject-1",
 				},
 			},
 		},
 		Sink: models.SinkComponentConfig{
 			Type:     internal.ClickHouseSinkType,
-			StreamID: "stream-1",
 			SourceID: "users",
 			Batch: models.BatchConfig{
 				MaxBatchSize: 1000,
@@ -161,14 +158,11 @@ func TestToPipelineJSON_WithSchemaRegistry(t *testing.T) {
 					Deduplication: models.DeduplicationConfig{
 						Enabled: false,
 					},
-					OutputStreamID:      "stream-2",
-					OutputStreamSubject: "subject-2",
 				},
 			},
 		},
 		Sink: models.SinkComponentConfig{
 			Type:     internal.ClickHouseSinkType,
-			StreamID: "stream-2",
 			SourceID: "events",
 			Batch: models.BatchConfig{
 				MaxBatchSize: 500,
@@ -273,14 +267,11 @@ func TestToPipelineJSON_WithStatelessTransformation(t *testing.T) {
 						Type:    "string",
 						Window:  *models.NewJSONDuration(1 * time.Hour),
 					},
-					OutputStreamID:      "stream-3",
-					OutputStreamSubject: "subject-3",
 				},
 			},
 		},
 		Sink: models.SinkComponentConfig{
 			Type:     internal.ClickHouseSinkType,
-			StreamID: "transform-stream-1",
 			SourceID: "transform-1",
 			Batch: models.BatchConfig{
 				MaxBatchSize: 1000,
@@ -461,8 +452,6 @@ func TestToPipelineJSON_WithJoin(t *testing.T) {
 						Type:    "string",
 						Window:  *models.NewJSONDuration(24 * time.Hour),
 					},
-					OutputStreamID:      "stream-users",
-					OutputStreamSubject: "subject-users",
 				},
 				{
 					Name:                       "events",
@@ -474,8 +463,6 @@ func TestToPipelineJSON_WithJoin(t *testing.T) {
 						Type:    "string",
 						Window:  *models.NewJSONDuration(1 * time.Hour),
 					},
-					OutputStreamID:      "stream-events",
-					OutputStreamSubject: "subject-events",
 				},
 			},
 		},
@@ -486,24 +473,19 @@ func TestToPipelineJSON_WithJoin(t *testing.T) {
 			Sources: []models.JoinSourceConfig{
 				{
 					SourceID:    "events",
-					StreamID:    "stream-events-dedup",
 					JoinKey:     "event_id",
 					Window:      *models.NewJSONDuration(1 * time.Hour),
 					Orientation: internal.JoinLeft,
 				},
 				{
 					SourceID:    "users",
-					StreamID:    "stream-users-dedup",
 					JoinKey:     "event_id",
 					Window:      *models.NewJSONDuration(24 * time.Hour),
 					Orientation: internal.JoinRight,
 				},
 			},
-			OutputStreamID:        "joined-stream",
-			NATSLeftConsumerName:  "left-consumer",
-			NATSRightConsumerName: "right-consumer",
-			LeftBufferTTL:         *models.NewJSONDuration(1 * time.Hour),
-			RightBufferTTL:        *models.NewJSONDuration(24 * time.Hour),
+			LeftBufferTTL:  *models.NewJSONDuration(1 * time.Hour),
+			RightBufferTTL: *models.NewJSONDuration(24 * time.Hour),
 			Config: []models.JoinRule{
 				{
 					SourceID:   "events",
@@ -524,7 +506,6 @@ func TestToPipelineJSON_WithJoin(t *testing.T) {
 		},
 		Sink: models.SinkComponentConfig{
 			Type:     internal.ClickHouseSinkType,
-			StreamID: "joined-stream",
 			SourceID: "join-1",
 			Batch: models.BatchConfig{
 				MaxBatchSize: 1000,
@@ -787,14 +768,11 @@ func TestToPipelineJSON_EmptySchemaVersion(t *testing.T) {
 					Deduplication: models.DeduplicationConfig{
 						Enabled: false,
 					},
-					OutputStreamID:      "stream-test",
-					OutputStreamSubject: "subject-test",
 				},
 			},
 		},
 		Sink: models.SinkComponentConfig{
-			Type:     internal.ClickHouseSinkType,
-			StreamID: "stream-test",
+			Type: internal.ClickHouseSinkType,
 			Batch: models.BatchConfig{
 				MaxBatchSize: 1000,
 				MaxDelayTime: *models.NewJSONDuration(60 * time.Second),

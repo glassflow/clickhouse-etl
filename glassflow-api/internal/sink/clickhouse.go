@@ -466,14 +466,15 @@ func (ch *ClickHouseSink) sendBatch(ctx context.Context, messages []jetstream.Ms
 
 		if ch.meter != nil {
 			ch.meter.RecordClickHouseWrite(ctx, int64(size))
+
 			duration := time.Since(start).Seconds()
 			if duration > 0 {
 				rate := float64(size) / duration
 				ch.meter.RecordSinkRate(ctx, rate)
 			}
-		}
 
-		ch.meter.RecordBytesProcessed(ctx, "sink", "out", totalBytes)
+			ch.meter.RecordBytesProcessed(ctx, "sink", "out", totalBytes)
+		}
 	}
 
 	if allErr != nil {

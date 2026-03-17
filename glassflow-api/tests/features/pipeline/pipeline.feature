@@ -43,7 +43,7 @@ Feature: Kafka to CH pipeline
                 "sink": {
                     "type": "clickhouse",
                     "source_id": "test_topic",
-                    "stream_id": "gf-test-topic",
+                    "stream_id": "gfm-3e00534f-test_topic",
                     "batch": {
                         "max_batch_size": 1000,
                         "max_delay_time": "1s"
@@ -53,7 +53,6 @@ Feature: Kafka to CH pipeline
                         "secure": false,
                         "table": "events_test"
                     },
-                    "stream_id": "gfm-3e00534f-test_topic",
                     "nats_consumer_name": "gf-nats-si-3e00534f",
                     "config": [
                         {
@@ -160,12 +159,24 @@ Feature: Kafka to CH pipeline
                             "orientation": "right",
                             "stream_id": "gfm-609e6e0a-test_users"
                         }
+                    ],
+                    "config": [
+                        {
+                            "source_id": "test_users",
+                            "source_name": "name",
+                            "output_name": "name"
+                        },
+                        {
+                            "source_id": "test_emails",
+                            "source_name": "email",
+                            "output_name": "email"
+                        }
                     ]
                 },
                 "sink": {
                     "type": "clickhouse",
                     "source_id": "join-1",
-                    "stream_id": "gf-join-1-stream",
+                    "stream_id": "gfm-609e6e0a-joined",
                     "batch": {
                         "max_batch_size": 1000,
                         "max_delay_time": "1s"
@@ -175,7 +186,6 @@ Feature: Kafka to CH pipeline
                         "secure": false,
                         "table": "test_users"
                     },
-                    "stream_id": "gfm-609e6e0a-joined",
                     "nats_consumer_name": "gf-nats-si-609e6e0a",
                     "config": [
                         {
@@ -328,12 +338,24 @@ Feature: Kafka to CH pipeline
                             "orientation": "right",
                             "stream_id": "gfm-a75779b0-test_users"
                         }
+                    ],
+                    "config": [
+                        {
+                            "source_id": "test_users",
+                            "source_name": "name",
+                            "output_name": "name"
+                        },
+                        {
+                            "source_id": "test_emails",
+                            "source_name": "email",
+                            "output_name": "email"
+                        }
                     ]
                 },
                 "sink": {
                     "type": "clickhouse",
                     "source_id": "join-1",
-                    "stream_id": "gf-join-1-stream",
+                    "stream_id": "gfm-a75779b0-joined",
                     "batch": {
                         "max_batch_size": 1000,
                         "max_delay_time": "1s"
@@ -343,7 +365,6 @@ Feature: Kafka to CH pipeline
                         "secure": false,
                         "table": "test_users"
                     },
-                    "stream_id": "gfm-a75779b0-joined",
                     "nats_consumer_name": "gf-nats-si-a75779b0",
                     "config": [
                         {
@@ -472,7 +493,7 @@ Feature: Kafka to CH pipeline
                 "sink": {
                     "type": "clickhouse",
                     "source_id": "test_topic",
-                    "stream_id": "gf-test-topic",
+                    "stream_id": "gfm-13bea286-test_topic",
                     "batch": {
                         "max_batch_size": 1000,
                         "max_delay_time": "1s"
@@ -482,7 +503,6 @@ Feature: Kafka to CH pipeline
                         "secure": false,
                         "table": "events_test"
                     },
-                    "stream_id": "gfm-13bea286-test_topic",
                     "nats_consumer_name": "gf-nats-si-13bea286",
                     "config": [
                         {
@@ -548,8 +568,8 @@ Feature: Kafka to CH pipeline
                     "kafka_topics": [
                         {
                             "id": "test_measurments",
-                            "output_stream_id": "gf-test_measurments",
-                            "output_stream_subject": "gf-test_measurments.input",
+                            "output_stream_id": "gfm-29bfc94d-test_measurments",
+                            "output_stream_subject": "gfm-29bfc94d-test_measurments.input",
                             "consumer_group_initial_offset": "earliest",
                             "consumer_group_name": "glassflow-consumer-group-kafka-to-clickhouse-pipeline-b00005",
                             "name": "test_measurments",
@@ -559,9 +579,7 @@ Feature: Kafka to CH pipeline
                                 "id_field": "id",
                                 "id_field_type": "string",
                                 "time_window": "1h"
-                            },
-                            "output_stream_id": "gfm-29bfc94d-test_measurments",
-                            "output_stream_subject": "gfm-29bfc94d-test_measurments.input"
+                            }
                         }
                     ]
                 },
@@ -571,7 +589,7 @@ Feature: Kafka to CH pipeline
                 "sink": {
                     "type": "clickhouse",
                     "source_id": "test_measurments",
-                    "stream_id": "gf-test_measurments",
+                    "stream_id": "gfm-29bfc94d-test_measurments",
                     "batch": {
                         "max_batch_size": 1000,
                         "max_delay_time": "1s"
@@ -581,8 +599,7 @@ Feature: Kafka to CH pipeline
                         "secure": false,
                         "table": "test"
                     },
-                    "stream_id": "gfm-29bfc94d-test_measurments",
-                    "nats_consumer_name": "gf-nats-si-29bfc94d"
+                    "nats_consumer_name": "gf-nats-si-29bfc94d",
                     "config": [
                         {
                             "source_field": "id",
@@ -652,18 +669,15 @@ Feature: Kafka to CH pipeline
                     "kafka_topics": [
                         {
                             "id": "test_topic",
-                            "output_stream_id": "gf-test_topic",
-                            "output_stream_subject": "gf-test_topic.*",
+                            "output_stream_id": "gfm-859867ac-test_topic",
+                            "output_stream_subject": "gfm-859867ac-test_topic.*",
                             "consumer_group_initial_offset": "earliest",
                             "consumer_group_name": "glassflow-consumer-group-kafka-to-clickhouse-pipeline-b00006",
                             "name": "test_topic",
                             "replicas": 3,
                             "deduplication": {
                                 "enabled": false
-                            },
-                            "output_stream_id": "gfm-859867ac-test_topic",
-                            "output_stream_subject": "gfm-859867ac-test_topic.*",
-                            "replicas": 3
+                            }
                         }
                     ]
                 },
@@ -673,7 +687,7 @@ Feature: Kafka to CH pipeline
                 "sink": {
                     "type": "clickhouse",
                     "source_id": "test_topic",
-                    "stream_id": "gf-test_topic",
+                    "stream_id": "gfm-859867ac-test_topic",
                     "batch": {
                         "max_batch_size": 1000,
                         "max_delay_time": "1s"
@@ -683,8 +697,7 @@ Feature: Kafka to CH pipeline
                         "secure": false,
                         "table": "events_test"
                     },
-                    "stream_id": "gfm-859867ac-test_topic",
-                    "nats_consumer_name": "gf-nats-si-859867ac"
+                    "nats_consumer_name": "gf-nats-si-859867ac",
                     "config": [
                         {
                             "source_field": "id",
@@ -752,18 +765,15 @@ Feature: Kafka to CH pipeline
                     "kafka_topics": [
                         {
                             "id": "test_topic",
-                            "output_stream_id": "gf-test_topic",
-                            "output_stream_subject": "gf-test_topic.*",
+                            "output_stream_id": "gfm-92ff8558-test_topic",
+                            "output_stream_subject": "gfm-92ff8558-test_topic.*",
                             "consumer_group_initial_offset": "earliest",
                             "consumer_group_name": "glassflow-consumer-group-kafka-to-clickhouse-pipeline-b00007",
                             "name": "test_topic",
                             "replicas": 1,
                             "deduplication": {
                                 "enabled": false
-                            },
-                            "output_stream_id": "gfm-92ff8558-test_topic",
-                            "output_stream_subject": "gfm-92ff8558-test_topic.*",
-                            "replicas": 1
+                            }
                         }
                     ]
                 },
@@ -773,7 +783,7 @@ Feature: Kafka to CH pipeline
                 "sink": {
                     "type": "clickhouse",
                     "source_id": "test_topic",
-                    "stream_id": "gf-test_topic",
+                    "stream_id": "gfm-92ff8558-test_topic",
                     "batch": {
                         "max_batch_size": 1000,
                         "max_delay_time": "1s"
@@ -783,8 +793,7 @@ Feature: Kafka to CH pipeline
                         "secure": false,
                         "table": "events_test"
                     },
-                    "stream_id": "gfm-92ff8558-test_topic",
-                    "nats_consumer_name": "gf-nats-si-92ff8558"
+                    "nats_consumer_name": "gf-nats-si-92ff8558",
                     "config": [
                         {
                             "source_field": "id",

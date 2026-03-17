@@ -31,10 +31,11 @@ type JoinRunner struct {
 
 func NewJoinRunner(log *slog.Logger, nc *client.NATSClient, pipelineCfg models.PipelineConfig, db PipelineStore) *JoinRunner {
 	return &JoinRunner{
-		nc:  nc,
-		log: log,
-		cfg: pipelineCfg,
-		db:  db,
+		nc:      nc,
+		log:     log,
+		cfg:     pipelineCfg,
+		joinCfg: pipelineCfg.Join,
+		db:      db,
 
 		component: nil,
 	}

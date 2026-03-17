@@ -343,27 +343,9 @@ func (p *PipelineSteps) preparePipelineConfig(cfg string) (*models.PipelineConfi
 		}
 	}
 
-	// Set sink's stream ID to the ingestor's output stream (where messages are published)
-	if len(pc.Ingestor.KafkaTopics) == 1 {
-		pc.Sink.StreamID = pc.Ingestor.KafkaTopics[0].OutputStreamID
-	}
-
 	// Set NATS consumer name for sink if not provided
 	if pc.Sink.NATSConsumerName == "" {
 		pc.Sink.NATSConsumerName = models.GetNATSSinkConsumerName(pc.ID)
-	}
-
-	if pc.Join.Enabled {
-		// Set NATS consumer name for join if not provided
-		if pc.Join.NATSLeftConsumerName == "" {
-			pc.Join.NATSLeftConsumerName = models.GetNATSJoinLeftConsumerName(pc.ID)
-		}
-		if pc.Join.NATSRightConsumerName == "" {
-			pc.Join.NATSRightConsumerName = models.GetNATSJoinRightConsumerName(pc.ID)
-		}
-		joinOutputStream := models.GetJoinedStreamName(pc.ID)
-		pc.Join.OutputStreamID = joinOutputStream
-		pc.Sink.StreamID = joinOutputStream
 	}
 
 	// Update ClickHouse connection params with test container

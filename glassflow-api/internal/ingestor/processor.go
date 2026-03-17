@@ -142,6 +142,7 @@ func (k *KafkaMsgProcessor) getSubjectAndDedupKey(ctx context.Context, version s
 	if !k.topic.Deduplication.Enabled {
 		return k.getSubject(), "", nil
 	}
+
 	keyValue, err := k.schema.Get(ctx, version, k.topic.Deduplication.ID, msgData)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to get deduplication key: %w", err)
@@ -202,7 +203,11 @@ func (k *KafkaMsgProcessor) prepareMesssage(ctx context.Context, msg *kgo.Record
 		return nil, nil
 	}
 
-	subject, dedupKeyStr, err := k.getSubjectAndDedupKey(ctx, version, msg.Value)
+	msgData := msg.Value
+	if k.schema.IsExternal() {
+		msgData = msgData[5:] // Remove magic byte and schema version bytes for external schemas before publishing to NATS
+	}
+	subject, dedupKeyStr, err := k.getSubjectAndDedupKey(ctx, version, msgData)
 	if err != nil {
 		if dlqErr := k.pushMsgToDLQ(ctx, msg.Value, fmt.Errorf("%w: %w", ErrDeduplicateData, err)); dlqErr != nil {
 			return nil, fmt.Errorf("failed to push to DLQ: %w", dlqErr)
@@ -211,14 +216,9 @@ func (k *KafkaMsgProcessor) prepareMesssage(ctx context.Context, msg *kgo.Record
 	}
 
 	nMsg := nats.NewMsg(subject)
-	nMsg.Data = msg.Value
+	nMsg.Data = msgData
 
 	nMsg.Header.Set(internal.SchemaVersionIDHeader, version) // Set schema version header
-	if k.schema.IsExternal() {
-		nMsg.Data = msg.Value[5:] // Remove magic byte and schema version bytes for external schemas
-	} else {
-		nMsg.Data = msg.Value
-	}
 
 	k.setDedupHeader(nMsg.Header, dedupKeyStr)
 

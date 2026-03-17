@@ -306,8 +306,8 @@ func (s *IngestorTestSuite) iRunningIngestorComponent() error {
 		},
 	)
 	dedupEnabled := false
-	if len(s.ingestorCfg.KafkaTopics) == 1 {
-		dedupEnabled = s.ingestorCfg.KafkaTopics[0].Deduplication.Enabled
+	if len(s.pipelineConfig.Ingestor.KafkaTopics) == 1 {
+		dedupEnabled = s.pipelineConfig.Ingestor.KafkaTopics[0].Deduplication.Enabled
 	}
 
 	runtimeCfg := models.IngestorRuntimeConfig{

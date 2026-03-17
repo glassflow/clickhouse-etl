@@ -83,7 +83,7 @@ func (i *IngestorRunner) Start(ctx context.Context) error {
 		}
 	}
 
-	var srClient *sr.SchemaRegistryClient
+	var srClient schemav2.SchemaRegistryClient
 	if topicCfg.SchemaRegistryConfig.URL != "" {
 		srClient, err = sr.NewSchemaRegistryClient(topicCfg.SchemaRegistryConfig)
 		if err != nil {

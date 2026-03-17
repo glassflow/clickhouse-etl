@@ -208,12 +208,11 @@ type JoinSourceConfig struct {
 }
 
 type JoinComponentConfig struct {
-	ID             string             `json:"id"`
-	Type           string             `json:"type"`
-	Enabled        bool               `json:"enabled"`
-	Sources        []JoinSourceConfig `json:"sources"`
-	OutputStreamID string             `json:"output_stream_id"`
-	Config         []JoinRule         `json:"config,omitempty"`
+	ID      string             `json:"id"`
+	Type    string             `json:"type"`
+	Enabled bool               `json:"enabled"`
+	Sources []JoinSourceConfig `json:"sources"`
+	Config  []JoinRule         `json:"config,omitempty"`
 
 	LeftBufferTTL  JSONDuration `json:"left_buffer_ttl"`
 	RightBufferTTL JSONDuration `json:"right_buffer_ttl"`
