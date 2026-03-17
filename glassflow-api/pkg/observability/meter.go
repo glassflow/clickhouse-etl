@@ -17,25 +17,22 @@ import (
 // Meter holds all the metrics for glassflow components
 type Meter struct {
 	// Ingestor metrics
-	KafkaRecordsRead       metric.Int64Counter
-	RecordsProcessedPerSec metric.Float64Gauge
-	DLQRecordsWritten      metric.Int64Counter
-	RecordsFiltered        metric.Int64Counter
+	KafkaRecordsRead  metric.Int64Counter
+	DLQRecordsWritten metric.Int64Counter
+	RecordsFiltered   metric.Int64Counter
 
 	// Sink metrics
 	ClickHouseRecordsWritten metric.Int64Counter
 	SinkRecordsPerSec        metric.Float64Gauge
 
 	// Common metrics
+	ProcessorMessages  metric.Int64Counter
 	ProcessingDuration metric.Float64Histogram
 
-	HTTPRequestCount    metric.Int64Counter
-	HTTPRequestDuration metric.Float64Histogram
+	HTTPRequestCount metric.Int64Counter
 
-	// Unified processor metrics
-	ProcessorDuration metric.Float64Histogram
-	ProcessorMessages metric.Int64Counter
-	BytesProcessed    metric.Int64Counter
+	HTTPRequestDuration metric.Float64Histogram
+	BytesProcessed      metric.Int64Counter
 
 	// Component and pipeline info for labeling
 	component  string
@@ -92,8 +89,6 @@ func NewMeter(component, pipelineID string) *Meter {
 	return &Meter{
 		KafkaRecordsRead: mustCreateCounter(meter, GfMetricPrefix+"_"+"kafka_records_read_total",
 			"Total number of records read from Kafka"),
-		RecordsProcessedPerSec: mustCreateGauge(meter, GfMetricPrefix+"_"+"records_processed_per_second",
-			"Number of records processed per second"),
 		DLQRecordsWritten: mustCreateCounter(meter, GfMetricPrefix+"_"+"dlq_records_written_total",
 			"Total number of records written to dead letter queue"),
 		RecordsFiltered: mustCreateCounter(meter, GfMetricPrefix+"_"+"records_filtered_total",
@@ -108,8 +103,6 @@ func NewMeter(component, pipelineID string) *Meter {
 			"Total number of HTTP requests"),
 		HTTPRequestDuration: mustCreateHistogram(meter, GfMetricPrefix+"_"+"http_server_request_duration_seconds",
 			"Duration of HTTP requests"),
-		ProcessorDuration: mustCreateHistogram(meter, GfMetricPrefix+"_"+"processor_duration_seconds",
-			"Duration of processor operations in seconds"),
 		ProcessorMessages: mustCreateCounter(meter, GfMetricPrefix+"_"+"processor_messages_total",
 			"Total number of messages processed by processor"),
 		BytesProcessed: mustCreateCounter(meter, GfMetricPrefix+"_"+"bytes_processed_total",
@@ -122,14 +115,6 @@ func NewMeter(component, pipelineID string) *Meter {
 // RecordKafkaRead records a Kafka record read
 func (m *Meter) RecordKafkaRead(ctx context.Context, count int64) {
 	m.KafkaRecordsRead.Add(ctx, count, metric.WithAttributes(
-		attribute.String("component", m.component),
-		attribute.String("pipeline_id", m.pipelineID),
-	))
-}
-
-// RecordProcessingRate records the current processing rate
-func (m *Meter) RecordProcessingRate(ctx context.Context, rate float64) {
-	m.RecordsProcessedPerSec.Record(ctx, rate, metric.WithAttributes(
 		attribute.String("component", m.component),
 		attribute.String("pipeline_id", m.pipelineID),
 	))
@@ -168,39 +153,33 @@ func (m *Meter) RecordSinkRate(ctx context.Context, rate float64) {
 }
 
 // RecordProcessingDuration records processing duration
-func (m *Meter) RecordProcessingDuration(ctx context.Context, duration float64) {
+func (m *Meter) RecordProcessingDuration(ctx context.Context, component string, duration float64) {
 	m.ProcessingDuration.Record(ctx, duration, metric.WithAttributes(
-		attribute.String("component", m.component),
+		attribute.String("component", component),
 		attribute.String("pipeline_id", m.pipelineID),
 	))
 }
 
-func (m *Meter) RecordProcessingDurationWithStage(ctx context.Context, duration float64, stage string) {
+func (m *Meter) RecordProcessingDurationWithStage(
+	ctx context.Context,
+	component string,
+	duration float64,
+	stage string,
+) {
 	m.ProcessingDuration.Record(ctx, duration, metric.WithAttributes(
-		attribute.String("component", m.component),
+		attribute.String("component", component),
 		attribute.String("pipeline_id", m.pipelineID),
 		attribute.String("stage", stage),
-	))
-}
-
-// RecordProcessorDuration records the duration of a processor operation
-// processor: filter, transform, dedup_lookup, dedup_write
-func (m *Meter) RecordProcessorDuration(ctx context.Context, processor string, duration float64) {
-	m.ProcessorDuration.Record(ctx, duration, metric.WithAttributes(
-		attribute.String("component", m.component),
-		attribute.String("pipeline_id", m.pipelineID),
-		attribute.String("processor", processor),
 	))
 }
 
 // RecordProcessorMessages records the number of messages processed with a given status
 // processor: filter, transform, dedup
 // status: success, error, filtered, duplicate
-func (m *Meter) RecordProcessorMessages(ctx context.Context, processor, status string, count int64) {
+func (m *Meter) RecordProcessorMessages(ctx context.Context, component, status string, count int64) {
 	m.ProcessorMessages.Add(ctx, count, metric.WithAttributes(
-		attribute.String("component", m.component),
+		attribute.String("component", component),
 		attribute.String("pipeline_id", m.pipelineID),
-		attribute.String("processor", processor),
 		attribute.String("status", status),
 	))
 }

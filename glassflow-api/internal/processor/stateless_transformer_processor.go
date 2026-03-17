@@ -69,7 +69,7 @@ func (stp *StatelessTransformerProcessor) ProcessBatch(
 
 	duration := time.Since(start).Seconds()
 	if stp.meter != nil {
-		stp.meter.RecordProcessorDuration(ctx, "transform", duration)
+		stp.meter.RecordProcessingDuration(ctx, "transform", duration)
 		if len(result.Messages) > 0 {
 			stp.meter.RecordProcessorMessages(ctx, "transform", "success", int64(len(result.Messages)))
 		}

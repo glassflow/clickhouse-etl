@@ -654,11 +654,11 @@ func (ch *ClickHouseSink) createCHBatches(
 
 	// Record processing time metrics
 	if ch.meter != nil {
-		ch.meter.RecordProcessingDurationWithStage(ctx, schemaMappingTotalTime.Seconds(), "schema_mapping")
-		ch.meter.RecordProcessingDurationWithStage(ctx, totalPrepDuration.Seconds(), "total_preparation")
+		ch.meter.RecordProcessingDurationWithStage(ctx, "sink", schemaMappingTotalTime.Seconds(), "schema_mapping")
+		ch.meter.RecordProcessingDurationWithStage(ctx, "sink", totalPrepDuration.Seconds(), "total_preparation")
 		if len(messages) > 0 {
 			avgPerMessage := totalPrepDuration.Seconds() / float64(len(messages))
-			ch.meter.RecordProcessingDurationWithStage(ctx, avgPerMessage, "per_message")
+			ch.meter.RecordProcessingDurationWithStage(ctx, "sink", avgPerMessage, "per_message")
 		}
 	}
 
