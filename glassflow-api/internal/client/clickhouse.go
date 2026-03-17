@@ -3,7 +3,6 @@ package client
 import (
 	"context"
 	"crypto/tls"
-	"encoding/base64"
 	"fmt"
 	"time"
 
@@ -73,11 +72,6 @@ func (c *ClickHouseClient) connect(ctx context.Context) error {
 		return fmt.Errorf("failed to close existing connection: %w", err)
 	}
 
-	pswd, err := base64.StdEncoding.DecodeString(c.password)
-	if err != nil {
-		return fmt.Errorf("failed to decode password: %w", err)
-	}
-
 	var tlsConfig *tls.Config
 	if c.secure {
 		tlsConfig = &tls.Config{ //nolint:exhaustruct //optionals
@@ -95,7 +89,7 @@ func (c *ClickHouseClient) connect(ctx context.Context) error {
 		TLS:      tlsConfig,
 		Auth: clickhouse.Auth{ //nolint:exhaustruct //optionals
 			Username: c.username,
-			Password: string(pswd),
+			Password: c.password,
 		},
 	})
 	if err != nil {

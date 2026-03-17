@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/componentsignals"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/kafka"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
+	schemav2 "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema_v2"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 )
@@ -29,7 +30,8 @@ func NewKafkaIngestor(
 	topicName string,
 	runtimeCfg models.IngestorRuntimeConfig,
 	natsPub, dlqPub stream.Publisher,
-	schema schema.Mapper,
+	schema *schemav2.Schema,
+	signalPublisher *componentsignals.ComponentSignalPublisher,
 	log *slog.Logger,
 	meter *observability.Meter,
 ) (*KafkaIngestor, error) {
@@ -62,11 +64,13 @@ func NewKafkaIngestor(
 	}
 
 	msgProcessor, err := NewKafkaMsgProcessor(
+		config.ID,
 		natsPub,
 		dlqPub,
 		schema,
 		topic,
 		runtimeCfg,
+		signalPublisher,
 		log,
 		meter,
 	)
