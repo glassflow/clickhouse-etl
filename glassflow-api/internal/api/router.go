@@ -12,7 +12,6 @@ import (
 	"github.com/danielgtaylor/huma/v2/adapters/humamux"
 	"github.com/gorilla/mux"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/usagestats"
 )
 
@@ -39,7 +38,6 @@ func NewRouter(
 	log *slog.Logger,
 	pipelineService PipelineService,
 	dlqService DLQ,
-	meter *observability.Meter,
 	usageStatsClient *usagestats.Client,
 ) http.Handler {
 	r := mux.NewRouter()
@@ -103,7 +101,7 @@ func NewRouter(
 
 	r.HandleFunc("/api/v1/healthz", h.healthz).Methods("GET")
 
-	r.Use(Recovery(log), RequestLogging(log), RequestMetrics(meter))
+	r.Use(Recovery(log), RequestLogging(log), RequestMetrics())
 
 	return r
 }

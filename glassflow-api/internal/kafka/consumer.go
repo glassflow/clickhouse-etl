@@ -34,7 +34,6 @@ type Consumer struct {
 	timeout   time.Duration
 	batch     []*kgo.Record
 	processor MessageProcessor
-	meter     *observability.Meter
 	log       *slog.Logger
 	cancel    context.CancelFunc
 	closeCh   chan struct{}
@@ -67,7 +66,7 @@ func (l *kgoLogger) Log(level kgo.LogLevel, msg string, keyvals ...any) {
 	l.log.Log(context.Background(), slogLevel, msg, keyvals...)
 }
 
-func NewConsumer(conn models.KafkaConnectionParamsConfig, topic models.KafkaTopicsConfig, log *slog.Logger, meter *observability.Meter) (zero *Consumer, _ error) {
+func NewConsumer(conn models.KafkaConnectionParamsConfig, topic models.KafkaTopicsConfig, log *slog.Logger) (zero *Consumer, _ error) {
 	clientOpts, err := buildClientOptions(conn, topic)
 	if err != nil {
 		return &Consumer{}, fmt.Errorf("build client options: %w", err)
@@ -93,7 +92,6 @@ func NewConsumer(conn models.KafkaConnectionParamsConfig, topic models.KafkaTopi
 		groupID:   topic.ConsumerGroupName,
 		log:       log,
 		timeout:   internal.DefaultKafkaBatchTimeout,
-		meter:     meter,
 		batch:     make([]*kgo.Record, 0),
 		closeCh:   make(chan struct{}),
 		processor: nil,
@@ -324,12 +322,10 @@ func (c *Consumer) processBatch(ctx context.Context) error {
 	c.batch = c.batch[:0]
 
 	// Record Kafka read metric
-	if c.meter != nil {
-		c.meter.RecordKafkaRead(ctx, int64(size))
-		duration := time.Since(start).Seconds()
-		c.meter.RecordProcessingDuration(ctx, "ingestor", duration/float64(size))
-		c.meter.RecordBytesProcessed(ctx, "ingestor", "in", totalBytes)
-	}
+	observability.RecordKafkaRead(ctx, "ingestor", int64(size))
+	duration := time.Since(start).Seconds()
+	observability.RecordProcessingDuration(ctx, "ingestor", duration/float64(size))
+	observability.RecordBytesProcessed(ctx, "ingestor", "in", totalBytes)
 
 	return nil
 }

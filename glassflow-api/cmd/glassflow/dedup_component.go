@@ -28,7 +28,6 @@ func mainDeduplicatorV2(
 	nc *client.NATSClient,
 	cfg *config,
 	log *slog.Logger,
-	meter *observability.Meter,
 ) error {
 	if cfg.DedupTopic == "" {
 		return fmt.Errorf("deduplicator topic must be specified via GLASSFLOW_DEDUP_TOPIC")
@@ -38,6 +37,12 @@ func mainDeduplicatorV2(
 	if err != nil {
 		return fmt.Errorf("failed to get pipeline config: %w", err)
 	}
+
+	if pipelineCfg.ID == "" {
+		return fmt.Errorf("pipeline ID is empty")
+	}
+
+	observability.SetPipelineID(pipelineCfg.ID)
 
 	var topicConfig *models.KafkaTopicsConfig
 	for i, topic := range pipelineCfg.Ingestor.KafkaTopics {
@@ -131,7 +136,6 @@ func mainDeduplicatorV2(
 		log,
 		pipelineCfg,
 		cfg,
-		meter,
 		componentSignal,
 	)
 	if err != nil {
@@ -157,12 +161,11 @@ func NewDedupComponent(
 	log *slog.Logger,
 	pipelineConfig models.PipelineConfig,
 	cfg *config,
-	meter *observability.Meter,
 	componentSignalPublisher *componentsignals.ComponentSignalPublisher,
 ) (*processor.StreamingComponent, error) {
 	role := internal.RoleDeduplicator
 
-	dedupProcessor, err := dedupProcessorFromConfig(pipelineConfig, cfg, meter)
+	dedupProcessor, err := dedupProcessorFromConfig(pipelineConfig, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("dedupProcessorFromConfig: %w", err)
 	}
@@ -172,7 +175,6 @@ func NewDedupComponent(
 		pipelineConfig,
 		cfg,
 		componentSignalPublisher,
-		meter,
 		log,
 	)
 	if err != nil {
@@ -184,7 +186,7 @@ func NewDedupComponent(
 		statelessTransformerProcessorBase,
 	)
 
-	filterProcessorBase, err := filterProcessorFromConfig(pipelineConfig, meter)
+	filterProcessorBase, err := filterProcessorFromConfig(pipelineConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -213,7 +215,6 @@ func statelessTransformerProcessorFromConfig(
 	config models.PipelineConfig,
 	cfg *config,
 	componentSignalPublisher *componentsignals.ComponentSignalPublisher,
-	meter *observability.Meter,
 	log *slog.Logger,
 ) (processor.Processor, error) {
 	if !config.StatelessTransformation.Enabled {
@@ -236,14 +237,11 @@ func statelessTransformerProcessorFromConfig(
 		config.StatelessTransformation.SourceID,
 	)
 
-	statelessTransformerProcessorBase := processor.NewStatelessTransformerProcessor(transformer, meter)
-
-	return statelessTransformerProcessorBase, nil
+	return processor.NewStatelessTransformerProcessor(transformer), nil
 }
 
 func filterProcessorFromConfig(
 	config models.PipelineConfig,
-	meter *observability.Meter,
 ) (processor.Processor, error) {
 	if !config.Filter.Enabled {
 		return &processor.NoopProcessor{}, nil
@@ -254,14 +252,12 @@ func filterProcessorFromConfig(
 		return nil, fmt.Errorf("failed to create filter component: %w", err)
 	}
 
-	return processor.NewFilterProcessor(filterJson, meter), nil
-
+	return processor.NewFilterProcessor(filterJson), nil
 }
 
 func dedupProcessorFromConfig(
 	config models.PipelineConfig,
 	cfg *config,
-	meter *observability.Meter,
 ) (processor.Processor, error) {
 	var topicConfig *models.KafkaTopicsConfig
 	for i, topic := range config.Ingestor.KafkaTopics {
@@ -289,7 +285,7 @@ func dedupProcessorFromConfig(
 	ttl := topicConfig.Deduplication.Window.Duration()
 	badgerDedup := badgerDeduplication.NewDeduplicator(db, ttl)
 
-	return processor.NewDedupProcessor(badgerDedup, meter), nil
+	return processor.NewDedupProcessor(badgerDedup), nil
 }
 
 // getOutputSubjectFromEnv returns the NATS subject to publish to.

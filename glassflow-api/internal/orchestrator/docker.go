@@ -179,7 +179,6 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 				*pi,
 				d.db,
 				runtimeCfg,
-				nil, // nil meter for docker orchestrator
 			)
 
 			err = ingestorRunner.Start(ctx)
@@ -237,7 +236,6 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 		d.nc,
 		*pi,
 		d.db,
-		nil, // nil meter for docker orchestrator
 	)
 
 	err = d.sinkRunner.Start(ctx)

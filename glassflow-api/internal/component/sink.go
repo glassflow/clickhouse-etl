@@ -14,7 +14,6 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/sink"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 )
 
 type Sink interface {
@@ -37,7 +36,6 @@ func NewSinkComponent(
 	cfgStore *configs.ConfigStore,
 	doneCh chan struct{},
 	log *slog.Logger,
-	meter *observability.Meter,
 	dlqPublisher stream.Publisher,
 	streamSourceID string,
 ) (Component, error) {
@@ -51,7 +49,6 @@ func NewSinkComponent(
 		mapper,
 		cfgStore,
 		log,
-		meter,
 		dlqPublisher,
 		models.ClickhouseQueryConfig{
 			WaitForAsyncInsert: true,

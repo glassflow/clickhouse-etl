@@ -114,7 +114,7 @@ func (p *PlatformSteps) setupServices() error {
 	p.pipelineService = service.NewPipelineService(p.orchestrator, db, p.log)
 
 	// Create HTTP router
-	p.httpRouter = api.NewRouter(p.log, p.pipelineService, nil, nil, usageStatsClient)
+	p.httpRouter = api.NewRouter(p.log, p.pipelineService, nil, usageStatsClient)
 
 	return nil
 }

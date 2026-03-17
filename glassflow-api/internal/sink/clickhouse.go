@@ -70,7 +70,6 @@ type ClickHouseSink struct {
 	clickhouseQueryConfig models.ClickhouseQueryConfig
 	streamSourceID        string
 	log                   *slog.Logger
-	meter                 *observability.Meter
 	dlqPublisher          stream.Publisher
 
 	// Batch accumulation
@@ -97,7 +96,6 @@ func NewClickHouseSink(
 	mapper FieldMapper,
 	cfgStore ConfigStore,
 	log *slog.Logger,
-	meter *observability.Meter,
 	dlqPublisher stream.Publisher,
 	clickhouseQueryConfig models.ClickhouseQueryConfig,
 	streamSourceID string,
@@ -129,7 +127,6 @@ func NewClickHouseSink(
 		cfgStore:              cfgStore,
 		sinkConfig:            sinkConfig,
 		log:                   log,
-		meter:                 meter,
 		dlqPublisher:          dlqPublisher,
 		clickhouseQueryConfig: clickhouseQueryConfig,
 		streamSourceID:        streamSourceID,
@@ -419,9 +416,7 @@ func (ch *ClickHouseSink) sendBatch(ctx context.Context, messages []jetstream.Ms
 		totalBytes += int64(len(msg.Data()))
 	}
 
-	if ch.meter != nil {
-		ch.meter.RecordBytesProcessed(ctx, "sink", "in", totalBytes)
-	}
+	observability.RecordBytesProcessed(ctx, "sink", "in", totalBytes)
 
 	batchesBySchema, err := ch.createCHBatches(ctx, messages)
 	if err != nil {
@@ -464,17 +459,15 @@ func (ch *ClickHouseSink) sendBatch(ctx context.Context, messages []jetstream.Ms
 			"schema_version_id", schemaVersionID,
 			"message_count", size)
 
-		if ch.meter != nil {
-			ch.meter.RecordClickHouseWrite(ctx, int64(size))
+		observability.RecordClickHouseWrite(ctx, "sink", int64(size))
 
-			duration := time.Since(start).Seconds()
-			if duration > 0 {
-				rate := float64(size) / duration
-				ch.meter.RecordSinkRate(ctx, rate)
-			}
-
-			ch.meter.RecordBytesProcessed(ctx, "sink", "out", totalBytes)
+		duration := time.Since(start).Seconds()
+		if duration > 0 {
+			rate := float64(size) / duration
+			observability.RecordSinkRate(ctx, "sink", rate)
 		}
+
+		observability.RecordBytesProcessed(ctx, "sink", "out", totalBytes)
 	}
 
 	if allErr != nil {
@@ -653,13 +646,11 @@ func (ch *ClickHouseSink) createCHBatches(
 	totalPrepDuration := time.Since(prepStartTime)
 
 	// Record processing time metrics
-	if ch.meter != nil {
-		ch.meter.RecordProcessingDurationWithStage(ctx, "sink", schemaMappingTotalTime.Seconds(), "schema_mapping")
-		ch.meter.RecordProcessingDurationWithStage(ctx, "sink", totalPrepDuration.Seconds(), "total_preparation")
-		if len(messages) > 0 {
-			avgPerMessage := totalPrepDuration.Seconds() / float64(len(messages))
-			ch.meter.RecordProcessingDurationWithStage(ctx, "sink", avgPerMessage, "per_message")
-		}
+	observability.RecordProcessingDurationWithStage(ctx, "sink", "schema_mapping", schemaMappingTotalTime.Seconds())
+	observability.RecordProcessingDurationWithStage(ctx, "sink", "total_preparation", totalPrepDuration.Seconds())
+	if len(messages) > 0 {
+		avgPerMessage := totalPrepDuration.Seconds() / float64(len(messages))
+		observability.RecordProcessingDurationWithStage(ctx, "sink", "per_message", avgPerMessage)
 	}
 
 	ch.log.InfoContext(ctx, "Batch preparation completed",
@@ -720,9 +711,7 @@ func (ch *ClickHouseSink) pushMsgToDLQ(ctx context.Context, orgMsg []byte, err e
 	}
 
 	// Record DLQ write metric
-	if ch.meter != nil {
-		ch.meter.RecordDLQWrite(ctx, 1)
-	}
+	observability.RecordDLQWrite(ctx, "sink", 1)
 
 	return nil
 }

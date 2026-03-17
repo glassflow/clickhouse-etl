@@ -16,13 +16,11 @@ type statelessTransformer interface {
 
 type StatelessTransformerProcessor struct {
 	transformer statelessTransformer
-	meter       *observability.Meter
 }
 
-func NewStatelessTransformerProcessor(transformer statelessTransformer, meter *observability.Meter) *StatelessTransformerProcessor {
+func NewStatelessTransformerProcessor(transformer statelessTransformer) *StatelessTransformerProcessor {
 	return &StatelessTransformerProcessor{
 		transformer: transformer,
-		meter:       meter,
 	}
 }
 
@@ -36,9 +34,7 @@ func (stp *StatelessTransformerProcessor) ProcessBatch(
 	for _, msg := range batch.Messages {
 		inBytes += int64(len(msg.Payload()))
 	}
-	if stp.meter != nil {
-		stp.meter.RecordBytesProcessed(ctx, "transform", "in", inBytes)
-	}
+	observability.RecordBytesProcessed(ctx, "transform", "in", inBytes)
 
 	result := ProcessorBatch{}
 	for _, message := range batch.Messages {
@@ -68,22 +64,19 @@ func (stp *StatelessTransformerProcessor) ProcessBatch(
 	}
 
 	duration := time.Since(start).Seconds()
-	if stp.meter != nil {
-		stp.meter.RecordProcessingDuration(ctx, "transform", duration)
-		if len(result.Messages) > 0 {
-			stp.meter.RecordProcessorMessages(ctx, "transform", "success", int64(len(result.Messages)))
-		}
-		if len(result.FailedMessages) > 0 {
-			stp.meter.RecordProcessorMessages(ctx, "transform", "error", int64(len(result.FailedMessages)))
-		}
-
-		var outBytes int64
-		for _, msg := range result.Messages {
-			outBytes += int64(len(msg.Payload()))
-		}
-
-		stp.meter.RecordBytesProcessed(ctx, "transform", "out", outBytes)
+	observability.RecordProcessingDuration(ctx, "transform", duration)
+	if len(result.Messages) > 0 {
+		observability.RecordProcessorMessages(ctx, "transform", "success", int64(len(result.Messages)))
 	}
+	if len(result.FailedMessages) > 0 {
+		observability.RecordProcessorMessages(ctx, "transform", "error", int64(len(result.FailedMessages)))
+	}
+
+	var outBytes int64
+	for _, msg := range result.Messages {
+		outBytes += int64(len(msg.Payload()))
+	}
+	observability.RecordBytesProcessed(ctx, "transform", "out", outBytes)
 
 	return result
 }

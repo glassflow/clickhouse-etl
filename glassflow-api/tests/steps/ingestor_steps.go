@@ -99,7 +99,7 @@ func (s *IngestorTestSuite) SetupResources() error {
 	}
 
 	// Create pipeline store
-	if s.pipelineStore == nil {
+	if s.pipelineStore == nil && s.postgresContainer != nil {
 		s.logger.Debug("Pipeline store DSN", slog.String("dsn", s.postgresContainer.GetDSN()))
 		db, err := storage.NewPipelineStore(context.Background(), s.postgresContainer.GetDSN(), testutils.NewTestLogger(), nil, internal.RoleIngestor)
 		if err != nil {
@@ -349,7 +349,6 @@ func (s *IngestorTestSuite) iRunningIngestorComponent() error {
 		signalPublisher,
 		make(chan struct{}),
 		s.logger,
-		nil, // nil meter for e2e tests
 	)
 	if err != nil {
 		return fmt.Errorf("create ingestor component: %w", err)

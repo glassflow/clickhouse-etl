@@ -10,7 +10,6 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	schemav2 "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema_v2"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 )
 
 type KafkaConsumer interface {
@@ -33,7 +32,6 @@ func NewKafkaIngestor(
 	schema *schemav2.Schema,
 	signalPublisher *componentsignals.ComponentSignalPublisher,
 	log *slog.Logger,
-	meter *observability.Meter,
 ) (*KafkaIngestor, error) {
 	var topic models.KafkaTopicsConfig
 
@@ -58,7 +56,7 @@ func NewKafkaIngestor(
 		return nil, fmt.Errorf("topic %s not found in ingestor config", topicName)
 	}
 
-	consumer, err := kafka.NewConsumer(config.Ingestor.KafkaConnectionParams, topic, log, meter)
+	consumer, err := kafka.NewConsumer(config.Ingestor.KafkaConnectionParams, topic, log)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Kafka consumer: %w", err)
 	}
@@ -72,7 +70,6 @@ func NewKafkaIngestor(
 		runtimeCfg,
 		signalPublisher,
 		log,
-		meter,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create kafka message processor: %w", err)
