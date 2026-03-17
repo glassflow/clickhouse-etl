@@ -91,6 +91,12 @@ func (s *SinkRunner) Start(ctx context.Context) error {
 	}
 	s.log.InfoContext(ctx, "Sink will read from NATS stream", "stream", inputStreamName, "pipelineId", s.pipelineCfg.Status.PipelineID)
 
+	dlqSubject := models.GetDLQStreamSubjectName(s.pipelineCfg.ID)
+	s.log.InfoContext(ctx, "Sink will write failed events to DLQ subject",
+		"dlq_subject", dlqSubject,
+		"pipelineId", s.pipelineCfg.Status.PipelineID,
+	)
+
 	consumer, err := stream.NewNATSConsumer(
 		ctx,
 		s.nc.JetStream(),
@@ -111,7 +117,7 @@ func (s *SinkRunner) Start(ctx context.Context) error {
 	dlqStreamPublisher := stream.NewNATSPublisher(
 		s.nc.JetStream(),
 		stream.PublisherConfig{
-			Subject: models.GetDLQStreamSubjectName(s.pipelineCfg.ID),
+			Subject: dlqSubject,
 		},
 	)
 

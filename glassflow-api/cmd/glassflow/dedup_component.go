@@ -74,11 +74,14 @@ func mainDeduplicatorV2(
 		maxAckPending = 1
 	}
 
+	dlqSubject := models.GetDLQStreamSubjectName(pipelineCfg.ID)
+
 	log.InfoContext(ctx, "Starting deduplicator",
 		slog.String("topic", cfg.DedupTopic),
 		slog.String("pipeline_id", pipelineCfg.ID),
 		slog.String("input_stream", inputStreamName),
 		slog.String("output_subject", outputSubject),
+		slog.String("dlq_subject", dlqSubject),
 		slog.Duration("ttl", topicConfig.Deduplication.Window.Duration()),
 		slog.Int("batch_size", batchSize),
 		slog.Duration("max_wait", maxWait),
@@ -112,7 +115,7 @@ func mainDeduplicatorV2(
 
 	dlqWriter := batchNats.NewBatchWriter(
 		nc.JetStream(),
-		models.GetDLQStreamSubjectName(pipelineCfg.ID),
+		dlqSubject,
 	)
 
 	component, err := NewDedupComponent(
