@@ -3,23 +3,24 @@
 import React, { useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronLeftIcon } from '@heroicons/react/24/outline'
+import { History, MoreHorizontal } from 'lucide-react'
 import { useStore } from '@/src/store'
 import { AiChatPanel } from '@/src/modules/ai/components/AiChatPanel'
 import { AiIntentSummary } from '@/src/modules/ai/components/AiIntentSummary'
-import { AiDocHints } from '@/src/modules/ai/components/AiDocHints'
 import { Button } from '@/src/components/ui/button'
+import { Badge } from '@/src/components/ui/badge'
 import { materializeIntentToStore, type MaterializationPasswords } from '@/src/modules/ai/materializeIntentToStore'
 import { navigateToWizardStep } from '@/src/modules/ai/navigateToWizardStep'
 import { cn } from '@/src/utils/common.client'
 import type { IntentApiRequest, IntentApiResponse } from '@/src/modules/ai/types'
 import type { TestConnectionResponse } from '@/src/app/ui-api/ai/pipeline/test-connection/route'
+import type { DocHintItem } from '@/src/modules/ai/types'
 
 export function AiPipelinePageClient() {
   const router = useRouter()
   const { aiSessionStore } = useStore()
   const { sessionId, status, messages, intent, docHints, error, kafkaPassword, clickhousePassword } = aiSessionStore
 
-  // Initialize session on mount if not already active
   React.useEffect(() => {
     if (status === 'idle') {
       aiSessionStore.startAiSession()
@@ -34,7 +35,6 @@ export function AiPipelinePageClient() {
     async (userMessage: string) => {
       if (isLoading) return
 
-      // Add user message to chat
       aiSessionStore.appendAiMessage({ role: 'user', content: userMessage })
       aiSessionStore.setAiStatus('enriching')
 
@@ -56,28 +56,18 @@ export function AiPipelinePageClient() {
           body: JSON.stringify(requestBody),
         })
 
-        if (!response.ok) {
-          throw new Error(`Request failed: ${response.statusText}`)
-        }
+        if (!response.ok) throw new Error(`Request failed: ${response.statusText}`)
 
         const data: IntentApiResponse = await response.json()
 
-        // Apply intent delta
         if (data.intentDelta && Object.keys(data.intentDelta).length > 0) {
           aiSessionStore.applyIntentDelta(data.intentDelta)
         }
-
-        // Set doc hints
         if (data.docHints?.length) {
           aiSessionStore.setAiDocHints(data.docHints)
         }
 
-        // Add assistant response to chat
-        aiSessionStore.appendAiMessage({
-          role: 'assistant',
-          content: data.assistantMessage,
-        })
-
+        aiSessionStore.appendAiMessage({ role: 'assistant', content: data.assistantMessage })
         aiSessionStore.setAiStatus('collecting')
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Something went wrong'
@@ -104,16 +94,13 @@ export function AiPipelinePageClient() {
           clickhousePassword: clickhousePassword ?? undefined,
         }),
       })
-      if (!response.ok) {
-        throw new Error(`Request failed: ${response.statusText}`)
-      }
+      if (!response.ok) throw new Error(`Request failed: ${response.statusText}`)
       const data: TestConnectionResponse = await response.json()
 
       if (data.intentDelta && Object.keys(data.intentDelta).length > 0) {
         aiSessionStore.applyIntentDelta(data.intentDelta)
       }
 
-      // Summarize results as an assistant message so context is preserved in chat
       const lines: string[] = []
       if (data.summary.kafka) lines.push(data.summary.kafka)
       if (data.summary.clickhouse) lines.push(data.summary.clickhouse)
@@ -134,7 +121,6 @@ export function AiPipelinePageClient() {
     aiSessionStore.setAiStatus('materializing')
 
     try {
-      // 1. Validate intent on server
       const validateResponse = await fetch('/ui-api/ai/pipeline/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -152,7 +138,6 @@ export function AiPipelinePageClient() {
         return
       }
 
-      // 2. Materialize intent to store (client-side hydration)
       const matPasswords: MaterializationPasswords = {
         kafkaPassword: kafkaPassword ?? undefined,
         clickhousePassword: clickhousePassword ?? undefined,
@@ -166,10 +151,7 @@ export function AiPipelinePageClient() {
         })
       }
 
-      // 3. Set wizard navigation state
       navigateToWizardStep(intent)
-
-      // 4. Navigate to wizard
       router.push('/pipelines/create')
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Materialization failed'
@@ -178,77 +160,183 @@ export function AiPipelinePageClient() {
     }
   }, [sessionId, intent, router, aiSessionStore])
 
+  const statusLabel: Record<string, string> = {
+    idle: 'Initializing',
+    collecting: 'Collecting info',
+    enriching: 'Processing',
+    materializing: 'Generating',
+    error: 'Error',
+  }
+
   return (
-    // Negative margins cancel main's py-4/sm:py-8 + footer py-4/sm:py-6 so the panel fills the screen without body scroll
+    // Negative margins cancel main's py-4/sm:py-8 and footer py-4/sm:py-6 so the panel fills screen height
     <div className="-mt-4 sm:-mt-8 -mb-12 sm:-mb-20 h-[calc(100dvh-56px)] flex flex-col overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between px-6 py-3 border-b border-[var(--surface-border)] shrink-0">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => router.push('/')}
-            className="flex items-center gap-1.5 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
-          >
-            <ChevronLeftIcon className="w-3.5 h-3.5" />
-            Back
-          </button>
-          <div className="w-px h-4 bg-[var(--surface-border)]" />
-          <span className="text-sm font-medium text-[var(--text-primary)]">Create with AI</span>
-        </div>
-        {error && (
-          <span className="text-xs text-[var(--color-foreground-critical)]">{error}</span>
-        )}
+      {/* Page header */}
+      <div className="flex items-center justify-between pt-6 pb-4 shrink-0">
+        <h1 className="text-4xl font-semibold tracking-tight text-[var(--text-primary)]">
+          Playground
+        </h1>
+        <button
+          onClick={() => router.push('/')}
+          className="flex items-center gap-1.5 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors border border-[var(--surface-border)] rounded-lg px-3 h-8 shadow-sm bg-[var(--surface-bg)]"
+        >
+          <ChevronLeftIcon className="w-4 h-4" />
+          Back to pipelines
+        </button>
       </div>
 
-      {/* Main two-panel layout */}
-      <div className="flex flex-1 min-h-0">
-        {/* Chat panel (left) */}
-        <div className="flex flex-col w-[55%] border-r border-[var(--surface-border)] min-h-0">
-          <AiChatPanel
-            messages={messages}
-            isLoading={isLoading}
-            onSendMessage={handleSendMessage}
-            placeholder="Describe your pipeline — e.g. 'Stream orders from Kafka to ClickHouse with deduplication by order_id'"
-            disabled={status === 'materializing'}
-          />
-          {/* Doc hints at bottom of chat panel */}
-          <AiDocHints hints={docHints} />
-        </div>
-
-        {/* Intent summary (right) */}
-        <div className="flex flex-col w-[45%] min-h-0">
-          <AiIntentSummary
-            intent={intent}
-            className="flex-1 min-h-0"
-            kafkaPassword={kafkaPassword ?? undefined}
-            clickhousePassword={clickhousePassword ?? undefined}
-            onKafkaPasswordChange={aiSessionStore.setKafkaPassword}
-            onClickhousePasswordChange={aiSessionStore.setClickhousePassword}
-            onTestConnections={handleTestConnections}
-            isTestingConnections={isTestingConnections}
-          />
-
-          {/* Generate Draft CTA */}
-          <div className={cn(
-            'p-4 border-t border-[var(--surface-border)] shrink-0 transition-opacity',
-            canGenerate ? 'opacity-100' : 'opacity-40 pointer-events-none',
-          )}>
+      {/* Playground card — grows to fill remaining height */}
+      <div className="flex-1 min-h-0 border border-[var(--surface-border)] rounded-xl bg-[var(--surface-bg)] flex flex-col mb-8">
+        {/* Card header */}
+        <div className="flex items-center justify-between px-8 py-4 border-b border-[var(--surface-border)] shrink-0">
+          <h2 className="text-lg font-semibold text-[var(--text-primary)] truncate">
+            AI Pipeline Builder
+          </h2>
+          <div className="flex items-center gap-2">
+            {error && (
+              <span className="text-xs text-[var(--color-foreground-critical)] mr-2 shrink-0">{error}</span>
+            )}
             <Button
-              variant="primary"
-              className="w-full"
-              onClick={handleGenerateDraft}
-              disabled={!canGenerate || status === 'materializing'}
-              loading={status === 'materializing'}
-              loadingText="Generating draft..."
+              variant="secondary"
+              size="sm"
+              onClick={() => aiSessionStore.startAiSession()}
             >
-              Generate Draft
+              Reset
             </Button>
-            <p className="text-xs text-[var(--text-secondary)] text-center mt-2">
-              {canGenerate
-                ? "Pre-fills the wizard with your pipeline configuration"
-                : "Keep chatting to complete your pipeline configuration"}
-            </p>
+            <Button variant="secondary" size="icon" className="h-9 w-9">
+              <MoreHorizontal className="w-4 h-4" />
+            </Button>
           </div>
         </div>
+
+        {/* Card body — fills remaining card height */}
+        <div className="flex-1 min-h-0 flex gap-6 px-8 py-6">
+          {/* Main content area */}
+          <div className="flex-1 min-h-0 min-w-0 flex flex-col gap-4">
+            {/* Two panels — fill available height */}
+            <div className="flex-1 min-h-0 flex gap-6">
+              {/* Chat panel */}
+              <div className="flex-1 border border-[var(--surface-border)] rounded-xl shadow-sm bg-[var(--surface-bg)] overflow-hidden">
+                <AiChatPanel
+                  messages={messages}
+                  isLoading={isLoading}
+                  onSendMessage={handleSendMessage}
+                  placeholder="Describe your pipeline — e.g. 'Stream orders from Kafka to ClickHouse with deduplication by order_id'"
+                  disabled={status === 'materializing'}
+                />
+              </div>
+
+              {/* Pipeline preview panel */}
+              <div className="flex-1 border border-[var(--surface-border)] rounded-xl shadow-sm bg-[var(--surface-bg-sunken)] overflow-hidden">
+                <AiIntentSummary
+                  intent={intent}
+                  className="h-full"
+                  kafkaPassword={kafkaPassword ?? undefined}
+                  clickhousePassword={clickhousePassword ?? undefined}
+                  onKafkaPasswordChange={aiSessionStore.setKafkaPassword}
+                  onClickhousePasswordChange={aiSessionStore.setClickhousePassword}
+                  onTestConnections={handleTestConnections}
+                  isTestingConnections={isTestingConnections}
+                />
+              </div>
+            </div>
+
+            {/* Bottom action bar */}
+            <div className="shrink-0 flex gap-2 items-center">
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleGenerateDraft}
+                disabled={!canGenerate || status === 'materializing'}
+                loading={status === 'materializing'}
+                loadingText="Generating draft..."
+                className={cn(!canGenerate && 'opacity-40 pointer-events-none')}
+              >
+                Generate Draft
+              </Button>
+              <Button
+                variant="tertiary"
+                size="icon"
+                className="h-9 w-10"
+                title="Reset conversation"
+                disabled={messages.length === 0}
+                onClick={() => aiSessionStore.startAiSession()}
+              >
+                <History className="w-4 h-4" />
+              </Button>
+              {!canGenerate && intent && (
+                <span className="text-xs text-[var(--text-secondary)] ml-1">
+                  Keep chatting to complete your pipeline configuration
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Settings sidebar */}
+          <div className="w-[200px] flex flex-col gap-6 shrink-0 overflow-y-auto">
+            {/* Status */}
+            <div className="flex flex-col gap-3">
+              <p className="text-sm font-medium text-[var(--text-primary)]">Status</p>
+              <Badge
+                variant={
+                  status === 'error'
+                    ? 'destructive'
+                    : intent?.mode === 'ready_for_materialization'
+                      ? 'default'
+                      : 'secondary'
+                }
+                className="text-xs w-fit"
+              >
+                {statusLabel[status] ?? status}
+              </Badge>
+            </div>
+
+            {/* Model */}
+            <div className="flex flex-col gap-3">
+              <p className="text-sm font-medium text-[var(--text-primary)]">Model</p>
+              <div className="border border-[var(--surface-border)] rounded-lg px-3 h-9 flex items-center justify-between bg-[var(--surface-bg)] shadow-sm opacity-60">
+                <span className="text-sm text-[var(--text-primary)] truncate">claude-sonnet-4-6</span>
+              </div>
+            </div>
+
+            {/* Tips */}
+            <div className="flex flex-col gap-3">
+              <p className="text-sm font-medium text-[var(--text-primary)]">Tips</p>
+              <ul className="space-y-2">
+                <li className="text-xs text-[var(--text-secondary)]">· Kafka brokers, topic, auth method</li>
+                <li className="text-xs text-[var(--text-secondary)]">· ClickHouse host, port, database</li>
+                <li className="text-xs text-[var(--text-secondary)]">· Deduplication key if needed</li>
+              </ul>
+            </div>
+
+            {/* Doc hints */}
+            {docHints.length > 0 && (
+              <DocHints hints={docHints} />
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function DocHints({ hints }: { hints: DocHintItem[] }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-sm font-medium text-[var(--text-primary)]">Docs</p>
+      <div className="space-y-1.5">
+        {hints.map((hint, i) => (
+          <a
+            key={i}
+            href={hint.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex gap-2 items-start text-xs text-[var(--text-link)] hover:underline"
+          >
+            <span className="shrink-0 mt-0.5">↗</span>
+            <span>{hint.title}</span>
+          </a>
+        ))}
       </div>
     </div>
   )
