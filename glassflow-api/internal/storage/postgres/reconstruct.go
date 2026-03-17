@@ -64,6 +64,7 @@ func (s *PostgresStorage) reconstructPipelineConfig(ctx context.Context, data *p
 			PipelineID:    id,
 			PipelineName:  data.name,
 			OverallStatus: models.PipelineStatus(data.status),
+			CreatedAt:     data.createdAt,
 			UpdatedAt:     data.updatedAt,
 		},
 	}
