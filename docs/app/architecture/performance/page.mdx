@@ -3,6 +3,9 @@ title: 'Performance'
 description: 'Understanding GlassFlow pipeline performance, throughput, and horizontal scaling'
 ---
 
+import { PerformanceChart } from '../../components/PerformanceChart'
+import { Mermaid } from '../../components/Mermaid'
+
 # Performance
 
 This document summarizes benchmark results for a GlassFlow pipeline under sustained load and explains why the test is relevant for teams running Kafka-to-ClickHouse ingestion at scale.
@@ -12,90 +15,97 @@ This document summarizes benchmark results for a GlassFlow pipeline under sustai
 [ClickHouse](https://clickhouse.com/) is a high-performance analytical database used by many companies to ingest terabytes of data per day for observability and real-time analytics. Introducing a new stream processing component into an existing pipeline is a significant decision. Teams need confidence that the system can:
 
 - Handle high sustained ingestion rates
-- Scale predictably per pipeline
-- Maintain low and stable latency
+- Scale predictably within and across pipelines
 - Fit into an existing Kafka + ClickHouse setup
 
-This benchmark provides concrete numbers for how GlassFlow performs and scales under those conditions.
+This benchmark provides concrete numbers for how GlassFlow scales horizontally within a single pipeline by increasing the number of component replicas.
 
 ## Summary at a glance
 
-- One GlassFlow pipeline: **~6.6 TB/day** on a single GCP c4d-standard-16
-- Sustained throughput: **~51k events/sec** · p95 latency: **~700 ms**
-- Per-pipeline CPU: **~11.6 cores** · Cost: **~$552.65/month** (~$2.80/TB)
-- Horizontal scaling: add pipelines for more throughput (e.g. 1 pipeline ≈ 6.6 TB/day, 20 pipelines ≈ 132 TB/day)
+- **70 million events** ingested end-to-end (~1.5 KB each)
+- **Peak throughput:** ~510k events/sec at 10 replicas (ingestor and sink)
+- Throughput scales **roughly linearly** with replica count
+- Higher replica runs (8–10) completed the full 70M event load in **3–4 minutes**
 
 ## Results
 
-A single GlassFlow pipeline was tested with a simple stateless transformation. Throughput and latency:
+The test varied the number of ingestor and sink replicas from 2 to 10 and measured peak throughput at each configuration.
 
-| Avg throughput | Max throughput | Avg bandwidth | Data / day / pipeline | p95 latency |
-| --- | --- | --- | --- | --- |
-| 51k events/sec | 56k events/sec | 77 MB/sec | ~6.6 TB | 700 ms |
+### Peak throughput by replica count
 
-Each pipeline ingests approximately **~6.6 TB per day** on a single **c4d-highcpu-16** machine.
-
-### Resource usage
-
-| Component | CPU | RAM |
+| Replicas | Ingestor peak (rps) | Sink peak (rps) |
 | --- | --- | --- |
-| Ingestors | ~5.2 cores | ~350 MB |
-| Sink | ~2.3 cores | ~2.0 GB |
-| NATS | ~4.1 cores | ~2.5 GB |
-| **Total** | **~11.6 cores** | **~5 GB** |
+| 2 | ~150k | ~120k |
+| 4 | ~240k | ~240k |
+| 6 | ~300k | ~310k |
+| 8 | ~390k | ~335k |
+| 10 | ~510k | ~510k |
 
-### Costs
+At 2 replicas the ingestor stabilizes around ~110k rps and the sink around ~105k rps once initial bursting settles. At 10 replicas both components reach ~510k rps peak.
 
-The test machine was a GCP [c4d-standard-16](https://cloud.google.com/products/calculator?dl=CjhDaVE0TW1ZM1lXVTVOeTFsTldNeUxUUmhaVEl0T0RBd1pTMWxNelkzWXpjNVlqWmhZMkVRQVE9PRAIGiQ4REFDRjkyMy1CODFBLTQ5RDYtQUE2OS1EMDA3N0UwNDg5MTg) (see link for machine details), which was sufficient to cover all required resources (CPU and RAM).
+> **Note on resource provisioning:** The per-replica resource allocations (1 CPU / 0.5 GB RAM for ingestors, 5 CPU / 5 GB RAM for sinks) were likely overprovisioned for the 2–4 replica configurations. Results at those counts may not reflect the ceiling of a tightly tuned deployment.
 
-The average monthly price for the machine is ~$552.65.
+<PerformanceChart metric="ingestor" title="Ingestor Throughput" />
 
-- ~$2.79 per TB ingested (based on 6.6 TB/day)
+<PerformanceChart metric="sink" title="Sink Throughput" />
 
 ## Horizontal scaling
 
-You can scale in two ways: **within a pipeline** (multiple replicas of ingestor, transform, and sink) and **across pipelines** (adding more pipelines). For component-level scaling and best practices, see [Scaling Pipelines](/usage-guide/scaling).
+GlassFlow scales throughput horizontally by increasing the number of ingestor and sink replicas. Each replica consumes from Kafka and writes to ClickHouse independently, distributing the load across multiple NATS JetStream streams in parallel.
 
-Because GlassFlow pipelines operate independently, throughput also scales horizontally by adding pipelines.
+As replica count increases, the internal NATS cluster becomes the throughput bottleneck. A higher number of replicas requires a larger NATS cluster to sustain the increased message volume — the test infrastructure used 9 NATS nodes to support runs up to 10 replicas. For component-level scaling configuration, see [Scaling Pipelines](/usage-guide/scaling).
 
-![Horizontal scaling](/assets/architecture_horizontal_scaling.png)
+<Mermaid chart={`
+flowchart LR
+    K[("Kafka\nTopic")]
 
-Kafka events are distributed across multiple pipelines through filter logic.
+    subgraph Ingestors
+        I1[Ingestor 1]
+        I2[Ingestor 2]
+        I3[Ingestor N]
+    end
 
-### Example scaling scenarios
+    subgraph NATS["NATS Cluster"]
+        N1[JetStream 1]
+        N2[JetStream 2]
+        N3[JetStream N]
+    end
 
-| Pipelines | Daily Throughput |
-| --- | --- |
-| 1 pipeline | ~6.6 TB/day |
-| 5 pipelines | ~33 TB/day |
-| 10 pipelines | ~66 TB/day |
-| 20 pipelines | ~132 TB/day |
+    subgraph Sinks
+        S1[Sink 1]
+        S2[Sink 2]
+        S3[Sink N]
+    end
 
-![Scaling of daily ingestion throughput by adding pipelines.](/assets/architecture_performance_scaling_throughput.png)
+    CH[("ClickHouse")]
 
-To ingest **100 TB per day**:
-
-- Create ~15–20 pipelines
-- Distribute Kafka load across pipelines through filtering logic
-- Select machine sizes per pipeline depending on workload complexity
-
-There is no shared global bottleneck between pipelines. Scaling is linear as long as Kafka and ClickHouse are provisioned accordingly.
+    K --> I1 & I2 & I3
+    I1 --> N1
+    I2 --> N2
+    I3 --> N3
+    N1 --> S1
+    N2 --> S2
+    N3 --> S3
+    S1 & S2 & S3 --> CH
+`} />
 
 ## How it was tested
 
-This test focuses on per-pipeline scalability and efficiency under sustained load.
+This test focuses on per-pipeline horizontal scalability under sustained load.
 
-In GlassFlow, each pipeline runs independently. Therefore, per-pipeline throughput directly translates into horizontal scaling capacity.
+In GlassFlow, each pipeline runs independently. Increasing the number of replicas for ingestor and sink components is the primary lever for scaling throughput within a single pipeline.
+
+The pipeline configuration used for this test was **ingest-only**: no deduplication and no transformation. Events were consumed from Kafka and written directly to ClickHouse. This isolates the raw throughput capacity of the ingestor and sink components.
 
 ### Workload model
 
-The test uses synthetic data that mimics **application telemetry logs**—single-event records of the kind typically ingested for analytics, observability, or activity tracking.
+The test uses synthetic data that mimics **application telemetry logs** — single-event records of the kind typically ingested for analytics, observability, or activity tracking.
 
 ### Event characteristics
 
 - **Format:** JSON
-- **Average event size:** 1.5 KB
-- **Data model:** flat JSON with identifiers, timestamps, status fields, and metadata
+- **Average event size:** ~1.5 KB
+- **Data model:** flat JSON with identifiers, timestamps, status fields, and Kubernetes metadata
 
 ### Sample event
 
@@ -104,7 +114,7 @@ The synthetic events resemble structured application logs commonly ingested into
 ```json
 {
    "timestamp":"2026-02-16T17:57:04.572864Z",
-   "version":1356,
+   "@version": 1356,
    "account_id":156122057376641,
    "app_name":"ccc",
    "app_version":"staging",
@@ -129,7 +139,7 @@ The synthetic events resemble structured application logs commonly ingested into
    "logger_name":"com.baomidou.dynamic.datasource.DynamicRoutingDataSource",
    "logger_type":"appender",
    "logstash_producer":"ams02-c01-lss01",
-   "message":"v=2&cid=413782121.8225781093808&sid=5824311429&sct=6&seg=1&_et=21998&en=purchase&ep.event_id=6520276208363.1&dt=Checkout&ul=es-es&ur=US-TX",
+   "message":"v=2&cid=413782121...",
    "modified_timestamp":false,
    "port":41524,
    "producer_time":"2026-02-16T17:57:04.573471",
@@ -137,40 +147,25 @@ The synthetic events resemble structured application logs commonly ingested into
    "request_method":"POST",
    "request_uri":"/api/v1/products",
    "request_user_agent":"PostmanRuntime/7.28.0",
-   "request_x_user_agent":"",
    "status_code":"404",
-   "tags":[
-      "audit",
-      "system",
-      "application",
-      "unified",
-      "security"
-   ],
+   "tags":["audit","system","application","unified","security"],
    "thread":"health-checker-readOnlyDatabase",
-   "timestamp":"2026-02-16T17:57:04.573500",
    "type":"access"
 }
 ```
 
-### Test infrastructure and machine setup
-
-The test ran on Google Cloud Platform (GCP) using dedicated machines. Kafka and ClickHouse were kept identical across runs.
-
 ## Infrastructure
 
-The test used the following architecture:
+The test ran in a self-hosted environment with the following setup:
 
-![Test Architecture Setup](/assets/architecture_performance_test_setup.png)
+### Cluster configuration
 
-### Components
-
-All components ran in a self-hosted environment:
-
-- **Locust** — Generates a controlled, sustained event load.
-- **Apache Kafka** — Ingestion buffer and decoupling layer.
-- **GlassFlow** — Transforms events and writes to ClickHouse.
-- **ClickHouse** — Sink for all tests.
-    
+| Component | Configuration |
+| --- | --- |
+| NATS cluster | 9 nodes · 8 GB RAM · 8 CPUs per node |
+| ClickHouse | 3-shard cluster with 1 Keeper node |
+| Ingestor replicas | 1 CPU · 0.5 GB RAM each |
+| Sink replicas | 5 CPU · 5 GB RAM each |
 
 ### GlassFlow deployment
 
@@ -182,17 +177,15 @@ GlassFlow was deployed in a distributed, production-like setup with separate ing
 | NATS | NATS JetStream acts as an internal message broker between pipeline components, with persistent storage and reliable delivery. |
 | Sink | Consumes messages from NATS JetStream and writes them to ClickHouse in batches. |
 
-The input rate was increased until CPU saturation was reached on the selected machine.
-
 ## Summary
 
 This test demonstrates that:
 
-- A single GlassFlow pipeline can ingest ~6.6 TB per day
-- Latency remains sub-second under sustained load
-- Resource usage is predictable
-- Horizontal scaling is linear and operationally simple
+- A single GlassFlow pipeline scales throughput roughly linearly by adding replicas
+- At 10 replicas, both ingestor and sink reach ~510k events/sec peak
+- The full 70M event workload completes in 3–4 minutes at high replica counts
+- Horizontal scaling within a pipeline is straightforward: increase the replica count for ingestor and sink
 
-For workloads of 10 TB, 50 TB, or 100 TB per day, GlassFlow scales by adding pipelines without introducing architectural complexity.
+For workloads of 10 TB, 50 TB, or 100 TB per day, GlassFlow scales both by adding replicas within a pipeline and by adding pipelines without introducing architectural complexity.
 
 **We hope you enjoyed reading our test. If you want us to run a test for your specific setup, feel free to contact us [here](https://www.glassflow.dev/contact#:~:text=by%20developers%20from-,Send%20us%20a%20message,-Do%20you%20have).**

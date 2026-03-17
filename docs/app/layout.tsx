@@ -6,8 +6,8 @@ import 'nextra-theme-docs/style.css'
 
 import { FathomAnalytics } from './fathom'
 import { ReoAnalytics } from './reodotdev'
-import { Logo } from './Logo'
-import { SearchWithTracking } from './SearchWithTracking'
+import { Logo } from './components/Logo'
+import { SearchWithTracking } from './components/SearchWithTracking'
 
 export const metadata = {
   // ... your metadata API
