@@ -23,7 +23,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     // property (body.sink.order_by)" etc. if these are present). Also ensures UI/store
     // cannot accidentally send create-table semantics on edit.
     if (config?.sink && typeof config.sink === 'object') {
-      config.sink.destination_path = 'existing'
+      delete config.sink.destination_path
       delete config.sink.engine
       delete config.sink.order_by
       delete config.sink.table_name
