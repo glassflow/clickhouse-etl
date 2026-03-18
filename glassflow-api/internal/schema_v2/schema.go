@@ -61,9 +61,12 @@ func (s *Schema) Validate(ctx context.Context, data []byte) (string, error) {
 	return s.validateInternalSchema(ctx, data)
 }
 
-func (s *Schema) validateExternalSchema(ctx context.Context, data []byte) (zero string, _ error) {
+func (s *Schema) validateExternalSchema(ctx context.Context, data []byte) (string, error) {
 	version, err := extractSchemaVersion(data)
 	if err != nil {
+		if errors.Is(err, models.ErrFailedToParseSchemaID) || errors.Is(err, models.ErrMessageIsTooShort) {
+			return "", err
+		}
 		return "", fmt.Errorf("extract schema version: %w", err)
 	}
 
@@ -176,12 +179,12 @@ func (s *Schema) IsExternal() bool {
 
 func extractSchemaVersion(data []byte) (int, error) {
 	if len(data) < 5 {
-		return 0, fmt.Errorf("message too short: expected at least 5 bytes, got %d", len(data))
+		return 0, models.ErrMessageIsTooShort
 	}
 
 	// Check magic byte
 	if data[0] != 0 {
-		return 0, fmt.Errorf("invalid magic byte: expected 0x00, got 0x%02x", data[0])
+		return 0, models.ErrFailedToParseSchemaID
 	}
 	return int(binary.BigEndian.Uint32(data[1:5])), nil
 }

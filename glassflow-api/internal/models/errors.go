@@ -64,6 +64,10 @@ func IsIncompatibleSchemaError(err error) bool {
 	return errors.As(err, &incompatibleErr)
 }
 
+var ErrMessageIsTooShort = errors.New("message is too short to contain schema ID")
+var ErrFailedToParseSchemaID = errors.New("failed to parse schema ID from message")
 var ErrCompileTransformation = errors.New("failed to compile transformation")
 var ErrSignalSent = errors.New("signal to stop component is sent")
 var ErrSchemaIDIsMissingInHeader = errors.New("schema id is missing in header")
+var ErrValidateSchema = errors.New("failed to validate data")
+var ErrDeduplicateData = errors.New("failed to deduplicate data")

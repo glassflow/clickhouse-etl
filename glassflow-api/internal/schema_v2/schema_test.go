@@ -249,7 +249,7 @@ func TestSchema_ValidateExternalSchema(t *testing.T) {
 
 		assert.Error(t, err)
 		assert.Empty(t, versionID)
-		assert.Contains(t, err.Error(), "extract schema version")
+		assert.Contains(t, err.Error(), models.ErrMessageIsTooShort.Error())
 	})
 }
 
@@ -451,7 +451,7 @@ func TestExtractSchemaVersion(t *testing.T) {
 
 		assert.Error(t, err)
 		assert.Equal(t, 0, version)
-		assert.Contains(t, err.Error(), "message too short")
+		assert.Contains(t, err.Error(), models.ErrMessageIsTooShort.Error())
 	})
 
 	t.Run("returns error for invalid magic byte", func(t *testing.T) {
@@ -462,6 +462,6 @@ func TestExtractSchemaVersion(t *testing.T) {
 
 		assert.Error(t, err)
 		assert.Equal(t, 0, version)
-		assert.Contains(t, err.Error(), "invalid magic byte")
+		assert.Contains(t, err.Error(), models.ErrFailedToParseSchemaID.Error())
 	})
 }
