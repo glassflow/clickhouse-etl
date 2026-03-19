@@ -79,6 +79,7 @@ func (i *IngestorRunner) Start(ctx context.Context) error {
 		}
 	}
 
+	dlqSubject := models.GetDLQStreamSubjectName(i.pipelineCfg.ID)
 	var srClient schemav2.SchemaRegistryClient
 	if topicCfg.SchemaRegistryConfig.URL != "" {
 		srClient, err = sr.NewSchemaRegistryClient(topicCfg.SchemaRegistryConfig)
@@ -92,6 +93,10 @@ func (i *IngestorRunner) Start(ctx context.Context) error {
 		"subject", outputSubject,
 		"pipelineId", i.pipelineCfg.Status.PipelineID,
 		"topic", i.topicName,
+	)
+	i.log.InfoContext(ctx, "Ingestor will write failed events to DLQ subject",
+		"dlq_subject", dlqSubject,
+		"pipelineId", i.pipelineCfg.Status.PipelineID,
 	)
 	if topicCfg.Deduplication.Enabled {
 		i.log.InfoContext(ctx, "Ingestor will route messages by dedup key to subjects",
@@ -109,7 +114,7 @@ func (i *IngestorRunner) Start(ctx context.Context) error {
 	dlqStreamPublisher := stream.NewNATSPublisher(
 		i.nc.JetStream(),
 		stream.PublisherConfig{
-			Subject: models.GetDLQStreamSubjectName(i.pipelineCfg.ID),
+			Subject: dlqSubject,
 		},
 	)
 
