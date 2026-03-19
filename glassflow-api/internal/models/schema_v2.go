@@ -18,7 +18,7 @@ const (
 )
 
 type SchemaRegistryConfig struct {
-	URL       string `json:"url"`
+	URL       string `json:"url,omitempty"`
 	APIKey    string `json:"api_key,omitempty"`
 	APISecret string `json:"api_secret,omitempty"`
 }

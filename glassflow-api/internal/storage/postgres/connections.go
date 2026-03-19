@@ -165,6 +165,17 @@ func encryptKafkaFields(encryptionService *encryption.Service, config *models.In
 		config.KafkaConnectionParams.KerberosKeytab = base64.StdEncoding.EncodeToString(encrypted)
 	}
 
+	// Encrypt schema registry API secret for each topic
+	for i := range config.KafkaTopics {
+		if config.KafkaTopics[i].SchemaRegistryConfig.APISecret != "" {
+			encrypted, err := encryptionService.Encrypt([]byte(config.KafkaTopics[i].SchemaRegistryConfig.APISecret))
+			if err != nil {
+				return fmt.Errorf("encrypt schema registry api secret: %w", err)
+			}
+			config.KafkaTopics[i].SchemaRegistryConfig.APISecret = base64.StdEncoding.EncodeToString(encrypted)
+		}
+	}
+
 	return nil
 }
 
@@ -203,6 +214,15 @@ func decryptKafkaFields(encryptionService *encryption.Service, config *models.In
 	if config.KafkaConnectionParams.KerberosKeytab != "" {
 		if decrypted, err := attemptDecryptField(encryptionService, config.KafkaConnectionParams.KerberosKeytab); err == nil {
 			config.KafkaConnectionParams.KerberosKeytab = decrypted
+		}
+	}
+
+	// Decrypt schema registry API secret for each topic
+	for i := range config.KafkaTopics {
+		if config.KafkaTopics[i].SchemaRegistryConfig.APISecret != "" {
+			if decrypted, err := attemptDecryptField(encryptionService, config.KafkaTopics[i].SchemaRegistryConfig.APISecret); err == nil {
+				config.KafkaTopics[i].SchemaRegistryConfig.APISecret = decrypted
+			}
 		}
 	}
 
