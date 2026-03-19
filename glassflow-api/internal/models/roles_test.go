@@ -54,6 +54,7 @@ func TestAllRoles(t *testing.T) {
 		"join",
 		"sink",
 		"dedup",
+		"oltp-receiver",
 		"ETL Pipeline",
 	}
 	roles := AllRoles()
