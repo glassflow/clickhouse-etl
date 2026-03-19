@@ -21,11 +21,6 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
 )
 
-var (
-	ErrValidateSchema  = errors.New("failed to validate data")
-	ErrDeduplicateData = errors.New("failed to deduplicate data")
-)
-
 type KafkaMsgProcessor struct {
 	pipelineID      string
 	publisher       stream.Publisher
@@ -197,7 +192,12 @@ func (k *KafkaMsgProcessor) prepareMesssage(ctx context.Context, msg *kgo.Record
 			slog.Int64("offset", msg.Offset),
 			slog.String("partition", strconv.Itoa(int(msg.Partition))))
 
-		if dlqErr := k.pushMsgToDLQ(ctx, msg.Value, fmt.Errorf("%w: %w", ErrValidateSchema, err)); dlqErr != nil {
+		validationErr := fmt.Errorf("%w: %w", models.ErrValidateSchema, err)
+		if errors.Is(err, models.ErrFailedToParseSchemaID) || errors.Is(err, models.ErrMessageIsTooShort) {
+			validationErr = err
+		}
+
+		if dlqErr := k.pushMsgToDLQ(ctx, msg.Value, validationErr); dlqErr != nil {
 			return nil, fmt.Errorf("failed to push to DLQ: %w", dlqErr)
 		}
 		return nil, nil
@@ -209,7 +209,7 @@ func (k *KafkaMsgProcessor) prepareMesssage(ctx context.Context, msg *kgo.Record
 	}
 	subject, dedupKeyStr, err := k.getSubjectAndDedupKey(ctx, version, msgData)
 	if err != nil {
-		if dlqErr := k.pushMsgToDLQ(ctx, msg.Value, fmt.Errorf("%w: %w", ErrDeduplicateData, err)); dlqErr != nil {
+		if dlqErr := k.pushMsgToDLQ(ctx, msg.Value, fmt.Errorf("%w: %w", models.ErrDeduplicateData, err)); dlqErr != nil {
 			return nil, fmt.Errorf("failed to push to DLQ: %w", dlqErr)
 		}
 		return nil, nil

@@ -156,10 +156,10 @@ Feature: Ingestor supports schema registry with multiple schemas
         And I run the ingestor component
 
         Then I check results stream with lag 0 and content
-            | event_id | user_id       | NATS-Nats-Msg-Id |
-            | 123      | John Doe      | 123              |
-            | 456      | Jane Smith    | 456              |
-            | 789      | Bob Johnson   | 789              |
+            | event_id | user_id     | NATS-Nats-Msg-Id |
+            | 123      | John Doe    | 123              |
+            | 456      | Jane Smith  | 456              |
+            | 789      | Bob Johnson | 789              |
 
     Scenario: Ingestor validates messages with absent schema id with registry
         Given a Kafka topic "test_topic" with 1 partition
@@ -225,6 +225,10 @@ Feature: Ingestor supports schema registry with multiple schemas
             }
             """
         When I write these events to Kafka topic "test_topic":
+            | key | value                                       |
+            | 1   | {"event_id": "000", "user_id": "user name"} |
+
+        And I write these events to Kafka topic "test_topic":
             | key | schema_id | value                                           |
             | 1   | 1101      | {"event_id": "123", "user_id": "John Doe"}      |
             | 2   | 1101      | {"event_id": "456", "user_id": "Jane Smith"}    |
@@ -238,6 +242,10 @@ Feature: Ingestor supports schema registry with multiple schemas
             | 1101                   | 123      | John Doe    |
             | 1101                   | 456      | Jane Smith  |
             | 1102                   | 789      | Bob Johnson |
+
+        And I check DLQ stream with content
+            | component | error                                  | original_message                            |
+            | ingestor  | failed to parse schema ID from message | {"event_id": "000", "user_id": "user name"} |
 
         Then I check signal stream with content
             | pipeline_id     | reason           | text                             | component |
