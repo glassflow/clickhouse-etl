@@ -211,6 +211,8 @@ func mainErr(cfg *config, role models.Role) error {
 		return mainEtl(ctx, nc, cfg, db, log)
 	case internal.RoleDeduplicator:
 		return mainDeduplicatorV2(ctx, nc, cfg, log)
+	case internal.RoleOLTPReceiver:
+		return mainOLTPReceiver(ctx, nc, cfg, log)
 	default:
 		return fmt.Errorf("unknown role: %s", role)
 	}

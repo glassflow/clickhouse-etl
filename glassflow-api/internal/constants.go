@@ -51,6 +51,7 @@ const (
 	RoleIngestor     = "ingestor"
 	RoleDeduplicator = "dedup"
 	RoleETL          = ""
+	RoleOLTPReceiver = "oltp-receiver"
 
 	// DLQ constants
 	DLQDefaultBatchSize = 1
