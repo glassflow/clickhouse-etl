@@ -5,6 +5,7 @@ import (
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/batch"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 )
 
 // DLQMiddleware returns a middleware that wraps a processor and writes failed messages to DLQ
@@ -55,6 +56,8 @@ func (d *dlqMiddleware) ProcessBatch(ctx context.Context, batch ProcessorBatch) 
 			result.FatalError = failedBatch[0].Error
 			return result
 		}
+
+		observability.RecordDLQWrite(ctx, d.role, int64(len(result.FailedMessages)))
 
 		result.FailedMessages = nil
 	}

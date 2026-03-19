@@ -103,6 +103,8 @@ func (k *KafkaMsgProcessor) pushMsgToDLQ(ctx context.Context, orgMsg []byte, err
 		return fmt.Errorf("failed to publish to DLQ: %w", err)
 	}
 
+	observability.RecordDLQWrite(ctx, internal.RoleIngestor, 1)
+
 	return nil
 }
 
