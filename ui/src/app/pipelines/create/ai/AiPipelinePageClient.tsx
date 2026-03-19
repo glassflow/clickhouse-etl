@@ -216,7 +216,7 @@ export function AiPipelinePageClient() {
             {/* Two panels — fill available height */}
             <div className="flex-1 min-h-0 flex gap-6">
               {/* Chat panel */}
-              <div className="flex-1 border border-[var(--surface-border)] rounded-xl shadow-sm bg-[var(--surface-bg)] overflow-hidden">
+              <div className="flex-1 overflow-hidden">
                 <AiChatPanel
                   messages={messages}
                   isLoading={isLoading}
