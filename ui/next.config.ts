@@ -2,8 +2,12 @@ import { NextConfig } from 'next'
 
 const config: NextConfig = {
   reactStrictMode: true,
+  output: 'standalone',
   images: {
-    domains: ['localhost'],
+    remotePatterns: [
+      { protocol: 'http', hostname: 'localhost', pathname: '/**' },
+      { protocol: 'https', hostname: 'localhost', pathname: '/**' },
+    ],
   },
   env: {
     NEXT_PUBLIC_USE_MOCK_API: process.env.NEXT_PUBLIC_USE_MOCK_API,
@@ -18,6 +22,7 @@ const config: NextConfig = {
     NEXT_PUBLIC_AUTH0_ENABLED: process.env.NEXT_PUBLIC_AUTH0_ENABLED,
     NEXT_PUBLIC_PROFILE_ROUTE: process.env.NEXT_PUBLIC_PROFILE_ROUTE,
     NEXT_PUBLIC_FILTERS_ENABLED: process.env.NEXT_PUBLIC_FILTERS_ENABLED,
+    NEXT_PUBLIC_TRANSFORMATIONS_ENABLED: process.env.NEXT_PUBLIC_TRANSFORMATIONS_ENABLED,
     // OpenTelemetry configuration
     NEXT_PUBLIC_OTEL_LOGS_ENABLED: process.env.NEXT_PUBLIC_OTEL_LOGS_ENABLED,
     NEXT_PUBLIC_OTEL_METRICS_ENABLED: process.env.NEXT_PUBLIC_OTEL_METRICS_ENABLED,
@@ -28,8 +33,9 @@ const config: NextConfig = {
     NEXT_PUBLIC_OTEL_EXPORTER_OTLP_ENDPOINT: process.env.NEXT_PUBLIC_OTEL_EXPORTER_OTLP_ENDPOINT,
     NEXT_PUBLIC_OTEL_EXPORTER_OTLP_HEADERS: process.env.NEXT_PUBLIC_OTEL_EXPORTER_OTLP_HEADERS,
     NEXT_PUBLIC_LOG_LEVEL: process.env.NEXT_PUBLIC_LOG_LEVEL,
+    NEXT_PUBLIC_OTEL_CONSOLE_LOGS_ENABLED: process.env.NEXT_PUBLIC_OTEL_CONSOLE_LOGS_ENABLED,
   },
-  // Redirects are now handled by middleware.ts to support optional auth
+  // Redirects are now handled by proxy.ts to support optional auth
 }
 
 export default config

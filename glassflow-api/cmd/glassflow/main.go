@@ -11,11 +11,13 @@ import (
 	"os"
 	"os/signal"
 	"path"
+	"strconv"
 	"sync"
 	"syscall"
 	"time"
 
 	"github.com/kelseyhightower/envconfig"
+	_ "go.uber.org/automaxprocs"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/api"
@@ -23,11 +25,11 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/dlq"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/orchestrator"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/server"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/storage"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/usagestats"
 )
 
 type config struct {
@@ -69,11 +71,21 @@ type config struct {
 	// Database configuration
 	DatabaseURL string `default:"" split_words:"true"`
 
+	// Encryption configuration
+	EncryptionKeyPath string `default:"/etc/glassflow/secrets/encryption-key" split_words:"true"`
+	EncryptionKey     string `default:"" split_words:"true"`
+
 	K8sNamespace       string `default:"glassflow" split_words:"true"`
 	K8sResourceKind    string `default:"Pipeline" split_words:"true"`
 	K8sResourceName    string `default:"pipelines" split_words:"true"`
 	K8sAPIGroup        string `default:"etl.glassflow.io" envconfig:"k8s_api_group"`
 	K8sAPIGroupVersion string `default:"v1alpha1" envconfig:"k8s_api_group_version"`
+
+	UsageStatsEnabled        bool   `default:"true" split_words:"true"`
+	UsageStatsEndpoint       string `default:"" split_words:"true"`
+	UsageStatsUsername       string `default:"" split_words:"true"`
+	UsageStatsPassword       string `default:"" split_words:"true"`
+	UsageStatsInstallationID string `default:"" split_words:"true"`
 }
 
 var version = "dev"
@@ -86,6 +98,8 @@ func main() {
 }
 
 func run() error {
+	// automaxprocs is used to set the number of CPU cores to use for the application.
+
 	var cfg config
 
 	roleStr := flag.String("role", "", "Role to run: sink, join, ingester or empty for pipeline manager")
@@ -144,7 +158,9 @@ func mainErr(cfg *config, role models.Role) error {
 
 	log.Info("Starting App", slog.String("version", version))
 
-	meter := observability.ConfigureMeter(obsConfig, log)
+	if err := observability.InitMetrics(obsConfig); err != nil {
+		return fmt.Errorf("init metrics: %w", err)
+	}
 
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
@@ -170,17 +186,31 @@ func mainErr(cfg *config, role models.Role) error {
 
 	defer cleanUp(nc, log)
 
+	if cfg.DatabaseURL == "" {
+		return fmt.Errorf("database URL is required: set GLASSFLOW_DATABASE_URL environment variable")
+	}
+
+	encryptionKey, err := loadEncryptionKey(cfg, log)
+	if err != nil {
+		return fmt.Errorf("load encryption key: %w", err)
+	}
+
+	db, err := storage.NewPipelineStore(ctx, cfg.DatabaseURL, log, encryptionKey, role)
+	if err != nil {
+		return fmt.Errorf("create postgres store for pipelines: %w", err)
+	}
+
 	switch role {
 	case internal.RoleSink:
-		return mainSink(ctx, nc, cfg, log, meter)
+		return mainSink(ctx, nc, cfg, db, log)
 	case internal.RoleJoin:
-		return mainJoin(ctx, nc, cfg, log, meter)
+		return mainJoin(ctx, nc, cfg, db, log)
 	case internal.RoleIngestor:
-		return mainIngestor(ctx, nc, cfg, log, meter)
+		return mainIngestor(ctx, nc, cfg, db, log)
 	case internal.RoleETL:
-		return mainEtl(ctx, nc, cfg, log, meter)
+		return mainEtl(ctx, nc, cfg, db, log)
 	case internal.RoleDeduplicator:
-		return mainDeduplicator(ctx, nc, cfg, log, meter)
+		return mainDeduplicatorV2(ctx, nc, cfg, log)
 	default:
 		return fmt.Errorf("unknown role: %s", role)
 	}
@@ -190,22 +220,14 @@ func mainEtl(
 	ctx context.Context,
 	nc *client.NATSClient,
 	cfg *config,
+	db service.PipelineStore,
 	log *slog.Logger,
-	meter *observability.Meter,
 ) error {
-	if cfg.DatabaseURL == "" {
-		return fmt.Errorf("database URL is required: set GLASSFLOW_DATABASE_URL environment variable")
-	}
-
-	db, err := storage.NewPipelineStore(ctx, cfg.DatabaseURL, log)
-	if err != nil {
-		return fmt.Errorf("create postgres store for pipelines: %w", err)
-	}
-
 	// Run data migration from NATS KV to Postgres
 	kvStoreName := cfg.NATSPipelineKV
 
-	if err = storage.MigratePipelinesFromNATSKV(ctx, nc, db, kvStoreName, log); err != nil {
+	err := storage.MigratePipelinesFromNATSKV(ctx, nc, db, kvStoreName, log)
+	if err != nil {
 		// Log error but don't fail startup (data migration failures shouldn't block API)
 		log.Error("data migration from NATS KV failed",
 			slog.String("error", err.Error()),
@@ -220,7 +242,7 @@ func mainEtl(
 	var orch service.Orchestrator
 
 	if cfg.RunLocal {
-		orch = orchestrator.NewLocalOrchestrator(nc, log)
+		orch = orchestrator.NewLocalOrchestrator(nc, db, log)
 	} else {
 		orch, err = orchestrator.NewK8sOrchestrator(log, cfg.K8sNamespace, orchestrator.CustomResourceAPIGroupVersion{
 			Kind:     cfg.K8sResourceKind,
@@ -233,6 +255,8 @@ func mainEtl(
 		}
 	}
 
+	usageStatsClient := newUsageStatsClient(cfg, log, db)
+
 	pipelineSvc := service.NewPipelineService(orch, db, log)
 
 	err = pipelineSvc.CleanUpPipelines(ctx)
@@ -240,7 +264,7 @@ func mainEtl(
 		log.Error("failed to clean up pipelines on startup", slog.Any("error", err))
 	}
 
-	handler := api.NewRouter(log, pipelineSvc, dlq, meter)
+	handler := api.NewRouter(log, pipelineSvc, dlq, usageStatsClient)
 
 	apiServer := server.NewHTTPServer(
 		cfg.ServerAddr,
@@ -259,6 +283,13 @@ func mainEtl(
 	go func() {
 		defer wg.Done()
 		serverErr <- apiServer.Start()
+	}()
+
+	go func() {
+		time.Sleep(2 * time.Second) // small delay to wait for server to start
+		usageStatsClient.SendEvent("ready", "api", nil)
+		usageStatsCollector := service.NewUsageStatsCollector(db, nc, dlq, usageStatsClient, log)
+		usageStatsCollector.Start(ctx)
 	}()
 
 	select {
@@ -296,18 +327,19 @@ func mainEtl(
 	return nil
 }
 
-func mainSink(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog.Logger, meter *observability.Meter) error {
+func mainSink(ctx context.Context, nc *client.NATSClient, cfg *config, db service.PipelineStore, log *slog.Logger) error {
 	pipelineCfg, err := getPipelineConfigFromJSON(cfg.PipelineConfig)
 	if err != nil {
 		return fmt.Errorf("failed to get pipeline config: %w", err)
 	}
 
-	schemaMapper, err := schema.NewMapper(pipelineCfg.Mapper)
-	if err != nil {
-		return fmt.Errorf("create schema mapper: %w", err)
+	if pipelineCfg.ID == "" {
+		return fmt.Errorf("pipeline ID is empty")
 	}
 
-	if pipelineCfg.Sink.StreamID == "" {
+	observability.SetPipelineID(pipelineCfg.ID)
+
+	if pipelineCfg.Sink.SourceID == "" {
 		return fmt.Errorf("stream_id in sink config cannot be empty")
 	}
 
@@ -315,19 +347,21 @@ func mainSink(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 		log,
 		nc,
 		pipelineCfg,
-		schemaMapper,
-		meter,
+		db,
 	)
+
+	usageStatsClient := newUsageStatsClient(cfg, log, nil)
 
 	return runWithGracefulShutdown(
 		ctx,
 		sinkRunner,
 		log,
 		internal.RoleSink,
+		usageStatsClient,
 	)
 }
 
-func mainJoin(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog.Logger, meter *observability.Meter) error {
+func mainJoin(ctx context.Context, nc *client.NATSClient, cfg *config, db service.PipelineStore, log *slog.Logger) error {
 	if cfg.JoinType == "" {
 		return fmt.Errorf("join type must be specified")
 	}
@@ -337,6 +371,12 @@ func mainJoin(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 		return fmt.Errorf("failed to get pipeline config: %w", err)
 	}
 
+	if pipelineCfg.ID == "" {
+		return fmt.Errorf("pipeline ID is empty")
+	}
+
+	observability.SetPipelineID(pipelineCfg.ID)
+
 	if !pipelineCfg.Join.Enabled {
 		return fmt.Errorf("join is not enabled in pipeline config")
 	}
@@ -345,39 +385,20 @@ func mainJoin(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog
 		return fmt.Errorf("join must have exactly 2 sources")
 	}
 
-	// Determine left and right streams based on orientation
-	var leftStream, rightStream string
-	if pipelineCfg.Join.Sources[0].Orientation == "left" {
-		leftStream = pipelineCfg.Join.Sources[0].StreamID
-		rightStream = pipelineCfg.Join.Sources[1].StreamID
-	} else {
-		leftStream = pipelineCfg.Join.Sources[1].StreamID
-		rightStream = pipelineCfg.Join.Sources[0].StreamID
-	}
+	joinRunner := service.NewJoinRunner(log, nc, pipelineCfg, db)
 
-	if leftStream == "" || rightStream == "" {
-		return fmt.Errorf("both left and right streams must be specified in join sources")
-	}
-
-	// Generate output stream name for joined data
-	outputStream := pipelineCfg.Join.OutputStreamID
-
-	schemaMapper, err := schema.NewMapper(pipelineCfg.Mapper)
-	if err != nil {
-		return fmt.Errorf("create schema mapper: %w", err)
-	}
-
-	joinRunner := service.NewJoinRunner(log, nc, leftStream, rightStream, outputStream, pipelineCfg.Join, schemaMapper)
+	usageStatsClient := newUsageStatsClient(cfg, log, nil)
 
 	return runWithGracefulShutdown(
 		ctx,
 		joinRunner,
 		log,
 		internal.RoleJoin,
+		usageStatsClient,
 	)
 }
 
-func mainIngestor(ctx context.Context, nc *client.NATSClient, cfg *config, log *slog.Logger, meter *observability.Meter) error {
+func mainIngestor(ctx context.Context, nc *client.NATSClient, cfg *config, db service.PipelineStore, log *slog.Logger) error {
 	if cfg.IngestorTopic == "" {
 		return fmt.Errorf("ingestor topic must be specified")
 	}
@@ -387,19 +408,77 @@ func mainIngestor(ctx context.Context, nc *client.NATSClient, cfg *config, log *
 		return fmt.Errorf("failed to get pipeline config: %w", err)
 	}
 
-	schemaMapper, err := schema.NewMapper(pipelineCfg.Mapper)
-	if err != nil {
-		return fmt.Errorf("create schema mapper: %w", err)
+	if pipelineCfg.ID == "" {
+		return fmt.Errorf("pipeline ID is empty")
 	}
 
-	ingestorRunner := service.NewIngestorRunner(log, nc, cfg.IngestorTopic, pipelineCfg, schemaMapper, meter)
+	observability.SetPipelineID(pipelineCfg.ID)
+
+	topicCfg, err := getIngestorTopicConfig(pipelineCfg, cfg.IngestorTopic)
+	if err != nil {
+		return fmt.Errorf("resolve ingestor topic config: %w", err)
+	}
+
+	runtimeCfg, err := getIngestorRuntimeConfigFromEnv(topicCfg.Deduplication.Enabled)
+	if err != nil {
+		return fmt.Errorf("resolve ingestor runtime config: %w", err)
+	}
+
+	ingestorRunner := service.NewIngestorRunner(log, nc, cfg.IngestorTopic, pipelineCfg, db, runtimeCfg)
+
+	usageStatsClient := newUsageStatsClient(cfg, log, nil)
 
 	return runWithGracefulShutdown(
 		ctx,
 		ingestorRunner,
 		log,
 		internal.RoleIngestor,
+		usageStatsClient,
 	)
+}
+
+func getIngestorTopicConfig(pipelineCfg models.PipelineConfig, topicName string) (models.KafkaTopicsConfig, error) {
+	for _, topic := range pipelineCfg.Ingestor.KafkaTopics {
+		if topic.Name == topicName {
+			return topic, nil
+		}
+	}
+
+	return models.KafkaTopicsConfig{}, fmt.Errorf("topic %q not found in ingestor config", topicName)
+}
+
+func getIngestorRuntimeConfigFromEnv(dedupEnabled bool) (models.IngestorRuntimeConfig, error) {
+	prefix := os.Getenv("NATS_SUBJECT_PREFIX")
+	if prefix == "" {
+		return models.IngestorRuntimeConfig{}, fmt.Errorf("required environment variable NATS_SUBJECT_PREFIX is missing or empty")
+	}
+
+	podIndex := os.Getenv("GLASSFLOW_POD_INDEX")
+	if podIndex == "" {
+		return models.IngestorRuntimeConfig{}, fmt.Errorf("required environment variable GLASSFLOW_POD_INDEX is missing or empty")
+	}
+
+	cfg := models.IngestorRuntimeConfig{
+		OutputSubject:      fmt.Sprintf("%s.%s", prefix, podIndex),
+		DedupSubjectPrefix: prefix,
+	}
+
+	if !dedupEnabled {
+		return cfg, nil
+	}
+
+	subjectCountRaw := os.Getenv("NATS_SUBJECT_COUNT")
+	if subjectCountRaw == "" {
+		return models.IngestorRuntimeConfig{}, fmt.Errorf("required environment variable NATS_SUBJECT_COUNT is missing or empty when deduplication is enabled")
+	}
+
+	subjectCount, err := strconv.Atoi(subjectCountRaw)
+	if err != nil || subjectCount <= 0 {
+		return models.IngestorRuntimeConfig{}, fmt.Errorf("invalid NATS_SUBJECT_COUNT=%q: must be a positive integer when deduplication is enabled", subjectCountRaw)
+	}
+
+	cfg.DedupSubjectCount = subjectCount
+	return cfg, nil
 }
 
 func runWithGracefulShutdown(
@@ -407,6 +486,7 @@ func runWithGracefulShutdown(
 	runner service.Runner,
 	log *slog.Logger,
 	serviceName string,
+	usageStatsClient *usagestats.Client,
 ) error {
 	serverErr := make(chan error, 1)
 	wg := sync.WaitGroup{}
@@ -425,13 +505,16 @@ func runWithGracefulShutdown(
 			if err != nil {
 				return fmt.Errorf("%s runner failed: %w", serviceName, err)
 			}
+			usageStatsClient.SendEvent("ready", serviceName, nil)
 		case <-runner.Done():
 			log.Warn("Component has crashed!", slog.String("service", serviceName))
 			wg.Wait()
+			usageStatsClient.SendEvent("crashed", serviceName, nil)
 			return fmt.Errorf("%s component stopped by itself", serviceName)
 		case <-ctx.Done():
 			log.Info("Received termination signal - shutting down", slog.String("service", serviceName))
 			wg.Add(1)
+			usageStatsClient.SendEvent("terminated", serviceName, nil)
 			go func() {
 				defer wg.Done()
 				runner.Shutdown()
@@ -456,6 +539,18 @@ func getPipelineConfigFromJSON(cfgPath string) (zero models.PipelineConfig, _ er
 	}
 
 	return pipelineCfg, nil
+}
+
+func newUsageStatsClient(cfg *config, log *slog.Logger, db service.PipelineStore) *usagestats.Client {
+	return usagestats.NewClient(
+		cfg.UsageStatsEndpoint,
+		cfg.UsageStatsUsername,
+		cfg.UsageStatsPassword,
+		cfg.UsageStatsInstallationID,
+		cfg.UsageStatsEnabled,
+		log,
+		db,
+	)
 }
 
 func cleanUp(nc *client.NATSClient, log *slog.Logger) {

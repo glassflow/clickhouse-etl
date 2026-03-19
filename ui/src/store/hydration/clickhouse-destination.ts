@@ -1,8 +1,10 @@
 import { useStore } from '../index'
+import { structuredLogger } from '@/src/observability'
 
 // Helper: Map backend config to your store's destination shape
 // schemaFields is optional and used for V2 format where mapping is in schema.fields instead of sink.table_mapping
-function mapBackendClickhouseDestinationToStore(sink: any, schemaFields?: any[]) {
+// When isDeployedPipeline is true, treat as "existing table" only (no create-table fields stored).
+function mapBackendClickhouseDestinationToStore(sink: any, schemaFields?: any[], isDeployedPipeline?: boolean) {
   // Parse max_delay_time from Go duration format (e.g., "1m", "30s", "2h", "55h0m0s")
   let maxDelayTime = 1
   let maxDelayTimeUnit = 'm'
@@ -63,8 +65,12 @@ function mapBackendClickhouseDestinationToStore(sink: any, schemaFields?: any[])
     backendMapping = sink.table_mapping
   } else if (Array.isArray(schemaFields) && schemaFields.length > 0) {
     // V2 format: mapping is in schema.fields
-    // Transform V2 schema.fields to the same format as V1 table_mapping
-    backendMapping = schemaFields.map((field: any) => ({
+    // Only include fields that are mapped to the sink (have column_name and column_type) to avoid
+    // duplicating raw topic fields that are already represented as transform outputs.
+    const mappedFields = schemaFields.filter(
+      (field: any) => field.column_name && field.column_type,
+    )
+    backendMapping = mappedFields.map((field: any) => ({
       source_id: field.source_id,
       field_name: field.name, // In V2, 'name' is the Kafka field name
       column_name: field.column_name,
@@ -81,6 +87,8 @@ function mapBackendClickhouseDestinationToStore(sink: any, schemaFields?: any[])
     isNullable: (m.column_type || '').includes('Nullable'),
   }))
 
+  const destinationPath: 'create' | 'existing' =
+    isDeployedPipeline ? 'existing' : (sink.destination_path === 'create' ? 'create' : 'existing')
   return {
     scheme: '', // If you use this, fill from config or leave empty
     database: sink.database || '',
@@ -90,6 +98,10 @@ function mapBackendClickhouseDestinationToStore(sink: any, schemaFields?: any[])
     maxBatchSize: sink.max_batch_size || 1000,
     maxDelayTime,
     maxDelayTimeUnit,
+    destinationPath,
+    tableName: isDeployedPipeline ? undefined : (sink.table_name ?? (destinationPath === 'create' ? sink.table : undefined)),
+    engine: isDeployedPipeline ? undefined : sink.engine,
+    orderBy: isDeployedPipeline ? undefined : sink.order_by,
   }
 }
 
@@ -118,6 +130,26 @@ export async function hydrateClickhouseDestination(pipelineConfig: any) {
   const sink = pipelineConfig?.sink
   if (!sink) return
 
+  // Optional: normalize raw V3 sink (connection_params + mapping) so rest of hydration works
+  if (sink.connection_params && !sink.table_mapping && Array.isArray(sink.mapping)) {
+    const cp = sink.connection_params
+    sink.host = cp.host ?? sink.host
+    sink.http_port = cp.http_port ?? sink.http_port
+    sink.port = cp.port ?? sink.port
+    sink.database = cp.database ?? sink.database
+    sink.username = cp.username ?? sink.username
+    sink.password = cp.password ?? sink.password
+    sink.secure = cp.secure ?? sink.secure
+    sink.skip_certificate_verification = cp.skip_certificate_verification
+    const sourceId = sink.source_id ?? ''
+    sink.table_mapping = sink.mapping.map((m: any) => ({
+      source_id: sourceId,
+      field_name: m.name,
+      column_name: m.column_name,
+      column_type: m.column_type,
+    }))
+  }
+
   // Decode base64 password if it's encoded
   let decodedPassword = sink.password || ''
   try {
@@ -134,8 +166,13 @@ export async function hydrateClickhouseDestination(pipelineConfig: any) {
     decodedPassword = sink.password || ''
   }
 
-  // 1. Set the basic destination config (pass schema.fields for V2 format support)
-  const destination = mapBackendClickhouseDestinationToStore(sink, pipelineConfig?.schema?.fields)
+  // 1. Set the basic destination config (pass schema.fields for V2 format support).
+  // For deployed pipelines (pipeline_id present), treat as "existing table" only.
+  const destination = mapBackendClickhouseDestinationToStore(
+    sink,
+    pipelineConfig?.schema?.fields,
+    !!pipelineConfig?.pipeline_id,
+  )
   useStore.getState().clickhouseDestinationStore.setClickhouseDestination(destination)
 
   // 2. Fetch databases
@@ -156,10 +193,8 @@ export async function hydrateClickhouseDestination(pipelineConfig: any) {
   const dbData = await dbRes.json()
 
   if (!dbData.success) {
-    console.error('[Hydration] Failed to fetch databases:', dbData.error)
-    // Don't throw - just log and continue with what we have
-    // This prevents infinite retry loops
-    console.warn('[Hydration] Continuing with basic destination setup (databases unavailable)')
+    structuredLogger.error('Hydration failed to fetch databases', { error: dbData.error })
+    structuredLogger.warn('Hydration continuing with basic destination setup (databases unavailable)')
     return // Exit gracefully instead of throwing
   }
 
@@ -182,8 +217,8 @@ export async function hydrateClickhouseDestination(pipelineConfig: any) {
   const tablesData = await tablesRes.json()
 
   if (!tablesData.success) {
-    console.error('[Hydration] Failed to fetch tables:', tablesData.error)
-    console.warn('[Hydration] Continuing with basic destination setup (tables unavailable)')
+    structuredLogger.error('Hydration failed to fetch tables', { error: tablesData.error })
+    structuredLogger.warn('Hydration continuing with basic destination setup (tables unavailable)')
     return // Exit gracefully
   }
 
@@ -207,8 +242,8 @@ export async function hydrateClickhouseDestination(pipelineConfig: any) {
   const schemaData = await schemaRes.json()
 
   if (!schemaData.success) {
-    console.error('[Hydration] Failed to fetch schema:', schemaData.error)
-    console.warn('[Hydration] Continuing with basic destination setup (schema unavailable)')
+    structuredLogger.error('Hydration failed to fetch schema', { error: schemaData.error })
+    structuredLogger.warn('Hydration continuing with basic destination setup (schema unavailable)')
     return // Exit gracefully
   }
 
@@ -227,8 +262,11 @@ export async function hydrateClickhouseDestination(pipelineConfig: any) {
     backendMapping = sink.table_mapping
   } else if (Array.isArray(pipelineConfig?.schema?.fields) && pipelineConfig.schema.fields.length > 0) {
     // V2 format: mapping is in schema.fields
-    // Transform V2 schema.fields to the same format as V1 table_mapping
-    backendMapping = pipelineConfig.schema.fields.map((field: any) => ({
+    // Only include fields that are mapped to the sink (have column_name and column_type).
+    const mappedFields = pipelineConfig.schema.fields.filter(
+      (field: any) => field.column_name && field.column_type,
+    )
+    backendMapping = mappedFields.map((field: any) => ({
       source_id: field.source_id,
       field_name: field.name, // In V2, 'name' is the Kafka field name
       column_name: field.column_name,

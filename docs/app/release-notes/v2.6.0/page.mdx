@@ -1,0 +1,176 @@
+---
+title: Release Notes v2.6.x
+sidebarTitle: v2.6.x
+icon: FileIcon
+description: Release notes for the GlassFlow ClickHouse ETL v2.6.x series - Stateless transformations, enhanced filtering, and UI improvements.
+---
+
+# Release Notes v2.6.x
+
+The 2.6.x series introduces powerful **stateless transformations** for real-time data reshaping, significant improvements to the filtering system, and a refreshed user interface. This release focuses on making data transformation more flexible and accessible while improving the overall user experience.
+
+## Version History
+
+- **v2.6.2** - Patch release with bug fixes and improvements
+- **v2.6.1** - Patch release with bug fixes
+- **v2.6.0** - Stateless transformations and enhanced filtering
+
+## 🆕 What's New in v2.6.2
+
+### Bug Fixes and Improvements
+
+- Fix incorrect transformer argument sent to deduplication service
+- Fix float32/float64 ClickHouse parsing issues
+- Improve filter form edit mode handling
+- Fix mapping hydration to support v2 pipeline format
+- Fix schema hydration after filter updates
+- Fix layout issues with SearchableSelect component
+- Fix table context menus and modal border styles
+- Fix read-only and disabled states for form controls
+- Fix styling for dual searchable select hover states
+- Fix pipeline version format handling
+- Update required fields validation in pipeline JSON
+
+## 🆕 What's New in v2.6.1
+
+### Bug Fixes and Improvements
+
+- Security patches via Next.js and React upgrades
+- Fix filter form wording and include unmapped filter fields
+- Fix filter configuration generation
+- Improve filter hydration to prevent loading lag
+- Fix transitioning modal behavior
+- Fix border styling issues with inputs and scaling
+- Fix styling for standalone step cards
+- Fix card styling in pipeline details overview
+- Fix styling on modals and dropdowns
+
+## What's New in v2.6.x
+
+### 🔄 Stateless Transformations
+
+GlassFlow now supports **stateless transformations** that allow you to reshape event payloads on the fly using expression-based mappings:
+
+- **Expression-based transformations** - Use the `expr` language to define transformations that operate on each event independently
+- **Rich helper functions** - Built-in functions for parsing URLs, user agents, timestamps, and more
+- **Type-safe conversions** - Automatic type conversion to ensure data integrity
+- **Flexible field derivation** - Create new fields from existing ones, normalize data, and reshape JSON structures
+- **Integration with deduplication** - Stateless transformations work seamlessly with deduplication pipelines
+
+Stateless transformations are called "stateless" because each event is transformed independently without relying on any stored state or history. This makes them perfect for:
+
+- Normalizing fields (e.g., parsing URLs, user agents, or timestamps)
+- Deriving new fields from existing ones
+- Cleaning up or reformatting data before it lands in ClickHouse
+
+> ⚠️ **Note**: In v2.6.x, stateless transformations are only supported via the **backend API or Python SDK**. The web UI does not support creating or editing pipelines with stateless transformations in this version. To use stateless transformations, you must create pipelines programmatically using the API or SDK.
+
+> 💡 **Learn More**: For detailed information on configuring stateless transformations, see the [Stateless Transformations](/configuration/transformations/stateless-transformation) documentation.
+
+### 🔍 Enhanced Filtering System
+
+The filtering system has been significantly improved with better UI integration and functionality:
+
+- **Pipeline-level filters** - Filters are now configured at the pipeline level, making them easier to manage
+- **Complex query builder** - Enhanced filter expression builder with support for arithmetic operations
+- **Filter hydration improvements** - Better handling of filter state during pipeline creation and editing
+- **View and edit modes** - Proper support for viewing and editing filters in existing pipelines
+- **Filter form improvements** - Better wording, validation, and handling of unmapped filter fields
+- **Feature flag support** - Filters can be enabled/disabled via feature flags
+
+Filters are applied at the ingestor stage, before any other processing, ensuring efficient early filtering of events.
+
+### 🎨 UI/UX Improvements
+
+The user interface has been refreshed with improved styling and better component consistency:
+
+- **Revamped styling** - Consolidated CSS, removed layered styles, and aligned components with design system
+- **Light theme support** - Better support for light theme with semantic color values
+- **Improved form controls** - Better styling for inputs, selects, and form controls with proper hover states
+- **Enhanced modals** - Improved modal styling and border handling
+- **Better card components** - Updated card styling throughout the application
+- **Fixed context menus** - Improved table context menus with proper border styles
+- **Responsive improvements** - Better scaling and responsive behavior across different screen sizes
+
+### 🔒 Security Updates
+
+- **Next.js security patches** - Upgraded to Next.js 16.0.7 for security reasons
+- **React security patches** - Updated React to bring security patches
+- **Dependency updates** - Various dependency updates for security and stability
+
+## Configuration Changes
+
+### New Pipeline Configuration
+
+Stateless transformations are configured in the pipeline JSON as follows:
+
+```json
+{
+  "stateless_transformation": {
+    "enabled": true,
+    "id": "my-stateless-transformation",
+    "type": "expr_lang_transform",
+    "config": {
+      "transform": [
+        {
+          "expression": "upper(status)",
+          "output_name": "status_normalized",
+          "output_type": "string"
+        },
+        {
+          "expression": "parseUserAgent(user_agent, 'device')",
+          "output_name": "device_type",
+          "output_type": "string"
+        }
+      ]
+    }
+  }
+}
+```
+
+### Filter Configuration
+
+Filters are now configured at the pipeline level:
+
+```json
+{
+  "filter": {
+    "enabled": true,
+    "expression": "age > 18 and status == 'active'"
+  }
+}
+```
+
+## Migration Notes
+
+### For Existing Users
+
+- **No breaking changes** - These releases are fully backward compatible
+- **Stateless transformations optional** - Stateless transformations are optional and disabled by default
+- **Filter improvements** - Existing filters will continue to work, with improved UI and functionality
+- **UI updates** - The UI has been refreshed but maintains the same functionality
+
+### Configuration Updates
+
+- **Stateless transformation config** - New optional `stateless_transformation` section in pipeline JSON
+- **Filter location** - Filters remain at the pipeline level but with improved configuration options
+- **Schema format** - Pipeline schema format remains compatible with v2.5.x
+
+## Try It Out
+
+To experience the new features in v2.6.x:
+
+1. **Deploy the latest version** using our [Kubernetes Helm charts](/installation/kubernetes)
+2. **Create stateless transformations** - Use the API or Python SDK to create pipelines with expression-based mappings to reshape your event data (UI support coming in a future release)
+3. **Explore the enhanced filters** - Use the improved filter UI to create complex filter expressions
+4. **Check out the refreshed UI** - Experience the improved styling and component consistency
+5. **Review the documentation** - See the [Stateless Transformations](/configuration/transformations/stateless-transformation) guide for examples and the [Python SDK](/usage-guide/python-sdk) documentation for programmatic pipeline creation
+
+## Full Changelog
+
+For a complete list of all changes, improvements, and bug fixes in the v2.6.x series, see our GitHub releases:
+- [v2.6.2](https://github.com/glassflow/clickhouse-etl/releases/tag/v2.6.2)
+- [v2.6.1](https://github.com/glassflow/clickhouse-etl/releases/tag/v2.6.1)
+- [v2.6.0](https://github.com/glassflow/clickhouse-etl/releases/tag/v2.6.0)
+
+*GlassFlow v2.6.x continues our commitment to making streaming ETL more flexible, powerful, and user-friendly for enterprise production environments.*

@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid'
 import { KafkaConnectionParams, TableColumn } from './types'
 import { extractEventFields, getRuntimeEnv } from '@/src/utils/common.client'
+import { structuredLogger } from '@/src/observability'
 import { InternalPipelineConfig } from '@/src/types/pipeline'
 import { getPipelineAdapter } from '@/src/modules/pipeline-adapters/factory'
 import { LATEST_PIPELINE_VERSION } from '@/src/config/pipeline-versions'
@@ -98,6 +99,7 @@ export const buildInternalPipelineConfig = ({
   kafkaStore,
   deduplicationStore,
   filterStore,
+  transformationStore,
 }: {
   pipelineId: string
   pipelineName: string
@@ -110,6 +112,7 @@ export const buildInternalPipelineConfig = ({
   kafkaStore: any
   deduplicationStore: any
   filterStore?: any
+  transformationStore?: any
 }): InternalPipelineConfig => {
   // Generate a new pipeline ID if one doesn't exist
   let finalPipelineId = pipelineId
@@ -138,6 +141,24 @@ export const buildInternalPipelineConfig = ({
     // Get deduplication config from the new separated store
     const deduplicationConfig = deduplicationStore?.getDeduplication?.(topicIndex) || null
 
+    // Prefer topic.schema.fields (from Kafka Type Verification) when present, so user type overrides persist
+    const schemaFields =
+      topic.schema?.fields?.length > 0
+        ? topic.schema.fields
+            .filter((f: any) => !f.isRemoved)
+            .map((f: any) => ({
+              name: f.name,
+              type: f.userType || f.type || 'string',
+            }))
+        : extractEventFields(eventData).map((fieldPath) => {
+            const mappingType = getMappingType(fieldPath, mapping)
+            const inferredType = getFieldType(eventData, fieldPath)
+            return {
+              name: fieldPath,
+              type: mappingType || inferredType,
+            }
+          })
+
     return {
       consumer_group_initial_offset: topic.initialOffset,
       name: topic.name,
@@ -145,15 +166,7 @@ export const buildInternalPipelineConfig = ({
       replicas: topic.replicas,
       schema: {
         type: 'json',
-        fields: extractEventFields(eventData).map((fieldPath) => {
-          const mappingType = getMappingType(fieldPath, mapping)
-          const inferredType = getFieldType(eventData, fieldPath)
-
-          return {
-            name: fieldPath,
-            type: mappingType || inferredType,
-          }
-        }),
+        fields: schemaFields,
       },
       deduplication:
         // Enable deduplication if:
@@ -207,6 +220,20 @@ export const buildInternalPipelineConfig = ({
                 sourceId = stream.topicName || stream.streamId
                 break
               }
+            }
+          }
+
+          // If the mapped field is a transformation output (passthrough or computed), use the current
+          // transformation ID as source_id so the column is attributed to the transform in the pipeline
+          // schema. This ensures that when generating V2 config (e.g. after upload), table_mapping rows
+          // match the adapter's transformationId and schema.fields get column_name/column_type.
+          if (transformationStore?.transformationConfig?.enabled && transformationStore.transformationConfig?.fields?.length > 0) {
+            const transformOutputField = transformationStore.transformationConfig.fields.find(
+              (f: any) => f.outputFieldName === mapping.eventField,
+            )
+            if (transformOutputField) {
+              const baseName = (pipelineName || 'transform').toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-transform$/, '')
+              sourceId = `${baseName}-transform`
             }
           }
 
@@ -483,6 +510,19 @@ export const buildInternalPipelineConfig = ({
       // but assuming they are filled by the spread above or default values
       table: clickhouseDestination?.table,
       table_mapping: tableMappings,
+      ...(clickhouseDestination?.engine ? { engine: clickhouseDestination.engine } : {}),
+      ...(clickhouseDestination?.orderBy
+        ? {
+            order_by: (() => {
+              const mapping = clickhouseDestination?.mapping ?? []
+              const byEventField = mapping.find(
+                (m: any) => m.eventField === clickhouseDestination.orderBy,
+              )
+              const byColumnName = mapping.find((m: any) => m.name === clickhouseDestination.orderBy)
+              return byEventField?.name ?? byColumnName?.name ?? clickhouseDestination.orderBy
+            })(),
+          }
+        : {}),
     } as any, // Type assertion to bypass strict checks on conditional properties for now
     // Include filter configuration only for single-topic pipelines
     // Filter is not available for multi-topic journeys
@@ -498,6 +538,45 @@ export const buildInternalPipelineConfig = ({
             filter: {
               enabled: false,
               expression: '',
+            },
+          }
+      : {}),
+    // Include transformation configuration only for single-topic pipelines
+    // Transformation is not available for multi-topic journeys
+    ...(topicsConfig.length === 1
+      ? transformationStore?.transformationConfig?.enabled &&
+        transformationStore?.transformationConfig?.fields?.length > 0
+        ? {
+            transformation: {
+              enabled: true,
+              expression: transformationStore.expressionString || '',
+              fields: transformationStore.transformationConfig.fields.map((field: any) => ({
+                id: field.id,
+                type: field.type,
+                outputFieldName: field.outputFieldName,
+                outputFieldType: field.outputFieldType,
+                ...(field.expressionMode !== undefined && { expressionMode: field.expressionMode }),
+                ...(field.rawExpression !== undefined && { rawExpression: field.rawExpression }),
+                ...(field.arithmeticExpression !== undefined && {
+                  arithmeticExpression: field.arithmeticExpression,
+                }),
+                ...(field.type === 'passthrough'
+                  ? {
+                      sourceField: field.sourceField,
+                      sourceFieldType: field.sourceFieldType,
+                    }
+                  : {
+                      functionName: field.functionName,
+                      functionArgs: field.functionArgs,
+                    }),
+              })),
+            },
+          }
+        : {
+            transformation: {
+              enabled: false,
+              expression: '',
+              fields: [],
             },
           }
       : {}),
@@ -519,6 +598,8 @@ export const generateApiConfig = ({
   kafkaStore,
   deduplicationStore,
   filterStore,
+  transformationStore,
+  pipeline_resources,
   version, // New optional parameter
 }: {
   pipelineId: string
@@ -532,6 +613,8 @@ export const generateApiConfig = ({
   kafkaStore: any
   deduplicationStore: any
   filterStore?: any
+  transformationStore?: any
+  pipeline_resources?: import('@/src/types/pipeline').PipelineResources | null
   version?: string
 }) => {
   try {
@@ -548,6 +631,7 @@ export const generateApiConfig = ({
       kafkaStore,
       deduplicationStore,
       filterStore,
+      transformationStore,
     })
 
     // 2. Get the appropriate adapter
@@ -557,15 +641,20 @@ export const generateApiConfig = ({
     const adapter = getPipelineAdapter(targetVersion)
 
     // 3. Generate the external API configuration
-    // Note: The adapter handles wrapping the configuration in the correct structure for the target version
-    return adapter.generate(internalConfig)
+    const apiConfig = adapter.generate(internalConfig)
+
+    // 4. Merge pipeline_resources from Resources step when present
+    if (pipeline_resources && typeof pipeline_resources === 'object' && Object.keys(pipeline_resources).length > 0) {
+      return { ...apiConfig, pipeline_resources }
+    }
+    return apiConfig
   } catch (error) {
-    console.error('Error generating API config:', error)
+    structuredLogger.error('Error generating API config', { error: error instanceof Error ? error.message : String(error) })
     return { error: 'Failed to generate API configuration' }
   }
 }
 
-// Helper function to infer JSON type
+// Helper function to infer JSON type (simplified to basic types)
 export function inferJsonType(value: any): string {
   if (value === null) return 'null'
   if (value === undefined) return 'undefined'
@@ -573,54 +662,26 @@ export function inferJsonType(value: any): string {
   const type = typeof value
 
   if (type === 'number') {
-    // Check if it's an integer
+    // All integers (positive or negative) → 'int'
+    // All floating point numbers → 'float'
     if (Number.isInteger(value)) {
-      // Determine the integer type based on value range
-      if (value >= 0) {
-        // Unsigned integers
-        if (value <= 255) return 'uint8'
-        if (value <= 65535) return 'uint16'
-        if (value <= 4294967295) return 'uint32'
-        if (value <= Number.MAX_SAFE_INTEGER) return 'uint64'
-        return 'string' // For numbers larger than MAX_SAFE_INTEGER, use string
-      } else {
-        // Signed integers
-        if (value >= -128 && value <= 127) return 'int8'
-        if (value >= -32768 && value <= 32767) return 'int16'
-        if (value >= -2147483648 && value <= 2147483647) return 'int32'
-        if (value >= Number.MIN_SAFE_INTEGER && value <= Number.MAX_SAFE_INTEGER) return 'int64'
-        return 'string' // For numbers smaller than MIN_SAFE_INTEGER, use string
+      // For numbers outside safe integer range, use string
+      if (value > Number.MAX_SAFE_INTEGER || value < Number.MIN_SAFE_INTEGER) {
+        return 'string'
       }
-    } else {
-      // It's a floating point number
-      // Use a heuristic to determine if it needs float64 precision
-      const absValue = Math.abs(value)
-      if (absValue < 3.4e38 && absValue > 1.2e-38) return 'float32'
-      return 'float64'
+      return 'int'
     }
+    return 'float'
   }
 
   if (type === 'boolean') return 'bool'
 
-  if (type === 'string') {
-    // Try to infer if this string might represent a specific type
-    // UUID pattern: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) {
-      return 'string' // UUID pattern
-    }
-
-    // ISO date pattern
-    if (/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?)?$/.test(value)) {
-      return 'string' // Date or DateTime pattern
-    }
-
-    return 'string'
-  }
+  if (type === 'string') return 'string'
 
   if (Array.isArray(value)) return 'array'
 
-  // For objects, return object type
-  return 'object'
+  // For objects, return bytes (will be serialized to JSON string)
+  return 'bytes'
 }
 
 // Helper function to find best matching field
@@ -679,10 +740,23 @@ export const getFieldType = (data: any, fieldPath: string): string => {
 }
 
 /**
+ * Get verified type for a field from the topic's schema (schema.fields).
+ * Used when we have topic schema and want to use the schema type rather than inferring from data.
+ */
+export const getVerifiedTypeFromTopic = (topic: any, fieldName: string): string | undefined => {
+  if (!topic?.schema?.fields || !Array.isArray(topic.schema.fields)) {
+    return undefined
+  }
+  const schemaField = topic.schema.fields.find((f: any) => f.name === fieldName && !f.isRemoved)
+  return schemaField?.userType || schemaField?.type
+}
+
+/**
  * Maps JSON/Kafka types to compatible ClickHouse types
+ * Simplified to use basic types: string, bool, int, float, bytes, array
  */
 export const TYPE_COMPATIBILITY_MAP: Record<string, string[]> = {
-  // Kafka types
+  // Primary simplified types
   string: [
     'String',
     'FixedString',
@@ -701,45 +775,31 @@ export const TYPE_COMPATIBILITY_MAP: Record<string, string[]> = {
     'Date',
     'Date32',
   ],
-  int8: ['Int8'],
-  int16: ['Int16'],
-  int32: ['Int32'],
-  int64: ['Int64', 'DateTime', 'DateTime64'],
-  float32: ['Float32'],
-  float64: ['Float64', 'DateTime', 'DateTime64'],
   bool: ['Bool'],
+  int: ['Int8', 'Int16', 'Int32', 'Int64', 'UInt8', 'UInt16', 'UInt32', 'UInt64', 'DateTime', 'DateTime64'],
+  float: ['Float32', 'Float64', 'Decimal', 'DateTime', 'DateTime64'],
   bytes: ['String'],
+  array: ['Array', 'String'],
 
-  // Additional JSON types
-  int: ['Int8', 'Int16', 'Int32', 'Int64'],
-  float: ['Float32', 'Float64'],
-  uint8: ['UInt8'],
-  uint16: ['UInt16'],
-  uint32: ['UInt32'],
-  uint64: ['UInt64'],
+  // Backward compatibility: legacy precision types map to same ClickHouse types
+  int8: ['Int8', 'Int16', 'Int32', 'Int64'],
+  int16: ['Int16', 'Int32', 'Int64'],
+  int32: ['Int32', 'Int64'],
+  int64: ['Int64', 'DateTime', 'DateTime64'],
   uint: ['UInt8', 'UInt16', 'UInt32', 'UInt64'],
+  uint8: ['UInt8', 'UInt16', 'UInt32', 'UInt64'],
+  uint16: ['UInt16', 'UInt32', 'UInt64'],
+  uint32: ['UInt32', 'UInt64'],
+  uint64: ['UInt64'],
+  float32: ['Float32', 'Float64'],
+  float64: ['Float64'],
 
-  // JavaScript types that might come from inferJsonType
-  number: [
-    'Int8',
-    'Int16',
-    'Int32',
-    'Int64',
-    'UInt8',
-    'UInt16',
-    'UInt32',
-    'UInt64',
-    'Float32',
-    'Float64',
-    'Decimal',
-    'DateTime',
-    'DateTime64',
-  ],
+  // JavaScript types for edge cases
+  number: ['Int8', 'Int16', 'Int32', 'Int64', 'UInt8', 'UInt16', 'UInt32', 'UInt64', 'Float32', 'Float64', 'Decimal'],
   boolean: ['Bool'],
-  object: ['String'], // Objects will be serialized to JSON strings
-  array: ['Array', 'String'], // Arrays might be handled specially or serialized to strings
-  null: ['Nullable'], // Special case
-  undefined: ['Nullable'], // Special case
+  object: ['String'],
+  null: ['Nullable'],
+  undefined: ['Nullable'],
 }
 
 /**
@@ -773,6 +833,16 @@ export function isTypeCompatible(sourceType: string | undefined, clickhouseType:
 
   // Check if any compatible type matches (partially) the ClickHouse type
   return compatibleTypes.some((type) => clickhouseType.includes(type))
+}
+
+/**
+ * Returns a default ClickHouse type for a given JSON/Kafka type (first compatible type).
+ * Used when auto-generating mapping rows for the create-table path.
+ */
+export function getDefaultClickHouseType(jsonType: string): string {
+  if (!jsonType) return 'String'
+  const compatible = TYPE_COMPATIBILITY_MAP[jsonType.toLowerCase()]
+  return compatible?.[0] ?? 'String'
 }
 
 /**
@@ -825,4 +895,58 @@ export const getMappingType = (eventField: string, mapping: any) => {
 
   // NOTE: default to string if no mapping entry is found - check this
   return 'string'
+}
+
+export interface AlterTableAddOperation {
+  op: 'add'
+  name: string
+  type: string
+  nullable?: boolean
+}
+
+/**
+ * Compute ALTER TABLE operations for new columns.
+ * Only ADD COLUMN operations; never DROP or MODIFY (data integrity).
+ * Mapping rows with name not in existingColumnNames become ADD operations.
+ */
+export function computeAlterTableOperations(
+  mapping: TableColumn[],
+  existingColumnNames: string[]
+): { add: AlterTableAddOperation[] } {
+  const existingSet = new Set(existingColumnNames.map((n) => n.trim()))
+  const add: AlterTableAddOperation[] = []
+  for (const col of mapping) {
+    const name = (col.name || '').trim()
+    if (!name) continue
+    if (existingSet.has(name)) continue
+    const baseType = (col.type || 'String').replace(/^Nullable\((.*)\)$/, '$1')
+    add.push({
+      op: 'add',
+      name,
+      type: baseType,
+      nullable: col.isNullable !== false,
+    })
+  }
+  return { add }
+}
+
+/**
+ * Builds initial mapping rows from event field names and topic schema (create-table path).
+ */
+export function buildInitialMappingFromEventFields(
+  eventFields: string[],
+  getJsonType: (field: string) => string | undefined,
+): TableColumn[] {
+  return eventFields.map((field) => {
+    const jsonType = getJsonType(field) || 'string'
+    const chType = getDefaultClickHouseType(jsonType)
+    return {
+      name: field,
+      type: chType,
+      jsonType,
+      isNullable: true,
+      isKey: false,
+      eventField: field,
+    }
+  })
 }

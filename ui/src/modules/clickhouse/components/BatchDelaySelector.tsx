@@ -53,64 +53,85 @@ export function BatchDelaySelector({
     onMaxDelayTimeUnitChange(maxDelayTimeUnitLocal)
   }, [maxDelayTimeUnitLocal, onMaxDelayTimeUnitChange])
 
-  // Ensure we have default values if they're undefined
+  const labelClass = 'text-sm font-medium text-muted-foreground text-content'
+  const batchSizeInput = (
+    <Input
+      type="text"
+      placeholder="Max Batch Size"
+      value={maxBatchSizeLocal?.toString() || ''}
+      onChange={(e) => {
+        const value = e.target.value
+        if (value === '') {
+          setMaxBatchSizeLocal(null)
+        } else {
+          const numValue = parseInt(value)
+          if (!isNaN(numValue)) {
+            setMaxBatchSizeLocal(numValue)
+          }
+        }
+      }}
+      className="text-sm text-content"
+      disabled={readOnly}
+    />
+  )
+  const delayTimeInput = (
+    <Input
+      type="text"
+      placeholder="Max Delay Time"
+      value={maxDelayTimeLocal?.toString() || ''}
+      onChange={(e) => {
+        const value = e.target.value
+        if (value === '') {
+          setMaxDelayTimeLocal(null)
+        } else {
+          const numValue = parseInt(value)
+          if (!isNaN(numValue)) {
+            setMaxDelayTimeLocal(numValue)
+          }
+        }
+      }}
+      className="text-sm text-content"
+      disabled={readOnly}
+    />
+  )
+  const timeUnitSelector = (
+    <TimeUnitSelector
+      value={maxDelayTimeUnitLocal}
+      onChange={(value) => {
+        setMaxDelayTimeUnitLocal(value)
+      }}
+      className="text-sm text-content"
+      disabled={readOnly}
+    />
+  )
+
   return (
-    <div className="flex gap-4 w-2/3 mb-4">
-      <div className="flex flex-col gap-2 w-1/3">
-        <Label className="text-sm font-medium text-muted-foreground text-content">Max Batch Size (No. of events)</Label>
-        <Input
-          type="text"
-          placeholder="Max Batch Size"
-          value={maxBatchSizeLocal?.toString() || ''}
-          onChange={(e) => {
-            const value = e.target.value
-            if (value === '') {
-              setMaxBatchSizeLocal(null)
-            } else {
-              const numValue = parseInt(value)
-              if (!isNaN(numValue)) {
-                setMaxBatchSizeLocal(numValue)
-              }
-            }
-          }}
-          className="text-sm text-content input-regular input-border-regular"
-          disabled={readOnly}
-        />
+    <>
+      {/* Narrow: vertical stack */}
+      <div className="flex flex-col gap-4 w-full mb-4 sm:hidden">
+        <div className="flex flex-col gap-2 w-full">
+          <Label className={labelClass}>Max Batch Size (No. of events)</Label>
+          {batchSizeInput}
+        </div>
+        <div className="flex flex-col gap-2 w-full">
+          <Label className={labelClass}>Max Delay Time</Label>
+          {delayTimeInput}
+        </div>
+        <div className="flex flex-col gap-2 w-full">
+          <Label className={labelClass}>Max Delay Time Unit</Label>
+          {timeUnitSelector}
+        </div>
       </div>
 
-      <div className="flex flex-col gap-2 w-1/3">
-        <Label className="text-sm font-medium text-muted-foreground text-content">Max Delay Time</Label>
-        <Input
-          type="text"
-          placeholder="Max Delay Time"
-          value={maxDelayTimeLocal?.toString() || ''}
-          onChange={(e) => {
-            const value = e.target.value
-            if (value === '') {
-              setMaxDelayTimeLocal(null)
-            } else {
-              const numValue = parseInt(value)
-              if (!isNaN(numValue)) {
-                setMaxDelayTimeLocal(numValue)
-              }
-            }
-          }}
-          className="text-sm text-content input-regular input-border-regular"
-          disabled={readOnly}
-        />
+      {/* Wide: two-row grid (labels row + inputs row) for alignment */}
+      <div className="hidden sm:grid sm:grid-cols-3 gap-x-4 gap-y-2 mb-4 w-full sm:w-2/3">
+        <Label className={labelClass}>Max Batch Size (No. of events)</Label>
+        <Label className={labelClass}>Max Delay Time</Label>
+        <Label className={labelClass}>Max Delay Time Unit</Label>
+        {batchSizeInput}
+        {delayTimeInput}
+        {timeUnitSelector}
       </div>
-
-      <div className="flex flex-col gap-2 w-1/3">
-        <Label className="text-sm font-medium text-muted-foreground text-content">Max Delay Time Unit</Label>
-        <TimeUnitSelector
-          value={maxDelayTimeUnitLocal}
-          onChange={(value) => {
-            setMaxDelayTimeUnitLocal(value)
-          }}
-          className="text-sm text-content input-regular input-border-regular"
-          disabled={readOnly}
-        />
-      </div>
-    </div>
+    </>
   )
 }

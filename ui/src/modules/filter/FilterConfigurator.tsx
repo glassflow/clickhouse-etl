@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import { useStore } from '@/src/store'
 import { Button } from '@/src/components/ui/button'
 import { Label } from '@/src/components/ui/label'
+import { Textarea } from '@/src/components/ui/textarea'
 import { CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline'
 import { StepKeys } from '@/src/config/constants'
 import FormActions from '@/src/components/shared/FormActions'
@@ -47,13 +48,15 @@ export function FilterConfigurator({
   // Get schema from the topic's selectedEvent or from the topic itself
   const eventSchema = (topic as any)?.schema?.fields || []
 
-  // Extract available fields from schema or event
+  // Extract available fields from schema or event (use effective type: userType || type for overrides)
   const availableFields = useMemo((): Array<{ name: string; type: string }> => {
     if (eventSchema && eventSchema.length > 0) {
-      return eventSchema.map((f: any) => ({
-        name: f.name,
-        type: f.type,
-      }))
+      return eventSchema
+        .filter((f: any) => !f.isRemoved)
+        .map((f: any) => ({
+          name: f.name,
+          type: f.userType || f.type || 'string',
+        }))
     }
 
     // Fallback: extract from selected event if available
@@ -99,7 +102,7 @@ export function FilterConfigurator({
 
   // Track previous config key to avoid infinite loops
   const prevConfigKeyRef = useRef<string>('')
-  const validationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const validationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Helper to serialize the filter tree for comparison
   const serializeGroup = (group: FilterGroup): any => ({
@@ -116,6 +119,8 @@ export function FilterConfigurator({
           operator: child.operator,
           value: child.value,
           not: child.not,
+          useArithmeticExpression: child.useArithmeticExpression,
+          arithmeticExpression: child.arithmeticExpression,
         }
       } else {
         return serializeGroup(child)
@@ -197,7 +202,7 @@ export function FilterConfigurator({
         clearTimeout(validationTimeoutRef.current)
       }
     }
-  }, [filterConfigKey, touchedConditions, saveAttempted]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [filterConfigKey, touchedConditions, saveAttempted])
 
   // Mark a condition as touched
   const handleTouched = useCallback((id: string) => {
@@ -345,7 +350,7 @@ export function FilterConfigurator({
   const renderHydratedExpressionView = () => (
     <div className="space-y-4">
       <Label className="text-lg font-medium text-content">Current Filter Expression</Label>
-      <div className="p-4 card-outline rounded-[var(--radius-large)] space-y-2">
+      <div className="p-4 card-outline rounded-[var(--radius-xl)] space-y-2">
         <div className="flex items-center justify-between">
           <Label className="text-sm font-medium text-[var(--text-secondary)]">Filter Expression</Label>
           <div className="flex items-center gap-2 text-sm text-[var(--color-foreground-positive)]">
@@ -353,9 +358,13 @@ export function FilterConfigurator({
             Active
           </div>
         </div>
-        <code className="block text-sm font-mono p-3 bg-[var(--surface-bg-sunken)] rounded-[var(--radius-medium)] border border-[var(--surface-border)] break-all text-[var(--text-primary)]">
-          {filterStore.expressionString}
-        </code>
+        <Textarea
+          readOnly
+          value={filterStore.expressionString || ''}
+          className="text-sm font-mono p-3 bg-[var(--surface-bg-sunken)] rounded-[var(--radius-md)] border border-[var(--surface-border)] text-[var(--text-primary)] resize-none cursor-default min-h-[60px] max-h-[200px] overflow-y-auto whitespace-pre-wrap break-words"
+          rows={3}
+          wrap="soft"
+        />
       </div>
       {!readOnly && (
         <div className="text-sm text-[var(--text-secondary)]">
@@ -368,7 +377,7 @@ export function FilterConfigurator({
   // Render the no filter view
   const renderNoFilterView = () => (
     <div className="space-y-4">
-      <div className="p-6 card-outline rounded-[var(--radius-large)] text-center">
+      <div className="p-6 card-outline rounded-[var(--radius-xl)] text-center">
         <div className="text-[var(--color-foreground-neutral-faded)] mb-2">
           <svg className="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
@@ -430,14 +439,18 @@ export function FilterConfigurator({
 
           {/* Generated expression preview */}
           {totalRules > 0 && (
-            <div className="mt-6 p-4 card-outline rounded-[var(--radius-large)] space-y-2">
+            <div className="mt-6 p-4 card-outline rounded-[var(--radius-xl)] space-y-2">
               <div className="flex items-center justify-between">
                 <Label className="text-sm font-medium text-[var(--text-secondary)]">Generated Expression</Label>
                 {renderValidationStatus()}
               </div>
-              <code className="block text-sm font-mono p-3 bg-[var(--surface-bg-sunken)] rounded-[var(--radius-medium)] border border-[var(--surface-border)] break-all text-[var(--text-primary)]">
-                {filterStore.expressionString || toExprString(filterConfig) || '(empty)'}
-              </code>
+              <Textarea
+                readOnly
+                value={toExprString(filterConfig) || '(empty)'}
+                className="text-sm font-mono p-3 bg-[var(--surface-bg-sunken)] rounded-[var(--radius-md)] border border-[var(--surface-border)] text-[var(--text-primary)] resize-none cursor-default min-h-[60px] max-h-[200px] overflow-y-auto whitespace-pre-wrap break-words"
+                rows={3}
+                wrap="soft"
+              />
             </div>
           )}
 
@@ -454,20 +467,13 @@ export function FilterConfigurator({
 
       {/* Show no filter message in edit mode when no fields available */}
       {!readOnly && availableFields.length === 0 && hasNoFilter && (
-        <div className="p-4 card-outline rounded-[var(--radius-large)] text-center text-[var(--text-secondary)]">
+        <div className="p-4 card-outline rounded-[var(--radius-xl)] text-center text-[var(--text-secondary)]">
           <p>Waiting for topic data to configure filtering...</p>
         </div>
       )}
 
       {/* Action buttons */}
       <div className="flex gap-4 items-center">
-        {/* Skip button - only shown in creation mode (not standalone/edit mode) */}
-        {!standalone && (
-          <Button variant="outline" onClick={handleSkip} className="btn-tertiary">
-            Skip Transformation
-          </Button>
-        )}
-
         <FormActions
           standalone={standalone}
           onSubmit={handleSave}
@@ -485,6 +491,13 @@ export function FilterConfigurator({
           pipelineActionState={pipelineActionState}
           onClose={onCompleteStandaloneEditing}
         />
+
+        {/* Skip button - only shown in creation mode (not standalone/edit mode) */}
+        {!standalone && (
+          <Button variant="tertiary" onClick={handleSkip}>
+            Skip Filter
+          </Button>
+        )}
       </div>
     </div>
   )

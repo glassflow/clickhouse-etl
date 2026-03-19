@@ -11,9 +11,14 @@ import (
 	"github.com/google/uuid"
 )
 
+const minPipelineIDLength = 5
+
 // validatePipelineID validates a pipeline ID against Kubernetes resource name constraints
 func validatePipelineID(id string) error {
-	// Check length (max 40 characters)
+	// Check length (min 5, max 40 characters)
+	if len(id) < minPipelineIDLength {
+		return fmt.Errorf("pipeline ID must be at least %d characters", minPipelineIDLength)
+	}
 	if len(id) > 40 {
 		return fmt.Errorf("pipeline ID must be 40 characters or less")
 	}

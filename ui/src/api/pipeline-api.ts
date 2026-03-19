@@ -1,4 +1,5 @@
 import { getApiUrl, isMockMode } from '@/src/utils/mock-api'
+import { structuredLogger } from '@/src/observability'
 import type {
   Pipeline,
   ListPipelineConfig,
@@ -9,6 +10,8 @@ import type {
   ApiResponse,
   ApiError,
   PipelineMetadata,
+  PipelineResources,
+  PipelineResourcesResponse,
 } from '@/src/types/pipeline'
 import {
   parsePipelineStatus,
@@ -114,7 +117,7 @@ export const getPipeline = async (id: string): Promise<any> => {
               status = parsePipelineStatus(healthData.overall_status)
             }
           } catch (healthError) {
-            console.warn('Failed to parse health data:', healthError)
+            structuredLogger.warn('Failed to parse health data', { error: healthError instanceof Error ? healthError.message : String(healthError) })
           }
         }
 
@@ -136,7 +139,7 @@ export const getPipeline = async (id: string): Promise<any> => {
               status = parsePipelineStatus(healthData.overall_status)
             }
           } catch (healthError) {
-            console.warn('Failed to parse health data:', healthError)
+            structuredLogger.warn('Failed to parse health data', { error: healthError instanceof Error ? healthError.message : String(healthError) })
           }
         }
 
@@ -198,7 +201,11 @@ export const createPipeline = async (pipelineData: Partial<Pipeline>): Promise<P
     const data = await response.json()
 
     if (data.success) {
-      return data.pipeline
+      const pipeline = data.pipeline ?? {
+        pipeline_id: data.pipeline_id,
+        status: data.status || 'active',
+      }
+      return pipeline
     } else {
       throw { code: response.status, message: data.error || 'Failed to create pipeline' } as ApiError
     }
@@ -229,6 +236,112 @@ export const updatePipeline = async (id: string, updates: Partial<Pipeline>): Pr
   }
 }
 
+/**
+ * Get pipeline resources validation rules (field immutability policy).
+ * Returns only fields_policy.immutable - lightweight alternative to getPipelineResources when policy alone is needed.
+ */
+export const getPipelineResourcesValidation = async (
+  id: string
+): Promise<{ fields_policy: { immutable: string[] } }> => {
+  try {
+    const url = getApiUrl(`pipeline/${id}/resources/validation`)
+    const response = await fetch(url)
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}))
+      const errorMessage = data?.error || data?.message || 'Failed to fetch pipeline resources validation'
+      throw { code: response.status, message: errorMessage } as ApiError
+    }
+
+    const data = await response.json()
+    if (data.fields_policy !== undefined) {
+      return {
+        fields_policy: data.fields_policy || { immutable: [] },
+      }
+    }
+    throw { code: 500, message: 'Invalid response from pipeline resources validation endpoint' } as ApiError
+  } catch (error: any) {
+    if (error.code) throw error
+    throw { code: 500, message: error.message || 'Failed to fetch pipeline resources validation' } as ApiError
+  }
+}
+
+/**
+ * Get pipeline resources (CPU, memory, storage, replicas) for a pipeline.
+ * Returns pipeline_resources and fields_policy.immutable (paths that cannot be edited after create).
+ */
+export const getPipelineResources = async (id: string): Promise<PipelineResourcesResponse> => {
+  try {
+    const url = getApiUrl(`pipeline/${id}/resources`)
+    const response = await fetch(url)
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}))
+      const errorMessage = data?.error || data?.message || 'Failed to fetch pipeline resources'
+      throw { code: response.status, message: errorMessage } as ApiError
+    }
+
+    const data = await response.json()
+    if (data.pipeline_resources !== undefined) {
+      return {
+        pipeline_resources: data.pipeline_resources,
+        fields_policy: data.fields_policy || { immutable: [] },
+      }
+    }
+    throw { code: 500, message: 'Invalid response from pipeline resources endpoint' } as ApiError
+  } catch (error: any) {
+    if (error.code) throw error
+    throw { code: 500, message: error.message || 'Failed to fetch pipeline resources' } as ApiError
+  }
+}
+
+/**
+ * Update pipeline resources. Pipeline must be stopped or failed.
+ * Changes apply when the pipeline is resumed.
+ */
+export const updatePipelineResources = async (
+  id: string,
+  pipeline_resources: PipelineResources
+): Promise<PipelineResourcesResponse> => {
+  try {
+    const url = getApiUrl(`pipeline/${id}/resources`)
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pipeline_resources }),
+    })
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}))
+      let errorMessage = data?.error || data?.message || 'Failed to update pipeline resources'
+
+      if (response.status === 409) {
+        throw {
+          code: 409,
+          message: 'Pipeline must be stopped to edit resources. Please stop the pipeline first.',
+          requiresStop: true,
+        } as ApiError
+      }
+
+      if (response.status === 422) {
+        errorMessage =
+          'Some resource fields cannot be changed after pipeline creation. Please revert changes to locked fields.'
+      }
+
+      throw { code: response.status, message: errorMessage } as ApiError
+    }
+
+    const data = await response.json()
+    return {
+      pipeline_resources: data.pipeline_resources || pipeline_resources,
+      fields_policy: data.fields_policy || { immutable: [] },
+    }
+  } catch (error: any) {
+    if (error.code) throw error
+    throw { code: 500, message: error.message || 'Failed to update pipeline resources' } as ApiError
+  }
+}
+
 export const editPipeline = async (id: string, config: Pipeline): Promise<Pipeline> => {
   try {
     const url = getApiUrl(`pipeline/${id}/edit`)
@@ -242,7 +355,13 @@ export const editPipeline = async (id: string, config: Pipeline): Promise<Pipeli
     if (data.success) {
       return data.pipeline
     } else {
-      const errorMessage = data.error || 'Failed to edit pipeline'
+      let errorMessage = data.error || 'Failed to edit pipeline'
+
+      // Handle resource validation errors (immutable fields)
+      if (response.status === 422) {
+        errorMessage =
+          'Some resource fields cannot be changed after pipeline creation. Please revert changes to locked fields.'
+      }
 
       // Handle specific backend validation errors
       if (response.status === 400 && errorMessage.includes('Pipeline must be stopped')) {
@@ -432,7 +551,7 @@ export const getBulkDLQStats = async (pipelineIds: string[]): Promise<Record<str
         return { pipelineId, dlqState }
       } catch (error) {
         // If DLQ fetch fails for a pipeline, return null for that pipeline
-        console.warn(`Failed to fetch DLQ stats for pipeline ${pipelineId}:`, error)
+        structuredLogger.warn('Failed to fetch DLQ stats for pipeline', { pipeline_id: pipelineId, error: error instanceof Error ? error.message : String(error) })
         return { pipelineId, dlqState: null }
       }
     })
@@ -447,7 +566,7 @@ export const getBulkDLQStats = async (pipelineIds: string[]): Promise<Record<str
 
     return dlqStatsMap
   } catch (error: any) {
-    console.error('Failed to fetch bulk DLQ stats:', error)
+    structuredLogger.error('Failed to fetch bulk DLQ stats', { error: error instanceof Error ? error.message : String(error) })
     // Return empty map if bulk fetch fails
     return {}
   }
@@ -784,5 +903,88 @@ export const validateFilterExpression = async (
     return { valid: false, error: errorMessage }
   } catch (error: any) {
     return { valid: false, error: error.message || 'Failed to validate filter expression' }
+  }
+}
+
+// Transformation expression evaluate API
+export interface TransformExpressionItem {
+  expression: string
+  output_name: string
+  output_type: string
+}
+
+export interface TransformationValidationResult {
+  valid: boolean
+  error?: string
+}
+
+export const validateTransformationExpression = async (
+  transform: TransformExpressionItem[],
+  sample: Record<string, unknown>,
+): Promise<TransformationValidationResult> => {
+  try {
+    const url = getApiUrl('transform/expression/evaluate')
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'expr_lang_transform',
+        config: { transform },
+        sample,
+      }),
+    })
+
+    if (response.ok) {
+      return { valid: true }
+    }
+
+    const data = await response.json()
+    const errorMessage = data?.details?.error || data?.message || 'Failed to evaluate transformation'
+    return { valid: false, error: errorMessage }
+  } catch (error: any) {
+    return { valid: false, error: error.message || 'Failed to validate transformation expression' }
+  }
+}
+
+// Expression playground: evaluate a single expression and return the result
+export interface ExpressionEvaluationResult {
+  valid: boolean
+  result?: Record<string, unknown>
+  error?: string
+}
+
+export const evaluateExpression = async (
+  expression: string,
+  outputName: string,
+  outputType: string,
+  sample: Record<string, unknown>,
+): Promise<ExpressionEvaluationResult> => {
+  try {
+    const url = getApiUrl('transform/expression/evaluate')
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'expr_lang_transform',
+        config: {
+          transform: [
+            { expression, output_name: outputName, output_type: outputType },
+          ],
+        },
+        sample,
+      }),
+    })
+
+    const data = response.ok ? await response.json().catch(() => ({})) : await response.json()
+
+    if (response.ok) {
+      const result = (data?.result ?? data) as Record<string, unknown> | undefined
+      return { valid: true, result: result ?? undefined }
+    }
+
+    const errorMessage = data?.details?.error || data?.message || 'Failed to evaluate expression'
+    return { valid: false, error: errorMessage }
+  } catch (error: any) {
+    return { valid: false, error: error?.message || 'Failed to evaluate expression' }
   }
 }

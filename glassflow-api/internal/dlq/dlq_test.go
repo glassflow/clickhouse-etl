@@ -30,7 +30,7 @@ func TestGetDurableConsumerConfig(t *testing.T) {
 	expectedConfig := jetstream.ConsumerConfig{
 		Name:          streamName + "-consumer",
 		Durable:       streamName + "-consumer",
-		AckPolicy:     jetstream.AckAllPolicy,
+		AckPolicy:     jetstream.AckExplicitPolicy,
 		FilterSubject: streamName + ".failed",
 	}
 
@@ -54,7 +54,7 @@ func TestGetDurableConsumerConfig_DifferentStreamNames(t *testing.T) {
 			expected: jetstream.ConsumerConfig{
 				Name:          "pipeline-123-DLQ-consumer",
 				Durable:       "pipeline-123-DLQ-consumer",
-				AckPolicy:     jetstream.AckAllPolicy,
+				AckPolicy:     jetstream.AckExplicitPolicy,
 				FilterSubject: "pipeline-123-DLQ.failed",
 			},
 		},
@@ -63,7 +63,7 @@ func TestGetDurableConsumerConfig_DifferentStreamNames(t *testing.T) {
 			expected: jetstream.ConsumerConfig{
 				Name:          "test-pipeline-DLQ-consumer",
 				Durable:       "test-pipeline-DLQ-consumer",
-				AckPolicy:     jetstream.AckAllPolicy,
+				AckPolicy:     jetstream.AckExplicitPolicy,
 				FilterSubject: "test-pipeline-DLQ.failed",
 			},
 		},
@@ -72,7 +72,7 @@ func TestGetDurableConsumerConfig_DifferentStreamNames(t *testing.T) {
 			expected: jetstream.ConsumerConfig{
 				Name:          "empty-consumer",
 				Durable:       "empty-consumer",
-				AckPolicy:     jetstream.AckAllPolicy,
+				AckPolicy:     jetstream.AckExplicitPolicy,
 				FilterSubject: "empty.failed",
 			},
 		},
@@ -319,7 +319,7 @@ func TestClient_GetDLQState(t *testing.T) {
 					consumer, err := js.CreateOrUpdateConsumer(context.Background(), streamName, jetstream.ConsumerConfig{
 						Name:          streamName + "-consumer",
 						Durable:       streamName + "-consumer",
-						AckPolicy:     jetstream.AckAllPolicy,
+						AckPolicy:     jetstream.AckExplicitPolicy,
 						FilterSubject: streamName + ".failed",
 					})
 					require.NoError(t, err)

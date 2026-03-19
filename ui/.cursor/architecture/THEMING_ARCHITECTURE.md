@@ -9,11 +9,13 @@
 ## Files
 
 - `src/components/shared/ThemeProvider.tsx` – wraps app, sets `data-theme`.
-- `src/themes/base.css` + `src/themes/dark/theme.css` – token definitions.
+- `src/themes/base.css` + `src/themes/theme.css` – token definitions (dark theme in theme.css via `[data-theme='dark']`).
 - `src/app/globals.css` and `src/app/styles/*` – global styles/utilities.
 - Trashcan docs (for reference): `Trashcan/DARK_THEME_ONLY_CONSOLIDATION.md`, `GRAY_COLOR_CONSOLIDATION.md`, `THEME_CONSOLIDATION_PLAN.md`.
 
 ## Tokens
+
+Canonical token definitions and usage: [docs/architecture/DESIGN_SYSTEM.md](../../docs/architecture/DESIGN_SYSTEM.md). This file is summary only.
 
 - Semantic color tokens defined in dark theme; light aliases removed.
 - Prefer semantic variables over raw hex in components.
@@ -44,4 +46,5 @@
 
 ## Related Docs
 
+- Design system (full tokens, card variants, usage): [docs/architecture/DESIGN_SYSTEM.md](../../docs/architecture/DESIGN_SYSTEM.md)
 - Architecture Overview: ./ARCHITECTURE_OVERVIEW.md

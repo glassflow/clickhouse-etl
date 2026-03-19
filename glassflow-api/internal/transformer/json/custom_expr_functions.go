@@ -2,6 +2,7 @@ package json
 
 import (
 	"fmt"
+	"math"
 	"net/url"
 	"slices"
 	"strconv"
@@ -474,6 +475,10 @@ func join(args ...any) (any, error) {
 		return strings.Join(strs, sep), nil
 	}
 
+	if slice, ok := args[0].([]string); ok {
+		return strings.Join(slice, sep), nil
+	}
+
 	return "", nil
 }
 
@@ -494,19 +499,26 @@ func replace(args ...any) (any, error) {
 
 func toInt(args ...any) (any, error) {
 	if len(args) == 0 {
-		return 0, fmt.Errorf("toInt requires 1 argument, got %d", len(args))
+		return 0, fmt.Errorf("toInt requires at least 1 argument, got %d", len(args))
 	}
 
 	input := cast.ToString(args[0])
 	if input == "" {
 		return 0, nil
 	}
-	result, err := strconv.Atoi(input)
+
+	// Fast path: pure integer string
+	if result, err := strconv.Atoi(input); err == nil {
+		return result, nil
+	}
+
+	// Fall back to float parsing to handle inputs like "4.2"
+	f, err := strconv.ParseFloat(input, 64)
 	if err != nil {
 		return 0, nil
 	}
 
-	return result, nil
+	return int(math.Floor(f)), nil
 }
 
 func toFloat(args ...any) (any, error) {

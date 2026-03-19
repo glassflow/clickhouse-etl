@@ -1,5 +1,6 @@
 import { StateCreator } from 'zustand'
 import { v4 as uuidv4 } from 'uuid'
+import { structuredLogger } from '@/src/observability'
 import {
   createInitialValidation,
   createValidValidation,
@@ -19,7 +20,7 @@ export type LogicOperator = 'and' | 'or'
 // Arithmetic operator types
 export type ArithmeticOperator = '+' | '-' | '*' | '/' | '%'
 
-// Arithmetic operand - either a field reference or a literal number
+// Arithmetic operand - either a field reference, a literal number, or a function call
 export interface ArithmeticFieldOperand {
   type: 'field'
   field: string // Field name from schema
@@ -31,7 +32,13 @@ export interface ArithmeticLiteralOperand {
   value: number
 }
 
-export type ArithmeticOperand = ArithmeticFieldOperand | ArithmeticLiteralOperand
+export interface ArithmeticFunctionCallOperand {
+  type: 'function'
+  functionName: string // Function name (e.g., 'int', 'float', 'string', 'len')
+  arguments: ArithmeticOperand[] // Function arguments
+}
+
+export type ArithmeticOperand = ArithmeticFieldOperand | ArithmeticLiteralOperand | ArithmeticFunctionCallOperand
 
 // Arithmetic expression - a binary tree of operands and operators
 export interface ArithmeticExpressionNode {
@@ -419,7 +426,7 @@ export const createFilterSlice: StateCreator<FilterSlice> = (set, get) => ({
 
         // Check if we've reached max depth
         if (currentDepth >= MAX_GROUP_DEPTH - 1) {
-          console.warn('Maximum group nesting depth reached')
+          structuredLogger.warn('Maximum group nesting depth reached')
           return state
         }
 
@@ -478,7 +485,7 @@ export const createFilterSlice: StateCreator<FilterSlice> = (set, get) => ({
       set((state) => {
         // Don't allow removing the root group
         if (state.filterStore.filterConfig.root.id === itemId) {
-          console.warn('Cannot remove root group')
+          structuredLogger.warn('Cannot remove root group')
           return state
         }
 

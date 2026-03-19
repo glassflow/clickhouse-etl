@@ -9,11 +9,13 @@ import (
 
 	"github.com/cucumber/godog"
 
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/api"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/orchestrator"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/storage"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/usagestats"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/tests/testutils"
 )
 
@@ -87,33 +89,32 @@ func (p *PlatformSteps) aRunningGlassflowAPIServerWithK8sOrchestrator() error {
 func (p *PlatformSteps) setupServices() error {
 	// Setup Postgres container if not already set up
 	if p.postgresContainer == nil {
-		postgresContainer, err := testutils.StartPostgresContainer(context.Background())
+		err := p.setupPostgres()
 		if err != nil {
-			return fmt.Errorf("start postgres container: %w", err)
+			return fmt.Errorf("setup postgres container: %w", err)
 		}
-		p.postgresContainer = postgresContainer
-		// Migrations are automatically run in StartPostgresContainer()
 	}
 
 	// Create storage
-	db, err := storage.NewPipelineStore(context.Background(), p.postgresContainer.GetDSN(), p.log)
+	db, err := storage.NewPipelineStore(context.Background(), p.postgresContainer.GetDSN(), p.log, nil, internal.RoleETL)
 	if err != nil {
 		return fmt.Errorf("create postgres storage: %w", err)
 	}
 
 	// Create orchestrator based on type
 	if p.orchestratorType == "local" {
-		p.orchestrator = orchestrator.NewLocalOrchestrator(p.natsClient, p.log)
+		p.orchestrator = orchestrator.NewLocalOrchestrator(p.natsClient, db, p.log)
 	} else {
 		// For k8s orchestrator, we'll create a mock one for testing
 		p.orchestrator = &MockK8sOrchestrator{log: p.log}
 	}
 
 	// Create pipeline manager
+	usageStatsClient := usagestats.NewClient("", "", "", "", false, p.log, db)
 	p.pipelineService = service.NewPipelineService(p.orchestrator, db, p.log)
 
 	// Create HTTP router
-	p.httpRouter = api.NewRouter(p.log, p.pipelineService, nil, nil)
+	p.httpRouter = api.NewRouter(p.log, p.pipelineService, nil, usageStatsClient)
 
 	return nil
 }

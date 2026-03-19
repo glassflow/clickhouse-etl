@@ -1,15 +1,21 @@
 'use client'
 
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState, useMemo } from 'react'
 import { useStore } from '@/src/store'
 import { EventEditor } from '@/src/components/shared/EventEditor'
-import { parseForCodeEditor } from '@/src/utils/common.client'
+import {
+  parseForCodeEditor,
+  buildEffectiveEvent,
+  getSchemaModifications,
+  type SchemaField,
+} from '@/src/utils/common.client'
 import { StepKeys } from '@/src/config/constants'
 import SelectDeduplicateKeys from '@/src/modules/deduplication/components/SelectDeduplicateKeys'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 import FormActions from '@/src/components/shared/FormActions'
 import { useValidationEngine } from '@/src/store/state-machine/validation-engine'
 import { Button } from '@/src/components/ui/button'
+import { isDeduplicationConfigComplete } from '@/src/modules/deduplication/utils/deduplicationValidation'
 
 export function DeduplicationConfigurator({
   onCompleteStep,
@@ -25,7 +31,7 @@ export function DeduplicationConfigurator({
   readOnly?: boolean
   standalone?: boolean
   toggleEditMode?: () => void
-  pipelineActionState?: any
+  pipelineActionState?: unknown
   onCompleteStandaloneEditing?: () => void
 }) {
   const analytics = useJourneyAnalytics()
@@ -47,6 +53,19 @@ export function DeduplicationConfigurator({
   // Extract event data
   const eventData = selectedEvent?.event || null
 
+  // Get schema fields from KafkaTypeVerification step (if configured)
+  const schemaFields = topic?.schema?.fields as SchemaField[] | undefined
+
+  // Build effective event that reflects schema modifications (added/removed fields)
+  const effectiveEventData = useMemo(() => {
+    return buildEffectiveEvent(eventData, schemaFields)
+  }, [eventData, schemaFields])
+
+  // Get schema modification info for displaying notices
+  const schemaModifications = useMemo(() => {
+    return getSchemaModifications(schemaFields)
+  }, [schemaFields])
+
   // Track page view when component loads
   useEffect(() => {
     analytics.page.deduplicationKey({})
@@ -55,12 +74,22 @@ export function DeduplicationConfigurator({
   // State for tracking save success in edit mode
   const [isSaveSuccess, setIsSaveSuccess] = useState(false)
 
+  // State for tracking submit attempt (for validation)
+  const [submitAttempted, setSubmitAttempted] = useState(false)
+
   // Reset success state when user starts editing again
   useEffect(() => {
     if (!readOnly && isSaveSuccess) {
       setIsSaveSuccess(false)
     }
   }, [readOnly, isSaveSuccess])
+
+  // Reset submitAttempted when deduplication key is selected (clear validation error)
+  useEffect(() => {
+    if (deduplicationConfig?.key && submitAttempted) {
+      setSubmitAttempted(false)
+    }
+  }, [deduplicationConfig?.key, submitAttempted])
 
   // Use deduplication config from the new store, with fallback
   const currentDeduplicationConfig = deduplicationConfig || {
@@ -71,12 +100,10 @@ export function DeduplicationConfigurator({
     keyType: 'string',
   }
 
-  // Determine if we can continue based directly on the store data
-  const canContinue = !!(
-    currentDeduplicationConfig.key &&
-    currentDeduplicationConfig.window &&
-    currentDeduplicationConfig.unit
-  )
+  const canContinue = isDeduplicationConfigComplete(currentDeduplicationConfig)
+
+  // Compute validation error for deduplication key field
+  const keyValidationError = submitAttempted && !currentDeduplicationConfig.key ? 'Please select a deduplication key' : null
 
   // Update the deduplication config in the new store
   const handleDeduplicationConfigChange = useCallback(
@@ -110,6 +137,15 @@ export function DeduplicationConfigurator({
   const handleSave = useCallback(() => {
     if (!topic?.name) return
 
+    // Mark that user attempted to submit (for validation display)
+    setSubmitAttempted(true)
+
+    // Validate before proceeding
+    if (!canContinue) {
+      // Don't proceed if validation fails - errors will be shown via keyValidationError
+      return
+    }
+
     // Trigger validation engine to mark this section as valid and invalidate dependents
     validationEngine.onSectionConfigured(StepKeys.DEDUPLICATION_CONFIGURATOR)
 
@@ -131,7 +167,7 @@ export function DeduplicationConfigurator({
       // In creation mode, move to next step
       onCompleteStep(StepKeys.DEDUPLICATION_CONFIGURATOR as StepKeys)
     }
-  }, [topic, onCompleteStep, validationEngine, standalone, toggleEditMode])
+  }, [topic, onCompleteStep, validationEngine, standalone, toggleEditMode, canContinue])
 
   // Handle discard changes for deduplication configuration
   const handleDiscardChanges = useCallback(() => {
@@ -167,7 +203,7 @@ export function DeduplicationConfigurator({
     return <div>No topic data available for index {index}</div>
   }
 
-  if (!eventData) {
+  if (!effectiveEventData) {
     return (
       <div>
         No event data available for topic &quot;{topic.name}&quot;. Please ensure the topic has been configured with
@@ -178,27 +214,48 @@ export function DeduplicationConfigurator({
 
   return (
     <div className="flex flex-col gap-8">
+      {/* Schema modification notice */}
+      {(schemaModifications.hasAddedFields || schemaModifications.hasRemovedFields) && (
+        <div className="text-sm text-[var(--color-foreground-neutral-faded)] bg-[var(--surface-bg-sunken)] rounded-md px-4 py-3">
+          <span className="font-medium">Schema modified:</span>{' '}
+          {schemaModifications.hasAddedFields && (
+            <span className="text-[var(--color-foreground-primary)]">
+              {schemaModifications.addedCount} field{schemaModifications.addedCount !== 1 ? 's' : ''} added
+            </span>
+          )}
+          {schemaModifications.hasAddedFields && schemaModifications.hasRemovedFields && ', '}
+          {schemaModifications.hasRemovedFields && (
+            <span className="text-[var(--color-foreground-negative)]">
+              {schemaModifications.removedCount} field{schemaModifications.removedCount !== 1 ? 's' : ''} removed
+            </span>
+          )}
+          <span className="ml-1">from the original Kafka event.</span>
+        </div>
+      )}
+
       {/* Topic Configuration */}
       <div className="flex gap-4 w-full">
         <div className="flex flex-col gap-12 flex-[2] min-w-0">
-          {/* Force remounting of this component when the topic name changes */}
+          {/* Force remounting when topic changes (index or name) */}
           <SelectDeduplicateKeys
-            key={`dedup-keys-${topic.name}-${Date.now()}`}
+            key={`dedup-keys-${index}-${topic.name}`}
             index={index}
             onChange={handleDeduplicationConfigChange}
             disabled={!topic?.name}
-            eventData={eventData}
+            eventData={effectiveEventData}
             readOnly={readOnly}
+            schemaFields={schemaFields}
+            validationError={keyValidationError}
           />
         </div>
         <div className="flex-[3] min-w-0 min-h-[400px]">
           <EventEditor
-            event={parseForCodeEditor(eventData)}
+            event={parseForCodeEditor(effectiveEventData)}
             topic={topic?.name}
             isLoadingEvent={false}
             eventError={''}
             isEmptyTopic={false}
-            onManualEventChange={() => {}}
+            onManualEventChange={() => { }}
             isEditingEnabled={false}
             readOnly={readOnly}
           />
@@ -207,24 +264,13 @@ export function DeduplicationConfigurator({
 
       {/* Action buttons */}
       <div className="flex gap-4 items-center">
-        {/* Skip button - only shown in creation mode (not standalone/edit mode) */}
-        {!standalone && (
-          <Button
-            variant="ghost"
-            onClick={handleSkip}
-            className="text-[var(--color-foreground-neutral-faded)] hover:text-[var(--color-foreground-neutral)]"
-          >
-            Skip Deduplication
-          </Button>
-        )}
-
         <FormActions
           standalone={standalone}
           onSubmit={handleSave}
           onDiscard={handleDiscardChanges}
           isLoading={false}
           isSuccess={isSaveSuccess}
-          disabled={!canContinue}
+          disabled={false}
           successText="Continue"
           loadingText="Loading..."
           regularText="Continue"
@@ -235,6 +281,16 @@ export function DeduplicationConfigurator({
           pipelineActionState={pipelineActionState}
           onClose={onCompleteStandaloneEditing}
         />
+
+        {/* Skip button - only shown in creation mode (not standalone/edit mode) */}
+        {!standalone && (
+          <Button
+            onClick={handleSkip}
+            variant="tertiary" className="text-[var(--color-foreground-neutral-faded)] hover:text-[var(--color-foreground-neutral)]"
+          >
+            Skip Deduplication
+          </Button>
+        )}
       </div>
     </div>
   )

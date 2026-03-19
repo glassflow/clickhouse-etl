@@ -7,8 +7,6 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/metric"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 )
@@ -90,14 +88,9 @@ func newMetricsResponseWriter(w http.ResponseWriter) *metricsResponseWriter {
 	}
 }
 
-func RequestMetrics(meter *observability.Meter) func(http.Handler) http.Handler {
+func RequestMetrics() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if meter == nil {
-				next.ServeHTTP(w, r)
-				return
-			}
-
 			start := time.Now()
 
 			route := extractRoute(r)
@@ -109,16 +102,7 @@ func RequestMetrics(meter *observability.Meter) func(http.Handler) http.Handler 
 
 			next.ServeHTTP(mw, r)
 
-			attrs := []attribute.KeyValue{
-				attribute.String("method", r.Method),
-				attribute.String("path", route),
-				attribute.Int("status", mw.status),
-			}
-
-			ctx := r.Context()
-
-			meter.HTTPRequestCount.Add(ctx, 1, metric.WithAttributes(attrs...))
-			meter.HTTPRequestDuration.Record(ctx, time.Since(start).Seconds(), metric.WithAttributes(attrs...))
+			observability.RecordHTTPRequest(r.Context(), r.Method, route, mw.status, time.Since(start).Seconds())
 		})
 	}
 }

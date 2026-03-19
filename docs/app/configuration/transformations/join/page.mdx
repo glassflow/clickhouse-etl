@@ -50,7 +50,7 @@ For more details on the join algorithm, see the [Data Flow](/architecture/data-f
 
 Join is configured at the pipeline level. Here's the configuration structure:
 
-<Tabs items={['Web UI', 'Python SDK']} defaultIndex="0" storageKey="client_preference">
+<Tabs items={['Web UI', 'Pipeline JSON']} defaultIndex="0" storageKey="client_preference">
   <Tabs.Tab>
     <img alt="Join Configuration" src="/assets/ui_join_configuration.png" />
   </Tabs.Tab>
@@ -120,14 +120,18 @@ Here's a complete example of a pipeline with join enabled:
   "source": {
     "type": "kafka",
     "connection_params": {
-      "brokers": ["kafka:9092"]
+      ...
     },
     "topics": [
       {
-        "name": "orders-topic"
+        "name": "orders-topic",
+        "consumer_group_initial_offset": "latest",
+        "replicas": 1
       },
       {
-        "name": "payments-topic"
+        "name": "payments-topic",
+        "consumer_group_initial_offset": "latest",
+        "replicas": 1
       }
     ]
   },
@@ -151,12 +155,7 @@ Here's a complete example of a pipeline with join enabled:
   },
   "sink": {
     "type": "clickhouse",
-    "connection_params": {
-      "host": "clickhouse:9000",
-      "database": "analytics",
-      "table": "joined_orders"
-    }
-  }
+    ...
 }
 ```
 

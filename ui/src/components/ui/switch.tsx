@@ -10,13 +10,14 @@ const Switch = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof SwitchPrimitive.Root>
 >(({ className, ...props }, ref) => (
   <SwitchPrimitive.Root
+    data-slot="switch"
     className={cn(
-      'peer inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors',
+      'peer inline-flex shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors overflow-hidden',
+      'w-[var(--toggle-track-width)] h-[var(--toggle-track-height)]',
       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
       'disabled:cursor-not-allowed disabled:opacity-50',
-      'data-[state=unchecked]:bg-muted dark:data-[state=unchecked]:bg-slate-700',
-      'data-[state=checked]:bg-primary',
-      'dark:border-slate-600',
+      'data-[state=unchecked]:bg-[var(--toggle-track-unchecked-bg)]',
+      'data-[state=checked]:bg-[var(--toggle-track-checked-bg)]',
       className,
     )}
     {...props}
@@ -24,10 +25,12 @@ const Switch = React.forwardRef<
   >
     <SwitchPrimitive.Thumb
       className={cn(
-        'pointer-events-none block h-4 w-4 rounded-full shadow-lg ring-0 transition-transform',
-        'bg-white dark:bg-slate-200',
+        'pointer-events-none block rounded-full shadow-lg ring-0 transition-transform',
+        'h-[var(--toggle-thumb-size)] w-[var(--toggle-thumb-size)]',
+        'bg-[var(--toggle-thumb-unchecked-bg)]',
+        'data-[state=checked]:bg-[var(--toggle-thumb-checked-bg)]',
         'data-[state=unchecked]:translate-x-0',
-        'data-[state=checked]:translate-x-4',
+        'data-[state=checked]:translate-x-2',
       )}
     />
   </SwitchPrimitive.Root>

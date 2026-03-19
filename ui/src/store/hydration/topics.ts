@@ -1,8 +1,25 @@
 import { useStore } from '../index'
+import { structuredLogger } from '@/src/observability'
 
 // Helper to map backend topic config to your store's topic shape (without deduplication)
 function mapBackendTopicToStore(topicConfig: any, index: number) {
   const initialOffset = topicConfig.consumer_group_initial_offset || 'latest'
+
+  // Map backend schema to store schema format (for verified types from type verification step)
+  // Backend format: { type: 'json', fields: [{ name, type }] }
+  // Store format: { fields: [{ name, type, inferredType?, userType? }] }
+  let schema = undefined
+  if (topicConfig.schema?.fields && Array.isArray(topicConfig.schema.fields)) {
+    schema = {
+      fields: topicConfig.schema.fields.map((f: any) => ({
+        name: f.name,
+        type: f.type || 'string',
+        // userType is same as type when loaded from backend (user verified this)
+        userType: f.type || 'string',
+      })),
+    }
+  }
+
   return {
     index,
     name: topicConfig.name,
@@ -15,6 +32,7 @@ function mapBackendTopicToStore(topicConfig: any, index: number) {
     },
     replicas: topicConfig.replicas || 1,
     partitionCount: topicConfig.partition_count || 1,
+    schema, // Include verified schema types from backend
   }
 }
 
@@ -270,9 +288,8 @@ export async function hydrateKafkaTopics(pipelineConfig: any): Promise<void> {
         // Check if topic already exists in store (to preserve event data during re-hydration)
         const existingTopic = useStore.getState().topicsStore.getTopic(idx)
         const existingEvent = existingTopic?.selectedEvent?.event
-        const existingReplicas = existingTopic?.replicas
 
-        // Map topic data with current partition count from Kafka
+        // Map topic data with current partition count from Kafka (replicas from config only; resources are primary for ingestor replicas)
         const topicState = mapBackendTopicToStore(topicConfig, idx)
         topicState.partitionCount = currentPartitionCount
 
@@ -287,11 +304,6 @@ export async function hydrateKafkaTopics(pipelineConfig: any): Promise<void> {
               position: topicConfig.consumer_group_initial_offset || 'latest',
             },
           ]
-        }
-
-        // Preserve existing replica count if available (prevents overwriting user changes)
-        if (existingReplicas && existingReplicas !== topicState.replicas) {
-          topicState.replicas = existingReplicas
         }
 
         useStore.getState().topicsStore.updateTopic(topicState)
@@ -365,7 +377,7 @@ export async function hydrateKafkaTopics(pipelineConfig: any): Promise<void> {
       useStore.getState().coreStore.setTopicCount(topicCount)
     }
   } catch (error) {
-    console.error('Failed to hydrate Kafka topics:', error)
+    structuredLogger.error('Failed to hydrate Kafka topics', { error: error instanceof Error ? error.message : String(error) })
     throw error
   }
 }

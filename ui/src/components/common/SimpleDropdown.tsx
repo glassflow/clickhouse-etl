@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Label } from '@/src/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select'
-import { cn } from '@/src/utils/common.client'
 
 type SimpleDropdownProps = {
   label: string
@@ -22,11 +21,8 @@ export const SimpleDropdown = ({
   optionsList,
   placeholder,
 }: SimpleDropdownProps) => {
-  // Track focus state
-  const [isFocused, setIsFocused] = useState(false)
   const [selectedValue, setSelectedValue] = useState(defaultValue)
 
-  // Update selectedValue when defaultValue changes
   useEffect(() => {
     if (defaultValue) {
       setSelectedValue(defaultValue)
@@ -42,28 +38,8 @@ export const SimpleDropdown = ({
           setSelectedValue(value)
           onSelect(value)
         }}
-        onOpenChange={(open) => {
-          // Consider the dropdown focused when it's open
-          setIsFocused(open)
-        }}
       >
-        <SelectTrigger
-          className={cn(
-            'w-full',
-            'input-regular',
-            'input-border-regular',
-            error && 'input-border-error',
-            isFocused && 'input-gradient-active',
-          )}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => {
-            // Only blur if the dropdown is closed
-            // This prevents losing the focus styles when clicking an option
-            if (!document.querySelector('[data-state="open"]')) {
-              setIsFocused(false)
-            }
-          }}
-        >
+        <SelectTrigger error={!!error} className="w-full">
           <SelectValue placeholder={isLoading ? 'Loading topics...' : placeholder} />
         </SelectTrigger>
         <SelectContent className="select-content-custom">

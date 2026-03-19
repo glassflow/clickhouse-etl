@@ -24,6 +24,8 @@ jobs:
       glassflow-sink-arm64: ${{ steps.gen-output.outputs.glassflow-sink-arm64 }}
       glassflow-dedup-amd64: ${{ steps.gen-output.outputs.glassflow-dedup-amd64 }}
       glassflow-dedup-arm64: ${{ steps.gen-output.outputs.glassflow-dedup-arm64 }}
+      glassflow-migration-amd64: ${{ steps.gen-output.outputs.glassflow-migration-amd64 }}
+      glassflow-migration-arm64: ${{ steps.gen-output.outputs.glassflow-migration-arm64 }}
     permissions:
       contents: read
       packages: write
@@ -40,6 +42,8 @@ jobs:
             image_name: glassflow-etl-sink
           - name: glassflow-dedup
             image_name: glassflow-etl-dedup
+          - name: glassflow-migration
+            image_name: glassflow-etl-migration
         platform:
           - os: linux
             arch: amd64
@@ -59,19 +63,29 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
       - name: Download etl artifact
+        if: matrix.component.name != 'glassflow-migration'
         uses: actions/download-artifact@v4
         with:
           name: glassflow-api-${{ matrix.platform.os }}-${{ matrix.platform.arch }}
           path: glassflow-api/bin
       - name: Make artifacts executable
+        if: matrix.component.name != 'glassflow-migration'
         run: chmod +x glassflow-api/bin/*
+      - name: Set Dockerfile path
+        id: set-dockerfile
+        run: |
+          if [ "${{ matrix.component.name }}" = "glassflow-migration" ]; then
+            echo "dockerfile=glassflow-api/migrations/Dockerfile" >> $GITHUB_OUTPUT
+          else
+            echo "dockerfile=glassflow-api/docker/${{ matrix.component.name }}/Dockerfile" >> $GITHUB_OUTPUT
+          fi
       - name: Build & push Docker image
         uses: docker/build-push-action@v6
         id: build-arch-image
         with:
           platforms: ${{ matrix.platform.os }}/${{ matrix.platform.arch }}
           context: .
-          file: glassflow-api/docker/${{ matrix.component.name }}/Dockerfile
+          file: ${{ steps.set-dockerfile.outputs.dockerfile }}
           push: ${{ inputs.push }}
           provenance: false
           outputs: push-by-digest=true,type=image
@@ -84,6 +98,16 @@ jobs:
           ARCH: ${{ matrix.platform.arch }}
           DIGEST: ${{ steps.build-arch-image.outputs.digest }}
           COMPONENT: ${{ matrix.component.name }}
+      - name: Build Summary
+        if: always()
+        run: |
+          echo "### Built Component Image" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Component**: ${{ matrix.component.name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image**: ghcr.io/glassflow/${{ matrix.component.image_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Architecture**: ${{ matrix.platform.arch }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Digest**: \`${{ steps.build-arch-image.outputs.digest }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
 
   push-docker-manifest:
     name: Push API Image
@@ -108,6 +132,9 @@ jobs:
           - amd64_digest: ${{ needs.build-docker-image.outputs.glassflow-dedup-amd64 }}
             arm64_digest: ${{ needs.build-docker-image.outputs.glassflow-dedup-arm64 }}
             repository: glassflow-etl-dedup
+          - amd64_digest: ${{ needs.build-docker-image.outputs.glassflow-migration-amd64 }}
+            arm64_digest: ${{ needs.build-docker-image.outputs.glassflow-migration-arm64 }}
+            repository: glassflow-etl-migration
     if: ${{ inputs.push }}
     needs: build-docker-image
     steps:
@@ -141,36 +168,98 @@ jobs:
           TAGS: ${{ steps.meta.outputs.tags }}
           REPOSITORY: ghcr.io/glassflow/${{ matrix.component.repository }}
 
-  build-and-push-frontend:
-    name: Build And Push UI Image
-    runs-on: ubuntu-latest
+  build-frontend-image:
+    name: Build UI Image (Per-Architecture)
+    runs-on: ${{ matrix.platform.runner }}
     permissions:
       packages: write
     timeout-minutes: 30
+    outputs:
+      frontend-amd64: ${{ steps.gen-output.outputs.frontend-amd64 }}
+      frontend-arm64: ${{ steps.gen-output.outputs.frontend-arm64 }}
+    strategy:
+      matrix:
+        platform:
+          - arch: amd64
+            runner: ubuntu-latest  # x86_64 native
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+
+            # runner: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # Setup pnpm with pinned version
       - uses: pnpm/action-setup@v4
         name: Install pnpm
         with:
-          version: 10
+          version: 10.28.2  # Match Dockerfile version
           run_install: false
+
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          # cache: 'pnpm'
-          # cache-dependency-path: ui/pnpm-lock.yaml
+          cache: 'pnpm'
+          cache-dependency-path: ui/pnpm-lock.yaml
+
+      # Install dependencies (with caching)
       - name: Install dependencies
         working-directory: ui
         run: pnpm install --frozen-lockfile
-      - name: Build
+
+      # Build Next.js (separate step for better visibility)
+      - name: Build Next.js
         working-directory: ui
         run: pnpm build
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+
+      # Docker setup (no QEMU needed - native build)
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+
+      - name: Login to ghcr
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      # Build and push per-architecture image
+      - name: Build & push Docker image
+        uses: docker/build-push-action@v6
+        id: build-arch-image
+        with:
+          platforms: linux/${{ matrix.platform.arch }}
+          context: ui
+          push: ${{ inputs.push }}
+          provenance: false
+          outputs: type=image,push-by-digest=true
+          cache-from: type=gha,scope=ui-${{ matrix.platform.arch }}
+          cache-to: type=gha,mode=max,scope=ui-${{ matrix.platform.arch }}
+          tags: ghcr.io/glassflow/glassflow-etl-fe
+
+      - name: Generate output
+        id: gen-output
+        run: echo "frontend-${{ matrix.platform.arch }}=${{ steps.build-arch-image.outputs.digest }}" >> "$GITHUB_OUTPUT"
+
+      - name: Build Summary
+        if: always()
+        run: |
+          echo "### Built UI Image" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Architecture**: ${{ matrix.platform.arch }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Digest**: \`${{ steps.build-arch-image.outputs.digest }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+
+  push-frontend-manifest:
+    name: Push UI Manifest
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    if: ${{ inputs.push }}
+    needs: build-frontend-image
+    steps:
       - name: Docker Metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -183,18 +272,23 @@ jobs:
             type=raw,value=stable,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
             type=raw,value=${{ inputs.rc_tag }},enable=${{ inputs.rc_tag != '' }}
             type=ref,event=tag
+
       - name: Login to ghcr
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ github.token }}
-      - name: Build & push Docker image
-        uses: docker/build-push-action@v6
-        with:
-          platforms: linux/amd64,linux/arm64
-          context: ui
-          push: ${{ inputs.push }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          tags: ${{ steps.meta.outputs.tags }}
+
+      - name: Push multiarch manifest
+        run: |
+          echo "$TAGS" | while IFS= read -r TAG; do
+            docker manifest create "$TAG" \
+              --amend "ghcr.io/glassflow/glassflow-etl-fe@$AMD64_DIGEST" \
+              --amend "ghcr.io/glassflow/glassflow-etl-fe@$ARM64_DIGEST"
+            docker manifest push "$TAG"
+          done
+        env:
+          AMD64_DIGEST: ${{ needs.build-frontend-image.outputs.frontend-amd64 }}
+          ARM64_DIGEST: ${{ needs.build-frontend-image.outputs.frontend-arm64 }}
+          TAGS: ${{ steps.meta.outputs.tags }}

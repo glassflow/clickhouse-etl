@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Label } from '@/src/components/ui/label'
+import { structuredLogger } from '@/src/observability'
 import { SearchableSelect } from '@/src/components/common/SearchableSelect'
-import { JSONDateTypesSelector } from '@/src/components/shared/JSONDateTypesSelector'
 import { useStore } from '@/src/store'
-import { extractEventFields } from '@/src/utils/common.client'
+import { extractEventFields, getEffectiveFieldNames, type SchemaField } from '@/src/utils/common.client'
 import { TimeWindowConfigurator } from './TimeWindowConfigurator'
 import { TIME_WINDOW_UNIT_OPTIONS } from '../../../config/constants'
 
@@ -13,9 +13,21 @@ interface SelectDeduplicateKeysProps {
   onChange: (keyConfig: { key: string; keyType: string }, windowConfig: { window: number; unit: string }) => void
   eventData: Record<string, any>
   readOnly?: boolean
+  /** Optional schema fields from KafkaTypeVerification - if provided, will use these for field names */
+  schemaFields?: SchemaField[]
+  /** Validation error message to display for the deduplication key field */
+  validationError?: string | null
 }
 
-function SelectDeduplicateKeys({ index, disabled = false, onChange, eventData, readOnly }: SelectDeduplicateKeysProps) {
+function SelectDeduplicateKeys({
+  index,
+  disabled = false,
+  onChange,
+  eventData,
+  readOnly,
+  schemaFields,
+  validationError,
+}: SelectDeduplicateKeysProps) {
   const [selectedKey, setSelectedKey] = useState('')
   const [selectedKeyType, setSelectedKeyType] = useState('string')
   const [localWindow, setLocalWindow] = useState(1)
@@ -40,31 +52,36 @@ function SelectDeduplicateKeys({ index, disabled = false, onChange, eventData, r
       setLocalWindowUnit(deduplicationConfig.unit || TIME_WINDOW_UNIT_OPTIONS.HOURS.value)
     }
 
-    // Process event data
-    if (eventData) {
-      setIsLoading(true)
-      setError(null)
+    // Process event data - prefer schema fields if available (from KafkaTypeVerification)
+    setIsLoading(true)
+    setError(null)
 
-      try {
-        // Extract the actual event data
+    try {
+      let keys: string[] = []
+
+      // If schema fields are provided (from KafkaTypeVerification), use them
+      // This ensures we respect added/removed fields from the type verification step
+      if (schemaFields && schemaFields.length > 0) {
+        keys = getEffectiveFieldNames(schemaFields)
+      } else if (eventData) {
+        // Fallback: extract fields from the event data
+        // Note: eventData should already be the "effective" event with modifications applied
         const actualEventData = eventData || {}
-
-        // Use the nested event keys function to get all available fields including nested ones
-        const keys = extractEventFields(actualEventData)
-
-        if (keys.length > 0) {
-          setAvailableKeys(keys)
-        } else {
-          setError('No keys found in event data')
-        }
-      } catch (error) {
-        console.error('Error processing event data:', error)
-        setError('Error processing event data')
-      } finally {
-        setIsLoading(false)
+        keys = extractEventFields(actualEventData)
       }
+
+      if (keys.length > 0) {
+        setAvailableKeys(keys)
+      } else {
+        setError('No keys found in event data')
+      }
+    } catch (err) {
+      structuredLogger.error('SelectDeduplicateKeys error processing event data', { error: err instanceof Error ? err.message : String(err) })
+      setError('Error processing event data')
+    } finally {
+      setIsLoading(false)
     }
-  }, [deduplicationConfig, eventData])
+  }, [deduplicationConfig, eventData, schemaFields])
 
   // Simplified getAvailableKeys - no need to filter out selected keys
   const getAvailableKeys = useCallback(() => {
@@ -82,16 +99,7 @@ function SelectDeduplicateKeys({ index, disabled = false, onChange, eventData, r
       setSelectedKeyType('string')
       onChange({ key: key || '', keyType: key ? 'string' : '' }, { window: localWindow, unit: localWindowUnit })
     },
-    [selectedKeyType, localWindow, localWindowUnit, onChange],
-  )
-
-  // Simplified key type selection handler
-  const handleKeyTypeSelect = useCallback(
-    (keyType: string) => {
-      setSelectedKeyType(keyType)
-      onChange({ key: selectedKey, keyType }, { window: localWindow, unit: localWindowUnit })
-    },
-    [selectedKey, localWindow, localWindowUnit, onChange],
+    [localWindow, localWindowUnit, onChange],
   )
 
   // Window change handler
@@ -128,7 +136,7 @@ function SelectDeduplicateKeys({ index, disabled = false, onChange, eventData, r
         <div className="flex gap-2 w-full">
           <div className="w-[70%]">
             {isLoading ? (
-              <div className="text-sm text-gray-500 p-2 border rounded">Loading available keys...</div>
+              <div className="text-sm text-[var(--color-foreground-neutral-faded)] p-2 border border-[var(--color-border-neutral-faded)] rounded">Loading available keys...</div>
             ) : availableKeys.length > 0 ? (
               <SearchableSelect
                 availableOptions={availableKeys}
@@ -137,21 +145,15 @@ function SelectDeduplicateKeys({ index, disabled = false, onChange, eventData, r
                 placeholder="Enter de-duplicate key"
                 clearable={true}
                 readOnly={readOnly}
+                error={validationError || undefined}
               />
             ) : (
-              <div className="text-sm text-gray-500 p-2 border rounded">
+              <div className="text-sm text-[var(--color-foreground-neutral-faded)] p-2 border border-[var(--color-border-neutral-faded)] rounded">
                 {error || 'Please select a topic with valid event data.'}
               </div>
             )}
           </div>
-          <div className="w-[30%]">
-            {/* <JSONDateTypesSelector
-              value={selectedKeyType}
-              onChange={handleKeyTypeSelect}
-              isDeduplicationJoin={true}
-              readOnly={readOnly}
-            /> */}
-          </div>
+          <div className="w-[30%]" />
         </div>
       </div>
 

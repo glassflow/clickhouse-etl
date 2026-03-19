@@ -1,6 +1,7 @@
 package json
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
@@ -179,7 +180,7 @@ func TestTransformer_Transform(t *testing.T) {
 				t.Fatalf("NewTransformer() error = %v", err)
 			}
 
-			outputBytes, err := transformer.Transform([]byte(tt.input))
+			outputMessage, err := transformer.Transform(context.TODO(), models.NewNatsMessage([]byte(tt.input), nil))
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Transform() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -190,7 +191,7 @@ func TestTransformer_Transform(t *testing.T) {
 			}
 
 			var actual map[string]interface{}
-			if err := json.Unmarshal(outputBytes, &actual); err != nil {
+			if err := json.Unmarshal(outputMessage.Payload(), &actual); err != nil {
 				t.Fatalf("Failed to unmarshal actual output: %v", err)
 			}
 
@@ -378,7 +379,43 @@ func TestCustomFunctions(t *testing.T) {
 				},
 			},
 			input:    `{"text":"abc"}`,
-			expected: `{"result":0}`,
+			expected: `{"result":0.0}`,
+		},
+		{
+			name: "toFloat - whole number renders with decimal",
+			transformations: []models.Transform{
+				{
+					Expression: `toFloat(text)`,
+					OutputName: "result",
+					OutputType: "float64",
+				},
+			},
+			input:    `{"text":"4"}`,
+			expected: `{"result":4.0}`,
+		},
+		{
+			name: "toInt - float string floors",
+			transformations: []models.Transform{
+				{
+					Expression: `toInt(text)`,
+					OutputName: "result",
+					OutputType: "int",
+				},
+			},
+			input:    `{"text":"4.2"}`,
+			expected: `{"result":4}`,
+		},
+		{
+			name: "join + split chained",
+			transformations: []models.Transform{
+				{
+					Expression: `join(split(text, ","), "-")`,
+					OutputName: "result",
+					OutputType: "string",
+				},
+			},
+			input:    `{"text":"a,b,c"}`,
+			expected: `{"result":"a-b-c"}`,
 		},
 		{
 			name: "toDate - from unix timestamp int",
@@ -637,6 +674,24 @@ func TestCustomFunctions(t *testing.T) {
 			input:    `{"filename":"photo.jpg"}`,
 			expected: `{"is_image":true}`,
 		},
+		{
+			name: "ceil - rounds up",
+			transformations: []models.Transform{{Expression: `toInt(ceil(num))`, OutputName: "result", OutputType: "int"}},
+			input:    `{"num":4.2}`,
+			expected: `{"result":5}`,
+		},
+		{
+			name: "floor - rounds down",
+			transformations: []models.Transform{{Expression: `toInt(floor(num))`, OutputName: "result", OutputType: "int"}},
+			input:    `{"num":4.7}`,
+			expected: `{"result":4}`,
+		},
+		{
+			name: "round - rounds to nearest",
+			transformations: []models.Transform{{Expression: `toInt(round(num))`, OutputName: "result", OutputType: "int"}},
+			input:    `{"num":4.5}`,
+			expected: `{"result":5}`,
+		},
 	}
 
 	for _, tt := range tests {
@@ -646,13 +701,13 @@ func TestCustomFunctions(t *testing.T) {
 				t.Fatalf("NewTransformer() error = %v", err)
 			}
 
-			outputBytes, err := transformer.Transform([]byte(tt.input))
+			outputMessage, err := transformer.Transform(context.TODO(), models.NewNatsMessage([]byte(tt.input), nil))
 			if err != nil {
 				t.Errorf("Transform() error = %v", err)
 				return
 			}
 
-			output := string(outputBytes)
+			output := string(outputMessage.Payload())
 			diff := cmp.Diff(output, tt.expected)
 			if diff != "" {
 				t.Errorf("Transform() %s", diff)

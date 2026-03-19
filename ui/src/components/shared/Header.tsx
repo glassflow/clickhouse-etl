@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import Image from 'next/image'
+import { structuredLogger } from '@/src/observability'
 import logoFullName from '../../images/logo-full-name.svg'
 import ListIcon from '../../images/list.svg'
 import PlugIcon from '../../images/plus.svg'
@@ -18,6 +19,7 @@ import { Button } from '@/src/components/ui/button'
 import CloseIcon from '../../images/close.svg'
 import BurgerIcon from '../../images/menu-burger-horizontal.svg'
 import { PlatformBadge } from './PlatformBadge'
+import { NotificationBadge } from './NotificationBadge'
 import { getRuntimeEnv } from '@/src/utils/common.client'
 import { UserSection } from './UserSection'
 
@@ -71,7 +73,7 @@ const MobileNavButton = ({
     <li className="text-sm font-medium">
       <Link
         href={href}
-        className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-gray-800 rounded-md"
+        className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-[var(--interactive-hover-bg)] rounded-md"
         onClick={onClick}
       >
         <Image src={icon} alt={label} width={20} height={20} />
@@ -129,7 +131,7 @@ const HelpMenu = ({ isOpen, setIsOpen }: { isOpen: boolean; setIsOpen: (open: bo
       </Button>
 
       <div
-        className={`absolute right-0 mt-2 w-48 bg-[var(--color-background-elevation-raised-faded-2)] surface-gradient-border rounded-md shadow-lg py-1 background z-50 ${
+        className={`absolute right-0 mt-2 w-48 bg-[var(--color-background-elevation-raised-faded-2)] surface-gradient-border rounded-md shadow-lg py-1 z-50 ${
           isOpen ? 'block' : 'hidden'
         }`}
       >
@@ -137,7 +139,7 @@ const HelpMenu = ({ isOpen, setIsOpen }: { isOpen: boolean; setIsOpen: (open: bo
           href="https://docs.glassflow.dev/"
           target="_blank"
           rel="noopener"
-          className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+          className="block px-4 py-2 text-sm text-[var(--color-foreground-neutral)] hover:bg-[var(--color-background-elevation-raised-faded)]"
           onClick={handleMenuItemClick}
         >
           View Docs
@@ -146,14 +148,14 @@ const HelpMenu = ({ isOpen, setIsOpen }: { isOpen: boolean; setIsOpen: (open: bo
           href="https://www.glassflow.dev/contact"
           target="_blank"
           rel="noopener"
-          className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+          className="block px-4 py-2 text-sm text-[var(--color-foreground-neutral)] hover:bg-[var(--color-background-elevation-raised-faded)]"
           onClick={handleMenuItemClick}
         >
           Contact Us
         </a>
         <a
           href="https://github.com/glassflow/clickhouse-etl/issues"
-          className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+          className="block px-4 py-2 text-sm text-[var(--color-foreground-neutral)] hover:bg-[var(--color-background-elevation-raised-faded)]"
           onClick={handleMenuItemClick}
           target="_blank"
           rel="noopener"
@@ -281,7 +283,7 @@ export function Header() {
           router.push('/home')
         }
       } catch (error) {
-        console.error('Error checking existing pipelines:', error)
+        structuredLogger.error('Header error checking existing pipelines', { error: error instanceof Error ? error.message : String(error) })
         // On error, default to home page
         router.push('/home')
       }
@@ -301,7 +303,7 @@ export function Header() {
             </div>
 
             {/* Desktop: Logo (Left) */}
-            <div className="hidden lg:flex items-center pr-12 border-r border-r-[#3A3A3A]">
+            <div className="hidden lg:flex items-center pr-12 border-r border-r-[var(--color-gray-350)]">
               <Button variant="ghost" onClick={handleLogoClick} className="p-0 hover:bg-transparent">
                 <Image
                   src={logoFullName}
@@ -359,10 +361,11 @@ export function Header() {
             </nav>
           </div>
 
-          {/* Right Section: Platform Badge + Auth + Help Menu */}
+          {/* Right Section: Platform Badge + Auth + Notifications + Help Menu */}
           <div className="flex items-center gap-3">
             <PlatformBadge />
             {isAuthEnabled && <UserSection />}
+            <NotificationBadge />
             <HelpMenu isOpen={isHelpMenuOpen} setIsOpen={setIsHelpMenuOpen} />
           </div>
         </div>

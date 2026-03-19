@@ -15,7 +15,10 @@ import { createTopicsSlice, TopicsSlice } from './topics.store'
 import { createDeduplicationSlice, DeduplicationSlice } from './deduplication.store'
 import { createJoinSlice, JoinSlice } from './join.store'
 import { createFilterSlice, FilterSlice } from './filter.store'
+import { createTransformationSlice, TransformationSlice } from './transformation.store'
 import { createCoreSlice, CoreSlice } from './core'
+import { createNotificationsSlice, NotificationsSlice } from './notifications.store'
+import { createResourcesSlice, ResourcesSlice } from './resources.store'
 import Cookies from 'js-cookie'
 
 interface Store
@@ -27,7 +30,10 @@ interface Store
     DeduplicationSlice,
     JoinSlice,
     FilterSlice,
-    CoreSlice {
+    TransformationSlice,
+    CoreSlice,
+    NotificationsSlice,
+    ResourcesSlice {
   // Global reset function that can reset all slices
   resetAllPipelineState: (topicCount: number, force?: boolean) => void
 
@@ -49,7 +55,10 @@ const useActualStore = create<Store>()(
       ...createDeduplicationSlice(set, get, store),
       ...createJoinSlice(set, get, store),
       ...createFilterSlice(set, get, store),
+      ...createTransformationSlice(set, get, store),
       ...createCoreSlice(set, get, store),
+      ...createNotificationsSlice(set, get, store),
+      ...createResourcesSlice(set, get, store),
 
       // Global reset function that resets all slices
       resetAllPipelineState: (topicCount: number, force = false) => {
@@ -64,9 +73,11 @@ const useActualStore = create<Store>()(
           state.deduplicationStore.resetDeduplicationStore()
           state.joinStore.resetJoinStore()
           state.filterStore.resetFilterStore()
+          state.transformationStore.resetTransformationStore()
           state.clickhouseConnectionStore.resetClickhouseStore()
           state.clickhouseDestinationStore.resetDestinationStore()
           state.stepsStore.resetStepsStore()
+          state.resourcesStore.resetResources()
 
           // Reset core store with new topic count
           state.coreStore.enterCreateMode()
@@ -113,6 +124,7 @@ const useActualStore = create<Store>()(
         state.deduplicationStore.resetValidation()
         state.joinStore.resetValidation()
         state.filterStore.resetValidation()
+        state.transformationStore.resetValidation()
         state.clickhouseConnectionStore.resetValidation()
         state.clickhouseDestinationStore.resetValidation()
       },
@@ -127,9 +139,11 @@ const useActualStore = create<Store>()(
         state.deduplicationStore.resetDeduplicationStore()
         state.joinStore.resetJoinStore()
         state.filterStore.resetFilterStore()
+        state.transformationStore.resetTransformationStore()
         state.clickhouseConnectionStore.resetClickhouseStore()
         state.clickhouseDestinationStore.resetDestinationStore()
         state.stepsStore.resetStepsStore()
+        state.resourcesStore.resetResources()
         state.coreStore.enterCreateMode()
 
         // Clear cookies and local storage

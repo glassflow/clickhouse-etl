@@ -57,13 +57,15 @@ func (m *mockOrchestrator) EditPipeline(ctx context.Context, pid string, newCfg 
 
 // mockPipelineStore is a mock implementation of the PipelineStore interface
 type mockPipelineStore struct {
-	mu               sync.RWMutex
-	pipelines        map[string]models.PipelineConfig
-	getError         error
-	updateError      error
-	deleteError      error
-	deleteCalled     bool
-	deletePipelineID string
+	mu                 sync.RWMutex
+	pipelines          map[string]models.PipelineConfig
+	pipelineWithSchema *models.PipelineConfig
+	getError           error
+	getWithSchemaError error
+	updateError        error
+	deleteError        error
+	deleteCalled       bool
+	deletePipelineID   string
 }
 
 func (m *mockPipelineStore) PatchPipelineMetadata(ctx context.Context, pid string, metadata models.PipelineMetadata) error {
@@ -105,6 +107,18 @@ func (m *mockPipelineStore) GetPipeline(ctx context.Context, pid string) (*model
 	return nil, ErrPipelineNotExists
 }
 
+func (m *mockPipelineStore) GetPipelineWithSchemaVersions(ctx context.Context, pid string, sourceSchemaVersions map[string]string) (*models.PipelineConfig, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if m.getWithSchemaError != nil {
+		return nil, m.getWithSchemaError
+	}
+	if m.pipelineWithSchema != nil {
+		return m.pipelineWithSchema, nil
+	}
+	return m.GetPipeline(ctx, pid)
+}
+
 func (m *mockPipelineStore) GetPipelines(ctx context.Context) ([]models.PipelineConfig, error) {
 	var pipelines []models.PipelineConfig
 	for _, pipeline := range m.pipelines {
@@ -139,6 +153,46 @@ func (m *mockPipelineStore) UpdatePipelineStatus(ctx context.Context, pid string
 		m.pipelines[pid] = pipeline
 	}
 	return nil
+}
+
+func (m *mockPipelineStore) GetPipelineResources(_ context.Context, _ string) (*models.PipelineResourcesRow, error) {
+	return nil, ErrPipelineNotExists
+}
+
+func (m *mockPipelineStore) UpsertPipelineResources(_ context.Context, pid string, resources models.PipelineResources) (*models.PipelineResourcesRow, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	pipeline, exists := m.pipelines[pid]
+	if !exists {
+		return nil, ErrPipelineNotExists
+	}
+	pipeline.PipelineResources = resources
+	m.pipelines[pid] = pipeline
+	return &models.PipelineResourcesRow{PipelineID: pid, Resources: resources}, nil
+}
+
+func (m *mockPipelineStore) GetSchemaVersion(ctx context.Context, pipelineID, sourceID, versionID string) (*models.SchemaVersion, error) {
+	return nil, nil
+}
+
+func (m *mockPipelineStore) GetLatestSchemaVersion(ctx context.Context, pipelineID, sourceID string) (*models.SchemaVersion, error) {
+	return nil, nil
+}
+
+func (m *mockPipelineStore) SaveNewSchemaVersion(ctx context.Context, pipelineID, sourceID, oldVersionID, newVersionID string) error {
+	return nil
+}
+
+func (m *mockPipelineStore) GetStatelessTransformationConfig(ctx context.Context, pipelineID, sourceID, sourceSchemaVersion string) (*models.TransformationConfig, error) {
+	return nil, nil
+}
+
+func (m *mockPipelineStore) GetJoinConfigs(ctx context.Context, pipelineID, sourceID1, sourceSchemaVersion1, sourceID2, sourceSchemaVersion2 string) ([]models.JoinConfig, error) {
+	return nil, nil
+}
+
+func (m *mockPipelineStore) GetSinkConfig(ctx context.Context, pipelineID, sourceID, sourceSchemaVersion string) (*models.SinkConfig, error) {
+	return nil, nil
 }
 
 func TestPipelineService_ResumePipeline(t *testing.T) {
@@ -405,5 +459,120 @@ func TestPipelineService_DeletePipeline(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func ptrInt64(v int64) *int64 { return &v }
+
+func TestValidateReplicaOrdering(t *testing.T) {
+	tests := []struct {
+		name        string
+		res         models.PipelineResources
+		expectedErr string
+	}{
+		{
+			name: "valid ordering ingestor >= transform >= sink",
+			res: models.PipelineResources{
+				Ingestor:  &models.IngestorResources{Base: &models.ComponentResources{Replicas: ptrInt64(3)}},
+				Transform: &models.ComponentResources{Replicas: ptrInt64(2)},
+				Sink:      &models.ComponentResources{Replicas: ptrInt64(1)},
+			},
+		},
+		{
+			name: "ingestor less than transform",
+			res: models.PipelineResources{
+				Ingestor:  &models.IngestorResources{Base: &models.ComponentResources{Replicas: ptrInt64(1)}},
+				Transform: &models.ComponentResources{Replicas: ptrInt64(3)},
+			},
+			expectedErr: "ingestor replicas (1) must be >= dedup replicas (3)",
+		},
+		{
+			name: "transform less than sink",
+			res: models.PipelineResources{
+				Transform: &models.ComponentResources{Replicas: ptrInt64(1)},
+				Sink:      &models.ComponentResources{Replicas: ptrInt64(2)},
+			},
+			expectedErr: "dedup replicas (1) must be >= sink replicas (2)",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateReplicaOrdering(tt.res)
+			if tt.expectedErr != "" {
+				if err == nil || !containsString(err.Error(), tt.expectedErr) {
+					t.Errorf("expected error %q, got %v", tt.expectedErr, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestValidateJoinSinkReplicas(t *testing.T) {
+	tests := []struct {
+		name        string
+		res         models.PipelineResources
+		expectedErr string
+	}{
+		{
+			name: "sink replicas = 1 is valid",
+			res:  models.PipelineResources{Sink: &models.ComponentResources{Replicas: ptrInt64(1)}},
+		},
+		{
+			name:        "sink replicas > 1 is invalid",
+			res:         models.PipelineResources{Sink: &models.ComponentResources{Replicas: ptrInt64(2)}},
+			expectedErr: "sink replicas must be 1 when join is enabled",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateJoinSinkReplicas(tt.res)
+			if tt.expectedErr != "" {
+				if err == nil || !containsString(err.Error(), tt.expectedErr) {
+					t.Errorf("expected error %q, got %v", tt.expectedErr, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestPipelineService_GetPipeline_WithSchemaVersions(t *testing.T) {
+	ctx := context.Background()
+	store := &mockPipelineStore{
+		pipelineWithSchema: &models.PipelineConfig{ID: "pipeline-1"},
+	}
+	svc := NewPipelineService(&mockOrchestrator{}, store, slog.Default())
+
+	cfg, err := svc.GetPipeline(ctx, "pipeline-1", map[string]string{"inputA": "12"})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if cfg.ID != "pipeline-1" {
+		t.Fatalf("expected pipeline ID pipeline-1, got %s", cfg.ID)
+	}
+}
+
+func TestPipelineService_GetPipeline_InvalidSelection(t *testing.T) {
+	ctx := context.Background()
+	store := &mockPipelineStore{
+		getWithSchemaError: models.ErrRecordNotFound,
+	}
+	svc := NewPipelineService(&mockOrchestrator{}, store, slog.Default())
+
+	_, err := svc.GetPipeline(ctx, "pipeline-1", map[string]string{"inputA": "missing"})
+	if err == nil {
+		t.Fatal("expected an error")
+	}
+	if !errors.Is(err, ErrInvalidSchemaSelection) {
+		t.Fatalf("expected ErrInvalidSchemaSelection, got %v", err)
 	}
 }

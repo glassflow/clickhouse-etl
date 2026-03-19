@@ -53,6 +53,7 @@ Example event with nested fields:
 <summary>Full pipeline configuration example</summary>
 ```json
 {
+  "version": "v2",
   "pipeline_id": "kafka-to-clickhouse-pipeline",
   "source": {
     "type": "kafka",
@@ -97,8 +98,10 @@ Example event with nested fields:
     "database": "default",
     "username": "default",
     "password": "c2VjcmV0",
-    "table": "users",
-    "table_mapping": [
+    "table": "users"
+  },
+  "schema": {
+    "fields": [
       {
         "source_id": "users",
         "field_name": "user.id",
@@ -133,7 +136,7 @@ Example event with nested fields:
 
 GlassFlow supports comprehensive data type mappings from Kafka to ClickHouse. The following table shows all supported type conversions:
 
-| Kafka Type | Supported ClickHouse Type Mappings |
+| Kafka Type (`field.type`) | Supported ClickHouse Type Mappings (`field.column_type`) |
 |------------|-----------------------------------|
 | **string** | String, FixedString, DateTime, DateTime64, UUID, Enum8, Enum16, LowCardinality(String), LowCardinality(FixedString), LowCardinality(DateTime) |
 | **int** | Int8, Int16, Int32, Int64, LowCardinality(Int8), LowCardinality(Int16), LowCardinality(Int32), LowCardinality(Int64) |
@@ -152,7 +155,9 @@ GlassFlow supports comprehensive data type mappings from Kafka to ClickHouse. Th
 | **bool** | Bool |
 | **bytes** | String |
 | **array** | Array(String), Array(Int8), Array(Int16), Array(Int32), Array(Int64), Array(UInt8), Array(UInt16), Array(UInt32), Array(UInt64), Array(Float32), Array(Float64), Array(Bool), Array(Map(...)), String |
-| **map** | Map(String, String), Array(Map(String, String)) |
+| **object** | String, Map(String, String), Array(Map(String, String)) |
+
+> 💡 **Note**: `object` type is a special type that is used to represent JSON objects. An object field from Kafka can be mapped to a single ClickHouse column using any of the supported types in the table above. You can also map nested fields within the object to separate ClickHouse columns (e.g. using dot notation such as `payload.user.name`).
 
 #### Special Type Support
 

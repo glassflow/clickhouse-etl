@@ -53,7 +53,7 @@ export function TableSelect({
           >
             <SelectTrigger
               id="table"
-              className="w-full text-content input-regular input-border-regular transform transition-all duration-300 ease-in-out translate-y-4 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]"
+              className="w-full text-content transform transition-all duration-300 ease-in-out translate-y-4 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]"
             >
               <SelectValue placeholder={isLoading ? 'Loading tables...' : 'Select table'} />
             </SelectTrigger>
@@ -72,7 +72,7 @@ export function TableSelect({
               placeholder="Enter table name"
               value={selectedTable}
               onChange={(e) => setSelectedTable(e.target.value)}
-              className="w-full text-content input-regular input-border-regular"
+              className="w-full text-content"
               disabled={readOnly}
             />
             {/* {renderTestAccessButton()} */}

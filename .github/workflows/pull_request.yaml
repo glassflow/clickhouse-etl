@@ -1,24 +1,39 @@
 name: Pull Request Creation
 on:
-  - pull_request
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  merge-guard:
+    name: merge-guard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Block merge if build-only label is present
+        if: contains(github.event.pull_request.labels.*.name, 'build-only')
+        run: |
+          echo "::error::This PR has the 'build-only' label and cannot be merged. Remove the label once tests are ready to pass."
+          exit 1
   build-binary:
     uses: ./.github/workflows/build_binary.yaml
   test:
     needs:
       - build-binary
+    if: >-
+      !contains(github.event.pull_request.labels.*.name || '', 'build-only')
     uses: ./.github/workflows/test.yaml
   build:
     needs:
+      - build-binary
       - test
+    if: >-
+      always() && 
+      (needs.test.result == 'success' || needs.test.result == 'skipped')
     uses: ./.github/workflows/build_image.yaml
     with:
       push: true
       rc_tag: "rc-PR-${{ github.event.number }}"
     secrets: inherit
-

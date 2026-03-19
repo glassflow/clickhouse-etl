@@ -85,10 +85,23 @@ export const kafkaMessages = {
   emptyTopic: (topic: string): NotificationOptions => ({
     variant: 'info',
     title: `Topic '${topic}' has no messages yet.`,
-    description: 'Waiting for data…',
+    description: 'Select a different topic with events or enter the event schema manually to proceed.',
     action: undefined,
     reportLink: undefined,
     channel: 'toast',
+  }),
+
+  /**
+   * Empty topic as banner (pipeline create flow)
+   * More visible than toast so the user clearly sees they must pick another topic or enter schema
+   */
+  emptyTopicBanner: (topic: string): NotificationOptions => ({
+    variant: 'warning',
+    title: 'This topic has no events.',
+    description: 'Please select a different topic with events or enter the event schema manually to proceed.',
+    action: undefined,
+    reportLink: undefined,
+    channel: 'banner',
   }),
 
   /**

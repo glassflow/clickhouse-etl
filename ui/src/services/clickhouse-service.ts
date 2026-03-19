@@ -1,14 +1,18 @@
 import {
   createClickHouseConnection,
   closeConnection,
+  executeCommand,
   buildTestQuery,
   parseTestResult,
   parseTabSeparated,
   parseJSONEachRow,
   buildSchemaQuery,
   buildFallbackSchemaQuery,
+  quoteClickHouseIdentifier,
+  quoteTableRef,
   type ClickHouseConfig,
 } from '@/src/app/ui-api/clickhouse/clickhouse-utils'
+import type { AlterTableAddOperation } from '@/src/modules/clickhouse/utils'
 
 export class ClickhouseService {
   async testConnection({
@@ -230,6 +234,100 @@ export class ClickhouseService {
           error instanceof Error
             ? error.message
             : `Failed to fetch schema for table '${table}' in database '${database}'`,
+      }
+    }
+  }
+
+  async createTable(
+    config: ClickHouseConfig,
+    params: { database: string; table: string; engine: string; orderBy: string; columns: Array<{ name: string; type: string }> }
+  ) {
+    const { database, table, engine, orderBy, columns } = params
+    if (!database || !table || !engine || !orderBy || !columns?.length) {
+      return {
+        success: false,
+        error: 'database, table, engine, orderBy, and at least one column are required',
+      }
+    }
+    const columnDefs = columns
+      .filter((c) => c.name && c.type)
+      .map((c) => `${quoteClickHouseIdentifier(c.name)} ${c.type}`)
+      .join(', ')
+    if (!columnDefs) {
+      return { success: false, error: 'At least one column with name and type is required' }
+    }
+    const query = `CREATE TABLE IF NOT EXISTS ${quoteTableRef(database, table)} (${columnDefs}) ENGINE = ${engine} ORDER BY ${quoteClickHouseIdentifier(orderBy)}`
+    try {
+      const connection = await createClickHouseConnection(config)
+      try {
+        await executeCommand(connection, query)
+      } finally {
+        await closeConnection(connection)
+      }
+      return { success: true }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to create table in ClickHouse',
+      }
+    }
+  }
+
+  async alterTable(
+    config: ClickHouseConfig,
+    params: { database: string; table: string; operations: AlterTableAddOperation[] }
+  ) {
+    const { database, table, operations } = params
+    if (!database || !table) {
+      return { success: false, error: 'database and table are required' }
+    }
+    if (!operations?.length) {
+      return { success: false, error: 'at least one operation is required' }
+    }
+    const addOps = operations.filter((o) => o.op === 'add')
+    if (addOps.length === 0) {
+      return { success: false, error: 'only ADD COLUMN operations are supported' }
+    }
+    try {
+      const connection = await createClickHouseConnection(config)
+      try {
+        const tableRef = quoteTableRef(database, table)
+        for (const op of addOps) {
+          if (!op.name || !op.type) continue
+          const quotedName = quoteClickHouseIdentifier(op.name)
+          const typeStr = op.nullable !== false ? `Nullable(${op.type})` : op.type
+          const query = `ALTER TABLE ${tableRef} ADD COLUMN ${quotedName} ${typeStr}`
+          await executeCommand(connection, query)
+        }
+        return { success: true }
+      } finally {
+        await closeConnection(connection)
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to alter table in ClickHouse',
+      }
+    }
+  }
+
+  async dropTable(config: ClickHouseConfig, database: string, table: string) {
+    if (!database || !table) {
+      return { success: false, error: 'database and table are required' }
+    }
+    const query = `DROP TABLE IF EXISTS ${quoteTableRef(database, table)}`
+    try {
+      const connection = await createClickHouseConnection(config)
+      try {
+        await executeCommand(connection, query)
+      } finally {
+        await closeConnection(connection)
+      }
+      return { success: true }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to drop table in ClickHouse',
       }
     }
   }

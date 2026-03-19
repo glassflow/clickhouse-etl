@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { CheckIcon, ClipboardIcon } from '@heroicons/react/24/outline'
+import { structuredLogger } from '@/src/observability'
 import dynamic from 'next/dynamic'
 
 // const AceEditor = dynamic(() => import('react-ace').then((mod) => mod.default), { ssr: false })
@@ -34,7 +35,7 @@ export const EditorWrapper = ({ mode, value }: { mode: string; value: string }) 
         setCopied(false)
       }, 2000)
     } catch (err) {
-      console.error('Failed to copy text: ', err)
+      structuredLogger.error('EditorWrapper failed to copy text', { error: err instanceof Error ? err.message : String(err) })
     }
   }
 

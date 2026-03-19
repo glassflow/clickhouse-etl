@@ -55,7 +55,7 @@ export function InlineAlert({ options }: { options: NotificationOptions }): Reac
       {(action || reportLink) && (
         <div className="flex items-center justify-end gap-2.5 px-4 py-4 border-[var(--color-border-neutral)]">
           {action && (
-            <Button onClick={action.onClick} className="btn-primary">
+            <Button onClick={action.onClick} variant="primary" size="custom">
               {action.label}
             </Button>
           )}

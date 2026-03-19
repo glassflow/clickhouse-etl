@@ -6,11 +6,12 @@ import (
 	"log/slog"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/status"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 )
 
 // MockOrchestrator is a mock implementation of Orchestrator
@@ -81,6 +82,14 @@ func (m *MockPipelineStore) GetPipeline(ctx context.Context, pid string) (*model
 	return args.Get(0).(*models.PipelineConfig), args.Error(1)
 }
 
+func (m *MockPipelineStore) GetPipelineWithSchemaVersions(ctx context.Context, pid string, sourceSchemaVersions map[string]string) (*models.PipelineConfig, error) {
+	args := m.Called(ctx, pid, sourceSchemaVersions)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.PipelineConfig), args.Error(1)
+}
+
 func (m *MockPipelineStore) GetPipelines(ctx context.Context) ([]models.PipelineConfig, error) {
 	args := m.Called(ctx)
 	return args.Get(0).([]models.PipelineConfig), args.Error(1)
@@ -99,6 +108,48 @@ func (m *MockPipelineStore) UpdatePipelineStatus(ctx context.Context, pid string
 func (m *MockPipelineStore) UpdatePipeline(ctx context.Context, pid string, cfg models.PipelineConfig) error {
 	args := m.Called(ctx, pid, cfg)
 	return args.Error(0)
+}
+
+func (m *MockPipelineStore) GetPipelineResources(_ context.Context, _ string) (*models.PipelineResourcesRow, error) {
+	return nil, ErrPipelineNotExists
+}
+
+func (m *MockPipelineStore) UpsertPipelineResources(ctx context.Context, pid string, resources models.PipelineResources) (*models.PipelineResourcesRow, error) {
+	args := m.Called(ctx, pid, resources)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.PipelineResourcesRow), args.Error(1)
+}
+
+func (m *MockPipelineStore) GetSchemaVersion(ctx context.Context, pipelineID, sourceID, versionID string) (*models.SchemaVersion, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *MockPipelineStore) GetLatestSchemaVersion(ctx context.Context, pipelineID, sourceID string) (*models.SchemaVersion, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *MockPipelineStore) SaveNewSchemaVersion(ctx context.Context, pipelineID, sourceID, oldVersionID, newVersionID string) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *MockPipelineStore) GetStatelessTransformationConfig(ctx context.Context, pipelineID, sourceID, sourceSchemaVersion string) (*models.TransformationConfig, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *MockPipelineStore) GetJoinConfigs(ctx context.Context, pipelineID, sourceID1, sourceSchemaVersion1, sourceID2, sourceSchemaVersion2 string) ([]models.JoinConfig, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *MockPipelineStore) GetSinkConfig(ctx context.Context, pipelineID, sourceID, sourceSchemaVersion string) (*models.SinkConfig, error) {
+	//TODO implement me
+	panic("implement me")
 }
 
 func TestEditPipeline_Success(t *testing.T) {
@@ -130,9 +181,15 @@ func TestEditPipeline_Success(t *testing.T) {
 		},
 	}
 
+	// expectedConfig is what UpdatePipeline will receive: newConfig with defaults applied and CreatedAt preserved.
+	expectedConfig := *newConfig
+	expectedConfig.PipelineResources = models.NewDefaultPipelineResources(newConfig)
+	expectedConfig.CreatedAt = currentPipeline.CreatedAt
+
 	// Setup mock expectations
 	mockStore.On("GetPipeline", mock.Anything, pipelineID).Return(currentPipeline, nil)
-	mockStore.On("UpdatePipeline", mock.Anything, pipelineID, *newConfig).Return(nil)
+	mockStore.On("UpsertPipelineResources", mock.Anything, pipelineID, mock.Anything).Return(&models.PipelineResourcesRow{PipelineID: pipelineID}, nil)
+	mockStore.On("UpdatePipeline", mock.Anything, pipelineID, expectedConfig).Return(nil)
 	mockOrchestrator.On("EditPipeline", mock.Anything, pipelineID, newConfig).Return(nil)
 
 	// Execute
@@ -247,9 +304,14 @@ func TestEditPipeline_UpdatePipelineFails(t *testing.T) {
 		Name: "Updated Pipeline",
 	}
 
+	expectedConfig := *newConfig
+	expectedConfig.PipelineResources = models.NewDefaultPipelineResources(newConfig)
+	expectedConfig.CreatedAt = currentPipeline.CreatedAt
+
 	// Setup mock expectations
 	mockStore.On("GetPipeline", mock.Anything, pipelineID).Return(currentPipeline, nil)
-	mockStore.On("UpdatePipeline", mock.Anything, pipelineID, *newConfig).Return(errors.New("database error"))
+	mockStore.On("UpsertPipelineResources", mock.Anything, pipelineID, mock.Anything).Return(&models.PipelineResourcesRow{PipelineID: pipelineID}, nil)
+	mockStore.On("UpdatePipeline", mock.Anything, pipelineID, expectedConfig).Return(errors.New("database error"))
 
 	// Execute
 	err := pipelineService.EditPipeline(context.Background(), pipelineID, newConfig)
@@ -287,9 +349,14 @@ func TestEditPipeline_OrchestratorFails(t *testing.T) {
 		Name: "Updated Pipeline",
 	}
 
+	expectedConfig := *newConfig
+	expectedConfig.PipelineResources = models.NewDefaultPipelineResources(newConfig)
+	expectedConfig.CreatedAt = currentPipeline.CreatedAt
+
 	// Setup mock expectations
 	mockStore.On("GetPipeline", mock.Anything, pipelineID).Return(currentPipeline, nil)
-	mockStore.On("UpdatePipeline", mock.Anything, pipelineID, *newConfig).Return(nil)
+	mockStore.On("UpsertPipelineResources", mock.Anything, pipelineID, mock.Anything).Return(&models.PipelineResourcesRow{PipelineID: pipelineID}, nil)
+	mockStore.On("UpdatePipeline", mock.Anything, pipelineID, expectedConfig).Return(nil)
 	mockOrchestrator.On("EditPipeline", mock.Anything, pipelineID, newConfig).Return(errors.New("orchestrator error"))
 
 	// Execute

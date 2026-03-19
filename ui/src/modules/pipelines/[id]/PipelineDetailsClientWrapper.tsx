@@ -2,23 +2,17 @@
 
 import { useEffect, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { getPipeline } from '@/src/api/pipeline-api'
 import PipelineDetailsModule from './PipelineDetailsModule'
 import PipelineDeploymentProgress from './PipelineDeploymentProgress'
 import { PipelineNotFound } from '../PipelineNotFound'
 import { useStore } from '@/src/store'
-import type { Pipeline, ApiError } from '@/src/types/pipeline'
-import { handleApiError } from '@/src/notifications/api-error-handler'
+import { usePipelineDetailsData } from '@/src/hooks/usePipelineDetailsData'
 
 interface PipelineDetailsClientWrapperProps {
   pipelineId: string
 }
 
 export default function PipelineDetailsClientWrapper({ pipelineId }: PipelineDetailsClientWrapperProps) {
-  const [pipeline, setPipeline] = useState<Pipeline | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [isPipelineNotFound, setIsPipelineNotFound] = useState(false)
   const [showDeploymentProgress, setShowDeploymentProgress] = useState(false)
 
   const searchParams = useSearchParams()
@@ -29,55 +23,48 @@ export default function PipelineDetailsClientWrapper({ pipelineId }: PipelineDet
   const { coreStore } = useStore()
   const { pipelineName } = coreStore
 
+  // Use the centralized pipeline fetch hook
+  // Skip initial fetch if in deployment mode (we'll fetch after deployment completes)
+  const {
+    pipeline,
+    loading,
+    error,
+    isNotFound,
+    refetch,
+    setPipeline,
+  } = usePipelineDetailsData(pipelineId, {
+    skipInitialFetch: isDeploymentMode,
+  })
+
+  // Set deployment progress mode if URL parameter is present
   useEffect(() => {
-    // Set deployment progress mode if URL parameter is present
     if (isDeploymentMode) {
       setShowDeploymentProgress(true)
-      setLoading(false) // Don't need to load pipeline data for deployment progress
-      return
     }
+  }, [isDeploymentMode])
 
-    const fetchPipeline = async () => {
-      try {
-        setLoading(true)
-        setError(null)
-        setIsPipelineNotFound(false)
-        const data = await getPipeline(pipelineId)
-        setPipeline(data)
-      } catch (err: any) {
-        // Check if this is a 404 error (pipeline not found)
-        const apiError = err as ApiError
-        if (apiError?.code === 404) {
-          setIsPipelineNotFound(true)
-          // Notification will be shown by the component that handles pipeline not found
-        } else {
-          setError(err.message || 'Failed to fetch pipeline')
-          // Show notification for other errors using centralized error handler
-          handleApiError(err, {
-            operation: 'fetch',
-            retryFn: () => fetchPipeline(),
-          })
-        }
-      } finally {
-        setLoading(false)
-      }
-    }
+  // Handle deployment completion - fetch pipeline data after deployment
+  const handleDeploymentComplete = async () => {
+    setShowDeploymentProgress(false)
+    // Remove deployment query parameter
+    router.replace(`/pipelines/${pipelineId}`)
+    // Fetch the pipeline data now that deployment is complete
+    await refetch()
+  }
 
-    fetchPipeline()
-  }, [pipelineId, isDeploymentMode])
-
-  if (loading) {
+  // Early return for loading state (only when not in deployment mode)
+  if (loading && !showDeploymentProgress) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <div className="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading pipeline details...</p>
+          <p className="text-[var(--color-foreground-neutral-faded)]">Loading pipeline details...</p>
         </div>
       </div>
     )
   }
 
-  if (isPipelineNotFound) {
+  if (isNotFound) {
     return <PipelineNotFound pipelineId={pipelineId} />
   }
 
@@ -85,47 +72,11 @@ export default function PipelineDetailsClientWrapper({ pipelineId }: PipelineDet
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <div className="text-gray-500 text-lg font-semibold mb-2">Error</div>
-          <p className="text-gray-600">{error}</p>
+          <div className="text-[var(--color-foreground-neutral-faded)] text-lg font-semibold mb-2">Error</div>
+          <p className="text-[var(--color-foreground-neutral-faded)]">{error}</p>
         </div>
       </div>
     )
-  }
-
-  // Handle deployment progress mode
-  const handleDeploymentComplete = () => {
-    setShowDeploymentProgress(false)
-    // Remove deployment query parameter and refresh pipeline data
-    router.replace(`/pipelines/${pipelineId}`)
-
-    // Fetch the pipeline data now that deployment is complete
-    const fetchPipeline = async () => {
-      try {
-        setLoading(true)
-        setError(null)
-        setIsPipelineNotFound(false)
-        const data = await getPipeline(pipelineId)
-        setPipeline(data)
-      } catch (err: any) {
-        // Check if this is a 404 error (pipeline not found)
-        const apiError = err as ApiError
-        if (apiError?.code === 404) {
-          setIsPipelineNotFound(true)
-          // Notification will be shown by the component that handles pipeline not found
-        } else {
-          setError(err.message || 'Failed to fetch pipeline')
-          // Show notification for other errors using centralized error handler
-          handleApiError(err, {
-            operation: 'fetch',
-            retryFn: () => fetchPipeline(),
-          })
-        }
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchPipeline()
   }
 
   const handleDeploymentFailed = (error: string) => {
@@ -160,8 +111,8 @@ export default function PipelineDetailsClientWrapper({ pipelineId }: PipelineDet
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <div className="text-gray-500 text-lg font-semibold mb-2">Pipeline Not Found</div>
-          <p className="text-gray-600">Pipeline with ID &quot;{pipelineId}&quot; could not be found.</p>
+          <div className="text-[var(--color-foreground-neutral-faded)] text-lg font-semibold mb-2">Pipeline Not Found</div>
+          <p className="text-[var(--color-foreground-neutral-faded)]">Pipeline with ID &quot;{pipelineId}&quot; could not be found.</p>
         </div>
       </div>
     )

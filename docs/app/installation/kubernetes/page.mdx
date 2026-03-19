@@ -14,15 +14,15 @@ This guide will walk you through the process of installing GlassFlow on Kubernet
 
 <Callout type="important">
 - The official Helm chart is available at [github.com/glassflow/charts](https://github.com/glassflow/charts).
-- The current Helm deployment **does not expose GlassFlow to the internet by default**. You must use `kubectl port-forward` to access the UI or API.  
+- The current Helm deployment **does not expose GlassFlow to the internet by default**. You must use `kubectl port-forward` to access the UI or API.
 - To expose GlassFlow externally (e.g., via a domain), you must configure ingress in your `values.yaml`. See the [Ingress Setup Guide](/installation/kubernetes/ingress-setup) for complete instructions.
 </Callout>
 
 ## Prerequisites
 
-- A running Kubernetes cluster
-- [Helm](https://helm.sh/docs/intro/install/) installed
-- [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/) for interacting with your cluster (e.g., port forwarding the UI)
+- A running Kubernetes cluster.
+- [Helm](https://helm.sh/docs/intro/install/) installed.
+- [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/) for interacting with your cluster (e.g., port forwarding the UI).
 
 ## Installation
 
@@ -109,6 +109,14 @@ To access the API, you can port forward the API service to your local machine:
 kubectl port-forward service/glassflow-api 8081:8081 -n glassflow
 ```
 The GlassFlow API service runs on port 8081. The command above forwards it to port 8081 on your machine. You can modify this port if needed.
+
+### API documentation (Swagger)
+The API deployment includes **Swagger (OpenAPI) documentation** so you can explore and call endpoints interactively. After port-forwarding the API (see above), open:
+
+- **Swagger UI** (interactive docs): [http://localhost:8081/api/v1/docs](http://localhost:8081/api/v1/docs)
+- **OpenAPI spec** (JSON): [http://localhost:8081/api/v1/openapi.json](http://localhost:8081/api/v1/openapi.json)
+
+Use the Swagger UI to view all API endpoints, request/response schemas, and try out requests. If you expose the API via ingress, the same paths are available under your API base URL (e.g. `https://your-domain.com/api/v1/docs`).
 
 ### Go to GlassFlow UI  
 Open http://localhost:8080 in your browser to access the GlassFlow UI. You can now start creating pipelines.

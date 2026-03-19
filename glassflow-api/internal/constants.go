@@ -1,6 +1,9 @@
 package internal
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 type ProcessorMode string
 
@@ -17,7 +20,7 @@ const (
 
 	// Stream naming constants
 	MaxStreamNameLength  = 32
-	PipelineStreamPrefix = "gf"
+	PipelineStreamPrefix = "gfm"
 
 	// Pipeline status constants
 	PipelineStatusCreated     = "Created"
@@ -64,25 +67,14 @@ const (
 	JSONTypeArray   = "array"
 	JSONTypeObject  = "object"
 
-	// Kafka data type constants
-	KafkaTypeString  = "string"
-	KafkaTypeBool    = "bool"
-	KafkaTypeInt     = "int"
-	KafkaTypeInt8    = "int8"
-	KafkaTypeInt16   = "int16"
-	KafkaTypeInt32   = "int32"
-	KafkaTypeInt64   = "int64"
-	KafkaTypeUint    = "uint"
-	KafkaTypeUint8   = "uint8"
-	KafkaTypeUint16  = "uint16"
-	KafkaTypeUint32  = "uint32"
-	KafkaTypeUint64  = "uint64"
-	KafkaTypeFloat   = "float"
-	KafkaTypeFloat32 = "float32"
-	KafkaTypeFloat64 = "float64"
-	KafkaTypeBytes   = "bytes"
-	KafkaTypeArray   = "array"
-	KafkaTypeMap     = "map"
+	// Kafka data type constants (basic types only; precision types are normalized at API/DB boundary)
+	KafkaTypeString = "string"
+	KafkaTypeBool   = "bool"
+	KafkaTypeInt    = "int"
+	KafkaTypeUint   = "uint"
+	KafkaTypeFloat  = "float"
+	KafkaTypeArray  = "array"
+	KafkaTypeMap    = "map"
 
 	// ClickHouse data type constants
 	CHTypeString     = "String"
@@ -209,7 +201,11 @@ const (
 	// SinkDefaultBatchMaxDelayTime is the maximum time to wait before flushing a partial batch to ClickHouse.
 	SinkDefaultBatchMaxDelayTime = 60 * time.Second
 	// SinkDefaultShutdownTimeout is the maximum time allowed for graceful shutdown and final batch flush.
-	SinkDefaultShutdownTimeout = 5 * time.Second
+	SinkDefaultShutdownTimeout      = 5 * time.Second
+	DefaultComponentShutdownTimeout = 5 * time.Second
+
+	DefaultDedupComponentBatchSize = 50000
+	DefaultDedupMaxWaitTime        = 100 * time.Millisecond
 
 	// Kafka session timeout in milliseconds
 	KafkaSessionTimeout = 30000 * time.Millisecond
@@ -230,4 +226,30 @@ const (
 	SyncMode             ProcessorMode = "sync"
 	AsyncMode            ProcessorMode = "async"
 	DefaultProcessorMode               = AsyncMode
+
+	// Encryption constants
+	AESKeySize = 32
+
+	// Schema version id NATS header
+	SchemaVersionIDHeader = "Schema-Version-Id"
 )
+
+// IsFixedStringType reports whether t is a ClickHouse FixedString type (with or without length).
+// It matches FixedString, FixedString(N), LowCardinality(FixedString), and LowCardinality(FixedString(N)).
+// No validation of actual data length is performed; all are treated like FixedString.
+func IsFixedStringType(t string) bool {
+	t = strings.TrimSpace(t)
+	if t == CHTypeFString {
+		return true
+	}
+	if strings.HasPrefix(t, "FixedString(") && strings.Contains(t, ")") {
+		return true
+	}
+	if t == CHTypeLCFString {
+		return true
+	}
+	if strings.HasPrefix(t, "LowCardinality(FixedString(") && strings.Contains(t, ")") {
+		return true
+	}
+	return false
+}

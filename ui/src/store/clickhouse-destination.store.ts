@@ -6,50 +6,55 @@ import {
   createValidValidation,
   createInvalidatedValidation,
 } from '@/src/types/validation'
+import type { DestinationPath } from '@/src/modules/clickhouse/types'
+
+export interface ClickhouseDestinationState {
+  scheme: string
+  database: string
+  table: string
+  mapping: any[]
+  destinationColumns: any[]
+  maxBatchSize: number
+  maxDelayTime: number
+  maxDelayTimeUnit: string
+  destinationPath: DestinationPath
+  tableName?: string
+  engine?: string
+  orderBy?: string
+}
 
 export interface ClickhouseDestinationProps {
-  // destination configuration including mapping and other settings
-  clickhouseDestination: {
-    scheme: string
-    database: string
-    table: string
-    mapping: any[]
-    destinationColumns: any[]
-    maxBatchSize: number
-    maxDelayTime: number
-    maxDelayTimeUnit: string
-    // useSSL: boolean
-  }
-  // validation state
+  clickhouseDestination: ClickhouseDestinationState
   validation: ValidationState
 }
 
+const defaultDestinationState: ClickhouseDestinationState = {
+  scheme: '',
+  database: '',
+  table: '',
+  mapping: [],
+  destinationColumns: [],
+  maxBatchSize: 1000,
+  maxDelayTime: 1,
+  maxDelayTimeUnit: 'm',
+  destinationPath: 'create',
+}
+
 export const initialClickhouseDestinationStore: ClickhouseDestinationProps = {
-  clickhouseDestination: {
-    scheme: '',
-    database: '',
-    table: '',
-    mapping: [],
-    destinationColumns: [],
-    maxBatchSize: 1000,
-    maxDelayTime: 1,
-    maxDelayTimeUnit: 'm',
-  },
+  clickhouseDestination: { ...defaultDestinationState },
   validation: createInitialValidation(),
 }
 
 export interface ClickhouseDestinationStore extends ClickhouseDestinationProps, ValidationMethods {
-  // actions
-  setClickhouseDestination: (destination: {
-    scheme: string
-    database: string
-    table: string
-    mapping: any[]
-    destinationColumns: any[]
-    maxBatchSize: number
-    maxDelayTime: number
-    maxDelayTimeUnit: string
-  }) => void
+  setClickhouseDestination: (destination: ClickhouseDestinationState) => void
+  /**
+   * Updates the clickhouse destination with partial data without changing validation state.
+   */
+  updateClickhouseDestinationDraft: (partial: Partial<ClickhouseDestinationState>) => void
+  /**
+   * Sets destination path (create | existing). Resets only path-specific fields; batch settings are preserved.
+   */
+  setDestinationPath: (path: DestinationPath) => void
   resetDestinationState: () => void
   getIsDestinationMappingDirty: () => boolean
   resetDestinationStore: () => void
@@ -59,66 +64,90 @@ export interface ClickhouseDestinationSlice {
   clickhouseDestinationStore: ClickhouseDestinationStore
 }
 
+function getPathSpecificReset(
+  current: ClickhouseDestinationState,
+  newPath: DestinationPath,
+): Partial<ClickhouseDestinationState> {
+  if (newPath === 'create') {
+    return {
+      destinationPath: 'create',
+      table: '',
+      tableName: undefined,
+      engine: undefined,
+      orderBy: undefined,
+      mapping: [],
+      destinationColumns: [],
+    }
+  }
+  return {
+    destinationPath: 'existing',
+    tableName: undefined,
+    engine: undefined,
+    orderBy: undefined,
+    mapping: [],
+    destinationColumns: [],
+  }
+}
+
 export const createClickhouseDestinationSlice: StateCreator<ClickhouseDestinationSlice> = (set, get) => ({
   clickhouseDestinationStore: {
-    // destination configuration including mapping and other settings
-    clickhouseDestination: {
-      scheme: '',
-      database: '',
-      table: '',
-      destinationColumns: [],
-      mapping: [],
-      maxBatchSize: 1000,
-      maxDelayTime: 1,
-      maxDelayTimeUnit: 'm',
-      useSSL: true,
-    },
-    // validation state
+    clickhouseDestination: { ...defaultDestinationState },
     validation: createInitialValidation(),
 
-    // actions
     resetDestinationState: () =>
       set((state) => ({
         clickhouseDestinationStore: {
           ...state.clickhouseDestinationStore,
+          clickhouseDestination: { ...defaultDestinationState },
+        },
+      })),
+
+    setClickhouseDestination: (destination: ClickhouseDestinationState) =>
+      set((state) => {
+        const current = state.clickhouseDestinationStore.clickhouseDestination
+        const merged: ClickhouseDestinationState = {
+          ...defaultDestinationState,
+          ...current,
+          ...destination,
+        }
+        return {
+          clickhouseDestinationStore: {
+            ...state.clickhouseDestinationStore,
+            clickhouseDestination: merged,
+            validation: createValidValidation(),
+          },
+        }
+      }),
+
+    updateClickhouseDestinationDraft: (partial: Partial<ClickhouseDestinationState>) =>
+      set((state) => ({
+        clickhouseDestinationStore: {
+          ...state.clickhouseDestinationStore,
           clickhouseDestination: {
-            scheme: '',
-            database: '',
-            table: '',
-            destinationColumns: [],
-            mapping: [],
-            maxBatchSize: 1000,
-            maxDelayTime: 1,
-            maxDelayTimeUnit: 'm',
+            ...state.clickhouseDestinationStore.clickhouseDestination,
+            ...partial,
           },
         },
       })),
 
-    setClickhouseDestination: (destination: {
-      scheme: string
-      database: string
-      table: string
-      mapping: any[]
-      destinationColumns: any[]
-      maxBatchSize: number
-      maxDelayTime: number
-      maxDelayTimeUnit: string
-      // useSSL: boolean
-    }) =>
-      set((state) => ({
-        clickhouseDestinationStore: {
-          ...state.clickhouseDestinationStore,
-          clickhouseDestination: destination,
-          validation: createValidValidation(), // Auto-mark as valid when destination is set
-        },
-      })),
+    setDestinationPath: (path: DestinationPath) =>
+      set((state) => {
+        const current = state.clickhouseDestinationStore.clickhouseDestination
+        const reset = getPathSpecificReset(current, path)
+        const next = { ...current, ...reset }
+        return {
+          clickhouseDestinationStore: {
+            ...state.clickhouseDestinationStore,
+            clickhouseDestination: next,
+          },
+        }
+      }),
 
     getIsDestinationMappingDirty: () => {
       const { mapping } = get().clickhouseDestinationStore.clickhouseDestination
       return mapping.some((value) => value !== '')
     },
 
-    // reset destination store
     resetDestinationStore: () =>
       set((state) => ({
         clickhouseDestinationStore: { ...state.clickhouseDestinationStore, ...initialClickhouseDestinationStore },

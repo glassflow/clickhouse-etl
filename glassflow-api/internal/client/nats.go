@@ -104,7 +104,7 @@ func (n *NATSClient) CleanupOldResources(ctx context.Context) error {
 	for s := range streamIterator.Info() {
 		name := s.Config.Name
 
-		if !strings.Contains(name, internal.GlassflowStreamPrefix) && !strings.Contains(name, internal.DLQSuffix) {
+		if !strings.HasPrefix(name, internal.PipelineStreamPrefix+"-") && !strings.Contains(name, internal.DLQSuffix) {
 			continue
 		}
 

@@ -21,6 +21,8 @@ interface SearchableSelectProps {
   readOnly?: boolean
   label?: string
   error?: string
+  /** When true (default), reserves space for error message to prevent layout shift. Set false in table/row layouts where parent handles validation. */
+  reserveErrorSpace?: boolean
 }
 
 export function SearchableSelect({
@@ -36,6 +38,7 @@ export function SearchableSelect({
   readOnly,
   label,
   error,
+  reserveErrorSpace = true,
 }: SearchableSelectProps) {
   const [uncontrolledOpen, setUncontrolledOpen] = useState(false)
   const [search, setSearch] = useState('')
@@ -264,12 +267,10 @@ export function SearchableSelect({
               onChange={handleInputChange}
               onClick={() => !disabled && !readOnly && setOpen(true)}
               onFocus={() => !disabled && !readOnly && setOpen(true)}
-              className={cn(
-                'w-full pr-10 input-regular input-border-regular text-content',
-                disabled && 'opacity-60 cursor-not-allowed',
-                error && 'input-border-error',
-              )}
-              disabled={disabled || readOnly}
+              error={!!error}
+              readOnly={readOnly}
+              className="w-full min-w-0 pr-14 overflow-hidden text-ellipsis text-content"
+              disabled={disabled}
               aria-expanded={open}
               aria-controls="searchable-select-dropdown"
               role="combobox"
@@ -308,8 +309,17 @@ export function SearchableSelect({
               />
             </div>
           </div>
-          {/* Reserve space for error message to prevent layout shift */}
-          {/* <div className="h-5 mt-0.5">{error && <p className="input-description-error text-sm">{error}</p>}</div> */}
+          {reserveErrorSpace && (
+            /* Error message display - min height + clamp so long errors do not overlap following rows */
+            <p
+              className={cn(
+                'text-sm mt-1 min-h-5 break-words line-clamp-2',
+                error ? 'input-description-error' : 'invisible',
+              )}
+            >
+              {error || 'Placeholder'}
+            </p>
+          )}
         </div>
       </div>
 

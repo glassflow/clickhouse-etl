@@ -71,3 +71,25 @@ export const isDemoMode = (): boolean => {
 export const isPreviewModeEnabled = (): boolean => {
   return getFeatureFlag('NEXT_PUBLIC_PREVIEW_MODE')
 }
+
+/**
+ * Check if transformations feature is enabled.
+ * Controls visibility of the transformation configurator in pipeline creation and editing.
+ *
+ * @env NEXT_PUBLIC_TRANSFORMATIONS_ENABLED - Set to 'true' to enable transformations
+ */
+export const isTransformationsEnabled = (): boolean => {
+  return getFeatureFlag('NEXT_PUBLIC_TRANSFORMATIONS_ENABLED')
+}
+
+/**
+ * Check if shared notifications feature is enabled.
+ * Controls visibility of the notification system UI components including
+ * the notification badge, panel, and settings.
+ * When disabled, no traces of the notification system are visible in the UI.
+ *
+ * @env NEXT_PUBLIC_NOTIFICATIONS_ENABLED - Set to 'true' to enable notifications
+ */
+export const isNotificationsEnabled = (): boolean => {
+  return getFeatureFlag('NEXT_PUBLIC_NOTIFICATIONS_ENABLED')
+}

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import axios from 'axios'
+import { structuredLogger } from '@/src/observability'
 import { runtimeConfig } from '../../../config'
 import { validatePipelineIdOrError } from '../../validation'
 
@@ -24,12 +25,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       message: `Pipeline ${id} terminated successfully`,
     })
   } catch (error: any) {
-    console.error('Terminate Pipeline API Route - Error details:', {
-      message: error.message,
-      response: error.response?.data,
-      status: error.response?.status,
-      config: error.config,
-    })
+    structuredLogger.error('Terminate Pipeline API Route error', { error: error.message, response: error.response?.data, status: error.response?.status })
 
     if (error.response) {
       const { status, data } = error.response

@@ -43,7 +43,7 @@ The wizard walks you through:
 
 ### 2. Python SDK (Recommended for Advanced Users)
 
-The **Python SDK** approach allows for programmatic creation of pipelines. This method is ideal for:
+The **Python SDK** approach allows for programmatic creation of pipelines and talks to the GlassFlow API. When the API is deployed (e.g. via the [Kubernetes installation](/installation/kubernetes)), it also serves **Swagger (OpenAPI) documentation** at `/api/v1/docs` so you can explore endpoints and request/response formats. This method is ideal for:
 
 - Developers who prefer code-based configuration
 - Automated pipeline deployment and CI/CD integration
@@ -59,6 +59,10 @@ The SDK provides:
 [Learn how to use the Python SDK →](/usage-guide/python-sdk)
 
 Both approaches create the same underlying pipeline configuration and can be used interchangeably based on your workflow preferences.
+
+## Scaling Pipelines
+
+Once your pipeline is running, you can scale the ingestor, transform, and sink components to increase throughput. See [Scaling Pipelines](/usage-guide/scaling) for how to configure replicas and best practices.
 
 ## Verifying Data Flow
 

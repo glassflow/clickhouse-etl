@@ -112,18 +112,18 @@ func (mr *MockPipelineServiceMockRecorder) GetOrchestratorType() *gomock.Call {
 }
 
 // GetPipeline mocks base method.
-func (m *MockPipelineService) GetPipeline(ctx context.Context, pid string) (models.PipelineConfig, error) {
+func (m *MockPipelineService) GetPipeline(ctx context.Context, pid string, sourceSchemaVersions map[string]string) (models.PipelineConfig, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetPipeline", ctx, pid)
+	ret := m.ctrl.Call(m, "GetPipeline", ctx, pid, sourceSchemaVersions)
 	ret0, _ := ret[0].(models.PipelineConfig)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetPipeline indicates an expected call of GetPipeline.
-func (mr *MockPipelineServiceMockRecorder) GetPipeline(ctx, pid any) *gomock.Call {
+func (mr *MockPipelineServiceMockRecorder) GetPipeline(ctx, pid, sourceSchemaVersions any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPipeline", reflect.TypeOf((*MockPipelineService)(nil).GetPipeline), ctx, pid)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPipeline", reflect.TypeOf((*MockPipelineService)(nil).GetPipeline), ctx, pid, sourceSchemaVersions)
 }
 
 // GetPipelineHealth mocks base method.
@@ -139,6 +139,36 @@ func (m *MockPipelineService) GetPipelineHealth(ctx context.Context, pid string)
 func (mr *MockPipelineServiceMockRecorder) GetPipelineHealth(ctx, pid any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPipelineHealth", reflect.TypeOf((*MockPipelineService)(nil).GetPipelineHealth), ctx, pid)
+}
+
+// GetPipelineResources mocks base method.
+func (m *MockPipelineService) GetPipelineResources(ctx context.Context, pid string) (models.PipelineResourcesWithPolicy, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPipelineResources", ctx, pid)
+	ret0, _ := ret[0].(models.PipelineResourcesWithPolicy)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetPipelineResources indicates an expected call of GetPipelineResources.
+func (mr *MockPipelineServiceMockRecorder) GetPipelineResources(ctx, pid any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPipelineResources", reflect.TypeOf((*MockPipelineService)(nil).GetPipelineResources), ctx, pid)
+}
+
+// GetPipelineResourcesValidation mocks base method.
+func (m *MockPipelineService) GetPipelineResourcesValidation(ctx context.Context, pid string) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPipelineResourcesValidation", ctx, pid)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetPipelineResourcesValidation indicates an expected call of GetPipelineResourcesValidation.
+func (mr *MockPipelineServiceMockRecorder) GetPipelineResourcesValidation(ctx, pid any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPipelineResourcesValidation", reflect.TypeOf((*MockPipelineService)(nil).GetPipelineResourcesValidation), ctx, pid)
 }
 
 // GetPipelines mocks base method.
@@ -224,4 +254,19 @@ func (m *MockPipelineService) UpdatePipelineName(ctx context.Context, id, name s
 func (mr *MockPipelineServiceMockRecorder) UpdatePipelineName(ctx, id, name any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdatePipelineName", reflect.TypeOf((*MockPipelineService)(nil).UpdatePipelineName), ctx, id, name)
+}
+
+// UpdatePipelineResources mocks base method.
+func (m *MockPipelineService) UpdatePipelineResources(ctx context.Context, pid string, resources models.PipelineResources) (models.PipelineResourcesWithPolicy, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdatePipelineResources", ctx, pid, resources)
+	ret0, _ := ret[0].(models.PipelineResourcesWithPolicy)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdatePipelineResources indicates an expected call of UpdatePipelineResources.
+func (mr *MockPipelineServiceMockRecorder) UpdatePipelineResources(ctx, pid, resources any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdatePipelineResources", reflect.TypeOf((*MockPipelineService)(nil).UpdatePipelineResources), ctx, pid, resources)
 }

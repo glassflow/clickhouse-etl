@@ -1,4 +1,16 @@
-// Shared pipeline types used across the application
+/**
+ * Shared pipeline types used across the application
+ *
+ * Type Hierarchy:
+ * - PipelineApiResponse: Raw response from the backend API (may have different structure per version)
+ * - Pipeline: Normalized pipeline structure used throughout the UI
+ * - InternalPipelineConfig: Extended Pipeline with UI-specific fields (e.g., transformation)
+ *
+ * Hydration Flow:
+ * 1. API returns PipelineApiResponse
+ * 2. Adapter.hydrate(apiResponse) converts to InternalPipelineConfig
+ * 3. InternalPipelineConfig is used to populate stores and render UI
+ */
 
 import { PIPELINE_STATUS_MAP } from '../config/constants'
 
@@ -23,6 +35,9 @@ export const parsePipelineStatus = (status: string): PipelineStatus => {
     case 'running':
     case 'active':
       return 'active'
+    case 'created':
+    case 'deploying':
+      return 'starting' // Pipeline is being deployed/started - transitional state
     case 'paused':
       return 'paused'
     case 'pausing':
@@ -43,7 +58,6 @@ export const parsePipelineStatus = (status: string): PipelineStatus => {
     case 'deploy_failed':
     case 'delete_failed':
       return 'failed'
-    case 'deploying':
     case 'no_configuration':
       return 'active' // Treat as active to allow configuration
     default:
@@ -107,16 +121,50 @@ export interface DLQState {
   unconsumed_messages: number
 }
 
-// Defines the internal structure of a pipeline configuration used by the UI
-// This should remain stable even if the backend API format changes
-export type InternalPipelineConfig = Pipeline
+/**
+ * Type alias for raw API response from the backend.
+ *
+ * Use this type at the hydration boundary (e.g., getPipeline response)
+ * to make it explicit that the data comes from the API and needs
+ * to be transformed via adapter.hydrate() before use.
+ *
+ * The actual structure may vary by API version, so we use `any` here.
+ * The adapter is responsible for normalizing it to InternalPipelineConfig.
+ */
+export type PipelineApiResponse = any
 
+/**
+ * Defines the internal structure of a pipeline configuration used by the UI.
+ * This should remain stable even if the backend API format changes.
+ * V3 API uses sink.connection_params and sink.mapping; the adapter normalizes to this shape.
+ *
+ * @see PipelineApiResponse for the raw API type
+ * @see PipelineAdapter.hydrate() for the conversion process
+ */
+export type InternalPipelineConfig = Pipeline & {
+  /**
+   * Legacy / internal transformation config used by the UI.
+   * Newer API versions may use `stateless_transformation` instead.
+   * The adapter normalizes both formats to this structure.
+   */
+  transformation?: {
+    enabled?: boolean
+    expression?: string
+    fields?: any[]
+  }
+}
+
+/**
+ * Normalized pipeline structure used throughout the UI.
+ *
+ * This represents the canonical pipeline shape after hydration.
+ * All UI components should work with this type (or InternalPipelineConfig).
+ */
 export interface Pipeline {
   pipeline_id: string
   name: string
-  version?: string // Pipeline configuration version
-  // state: string // Pipeline status from backend State field
-  status?: PipelineStatus // UI status field (converted from state)
+  version?: string // Pipeline configuration version (e.g., "2.0")
+  status?: PipelineStatus // UI status field (converted from backend state)
   created_at?: string // Creation timestamp
   source: {
     type: string
@@ -164,6 +212,25 @@ export interface Pipeline {
     enabled: boolean
     expression: string
   }
+  transformation?: {
+    enabled?: boolean
+    expression?: string
+    fields?: any[]
+  }
+  stateless_transformation?: {
+    id?: string
+    type?: string
+    enabled?: boolean
+    config?: {
+      transform?: Array<{
+        expression: string
+        output_name: string
+        output_type: string
+      }>
+    }
+  }
+  pipeline_resources?: PipelineResources
+  fields_policy?: { immutable: string[] }
   sink: {
     type: string
     host: string
@@ -186,6 +253,12 @@ export interface Pipeline {
   }
   metadata?: PipelineMetadata
 }
+
+/**
+ * Config shape accepted when hydrating the store (e.g. from import).
+ * pipeline_id is optional so import flow can omit it and avoid fetching resources by the exported ID.
+ */
+export type PipelineConfigForHydration = Omit<Pipeline, 'pipeline_id'> & { pipeline_id?: string }
 
 export interface Schema {
   id: string
@@ -229,6 +302,51 @@ export interface ApiError {
 export interface PipelineError {
   code: number
   message: string
+}
+
+// Resource management types (mirroring backend models/resources.go)
+export interface ResourceList {
+  cpu?: string
+  memory?: string
+}
+
+export interface StorageConfig {
+  size?: string
+}
+
+export interface ComponentResources {
+  requests?: ResourceList
+  limits?: ResourceList
+  storage?: StorageConfig
+  replicas?: number
+}
+
+export interface IngestorResources {
+  base?: ComponentResources
+  left?: ComponentResources
+  right?: ComponentResources
+}
+
+export interface NatsStreamResources {
+  maxAge?: string
+  maxBytes?: string
+}
+
+export interface NatsResources {
+  stream?: NatsStreamResources
+}
+
+export interface PipelineResources {
+  nats?: NatsResources
+  ingestor?: IngestorResources
+  join?: ComponentResources
+  sink?: ComponentResources
+  transform?: ComponentResources
+}
+
+export interface PipelineResourcesResponse {
+  pipeline_resources: PipelineResources
+  fields_policy?: { immutable: string[] }
 }
 
 export interface PipelineResponse {

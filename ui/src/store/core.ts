@@ -1,5 +1,5 @@
 import { OperationsSelectedType, OutboundEventPreviewType } from '@/src/scheme'
-import { Pipeline } from '@/src/types/pipeline'
+import { Pipeline, PipelineConfigForHydration } from '@/src/types/pipeline'
 import Cookies from 'js-cookie'
 import { StateCreator } from 'zustand'
 import { trackMode } from '@/src/analytics'
@@ -8,7 +8,10 @@ import { hydrateKafkaTopics } from './hydration/topics'
 import { hydrateClickhouseConnection } from './hydration/clickhouse-connection'
 import { hydrateClickhouseDestination } from './hydration/clickhouse-destination'
 import { hydrateJoinConfiguration } from './hydration/join-configuration'
+import { structuredLogger } from '@/src/observability'
 import { hydrateFilter } from './hydration/filter'
+import { hydrateTransformation } from './hydration/transformation'
+import { hydrateResources } from './hydration/resources'
 
 // Helper function to compute operation type from topicCount + deduplication + join state
 // This is used for backward compatibility (analytics, display, etc.)
@@ -111,7 +114,7 @@ interface CoreStore extends CoreStoreProps {
   // New mode-related actions
   setMode: (mode: StoreMode) => void
   setBaseConfig: (config: Pipeline | undefined) => void
-  hydrateFromConfig: (config: Pipeline) => Promise<void>
+  hydrateFromConfig: (config: PipelineConfigForHydration) => Promise<void>
   resetToInitial: () => void
   discardChanges: () => void
   enterCreateMode: () => void
@@ -126,7 +129,7 @@ interface CoreStore extends CoreStoreProps {
   clearSaveHistory: () => void
   discardToLastSaved: () => Promise<void>
   // New section-based hydration actions
-  hydrateSection: (section: string, config: Pipeline) => Promise<void>
+  hydrateSection: (section: string, config: PipelineConfigForHydration) => Promise<void>
   discardSection: (section: string) => Promise<void>
   discardSections: (sections: string[]) => void
 }
@@ -226,7 +229,7 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
         return computeOperationType(topicCount, dedupConfigs, hasJoin)
       } catch (error) {
         // If stores aren't initialized yet, return a basic operation based on topicCount
-        console.warn('Failed to compute operation, using basic fallback:', error)
+        structuredLogger.warn('Failed to compute operation, using basic fallback', { error: error instanceof Error ? error.message : String(error) })
         return topicCount === 2 ? 'joining' : 'ingest-only'
       }
     },
@@ -313,11 +316,12 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
       set((state) => ({
         coreStore: { ...state.coreStore, baseConfig: config },
       })),
-    hydrateFromConfig: async (config: Pipeline) => {
+    hydrateFromConfig: async (config: PipelineConfigForHydration) => {
       set((state) => ({
         coreStore: {
           ...state.coreStore,
-          pipelineId: config.pipeline_id,
+          // Preserve existing pipelineId when config has none (e.g. import flow after setPipelineId(newId))
+          pipelineId: config.pipeline_id ?? state.coreStore.pipelineId,
           pipelineName: config.name,
           pipelineVersion: config.version, // Store the version from the config
           isDirty: false,
@@ -507,13 +511,13 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
             coreStore: { ...state.coreStore, isDirty: false },
           }))
         } catch (error) {
-          console.error('Failed to discard to last saved config:', error)
+          structuredLogger.error('Failed to discard to last saved config', { error: error instanceof Error ? error.message : String(error) })
           throw error
         }
       }
     },
     // New section-based hydration methods
-    hydrateSection: async (section: string, config: Pipeline) => {
+    hydrateSection: async (section: string, config: PipelineConfigForHydration) => {
       try {
         switch (section) {
           case 'kafka':
@@ -532,27 +536,35 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
           case 'filter':
             hydrateFilter(config)
             break
+          case 'transformation':
+            hydrateTransformation(config)
+            break
           case 'clickhouse-connection':
             hydrateClickhouseConnection(config)
             break
           case 'clickhouse-destination':
             await hydrateClickhouseDestination(config)
             break
+          case 'resources':
+            await hydrateResources(config)
+            break
           case 'all':
-            // Hydrate sync sections first (including filter - doesn't need event schema)
+            // Hydrate sync sections first (including filter and transformation - don't need event schema)
             hydrateKafkaConnection(config)
             hydrateClickhouseConnection(config)
             hydrateJoinConfiguration(config)
             hydrateFilter(config)
+            hydrateTransformation(config)
             // Then async sections that require network calls
             await hydrateKafkaTopics(config)
             await hydrateClickhouseDestination(config)
+            await hydrateResources(config)
             break
           default:
-            console.warn(`Unknown section for hydration: ${section}`)
+            structuredLogger.warn('Unknown section for hydration', { section })
         }
       } catch (error) {
-        console.error(`❌ Hydration failed for section '${section}':`, error)
+        structuredLogger.error('Hydration failed for section', { section, error: error instanceof Error ? error.message : String(error) })
         // Mark relevant stores as invalidated on hydration failure
         if (error instanceof Error && error.message.includes('Kafka')) {
           const { useStore } = await import('./index')
@@ -572,11 +584,11 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
           // Hydrate only the specific section from lastSavedConfig
           await state.coreStore.hydrateSection(section, lastSavedConfig)
         } catch (error) {
-          console.error(`Failed to discard section '${section}':`, error)
+          structuredLogger.error('Failed to discard section', { section, error: error instanceof Error ? error.message : String(error) })
           throw error
         }
       } else {
-        console.warn('No lastSavedConfig available for section discard')
+        structuredLogger.warn('No lastSavedConfig available for section discard')
       }
     },
     discardSections: (sections: string[]) => {
@@ -589,7 +601,7 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
           state.coreStore.hydrateSection(section, lastSavedConfig)
         })
       } else {
-        console.warn('No lastSavedConfig available for sections discard')
+        structuredLogger.warn('No lastSavedConfig available for sections discard')
       }
     },
   },

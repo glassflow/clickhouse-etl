@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select'
 import { JSON_DATA_TYPES, JSON_DATA_TYPES_DEDUPLICATION_JOIN } from '@/src/config/constants'
 import { cn } from '@/src/utils/common.client'
@@ -18,25 +17,9 @@ export function JSONDateTypesSelector({
   isDeduplicationJoin?: boolean
   readOnly?: boolean
 }) {
-  const [isFocused, setIsFocused] = useState(false)
   return (
     <Select value={value} onValueChange={onChange} disabled={readOnly}>
-      <SelectTrigger
-        className={cn(
-          'w-full',
-          'input-regular',
-          'input-border-regular',
-          'transition-all duration-200 ease-in-out',
-          'text-content',
-          className,
-        )}
-        onFocus={() => setIsFocused(true)}
-        onBlur={() => {
-          if (!document.querySelector('[data-state="open"]')) {
-            setIsFocused(false)
-          }
-        }}
-      >
+      <SelectTrigger className={cn('w-full transition-all duration-200 ease-in-out text-content', className)}>
         <SelectValue placeholder="Select type" className="text-content" />
       </SelectTrigger>
       <SelectContent className="select-content-custom animate-fadeIn text-content">

@@ -1,0 +1,468 @@
+[data-theme='dark'] {
+  /* ================== Color System ================== */
+  /* Color tokens mapping semantic meanings to base colors */
+
+  /* Primary */
+  --color-background-primary: var(--color-orange-300);
+  --color-background-primary-faded: var(--color-brown-800);
+  --color-border-primary: var(--color-orange-400);
+  --color-border-primary-faded: var(--color-brown-900);
+  --color-foreground-primary: var(--color-orange-300);
+  --color-foreground-primary-faded: var(--color-orange-600);
+
+  /* Critical */
+  --color-background-critical: var(--color-red-600);
+  --color-background-critical-faded: var(--color-red-800);
+  --color-border-critical: var(--color-red-400);
+  --color-border-critical-faded: var(--color-red-900);
+  --color-foreground-critical: var(--color-red-500);
+  --color-foreground-critical-faded: var(--color-red-600);
+
+  /* Warning */
+  --color-background-warning: var(--color-yellow-600);
+  --color-background-warning-faded: var(--color-yellow-700);
+  --color-border-warning: var(--color-yellow-400);
+  --color-border-warning-faded: var(--color-yellow-500);
+  --color-foreground-warning: var(--color-yellow-400);
+  --color-foreground-warning-faded: var(--color-yellow-500);
+
+  /* Positive */
+  --color-background-positive: var(--color-green-600);
+  --color-background-positive-faded: var(--color-green-800);
+  --color-border-positive: var(--color-green-400);
+  --color-border-positive-faded: var(--color-green-900);
+  --color-foreground-positive: var(--color-green-500);
+  --color-foreground-positive-faded: var(--color-green-700);
+
+  /* Neutral */
+  --color-background-neutral: var(--color-gray-dark-600);
+  --color-background-neutral-faded: var(--color-gray-dark-700);
+  --color-border-neutral: var(--color-white);
+  --color-border-neutral-faded: var(--color-gray-dark-300);
+  --color-foreground-neutral: var(--color-gray-dark-50);
+  --color-foreground-neutral-faded: var(--color-gray-250);
+
+  /* Disabled */
+  --color-background-disabled: var(--color-gray-dark-800);
+  --color-background-disabled-faded: var(--color-gray-dark-900);
+  --color-border-disabled: var(--color-gray-dark-500);
+  --color-border-disabled-faded: var(--color-gray-dark-800);
+  --color-foreground-disabled: var(--color-gray-dark-500);
+  --color-foreground-disabled-faded: var(--color-gray-dark-500);
+
+  /* Info */
+  --color-background-info: var(--color-gray-dark-600);
+  --color-background-info-faded: var(--color-gray-dark-700);
+  --color-border-info: var(--color-gray-dark-300);
+  --color-border-info-faded: var(--color-gray-dark-400);
+  --color-foreground-info: var(--color-blue-500);
+  --color-foreground-info-faded: var(--color-blue-800);
+
+  /* Regular */
+  --color-background-regular: var(--color-gray-dark-800);
+  --color-background-regular-faded: var(--color-gray-dark-950);
+  --color-border-regular: var(--color-gray-dark-300);
+  --color-border-regular-faded: var(--color-gray-dark-300);
+  --color-foreground-regular: var(--color-white);
+  --color-foreground-regular-faded: var(--color-white);
+
+  /* Menu */
+  --color-menu-background: var(--color-gray-dark-300);
+  --color-menu-background-faded: var(--color-gray-dark-800);
+  --color-menu-background-overlay: var(--color-gray-dark-300);
+  --color-menu-background-page: var(--color-gray-dark-300);
+  --color-menu-background-page-faded: var(--color-gray-dark-800);
+
+  /* Elevation */
+  --color-background-elevation-base: var(--color-black-500);
+  --color-background-elevation-raised: var(--color-gray-dark-900);
+  --color-background-elevation-raised-faded: var(--color-black-100);
+  --color-background-elevation-raised-faded-2: var(--color-black-600);
+  --color-background-elevation-overlay: var(--color-gray-dark-800);
+  --color-background-page: var(--color-gray-dark-600);
+  --color-background-page-faded: var(--color-gray-dark-800);
+
+  /* On-color text */
+  --color-on-background-primary: var(--color-black);
+  --color-on-background-critical: var(--color-white);
+  --color-on-background-warning: var(--color-black);
+  --color-on-background-positive: var(--color-white);
+  --color-on-background-neutral: var(--color-white);
+  --color-on-brand: var(--color-black);
+  --color-rgb-positive: var(--color-green-500);
+  --color-rgb-negative: var(--color-red-500);
+  --color-rgb-warning: var(--color-yellow-500);
+  --color-rgb-info: var(--color-blue-500);
+  --color-rgb-regular: var(--color-white);
+
+  /* Icon colors */
+  --icon-color-default: var(--color-gray-dark-100);
+  --icon-color-active: var(--color-orange-300);
+  --icon-color-hover: var(--color-gray-dark-900);
+  --icon-color-disabled: var(--color-gray-dark-500);
+
+  /* shadcn/ui variables */
+  --background: var(--color-background-page);
+  --foreground: var(--color-foreground-neutral);
+
+  --card: var(--color-background-elevation-raised);
+  --card-foreground: var(--color-foreground-neutral);
+
+  --popover: var(--color-background-elevation-overlay);
+  --popover-foreground: var(--color-foreground-neutral);
+
+  --primary: var(--color-background-primary);
+  --primary-foreground: var(--color-on-background-primary);
+
+  --secondary: var(--color-background-neutral);
+  --secondary-foreground: var(--color-on-background-neutral);
+
+  --muted: var(--color-background-neutral-faded);
+  --muted-foreground: var(--color-foreground-neutral-faded);
+
+  --accent: var(--color-background-primary-faded);
+  --accent-foreground: var(--color-foreground-primary);
+
+  --destructive: var(--color-background-critical);
+  --destructive-foreground: var(--color-on-background-critical);
+
+  --border: var(--color-border-neutral);
+  --input: var(--color-border-neutral);
+  --ring: var(--color-background-primary);
+
+  --radius: var(--radius-md);
+
+  /* Design kit parity: sidebar, chart, semantic (for Figma mode sync) */
+  --sidebar: var(--card);
+  --sidebar-foreground: var(--card-foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--accent-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+  --chart-1: var(--color-blue-500);
+  --chart-2: var(--color-orange-300);
+  --chart-3: var(--color-blue-400);
+  --chart-4: var(--color-orange-500);
+  --chart-5: var(--color-gray-dark-600);
+  --semantic-background: var(--color-background-elevation-raised);
+  --semantic-border: var(--color-border-neutral-faded);
+  --semantic-foreground: var(--color-foreground-neutral);
+  /* Design kit mode.background-color (overlay alpha) */
+  --background-color: #0000004c;
+
+  /* ================== Control Tokens ================== */
+  /* For form controls: inputs, selects, textareas, checkboxes */
+
+  --control-bg: var(--color-background-elevation-raised-faded-2);
+  --control-bg-hover: var(--color-background-elevation-raised-faded);
+  --control-bg-focus: var(--color-background-elevation-raised-faded-2);
+  --control-bg-disabled: var(--color-background-disabled);
+  --control-bg-error: var(--color-background-elevation-raised-faded-2);
+
+  --control-border: var(--color-border-neutral-faded);
+  --control-border-hover: var(--color-border-neutral);
+  --control-border-focus: var(--color-border-primary);
+  --control-border-disabled: var(--color-border-disabled);
+  --control-border-error: var(--color-foreground-critical);
+
+  --control-fg: var(--color-foreground-neutral);
+  --control-fg-placeholder: var(--color-foreground-neutral-faded);
+  --control-fg-disabled: var(--color-foreground-disabled);
+  --control-fg-error: var(--color-foreground-critical);
+
+  --control-shadow-focus: 0px 0px 0px 2px var(--color-orange-alpha-20);
+
+  /* ================== Surface Tokens ================== */
+  /* For cards, containers, modals, panels */
+
+  --surface-bg: var(--color-background-elevation-raised);
+  --surface-bg-raised: var(--color-background-elevation-raised);
+  --surface-bg-overlay: var(--color-background-elevation-overlay);
+  --surface-bg-sunken: var(--color-background-regular);
+
+  --surface-border: var(--color-border-neutral-faded);
+  --surface-border-subtle: var(--color-border-regular);
+
+  --surface-fg: var(--color-foreground-neutral);
+  --surface-fg-muted: var(--color-foreground-neutral-faded);
+
+  --surface-shadow: var(--shadow-raised);
+  --surface-shadow-overlay: var(--shadow-overlay);
+
+  --overlay-bg: rgba(17, 25, 40, 0.25);
+  --overlay-backdrop-blur: blur(4px) saturate(30%);
+  --overlay-border: rgba(255, 255, 255, 0.125);
+
+  /* ================== Option Tokens ================== */
+  /* For dropdown items, menu items, list items */
+
+  --option-bg: transparent;
+  --option-bg-hover: var(--color-orange-alpha-10);
+  --option-bg-selected: var(--color-orange-alpha-15);
+  --option-bg-highlighted: var(--color-orange-alpha-20);
+
+  --option-fg: var(--color-white);
+  --option-fg-hover: var(--color-white);
+  --option-fg-selected: var(--color-background-primary);
+  --option-fg-highlighted: var(--color-background-primary);
+  --option-fg-disabled: var(--color-foreground-disabled);
+
+  /* ================== Button Tokens ================== */
+  /* Shared button states */
+
+  --btn-bg-disabled: var(--color-background-disabled);
+  --btn-bg-disabled-faded: var(--color-background-disabled-faded);
+  --btn-fg-disabled: var(--color-foreground-disabled);
+  --btn-border-disabled: var(--color-border-disabled);
+
+  --btn-shadow: var(--shadow-pressed);
+  --btn-shadow-hover:
+    0px 2px 8px -2px var(--color-gray-dark-900), 0px 8px 16px 0px var(--color-gray-dark-900),
+    0px 16px 32px 0px var(--color-gray-dark-900);
+  --btn-shadow-active: var(--shadow-raised);
+
+  /* Button Component Color Tokens */
+  --button-primary-bg: var(--color-background-primary);
+  --button-primary-bg-gradient-start: var(--color-orange-200);
+  --button-primary-bg-gradient-end: var(--color-orange-600);
+  /* Unified gradient tokens (use these for gradient button variant and Figma) */
+  --button-primary-gradient-start: var(--button-primary-bg-gradient-start);
+  --button-primary-gradient-end: var(--button-primary-bg-gradient-end);
+  --button-primary-gradient-disabled-start: var(--color-gray-disabled-gradient-start);
+  --button-primary-gradient-disabled-end: var(--color-gray-disabled-gradient-end);
+  --button-primary-text: var(--color-on-background-primary);
+  --button-primary-hover: var(--color-background-primary-faded);
+  --button-primary-active: var(--color-orange-600);
+  --button-primary-border: var(--color-border-primary);
+  --button-primary-border-hover: var(--color-border-primary-faded);
+  --button-primary-border-active: var(--color-border-primary-faded);
+  --button-primary-border-disabled: var(--color-border-primary-faded);
+  --button-primary-border-focus: var(--color-border-primary-faded);
+  --button-primary-shadow: var(--shadow-pressed);
+
+  --button-secondary-bg: var(--color-background-neutral);
+  --button-secondary-bg-gradient-start: var(--color-gradient-grey-100);
+  --button-secondary-bg-gradient-end: var(--color-gradient-grey-200);
+  --button-secondary-text: var(--color-black);
+  --button-secondary-hover: var(--color-background-neutral-faded);
+  --button-secondary-active: var(--color-gradient-grey-200);
+  --button-secondary-border: none;
+  --button-secondary-shadow: var(--shadow-pressed);
+
+  --button-tertiary-bg: var(--color-background-neutral);
+  --button-tertiary-text: var(--color-foreground-neutral-faded);
+  --button-tertiary-hover: var(--color-background-neutral-faded);
+  --button-tertiary-active: var(--color-background-neutral-faded);
+  --button-tertiary-border: none;
+  --button-tertiary-shadow: var(--shadow-pressed);
+
+  --button-ghost-bg: var(--color-background-neutral);
+  --button-ghost-text: var(--color-foreground-neutral-faded);
+  --button-ghost-hover: var(--color-background-neutral-faded);
+  --button-ghost-active: var(--color-background-neutral-faded);
+  --button-ghost-border: 1px solid var(--color-border-regular);
+  --button-ghost-border-hover: var(--color-border-regular);
+  --button-ghost-border-active: var(--color-border-regular);
+  --button-ghost-shadow: none;
+
+  --button-disabled-bg: var(--color-background-disabled);
+  --button-disabled-text: var(--color-foreground-disabled);
+
+  /* Card Button Color Tokens */
+  --button-card-bg-gradient-start: var(--color-black-300);
+  --button-card-bg-gradient-end: var(--color-black-400);
+  --button-card-text: var(--color-white);
+  --button-card-border: 1px solid var(--color-brown-950);
+  --button-card-shadow: 0px 0px 4px 0px var(--color-black), 0px 8px 16px 0px var(--color-black);
+
+  /* Card Secondary Button Color Tokens (blue border variant) */
+  --button-card-secondary-bg-gradient-start: var(--color-black-300);
+  --button-card-secondary-bg-gradient-end: var(--color-black-400);
+  --button-card-secondary-text: var(--color-white);
+  --button-card-secondary-border: 1px solid var(--color-blue-300);
+  --button-card-secondary-shadow: 0px 0px 4px 0px var(--color-black), 0px 8px 16px 0px var(--color-black);
+
+  /* ================== Card Tokens ================== */
+
+  /* Card Background (alias to surface for single source of truth) */
+  --card-bg: var(--surface-bg);
+  --card-bg-elevated: linear-gradient(180deg, var(--color-black-300) 0%, var(--color-black-400) 100%);
+  --card-bg-elevated-hover: linear-gradient(180deg, var(--color-black-200) 0%, var(--color-black-500) 100%);
+  --card-bg-dark: var(--color-gray-dark-800);
+  --card-bg-subtle: var(--color-gray-dark-950);
+  --card-bg-subtle-hover: var(--color-gray-dark-900);
+
+  /* Card Border */
+  --card-border: var(--color-border-neutral);
+  --card-border-gradient-start: var(--color-gray-dark-300);
+  --card-border-gradient-end: var(--color-gray-dark-600);
+  --card-border-warm-start: var(--color-brown-950);
+  --card-border-warm-end: var(--color-black-400);
+  --card-border-cool-start: var(--color-blue-300);
+  --card-border-cool-end: var(--color-black-200);
+  --card-border-hover-warm: var(--color-orange-hover-light);
+  --card-border-hover-cool: var(--color-blue-400);
+  --card-border-error-start: var(--color-red-400);
+  --card-border-error-end: var(--color-red-600);
+  --card-border-selected-start: var(--color-orange-300);
+  --card-border-selected-end: var(--color-orange-500);
+
+  /* Outline Card */
+  --card-outline-border: var(--color-gray-350);
+  --card-outline-border-hover: var(--color-gray-dark-500);
+  --card-outline-bg: rgba(38, 38, 38, 0.2);
+  --card-outline-bg-hover: rgba(38, 38, 38, 0.3);
+
+  /* Card Shadow */
+  --card-shadow: var(--shadow-raised);
+  --card-shadow-dark: 0px 0px 4px 0px var(--color-black), 0px 4px 8px 0px var(--color-black);
+  --card-shadow-hover:
+    0px 2px 8px -2px rgba(0, 0, 0, 0.6), 0px 8px 16px 0px rgba(0, 0, 0, 0.1), 0px 16px 32px 0px rgba(0, 0, 0, 0.08);
+
+  /* Card Text */
+  --card-text: var(--color-foreground-neutral);
+  --card-title: var(--color-foreground-neutral);
+
+  /* Feedback Card */
+  --card-feedback-border: var(--color-slate-300);
+  --card-feedback-border-hover: var(--color-slate-200);
+  --card-feedback-bg: linear-gradient(180deg, rgba(91, 102, 126, 0.15) 0%, rgba(165, 185, 228, 0.15) 100%);
+  --card-feedback-bg-hover: linear-gradient(180deg, rgba(91, 102, 126, 0.25) 0%, rgba(165, 185, 228, 0.25) 100%);
+  --card-feedback-shadow: 0px 0px 4px 0px rgba(0, 0, 0, 0.2), 0px 8px 16px 0px rgba(0, 0, 0, 0.3);
+  --card-feedback-shadow-hover: 0px 0px 8px 0px rgba(0, 0, 0, 0.25), 0px 12px 24px 0px rgba(0, 0, 0, 0.35);
+
+  /* Content Card */
+  --card-content-border: var(--color-slate-600);
+  --card-content-border-hover: var(--color-slate-700);
+  --card-content-bg: linear-gradient(180deg, var(--color-black-300) 0%, var(--color-black-400) 100%);
+  --card-content-bg-hover: linear-gradient(180deg, var(--color-gray-700) 0%, var(--color-gray-dark-800) 100%);
+  --card-content-shadow: 0px 0px 4px 0px rgba(0, 0, 0, 0.04), 0px 8px 16px 0px rgba(0, 0, 0, 0.08);
+  --card-content-shadow-hover: 0px 0px 8px 0px rgba(0, 0, 0, 0.08), 0px 12px 24px 0px rgba(0, 0, 0, 0.12);
+
+  /* Card Active State Glow */
+  --card-active-glow: linear-gradient(283deg, var(--color-background-primary) 21.34%, var(--color-slate-300) 102.9%);
+
+  /* ================== Input Tokens (alias to control) ================== */
+  --input-bg: var(--control-bg);
+  --input-border: var(--control-border);
+  --input-border-focus: var(--control-border-focus);
+  --input-text: var(--control-fg);
+  --input-placeholder: var(--control-fg-placeholder);
+  --input-disabled-bg: var(--control-bg-disabled);
+  --input-disabled-text: var(--control-fg-disabled);
+
+  /* ================== Chip Tokens ================== */
+
+  /* Chip Semantic Colors */
+  --chip-bg-positive: var(--color-background-positive);
+  --chip-fg-positive: var(--color-foreground-positive);
+  --chip-bg-negative: var(--color-background-critical);
+  --chip-fg-negative: var(--color-foreground-critical);
+  --chip-bg-neutral: var(--color-background-neutral);
+  --chip-fg-neutral: var(--color-foreground-neutral);
+  --chip-bg-neutral-faded: var(--color-background-neutral-faded);
+  --chip-fg-neutral-faded: var(--color-foreground-neutral-faded);
+
+  /* Chip State Colors */
+  --chip-active-bg: var(--color-green-750);
+  --chip-active-text: var(--color-green-500);
+  --chip-paused-bg: var(--color-blue-750);
+  --chip-paused-text: var(--color-blue-500);
+  --chip-stopped-bg: var(--color-gray-500);
+  --chip-stopped-text: var(--color-white);
+  --chip-failed-bg: var(--color-red-750);
+  --chip-failed-text: var(--color-red-500);
+
+  /* Badge/Tag Tokens */
+  --badge-success-bg: var(--color-background-positive-faded);
+  --badge-success-text: var(--color-foreground-positive);
+  --badge-error-bg: var(--color-background-critical-faded);
+  --badge-error-text: var(--color-foreground-critical);
+  --badge-warning-bg: var(--color-background-warning-faded);
+  --badge-warning-text: var(--color-foreground-warning);
+
+  /* ================== Text Tokens ================== */
+  --text-primary: var(--color-foreground-neutral);
+  --text-secondary: var(--color-foreground-neutral-faded);
+  --text-accent: var(--color-foreground-primary);
+  --text-disabled: var(--color-foreground-disabled);
+  --text-inverse: var(--color-black);
+  --text-link: var(--color-foreground-primary);
+  --text-link-hover: var(--color-orange-200);
+  --text-error: var(--color-foreground-critical);
+  --text-success: var(--color-foreground-positive);
+  --text-warning: var(--color-foreground-warning);
+  --text-heading: var(--color-foreground-neutral);
+  --text-gradient-brand: linear-gradient(283deg, var(--color-orange-200) 21.34%, var(--color-slate-300) 102.9%);
+
+  /* ================== Table Tokens ================== */
+
+  /* Table Background */
+  --table-header-bg: var(--color-background-elevation-raised-faded);
+  --table-row-bg: var(--color-background-elevation-raised-faded-2);
+  --table-row-bg-hover: var(--color-background-neutral-faded);
+  --table-body-bg: transparent;
+
+  /* Table Foreground */
+  --table-fg: var(--color-foreground-neutral);
+  --table-fg-muted: var(--color-foreground-neutral-faded);
+
+  /* ================== Toggle Color Tokens ================== */
+  --toggle-track-checked-bg: var(--color-orange-300);
+  --toggle-track-unchecked-bg: var(--color-gray-500);
+  --toggle-thumb-checked-bg: var(--color-white);
+  --toggle-thumb-unchecked-bg: var(--color-gray-dark-100);
+  --toggle-label-text: var(--color-foreground-neutral-faded);
+  --toggle-label-text-checked: var(--color-white);
+
+  /* ================== Loader Color Tokens ================== */
+  --loader-track-color: var(--color-gray-dark-300);
+  --loader-progress-color: var(--color-orange-300);
+
+  /* ================== Interactive States ================== */
+  --interactive-hover-bg: var(--color-background-neutral-faded);
+  --interactive-active-bg: var(--color-background-neutral);
+  --interactive-focus-ring: var(--color-background-primary);
+
+  /* ================== Select Content Color Tokens ================== */
+  --select-content-radius: var(--radius-sm);
+  --select-content-border: var(--color-border-neutral-faded);
+  --select-content-shadow: var(--shadow-pressed);
+  --select-content-placeholder-color: var(--color-foreground-neutral-faded);
+  --select-content-border-color-active: var(--color-border-primary);
+  --select-content-border-color-error: var(--color-foreground-critical);
+  --select-content-trigger-color: var(--color-background-elevation-raised-faded-2);
+  --select-content-background-color: var(--color-black-300);
+  --select-content-border-color: var(--color-border-neutral-faded);
+  --select-content-background-color-disabled: var(--color-gradient-grey-100);
+  --select-content-foreground-color-disabled: var(--color-gray-300);
+  --select-content-border-color-disabled: var(--color-gray-500);
+}
+
+/* Surface gradient border utility class */
+/* NOTE: This class requires the element to have a non-static position (relative, absolute, fixed, or sticky) */
+.surface-gradient-border {
+  border-radius: var(--radius-xl);
+  background-clip: padding-box;
+}
+
+.surface-gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 1px; /* border thickness */
+  border-radius: inherit;
+  background: linear-gradient(180deg, var(--color-gray-dark-300) 0%, var(--color-gray-dark-600) 100%);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.surface-gradient-border-hover:hover::before {
+  background: linear-gradient(180deg, var(--color-orange-gradient-hover) 0%, var(--color-orange-gradient-hover) 100%);
+}

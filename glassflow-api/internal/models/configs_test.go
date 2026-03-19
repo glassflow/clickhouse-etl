@@ -41,7 +41,19 @@ func TestNewPipelineConfig(t *testing.T) {
 	statelessTransformation := StatelessTransformation{Enabled: false}
 	metadata := PipelineMetadata{}
 
-	config := NewPipelineConfig(id, name, mapper, ingestor, join, sink, filter, statelessTransformation, metadata)
+	config := NewPipelineConfig(
+		id,
+		name,
+		mapper,
+		ingestor,
+		join,
+		sink,
+		filter,
+		statelessTransformation,
+		metadata,
+		PipelineResources{},
+		nil,
+	)
 
 	if config.ID != id {
 		t.Errorf("Expected ID %s, got %s", id, config.ID)
@@ -136,17 +148,17 @@ func TestGetPipelineStreamName(t *testing.T) {
 		{
 			name:     "simple topic",
 			topic:    "my-topic",
-			expected: "gf-", // Will be followed by hash and topic
+			expected: "gfm-", // Will be followed by hash and topic
 		},
 		{
 			name:     "topic with dots",
 			topic:    "my.topic.name",
-			expected: "gf-", // Will be followed by hash and sanitized topic
+			expected: "gfm-", // Will be followed by hash and sanitized topic
 		},
 		{
 			name:     "very long topic name",
 			topic:    strings.Repeat("a", 50),
-			expected: "gf-", // Should be truncated
+			expected: "gfm-", // Should be truncated
 		},
 	}
 
@@ -187,17 +199,17 @@ func TestGetIngestorStreamName(t *testing.T) {
 		{
 			name:     "simple topic",
 			topic:    "my-topic",
-			expected: "gf-", // Will be followed by hash and topic
+			expected: "gfm-", // Will be followed by hash and topic
 		},
 		{
 			name:     "topic with dots",
 			topic:    "my.topic.name",
-			expected: "gf-", // Will be followed by hash and sanitized topic
+			expected: "gfm-", // Will be followed by hash and sanitized topic
 		},
 		{
 			name:     "very long topic name",
 			topic:    strings.Repeat("a", 50),
-			expected: "gf-", // Should be truncated
+			expected: "gfm-", // Should be truncated
 		},
 	}
 

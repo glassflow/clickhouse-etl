@@ -4,39 +4,33 @@ import (
 	"fmt"
 
 	"github.com/expr-lang/expr"
+
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
 
 // ValidateTransformationAgainstSchema validates that all transformation expressions against given schema fields
-// It doesn't take affect on transformation business logic
+// It doesn't take effect on transformation business logic
 func ValidateTransformationAgainstSchema(
 	transformations []models.Transform,
-	schema models.SchemaFields,
+	fields []models.Field,
 ) error {
 	if len(transformations) == 0 {
 		return nil
 	}
 
 	env := make(map[string]any)
-	for _, field := range schema.Fields {
-		// Create sample values based on type
-		switch field.Type {
+	for _, field := range fields {
+		normalized := internal.NormalizeToBasicKafkaType(field.Type)
+		switch normalized {
 		case internal.KafkaTypeString:
 			env[field.Name] = ""
-		case internal.KafkaTypeInt, internal.KafkaTypeInt8, internal.KafkaTypeInt16,
-			internal.KafkaTypeInt32, internal.KafkaTypeInt64,
-			internal.KafkaTypeUint, internal.KafkaTypeUint8,
-			internal.KafkaTypeUint16, internal.KafkaTypeUint32,
-			internal.KafkaTypeUint64:
+		case internal.KafkaTypeInt, internal.KafkaTypeUint:
 			env[field.Name] = 0
-		case internal.KafkaTypeFloat, internal.KafkaTypeFloat32,
-			internal.KafkaTypeFloat64:
+		case internal.KafkaTypeFloat:
 			env[field.Name] = 0.0
 		case internal.KafkaTypeBool:
 			env[field.Name] = false
-		case internal.KafkaTypeBytes:
-			env[field.Name] = []byte{}
 		case internal.KafkaTypeArray:
 			env[field.Name] = []any{}
 		case internal.KafkaTypeMap:
@@ -48,7 +42,7 @@ func ValidateTransformationAgainstSchema(
 
 	var options []expr.Option
 	options = append(options, expr.Env(env))
-	options = append(options, predefinedTransfromations...)
+	options = append(options, predefinedTransformations...)
 
 	for i, transformation := range transformations {
 		_, err := expr.Compile(

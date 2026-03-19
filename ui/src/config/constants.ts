@@ -2,13 +2,16 @@ export enum StepKeys {
   KAFKA_CONNECTION = 'kafka-connection',
   TOPIC_SELECTION_1 = 'topic-selection-1',
   TOPIC_SELECTION_2 = 'topic-selection-2',
+  KAFKA_TYPE_VERIFICATION = 'kafka-type-verification',
   DEDUPLICATION_CONFIGURATOR = 'deduplication-configurator',
   TOPIC_DEDUPLICATION_CONFIGURATOR_1 = 'topic-deduplication-configurator-1',
   TOPIC_DEDUPLICATION_CONFIGURATOR_2 = 'topic-deduplication-configurator-2',
   FILTER_CONFIGURATOR = 'filter-configurator',
+  TRANSFORMATION_CONFIGURATOR = 'transformation-configurator',
   JOIN_CONFIGURATOR = 'join-configurator',
   CLICKHOUSE_CONNECTION = 'clickhouse-connection',
   CLICKHOUSE_MAPPER = 'clickhouse-mapper',
+  PIPELINE_RESOURCES = 'pipeline-resources',
   REVIEW_CONFIGURATION = 'review-configuration',
   DEPLOY_PIPELINE = 'deploy-pipeline',
 }
@@ -47,27 +50,9 @@ export const MAX_DELAY_TIME_UNITS = Object.entries(TIME_UNITS).filter(
   ([key]) => key !== 'MILLISECONDS' && key !== 'DAYS' && key !== 'MONTHS' && key !== 'YEARS',
 )
 
-export const JSON_DATA_TYPES = [
-  'string',
-  'bool',
-  'uint',
-  'uint8',
-  'uint16',
-  'uint32',
-  'uint64',
-  'int',
-  'int8',
-  'int16',
-  'int32',
-  'int64',
-  'float',
-  'float32',
-  'float64',
-  'bytes',
-  'array',
-]
+export const JSON_DATA_TYPES = ['string', 'bool', 'int', 'uint', 'float', 'bytes', 'array']
 
-export const JSON_DATA_TYPES_DEDUPLICATION_JOIN = ['string', 'int']
+export const JSON_DATA_TYPES_DEDUPLICATION_JOIN = ['string', 'int', 'uint']
 
 // ClickHouse data types
 export const CLICKHOUSE_DATA_TYPES = [
@@ -109,6 +94,7 @@ export const CLICKHOUSE_DATA_TYPES = [
 ]
 
 export const PIPELINE_STATUS_MAP = {
+  starting: 'starting',
   active: 'active',
   pausing: 'pausing',
   paused: 'paused',
@@ -121,6 +107,11 @@ export const PIPELINE_STATUS_MAP = {
 }
 
 export const PIPELINE_STATUS_CONFIG = {
+  starting: {
+    label: 'Starting...',
+    className: 'chip-neutral-faded',
+    key: PIPELINE_STATUS_MAP.starting,
+  },
   active: {
     label: 'Active',
     className: 'chip-positive',
@@ -224,12 +215,27 @@ export const stepsMetadata = {
     formTitle: 'Define Join Key',
     formDescription: '',
   },
+  [StepKeys.KAFKA_TYPE_VERIFICATION]: {
+    key: StepKeys.KAFKA_TYPE_VERIFICATION,
+    title: 'Verify Field Types',
+    description: 'Review and adjust the inferred data types for Kafka event fields.',
+    formTitle: 'Verify Field Types',
+    formDescription: 'Review and adjust the inferred data types for Kafka event fields before proceeding.',
+  },
   [StepKeys.FILTER_CONFIGURATOR]: {
     key: StepKeys.FILTER_CONFIGURATOR,
     title: 'Define Filter Conditions',
     description: 'Filter events based on field conditions before processing.',
     formTitle: 'Define Filter Conditions',
     formDescription: 'Filter events based on field conditions before processing.',
+  },
+  [StepKeys.TRANSFORMATION_CONFIGURATOR]: {
+    key: StepKeys.TRANSFORMATION_CONFIGURATOR,
+    title: 'Define Transformations',
+    description: 'Transform event fields using functions or pass them through unchanged.',
+    formTitle: 'Define Transformations',
+    formDescription:
+      'Define computed fields using transformation functions or pass through existing fields to create an intermediary schema.',
   },
   [StepKeys.CLICKHOUSE_CONNECTION]: {
     title: 'Setup ClickHouse Connection',
@@ -239,10 +245,17 @@ export const stepsMetadata = {
   },
   [StepKeys.CLICKHOUSE_MAPPER]: {
     key: StepKeys.CLICKHOUSE_MAPPER,
-    title: 'Select Destination',
-    description: 'Select a ClickHouse database and table to send events to.',
-    formTitle: 'Select Destination',
-    formDescription: 'Select a ClickHouse database and table to send events to.',
+    title: 'Mapping',
+    description: 'Map event fields to ClickHouse table columns.',
+    formTitle: 'Mapping',
+    formDescription: 'Map event fields to ClickHouse table columns.',
+  },
+  [StepKeys.PIPELINE_RESOURCES]: {
+    key: StepKeys.PIPELINE_RESOURCES,
+    title: 'Pipeline Resources',
+    description: 'Configure CPU, memory, and storage for each pipeline component.',
+    formTitle: 'Pipeline Resources',
+    formDescription: 'Configure CPU, memory, and storage for deployment.',
   },
   [StepKeys.REVIEW_CONFIGURATION]: {
     key: StepKeys.REVIEW_CONFIGURATION,

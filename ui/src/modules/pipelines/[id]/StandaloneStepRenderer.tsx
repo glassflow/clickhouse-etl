@@ -1,55 +1,68 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
-import {
-  KafkaConnectionContainer,
-  KafkaTopicSelector,
-  DeduplicationConfigurator,
-  ClickhouseConnectionContainer,
-  ClickhouseMapper,
-} from '@/src/modules'
+import React, { useState, useEffect, useMemo } from 'react'
 import { StepKeys, OperationKeys } from '@/src/config/constants'
+import { structuredLogger } from '@/src/observability'
 import { useStore } from '@/src/store'
-import { JoinConfigurator } from '../../join/JoinConfigurator'
-import { FilterConfigurator } from '../../filter/FilterConfigurator'
-import StepRendererModal from './StepRendererModal'
 import StepRendererPageComponent from './StepRendererPageComponent'
 import { useStepDataPreloader } from '@/src/hooks/useStepDataPreloader'
-import { StepDataPreloader } from '@/src/components/StepDataPreloader'
+import { StepDataPreloader } from '@/src/components/shared/StepDataPreloader'
 import { useEditConfirmationModal } from '../hooks'
 import EditConfirmationModal from '../components/EditConfirmationModal'
 import { usePipelineActions } from '@/src/hooks/usePipelineActions'
-import { usePipelineState } from '@/src/hooks/usePipelineState'
+import { usePipelineState } from '@/src/hooks/usePipelineStateAdapter'
 import { PipelineStatus } from '@/src/types/pipeline'
-import { PipelineTransitionOverlay } from '@/src/components/common/PipelineTransitionOverlay'
-import { isDemoMode, isFiltersEnabled } from '@/src/config/feature-flags'
+import { PipelineTransitionOverlay } from '@/src/components/shared/PipelineTransitionOverlay'
+import { isDemoMode } from '@/src/config/feature-flags'
+import { getStepConfig, getStepProps, useSafeEnterEditMode } from './step-renderer'
+import type { StepBaseProps } from './step-renderer'
 
 interface StandaloneStepRendererProps {
   stepKey: StepKeys
   onClose: () => void
+  /** When provided, used when step closes after save (bypasses navigate-away guard in parent) */
+  onCloseAfterSave?: () => void
   pipeline?: any
   onPipelineStatusUpdate?: (status: string) => void
   topicIndex?: number // Topic index for multi-topic deduplication (0 = left, 1 = right)
 }
 
+/**
+ * Get loading text based on the current action
+ */
+function getLoadingText(lastAction: string | null): string {
+  switch (lastAction) {
+    case 'stop':
+      return 'Stopping pipeline for editing...'
+    case 'resume':
+      return 'Resuming pipeline...'
+    case 'delete':
+      return 'Deleting pipeline...'
+    case 'rename':
+      return 'Renaming pipeline...'
+    case 'edit':
+      return 'Saving pipeline configuration...'
+    default:
+      return 'Processing...'
+  }
+}
+
 function StandaloneStepRenderer({
   stepKey,
   onClose,
+  onCloseAfterSave,
   pipeline,
   onPipelineStatusUpdate,
   topicIndex = 0,
 }: StandaloneStepRendererProps) {
-  const { kafkaStore, clickhouseConnectionStore, clickhouseDestinationStore, coreStore } = useStore()
-  const [currentStep, setCurrentStep] = useState<StepKeys | null>(null)
-  const [steps, setSteps] = useState<any>({})
-
   // Always start in read-only mode - user must click "Edit" to enable editing
   const [editMode, setEditMode] = useState(false)
 
   // Track pipeline stopping transition for overlay
   const [isStoppingForEdit, setIsStoppingForEdit] = useState(false)
 
-  const { enterEditMode, mode: globalMode } = coreStore
+  // Safe enter edit mode hook
+  const { safeEnterEditMode, globalMode } = useSafeEnterEditMode()
 
   // Get centralized pipeline status
   const centralizedStatus = usePipelineState(pipeline?.pipeline_id)
@@ -71,129 +84,47 @@ function StandaloneStepRenderer({
   // Pre-load data required for this step
   const preloader = useStepDataPreloader(stepKey, pipeline)
 
+  // Get step configuration from the config map
+  const stepConfig = useMemo(() => getStepConfig(stepKey), [stepKey])
+
+  // Handle filter guard - close if step config is not available (e.g., filters disabled)
+  useEffect(() => {
+    if (stepKey && !stepConfig) {
+      onClose()
+    }
+  }, [stepKey, stepConfig, onClose])
+
   // Monitor pipeline status changes to detect when it has stopped after edit confirmation
   useEffect(() => {
     if (isStoppingForEdit && effectiveStatus === 'stopped') {
       // Pipeline has stopped, enable edit mode
       setEditMode(true)
       setIsStoppingForEdit(false)
-
-      // ✅ CRITICAL FIX: Only call enterEditMode if we're not already in global edit mode
-      // This prevents re-hydration which would overwrite unsaved changes from other sections
-      if (globalMode !== 'edit') {
-        enterEditMode(pipeline)
-      }
+      safeEnterEditMode(pipeline)
     }
-  }, [isStoppingForEdit, effectiveStatus, globalMode, enterEditMode, pipeline])
+  }, [isStoppingForEdit, effectiveStatus, safeEnterEditMode, pipeline])
 
-  // Initialize steps based on stepKey and reset edit mode when step changes
+  // Reset edit mode when step changes
   useEffect(() => {
     if (stepKey) {
-      setCurrentStep(stepKey)
       // Start in read-only mode - user must explicitly click Edit to enable editing
       setEditMode(false)
     }
-
-    if (stepKey === StepKeys.KAFKA_CONNECTION) {
-      setSteps({
-        [StepKeys.KAFKA_CONNECTION]: {
-          component: KafkaConnectionContainer,
-          title: 'Kafka Connection',
-          description: 'Configure your Kafka connection settings',
-        },
-      })
-    } else if (stepKey === StepKeys.TOPIC_SELECTION_1) {
-      setSteps({
-        [StepKeys.TOPIC_SELECTION_1]: {
-          component: KafkaTopicSelector,
-          title: 'Kafka Topic Selection',
-          description: 'Select the Kafka topic to use',
-        },
-      })
-    } else if (stepKey === StepKeys.TOPIC_SELECTION_2) {
-      setSteps({
-        [StepKeys.TOPIC_SELECTION_2]: {
-          component: KafkaTopicSelector,
-          title: 'Kafka Topic Selection',
-          description: 'Select the Kafka topic to use',
-        },
-      })
-    } else if (stepKey === StepKeys.DEDUPLICATION_CONFIGURATOR) {
-      setSteps({
-        [StepKeys.DEDUPLICATION_CONFIGURATOR]: {
-          component: DeduplicationConfigurator,
-          title: 'Deduplication',
-          description: 'Configure deduplication settings',
-        },
-      })
-    } else if (stepKey === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1) {
-      setSteps({
-        [StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1]: {
-          component: KafkaTopicSelector,
-          title: 'Topic Deduplication',
-          description: 'Configure topic deduplication settings',
-        },
-      })
-    } else if (stepKey === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2) {
-      setSteps({
-        [StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2]: {
-          component: KafkaTopicSelector,
-          title: 'Topic Deduplication',
-          description: 'Configure topic deduplication settings',
-        },
-      })
-    } else if (stepKey === StepKeys.JOIN_CONFIGURATOR) {
-      setSteps({
-        [StepKeys.JOIN_CONFIGURATOR]: {
-          component: JoinConfigurator,
-          title: 'Join Configuration',
-          description: 'Configure join settings',
-        },
-      })
-    } else if (stepKey === StepKeys.FILTER_CONFIGURATOR) {
-      // Guard: If filters feature is disabled, close the renderer
-      if (!isFiltersEnabled()) {
-        onClose()
-        return
-      }
-      setSteps({
-        [StepKeys.FILTER_CONFIGURATOR]: {
-          component: FilterConfigurator,
-          title: 'Filter Configuration',
-          description: 'Define filter conditions for events',
-        },
-      })
-    } else if (stepKey === StepKeys.CLICKHOUSE_CONNECTION) {
-      setSteps({
-        [StepKeys.CLICKHOUSE_CONNECTION]: {
-          component: ClickhouseConnectionContainer,
-          title: 'ClickHouse Connection',
-          description: 'Configure your ClickHouse connection settings',
-        },
-      })
-    } else if (stepKey === StepKeys.CLICKHOUSE_MAPPER) {
-      setSteps({
-        [StepKeys.CLICKHOUSE_MAPPER]: {
-          component: ClickhouseMapper,
-          title: 'ClickHouse Mapping',
-          description: 'Configure ClickHouse table mapping',
-        },
-      })
-    }
-  }, [stepKey, onClose])
+  }, [stepKey])
 
   const handleNext = (nextStep: StepKeys) => {
-    setCurrentStep(nextStep)
+    // In StandaloneStepRenderer, we don't navigate to next step
+    // This is here for component compatibility
   }
 
   const handleComplete = (nextStep?: StepKeys, standalone?: boolean) => {
-    // In StandaloneStepRenderer, we're always in standalone mode, so always close
-    onClose()
+    // In StandaloneStepRenderer, we're always in standalone mode, so always close.
+    // Use onCloseAfterSave when provided (e.g. after Save) so parent can skip navigate-away guard.
+    ;(onCloseAfterSave ?? onClose)()
   }
 
   const handleBack = () => {
     // For now, just close the step renderer
-    // In the future, you could implement step navigation
     onClose()
   }
 
@@ -210,16 +141,10 @@ function StandaloneStepRenderer({
     if ((effectiveStatus === 'stopped' || effectiveStatus === 'terminated') && !editMode) {
       // For stopped/terminated pipelines, enable edit mode immediately
       setEditMode(true)
-
-      // ✅ CRITICAL FIX: Only call enterEditMode if we're not already in global edit mode
-      // This prevents re-hydration which would overwrite unsaved changes from other sections
-      if (globalMode !== 'edit') {
-        enterEditMode(pipeline)
-      }
+      safeEnterEditMode(pipeline)
     } else if ((effectiveStatus === 'active' || effectiveStatus === 'paused') && !editMode) {
       // For active/paused pipelines, show confirmation modal before allowing edit
-      const stepInfo = steps[stepKey]
-      openEditConfirmationModal(pipeline, stepInfo)
+      openEditConfirmationModal(pipeline, stepConfig)
     } else if (
       effectiveStatus === 'stopping' ||
       effectiveStatus === 'pausing' ||
@@ -227,18 +152,13 @@ function StandaloneStepRenderer({
       effectiveStatus === 'terminating'
     ) {
       // For transitional states, show warning
-      console.warn('Edit mode not available while pipeline is in transitional state:', effectiveStatus)
+      structuredLogger.warn('Edit mode not available while pipeline is in transitional state', { status: effectiveStatus })
     } else {
       // For other cases (failed, etc), allow editing
-      console.warn('Edit mode requested for pipeline status:', effectiveStatus)
+      structuredLogger.warn('Edit mode requested for pipeline status', { status: effectiveStatus })
       if (!editMode) {
         setEditMode(true)
-
-        // CRITICAL FIX: Only call enterEditMode if we're not already in global edit mode
-        // This prevents re-hydration which would overwrite unsaved changes from other sections
-        if (globalMode !== 'edit') {
-          enterEditMode(pipeline)
-        }
+        safeEnterEditMode(pipeline)
       }
     }
   }
@@ -272,97 +192,50 @@ function StandaloneStepRenderer({
 
   // Show preloader if data is still loading or if there's an error
   if (preloader.isLoading || preloader.error) {
-    const stepInfo = steps[stepKey]
     return (
       <StepDataPreloader
         isLoading={preloader.isLoading}
         error={preloader.error}
         progress={preloader.progress}
         onRetry={preloader.retry}
-        stepTitle={stepInfo?.title || 'Configuration Step'}
+        stepTitle={stepConfig?.title || 'Configuration Step'}
       />
     )
   }
 
-  // Don't render the component until preloading is complete
-  if (!preloader.isComplete || !stepKey || !currentStep || !steps[currentStep]) {
+  // Don't render the component until preloading is complete and step config exists
+  if (!preloader.isComplete || !stepKey || !stepConfig) {
     return null
   }
 
-  const CurrentStepComponent = steps[currentStep].component
-  const stepInfo = steps[currentStep]
+  const CurrentStepComponent = stepConfig.component
 
-  // NOTE: uncomment this to use the modal version
-  // return (
-  //   <StepRendererModal stepInfo={stepInfo} handleBack={handleBack} onClose={onClose}>
-  //     <CurrentStepComponent {...topicSelectorProps} />
-  //   </StepRendererModal>
-  // )
-
-  // Determine if this is a deduplication configurator step (standalone dedup, not topic+dedup combined)
-  const isDeduplicationConfiguratorStep = stepKey === StepKeys.DEDUPLICATION_CONFIGURATOR
-
-  // Determine if this is a topic+deduplication combined step
-  const isTopicDeduplicationStep =
-    stepKey === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1 || stepKey === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2
-
-  // Determine if this is a topic selector step that needs currentStep prop
-  const isTopicSelectorStep =
-    stepKey === StepKeys.TOPIC_SELECTION_1 ||
-    stepKey === StepKeys.TOPIC_SELECTION_2 ||
-    stepKey === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1 ||
-    stepKey === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2
-
-  // Base props for all components
-  const baseProps = {
-    steps,
+  // Build base props for the step component
+  const baseProps: StepBaseProps = {
+    steps: { [stepKey]: stepConfig },
     onCompleteStep: handleNext,
     validate: async () => true, // You might want to implement proper validation
     standalone: true,
     onCompleteStandaloneEditing: handleComplete,
     readOnly: !editMode,
     toggleEditMode: handleToggleEditMode,
-    // Pass pipeline action state for loading indicators
     pipelineActionState: actionState,
     pipeline,
   }
 
-  // Additional props for topic selector components
-  const extendedProps = isTopicSelectorStep
-    ? {
-        ...baseProps,
-        currentStep: stepKey,
-        enableDeduplication: isTopicDeduplicationStep,
-      }
-    : isDeduplicationConfiguratorStep
-      ? {
-          ...baseProps,
-          index: topicIndex, // Pass topic index for multi-topic deduplication
-        }
-      : baseProps
+  // Get extended props based on step type
+  const stepProps = getStepProps(stepKey, baseProps, topicIndex)
 
   return (
     <>
       <StepRendererPageComponent
-        stepInfo={stepInfo}
+        stepInfo={stepConfig}
         handleBack={handleBack}
         onClose={onClose}
         isLoading={actionState.isLoading}
-        loadingText={
-          actionState.lastAction === 'stop'
-            ? 'Stopping pipeline for editing...'
-            : actionState.lastAction === 'resume'
-              ? 'Resuming pipeline...'
-              : actionState.lastAction === 'delete'
-                ? 'Deleting pipeline...'
-                : actionState.lastAction === 'rename'
-                  ? 'Renaming pipeline...'
-                  : actionState.lastAction === 'edit'
-                    ? 'Saving pipeline configuration...'
-                    : 'Processing...'
-        }
+        loadingText={getLoadingText(actionState.lastAction)}
       >
-        <CurrentStepComponent {...extendedProps} />
+        <CurrentStepComponent {...stepProps} />
       </StepRendererPageComponent>
 
       {/* Edit Confirmation Modal */}
