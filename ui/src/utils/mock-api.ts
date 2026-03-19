@@ -44,7 +44,9 @@ export const getApiUrl = (endpoint: string) => {
     }
   } else {
     if (isServer) {
-      const baseOrigin = inDocker ? 'http://ui:8080' : 'http://localhost:3000'
+      // Use the port this process is listening on so SSR fetch reaches the same app (avoids "fetch failed")
+      const port = process.env.PORT || (inDocker ? '8080' : '3000')
+      const baseOrigin = inDocker ? `http://ui:${port}` : `http://localhost:${port}`
       url = `${baseOrigin}/ui-api/${endpoint}`
     } else {
       url = `/ui-api/${endpoint}`
