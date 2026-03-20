@@ -32,6 +32,7 @@ type PipelineService interface { //nolint:interfacebloat //important interface
 	GetPipelineResources(ctx context.Context, pid string) (models.PipelineResourcesWithPolicy, error)
 	UpdatePipelineResources(ctx context.Context, pid string, resources models.PipelineResources) (models.PipelineResourcesWithPolicy, error)
 	GetPipelineResourcesValidation(ctx context.Context, pid string) ([]string, error)
+	GetOTLPConfig(ctx context.Context, pid string) (models.OTLPConfig, error)
 }
 
 type pipelineSource struct {
