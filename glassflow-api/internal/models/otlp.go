@@ -1,6 +1,12 @@
-package router
+package models
 
 import "fmt"
+
+type OTLPConfig struct {
+	PipelineID string        `json:"pipeline_id"`
+	Routing    RoutingConfig `json:"routing"`
+	Status     string        `json:"status"`
+}
 
 type RoutingType string
 
@@ -14,18 +20,18 @@ const (
 )
 
 type RoutingConfig struct {
-	OutputSubject string          `json:"output_subject"`
-	SubjectCount  int             `json:"subject_count"`
-	Type          RoutingType     `json:"type"`
-	Field         *Field          `json:"field,omitempty"`
-	PodIndex      *PodIndexConfig `json:"pod_index,omitempty"`
+	OutputSubject string                      `json:"output_subject"`
+	SubjectCount  int                         `json:"subject_count"`
+	Type          RoutingType                 `json:"type"`
+	Field         *RoutingConfigField         `json:"field,omitempty"`
+	PodIndex      *RoutingConfigFieldPodIndex `json:"pod_index,omitempty"`
 }
 
-type Field struct {
+type RoutingConfigField struct {
 	Name string `json:"name"`
 }
 
-type PodIndexConfig struct {
+type RoutingConfigFieldPodIndex struct {
 	Index int `json:"index"`
 }
 

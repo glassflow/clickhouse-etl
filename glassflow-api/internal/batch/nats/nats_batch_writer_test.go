@@ -56,9 +56,9 @@ func TestBatchWriter_WriteBatch(t *testing.T) {
 	subject := "test.write"
 	createStream(t, js, ctx, subject)
 
-	subjectRouter, err := subjectrouter.New(subjectrouter.RoutingConfig{
+	subjectRouter, err := subjectrouter.New(models.RoutingConfig{
 		OutputSubject: subject,
-		Type:          subjectrouter.RoutingTypeName,
+		Type:          models.RoutingTypeName,
 	})
 	require.NoError(t, err)
 
@@ -115,9 +115,9 @@ func TestBatchWriter_WriteBatchWithHeaders(t *testing.T) {
 	subject := "test.headers"
 	createStream(t, js, ctx, subject)
 
-	subjectRouter, err := subjectrouter.New(subjectrouter.RoutingConfig{
+	subjectRouter, err := subjectrouter.New(models.RoutingConfig{
 		OutputSubject: subject,
-		Type:          subjectrouter.RoutingTypeName,
+		Type:          models.RoutingTypeName,
 	})
 	require.NoError(t, err)
 
@@ -229,9 +229,9 @@ func TestBatchWriter_WriteBatchWithJetStreamMsg(t *testing.T) {
 
 	// Now create a models.Message with the jetstream.Msg and use the batch writer to publish to destination
 
-	subjectRouter, err := subjectrouter.New(subjectrouter.RoutingConfig{
+	subjectRouter, err := subjectrouter.New(models.RoutingConfig{
 		OutputSubject: destSubject,
-		Type:          subjectrouter.RoutingTypeName,
+		Type:          models.RoutingTypeName,
 	})
 	require.NoError(t, err)
 
