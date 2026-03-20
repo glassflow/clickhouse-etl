@@ -18,6 +18,7 @@ import (
 	filterJSON "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/filter/json"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/processor"
+	subjectrouter "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/subject/router"
 	jsonTransformer "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/transformer/json"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/tests/steps"
 )
@@ -165,11 +166,23 @@ func createComponent(
 	require.NoError(t, err)
 
 	reader := batchNats.NewBatchReader(consumer)
-	writer := batchNats.NewBatchWriter(js, outputSubject)
+
+	subjectRouter, err := subjectrouter.New(subjectrouter.RoutingConfig{
+		OutputSubject: outputSubject,
+		Type:          subjectrouter.RoutingTypeName,
+	})
+	require.NoError(t, err)
+	writer := batchNats.NewBatchWriter(js, subjectRouter)
 
 	var dlqWriter batch.BatchWriter
 	if dlqSubject != nil {
-		dlqWriter = batchNats.NewBatchWriter(js, *dlqSubject)
+		dlqSubjectRouter, err := subjectrouter.New(subjectrouter.RoutingConfig{
+			OutputSubject: *dlqSubject,
+			Type:          subjectrouter.RoutingTypeName,
+		})
+		require.NoError(t, err)
+
+		dlqWriter = batchNats.NewBatchWriter(js, dlqSubjectRouter)
 	}
 
 	role := internal.RoleDeduplicator
@@ -568,11 +581,11 @@ func TestDeduplication_FilterWithDedupAndTransform(t *testing.T) {
 		msgID string
 		data  string
 	}{
-		{"msg-1", `{"age": 15, "name": "alice"}`},  // Filtered out (age < 18)
-		{"msg-2", `{"age": 25, "name": "bob"}`},    // Passes filter, deduped, transformed
-		{"msg-2", `{"age": 25, "name": "bob"}`},    // Duplicate (deduped)
+		{"msg-1", `{"age": 15, "name": "alice"}`},   // Filtered out (age < 18)
+		{"msg-2", `{"age": 25, "name": "bob"}`},     // Passes filter, deduped, transformed
+		{"msg-2", `{"age": 25, "name": "bob"}`},     // Duplicate (deduped)
 		{"msg-3", `{"age": 30, "name": "charlie"}`}, // Passes filter, deduped, transformed
-		{"msg-4", `{"age": 10, "name": "dave"}`},   // Filtered out (age < 18)
+		{"msg-4", `{"age": 10, "name": "dave"}`},    // Filtered out (age < 18)
 	}
 
 	for _, tm := range testMessages {

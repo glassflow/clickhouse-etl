@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strconv"
 
 	"github.com/dgraph-io/badger/v4"
 	"github.com/nats-io/nats.go/jetstream"
@@ -19,6 +20,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/processor"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/storage"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
+	subjectrouter "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/subject/router"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/transformer/versioned"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 )
@@ -62,12 +64,18 @@ func mainDeduplicatorV2(
 	}
 	log.InfoContext(ctx, "Dedup/transform will read from NATS stream", "stream", inputStreamName, "pipeline_id", pipelineCfg.ID)
 
-	// Output subject: same as ingestor when NATS_SUBJECT_PREFIX and GLASSFLOW_POD_INDEX are set
-	outputSubject, err := getOutputSubjectFromEnv()
+	outputRouter, err := getOutputRouterFromEnv()
 	if err != nil {
 		return err
 	}
-	log.InfoContext(ctx, "Dedup/transform will write to NATS subject", "subject", outputSubject, "pipeline_id", pipelineCfg.ID)
+	log.InfoContext(
+		ctx,
+		"Dedup/transform will write to NATS subject",
+		"pipeline_id",
+		pipelineCfg.ID,
+		"subject",
+		outputRouter.Config().OutputSubject,
+	)
 
 	batchSize := internal.DefaultDedupComponentBatchSize
 	maxWait := internal.DefaultDedupMaxWaitTime
@@ -81,14 +89,20 @@ func mainDeduplicatorV2(
 		maxAckPending = 1
 	}
 
-	dlqSubject := models.GetDLQStreamSubjectName(pipelineCfg.ID)
+	dlqSubjectRouter, err := subjectrouter.New(subjectrouter.RoutingConfig{
+		OutputSubject: models.GetDLQStreamSubjectName(pipelineCfg.ID),
+		Type:          subjectrouter.RoutingTypeName,
+	})
+	if err != nil {
+		return err
+	}
 
 	log.InfoContext(ctx, "Starting deduplicator",
 		slog.String("topic", cfg.DedupTopic),
 		slog.String("pipeline_id", pipelineCfg.ID),
 		slog.String("input_stream", inputStreamName),
-		slog.String("output_subject", outputSubject),
-		slog.String("dlq_subject", dlqSubject),
+		slog.String("output_subject_prefix", outputRouter.Config().OutputSubject),
+		slog.String("dlq_subject", dlqSubjectRouter.Config().OutputSubject),
 		slog.Duration("ttl", topicConfig.Deduplication.Window.Duration()),
 		slog.Int("batch_size", batchSize),
 		slog.Duration("max_wait", maxWait),
@@ -117,12 +131,12 @@ func mainDeduplicatorV2(
 
 	batchWriter := batchNats.NewBatchWriter(
 		nc.JetStream(),
-		outputSubject,
+		outputRouter,
 	)
 
 	dlqWriter := batchNats.NewBatchWriter(
 		nc.JetStream(),
-		dlqSubject,
+		dlqSubjectRouter,
 	)
 
 	componentSignal, err := componentsignals.NewPublisher(nc)
@@ -291,23 +305,29 @@ func dedupProcessorFromConfig(
 	return processor.NewDedupProcessor(badgerDedup), nil
 }
 
-// getOutputSubjectFromEnv returns the NATS subject to publish to.
-func getOutputSubjectFromEnv() (string, error) {
+// getOutputRouterFromEnv builds a pod-index subject router from NATS_SUBJECT_PREFIX and GLASSFLOW_POD_INDEX.
+func getOutputRouterFromEnv() (*subjectrouter.Router, error) {
 	prefix, err := models.GetRequiredEnvVar("NATS_SUBJECT_PREFIX")
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	podIndex, err := models.GetRequiredEnvVar("GLASSFLOW_POD_INDEX")
+	podIndexStr, err := models.GetRequiredEnvVar("GLASSFLOW_POD_INDEX")
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	if prefix == "" || podIndex == "" {
-		return "", fmt.Errorf("subject prefix and pod index is required")
+	podIndex, err := strconv.Atoi(podIndexStr)
+	if err != nil {
+		return nil, fmt.Errorf("parse GLASSFLOW_POD_INDEX: %w", err)
 	}
 
-	return fmt.Sprintf("%s.%s", prefix, podIndex), nil
+	return subjectrouter.New(subjectrouter.RoutingConfig{
+		OutputSubject: prefix,
+		SubjectCount:  podIndex,
+		Type:          subjectrouter.RoutingTypePodIndex,
+		PodIndex:      &subjectrouter.PodIndexConfig{Index: podIndex},
+	})
 }
 
 // getInputStreamNameFromEnv returns the NATS stream name to consume from.

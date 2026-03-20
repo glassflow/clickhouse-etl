@@ -18,6 +18,7 @@ import (
 	filterJSON "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/filter/json"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/processor"
+	subjectrouter "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/subject/router"
 	jsonTransformer "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/transformer/json"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/tests/steps"
 )
@@ -44,11 +45,22 @@ func createStreamingComponent(
 	require.NoError(t, err)
 
 	reader := batchNats.NewBatchReader(consumer)
-	writer := batchNats.NewBatchWriter(js, outputSubject)
+	subjectRouter, err := subjectrouter.New(subjectrouter.RoutingConfig{
+		OutputSubject: outputSubject,
+		Type:          subjectrouter.RoutingTypeName,
+	})
+	require.NoError(t, err)
+	writer := batchNats.NewBatchWriter(js, subjectRouter)
 
 	var dlqWriter batch.BatchWriter
 	if dlqSubject != nil {
-		dlqWriter = batchNats.NewBatchWriter(js, *dlqSubject)
+		dlqSubjectRouter, err := subjectrouter.New(subjectrouter.RoutingConfig{
+			OutputSubject: *dlqSubject,
+			Type:          subjectrouter.RoutingTypeName,
+		})
+		require.NoError(t, err)
+
+		dlqWriter = batchNats.NewBatchWriter(js, dlqSubjectRouter)
 	}
 
 	role := internal.RoleDeduplicator

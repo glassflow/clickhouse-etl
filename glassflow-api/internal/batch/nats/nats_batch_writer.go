@@ -12,20 +12,24 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
 
+type subjectRouter interface {
+	Subject(msg []byte) string
+}
+
 // BatchWriter implements batch.BatchWriter interface for NATS JetStream with async publishing
 type BatchWriter struct {
-	js      jetstream.JetStream
-	subject string
+	js            jetstream.JetStream
+	subjectRouter subjectRouter
 }
 
 // NewBatchWriter creates a new NATS async batch writer
 func NewBatchWriter(
 	js jetstream.JetStream,
-	subject string,
+	subjectRouter subjectRouter,
 ) *BatchWriter {
 	batchWriter := &BatchWriter{
-		js:      js,
-		subject: subject,
+		js:            js,
+		subjectRouter: subjectRouter,
 	}
 
 	return batchWriter
@@ -100,12 +104,9 @@ func (w *BatchWriter) Close() error {
 // convertToNatsMsg converts a models.Message to a NATS message
 func (w *BatchWriter) convertToNatsMsg(msg models.Message) *nats.Msg {
 	natsMsg := &nats.Msg{
-		Subject: w.subject,
+		Subject: w.subjectRouter.Subject(msg.Payload()),
 		Data:    msg.Payload(),
 	}
-
-	// TODO handle kafka partition?
-	// we can leverage headers for it, but for now it's not needed
 
 	// Get all headers (original + internal mutations)
 	headers := msg.Headers()
