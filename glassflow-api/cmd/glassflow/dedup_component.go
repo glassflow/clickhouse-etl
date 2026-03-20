@@ -89,10 +89,11 @@ func mainDeduplicatorV2(
 		maxAckPending = 1
 	}
 
-	dlqSubjectRouter, err := subjectrouter.New(subjectrouter.RoutingConfig{
-		OutputSubject: models.GetDLQStreamSubjectName(pipelineCfg.ID),
-		Type:          subjectrouter.RoutingTypeName,
-	})
+	dlqSubjectRouter, err := subjectrouter.New(
+		models.RoutingConfig{
+			OutputSubject: models.GetDLQStreamSubjectName(pipelineCfg.ID),
+			Type:          models.RoutingTypeName,
+		})
 	if err != nil {
 		return err
 	}
@@ -322,11 +323,11 @@ func getOutputRouterFromEnv() (*subjectrouter.Router, error) {
 		return nil, fmt.Errorf("parse GLASSFLOW_POD_INDEX: %w", err)
 	}
 
-	return subjectrouter.New(subjectrouter.RoutingConfig{
+	return subjectrouter.New(models.RoutingConfig{
 		OutputSubject: prefix,
 		SubjectCount:  podIndex,
-		Type:          subjectrouter.RoutingTypePodIndex,
-		PodIndex:      &subjectrouter.PodIndexConfig{Index: podIndex},
+		Type:          models.RoutingTypePodIndex,
+		PodIndex:      &models.RoutingConfigFieldPodIndex{Index: podIndex},
 	})
 }
 
