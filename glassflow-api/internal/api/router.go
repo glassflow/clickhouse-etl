@@ -95,6 +95,7 @@ func NewRouter(
 	registerHumaHandler("/api/v1/pipeline/{id}", h.deletePipeline, log, DeletePipelineDocs(), humaAPI, h.usageStatsClient)
 	registerHumaHandler("/api/v1/pipeline/{id}/resume", h.resumePipeline, log, ResumePipelineDocs(), humaAPI, h.usageStatsClient)
 	registerHumaHandler("/api/v1/pipeline/{id}/edit", h.editPipeline, log, EditPipelineDocs(), humaAPI, h.usageStatsClient)
+	registerHumaHandler("/internal/pipelines/{id}/otlp-config", h.getOTLPConfig, log, GetOTLPConfigDocs(), humaAPI, h.usageStatsClient)
 
 	r.HandleFunc("/api/v1/docs", h.docs)
 	r.HandleFunc("/api/v1/openapi.json", h.swaggerDocsJSON)
