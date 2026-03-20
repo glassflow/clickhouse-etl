@@ -12,6 +12,7 @@ import (
 
 	natsBatch "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/batch/nats"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	subjectrouter "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/subject/router"
 )
 
 func setupNATSWriterServer(t *testing.T) (*server.Server, *nats.Conn, jetstream.JetStream) {
@@ -55,7 +56,13 @@ func TestBatchWriter_WriteBatch(t *testing.T) {
 	subject := "test.write"
 	createStream(t, js, ctx, subject)
 
-	writer := natsBatch.NewBatchWriter(js, subject)
+	subjectRouter, err := subjectrouter.New(subjectrouter.RoutingConfig{
+		OutputSubject: subject,
+		Type:          subjectrouter.RoutingTypeName,
+	})
+	require.NoError(t, err)
+
+	writer := natsBatch.NewBatchWriter(js, subjectRouter)
 
 	// Create test messages
 	messages := []models.Message{
@@ -108,7 +115,13 @@ func TestBatchWriter_WriteBatchWithHeaders(t *testing.T) {
 	subject := "test.headers"
 	createStream(t, js, ctx, subject)
 
-	writer := natsBatch.NewBatchWriter(js, subject)
+	subjectRouter, err := subjectrouter.New(subjectrouter.RoutingConfig{
+		OutputSubject: subject,
+		Type:          subjectrouter.RoutingTypeName,
+	})
+	require.NoError(t, err)
+
+	writer := natsBatch.NewBatchWriter(js, subjectRouter)
 
 	// Create message with headers
 	messages := []models.Message{
@@ -188,9 +201,9 @@ func TestBatchWriter_WriteBatchWithJetStreamMsg(t *testing.T) {
 		Subject: sourceSubject,
 		Data:    []byte(`{"id": 100}`),
 		Header: nats.Header{
-			"X-Source-Header":  []string{"source-value"},
-			"X-Multi-Header":   []string{"value1", "value2"},
-			"Content-Type":     []string{"application/json"},
+			"X-Source-Header": []string{"source-value"},
+			"X-Multi-Header":  []string{"value1", "value2"},
+			"Content-Type":    []string{"application/json"},
 		},
 	})
 	require.NoError(t, err)
@@ -215,7 +228,14 @@ func TestBatchWriter_WriteBatchWithJetStreamMsg(t *testing.T) {
 	require.NotNil(t, jetstreamMsg)
 
 	// Now create a models.Message with the jetstream.Msg and use the batch writer to publish to destination
-	writer := natsBatch.NewBatchWriter(js, destSubject)
+
+	subjectRouter, err := subjectrouter.New(subjectrouter.RoutingConfig{
+		OutputSubject: destSubject,
+		Type:          subjectrouter.RoutingTypeName,
+	})
+	require.NoError(t, err)
+
+	writer := natsBatch.NewBatchWriter(js, subjectRouter)
 	messages := []models.Message{
 		{
 			Type:                 models.MessageTypeJetstreamMsg,
