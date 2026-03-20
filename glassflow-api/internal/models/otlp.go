@@ -4,6 +4,7 @@ import "fmt"
 
 type OTLPConfig struct {
 	PipelineID string        `json:"pipeline_id"`
+	SourceType string        `json:"source_type"`
 	Routing    RoutingConfig `json:"routing"`
 	Status     string        `json:"status"`
 }

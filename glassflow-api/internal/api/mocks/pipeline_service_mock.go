@@ -97,6 +97,21 @@ func (mr *MockPipelineServiceMockRecorder) EditPipeline(ctx, pid, newCfg any) *g
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EditPipeline", reflect.TypeOf((*MockPipelineService)(nil).EditPipeline), ctx, pid, newCfg)
 }
 
+// GetOTLPConfig mocks base method.
+func (m *MockPipelineService) GetOTLPConfig(ctx context.Context, pid string) (models.OTLPConfig, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetOTLPConfig", ctx, pid)
+	ret0, _ := ret[0].(models.OTLPConfig)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetOTLPConfig indicates an expected call of GetOTLPConfig.
+func (mr *MockPipelineServiceMockRecorder) GetOTLPConfig(ctx, pid any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOTLPConfig", reflect.TypeOf((*MockPipelineService)(nil).GetOTLPConfig), ctx, pid)
+}
+
 // GetOrchestratorType mocks base method.
 func (m *MockPipelineService) GetOrchestratorType() string {
 	m.ctrl.T.Helper()

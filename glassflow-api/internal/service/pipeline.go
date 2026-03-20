@@ -276,6 +276,23 @@ func (p *PipelineService) GetPipelineResourcesValidation(ctx context.Context, pi
 	return models.GetImmutableFields(pipeline), nil
 }
 
+func (p *PipelineService) GetOTLPConfig(ctx context.Context, pid string) (models.OTLPConfig, error) {
+	pipeline, err := p.db.GetPipeline(ctx, pid)
+	if err != nil {
+		return models.OTLPConfig{}, fmt.Errorf("load pipeline: %w", err)
+	}
+	return models.OTLPConfig{
+		PipelineID: pipeline.ID,
+		//SourceType: pipeline.Ingestor.Type,
+		Routing: models.RoutingConfig{
+			OutputSubject: "testing-otlp",
+			SubjectCount:  1,
+			Type:          models.RoutingTypeName,
+		},
+		Status: string(pipeline.Status.OverallStatus),
+	}, nil
+}
+
 func (p *PipelineService) GetPipelineResources(ctx context.Context, pid string) (models.PipelineResourcesWithPolicy, error) {
 	pipeline, err := p.db.GetPipeline(ctx, pid)
 	if err != nil {
