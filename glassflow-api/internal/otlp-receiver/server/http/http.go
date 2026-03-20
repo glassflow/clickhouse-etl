@@ -42,6 +42,10 @@ func NewHTTPServer(addr string, ready *atomic.Bool, log *slog.Logger) *server.Se
 	registerHumaHandler("/healthz", h.healthz, healthzOperation(), humaAPI)
 	registerHumaHandler("/readyz", h.readyz, readyzOperation(), humaAPI)
 
+	r.Handle("/v1/traces", nethttp.HandlerFunc(h.exportTraces)).Methods(nethttp.MethodPost)
+	r.Handle("/v1/metrics", nethttp.HandlerFunc(h.exportMetrics)).Methods(nethttp.MethodPost)
+	r.Handle("/v1/logs", nethttp.HandlerFunc(h.exportLogs)).Methods(nethttp.MethodPost)
+
 	return server.NewHTTPServer(
 		addr,
 		15*time.Second,
