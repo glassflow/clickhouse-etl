@@ -19,6 +19,7 @@ import { createTransformationSlice, TransformationSlice } from './transformation
 import { createCoreSlice, CoreSlice } from './core'
 import { createNotificationsSlice, NotificationsSlice } from './notifications.store'
 import { createResourcesSlice, ResourcesSlice } from './resources.store'
+import { createAiSessionSlice, AiSessionSlice } from './ai-session.store'
 import Cookies from 'js-cookie'
 
 interface Store
@@ -33,7 +34,8 @@ interface Store
     TransformationSlice,
     CoreSlice,
     NotificationsSlice,
-    ResourcesSlice {
+    ResourcesSlice,
+    AiSessionSlice {
   // Global reset function that can reset all slices
   resetAllPipelineState: (topicCount: number, force?: boolean) => void
 
@@ -59,6 +61,7 @@ const useActualStore = create<Store>()(
       ...createCoreSlice(set, get, store),
       ...createNotificationsSlice(set, get, store),
       ...createResourcesSlice(set, get, store),
+      ...createAiSessionSlice(set, get, store),
 
       // Global reset function that resets all slices
       resetAllPipelineState: (topicCount: number, force = false) => {
