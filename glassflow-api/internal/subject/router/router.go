@@ -6,13 +6,15 @@ import (
 
 	"github.com/cespare/xxhash/v2"
 	"github.com/tidwall/gjson"
+
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
 
 type Router struct {
-	config RoutingConfig
+	config models.RoutingConfig
 }
 
-func New(config RoutingConfig) (*Router, error) {
+func New(config models.RoutingConfig) (*Router, error) {
 	if err := config.Validate(); err != nil {
 		return nil, err
 	}
@@ -22,23 +24,23 @@ func New(config RoutingConfig) (*Router, error) {
 // since we don't have any support for protobuf now, router will only support
 // json, but it might be tricky in future to figure out support for proto
 
-func (r *Router) Config() RoutingConfig {
+func (r *Router) Config() models.RoutingConfig {
 	return r.config
 }
 
 func (r *Router) Subject(msg []byte) string {
 	var n int
 	switch r.config.Type {
-	case RoutingTypePodIndex:
+	case models.RoutingTypePodIndex:
 		n = r.config.PodIndex.Index
-	case RoutingTypeRandom:
+	case models.RoutingTypeRandom:
 		n = rand.IntN(r.config.SubjectCount)
-	case RoutingTypeHash:
+	case models.RoutingTypeHash:
 		n = int(subjectNum(msg, uint64(r.config.SubjectCount)))
-	case RoutingTypeField:
+	case models.RoutingTypeField:
 		field := gjson.GetBytes(msg, r.config.Field.Name).Raw
 		n = int(subjectNum([]byte(field), uint64(r.config.SubjectCount)))
-	case RoutingTypeName:
+	case models.RoutingTypeName:
 		return r.config.OutputSubject
 	}
 	return fmt.Sprintf("%s.%d", r.config.OutputSubject, n)

@@ -45,18 +45,18 @@ func createStreamingComponent(
 	require.NoError(t, err)
 
 	reader := batchNats.NewBatchReader(consumer)
-	subjectRouter, err := subjectrouter.New(subjectrouter.RoutingConfig{
+	subjectRouter, err := subjectrouter.New(models.RoutingConfig{
 		OutputSubject: outputSubject,
-		Type:          subjectrouter.RoutingTypeName,
+		Type:          models.RoutingTypeName,
 	})
 	require.NoError(t, err)
 	writer := batchNats.NewBatchWriter(js, subjectRouter)
 
 	var dlqWriter batch.BatchWriter
 	if dlqSubject != nil {
-		dlqSubjectRouter, err := subjectrouter.New(subjectrouter.RoutingConfig{
+		dlqSubjectRouter, err := subjectrouter.New(models.RoutingConfig{
 			OutputSubject: *dlqSubject,
-			Type:          subjectrouter.RoutingTypeName,
+			Type:          models.RoutingTypeName,
 		})
 		require.NoError(t, err)
 
