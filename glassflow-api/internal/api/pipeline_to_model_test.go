@@ -16,7 +16,7 @@ func TestPipelineJSON_ToModel_BasicConfig(t *testing.T) {
 		PipelineID: "test-pipeline-1",
 		Name:       "Test Pipeline",
 		Source: pipelineSource{
-			Kind:     internal.KafkaIngestorType,
+			Type:     internal.KafkaIngestorType,
 			Provider: "confluent",
 			ConnectionParams: sourceConnectionParams{
 				Brokers:       []string{"localhost:9092"},
@@ -153,7 +153,7 @@ func TestPipelineJSON_ToModel_WithSchemaRegistry(t *testing.T) {
 		PipelineID: "test-pipeline-2",
 		Name:       "Test Pipeline with Schema Registry",
 		Source: pipelineSource{
-			Kind:     internal.KafkaIngestorType,
+			Type:     internal.KafkaIngestorType,
 			Provider: "confluent",
 			ConnectionParams: sourceConnectionParams{
 				Brokers:       []string{"localhost:9092"},
@@ -255,7 +255,7 @@ func TestPipelineJSON_ToModel_WithStatelessTransformation(t *testing.T) {
 		PipelineID: "test-pipeline-3",
 		Name:       "Test Pipeline with Transformation",
 		Source: pipelineSource{
-			Kind:     internal.KafkaIngestorType,
+			Type:     internal.KafkaIngestorType,
 			Provider: "confluent",
 			ConnectionParams: sourceConnectionParams{
 				Brokers:       []string{"localhost:9092"},
@@ -397,7 +397,7 @@ func TestPipelineJSON_ToModel_WithJoin(t *testing.T) {
 		PipelineID: "test-pipeline-4",
 		Name:       "Test Pipeline with Join",
 		Source: pipelineSource{
-			Kind:     internal.KafkaIngestorType,
+			Type:     internal.KafkaIngestorType,
 			Provider: "confluent",
 			ConnectionParams: sourceConnectionParams{
 				Brokers:       []string{"localhost:9092"},
@@ -657,7 +657,7 @@ func TestPipelineJSON_ToModel_ValidationErrors(t *testing.T) {
 		pipelineJSON := pipelineJSON{
 			PipelineID: "test1",
 			Source: pipelineSource{
-				Kind:     internal.KafkaIngestorType,
+				Type:     internal.KafkaIngestorType,
 				Provider: "confluent",
 				ConnectionParams: sourceConnectionParams{
 					Brokers:       []string{"localhost:9092"},
@@ -707,7 +707,7 @@ func TestPipelineJSON_ToModel_ValidationErrors(t *testing.T) {
 		pipelineJSON := pipelineJSON{
 			PipelineID: "test2",
 			Source: pipelineSource{
-				Kind:     internal.KafkaIngestorType,
+				Type:     internal.KafkaIngestorType,
 				Provider: "confluent",
 				ConnectionParams: sourceConnectionParams{
 					Brokers:       []string{"localhost:9092"},

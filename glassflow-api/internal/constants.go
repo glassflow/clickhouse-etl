@@ -18,6 +18,11 @@ const (
 	SchemaMapperJSONToCHType = "jsonToClickhouse"
 	ClickHouseSinkType       = "clickhouse"
 
+	// source types
+	OTLPLogsSourceType    = "otlp.logs"
+	OTLPTracesSourceType  = "otlp.traces"
+	OTLPMetricsSourceType = "otlp.metrics"
+
 	// Stream naming constants
 	MaxStreamNameLength  = 32
 	PipelineStreamPrefix = "gfm"
@@ -250,6 +255,14 @@ func IsFixedStringType(t string) bool {
 		return true
 	}
 	if strings.HasPrefix(t, "LowCardinality(FixedString(") && strings.Contains(t, ")") {
+		return true
+	}
+	return false
+}
+
+func IsOTLPSourceType(kind string) bool {
+	switch strings.ToLower(strings.TrimSpace(kind)) {
+	case OTLPLogsSourceType, OTLPTracesSourceType, OTLPMetricsSourceType:
 		return true
 	}
 	return false
