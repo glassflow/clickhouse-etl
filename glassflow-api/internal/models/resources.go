@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/tidwall/gjson"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
@@ -77,7 +78,6 @@ func NewDefaultPipelineResources(cfg *PipelineConfig) PipelineResources {
 				MaxBytes: getEnvOrDefault("NATS_MAX_STREAM_BYTES", "0"),
 			},
 		},
-		Ingestor: &IngestorResources{},
 		Sink: &ComponentResources{
 			Requests: &ResourceList{
 				CPU:    getEnvOrDefault("SINK_CPU_REQUEST", "100m"),
@@ -91,22 +91,25 @@ func NewDefaultPipelineResources(cfg *PipelineConfig) PipelineResources {
 		},
 	}
 
-	if cfg.Join.Enabled {
-		r.Ingestor.Left = newDefaultIngestorComponentResources(topicReplicas(cfg.Ingestor.KafkaTopics, 0))
-		r.Ingestor.Right = newDefaultIngestorComponentResources(topicReplicas(cfg.Ingestor.KafkaTopics, 1))
-		r.Join = &ComponentResources{
-			Requests: &ResourceList{
-				CPU:    getEnvOrDefault("JOIN_CPU_REQUEST", "100m"),
-				Memory: getEnvOrDefault("JOIN_MEMORY_REQUEST", "128Mi"),
-			},
-			Limits: &ResourceList{
-				CPU:    getEnvOrDefault("JOIN_CPU_LIMIT", "1500m"),
-				Memory: getEnvOrDefault("JOIN_MEMORY_LIMIT", "1.5Gi"),
-			},
-			Replicas: ptrInt64(1),
+	if !internal.IsOTLPSourceType(cfg.SourceType) {
+		r.Ingestor = &IngestorResources{}
+		if cfg.Join.Enabled {
+			r.Ingestor.Left = newDefaultIngestorComponentResources(topicReplicas(cfg.Ingestor.KafkaTopics, 0))
+			r.Ingestor.Right = newDefaultIngestorComponentResources(topicReplicas(cfg.Ingestor.KafkaTopics, 1))
+			r.Join = &ComponentResources{
+				Requests: &ResourceList{
+					CPU:    getEnvOrDefault("JOIN_CPU_REQUEST", "100m"),
+					Memory: getEnvOrDefault("JOIN_MEMORY_REQUEST", "128Mi"),
+				},
+				Limits: &ResourceList{
+					CPU:    getEnvOrDefault("JOIN_CPU_LIMIT", "1500m"),
+					Memory: getEnvOrDefault("JOIN_MEMORY_LIMIT", "1.5Gi"),
+				},
+				Replicas: ptrInt64(1),
+			}
+		} else {
+			r.Ingestor.Base = newDefaultIngestorComponentResources(topicReplicas(cfg.Ingestor.KafkaTopics, 0))
 		}
-	} else {
-		r.Ingestor.Base = newDefaultIngestorComponentResources(topicReplicas(cfg.Ingestor.KafkaTopics, 0))
 	}
 
 	if transformEnabled(cfg) {
@@ -350,16 +353,17 @@ func MergeWithDefaults(cfg *PipelineConfig, r PipelineResources, defaults Pipeli
 		r.Nats = defaults.Nats
 	}
 
-	if r.Ingestor == nil {
-		r.Ingestor = &IngestorResources{}
-	}
-
-	if cfg.Join.Enabled {
-		r.Ingestor.Left = mergeComponentDefaults(r.Ingestor.Left, defaults.Ingestor.Left)
-		r.Ingestor.Right = mergeComponentDefaults(r.Ingestor.Right, defaults.Ingestor.Right)
-		r.Join = mergeComponentDefaults(r.Join, defaults.Join)
-	} else {
-		r.Ingestor.Base = mergeComponentDefaults(r.Ingestor.Base, defaults.Ingestor.Base)
+	if !internal.IsOTLPSourceType(cfg.SourceType) {
+		if r.Ingestor == nil {
+			r.Ingestor = &IngestorResources{}
+		}
+		if cfg.Join.Enabled {
+			r.Ingestor.Left = mergeComponentDefaults(r.Ingestor.Left, defaults.Ingestor.Left)
+			r.Ingestor.Right = mergeComponentDefaults(r.Ingestor.Right, defaults.Ingestor.Right)
+			r.Join = mergeComponentDefaults(r.Join, defaults.Join)
+		} else {
+			r.Ingestor.Base = mergeComponentDefaults(r.Ingestor.Base, defaults.Ingestor.Base)
+		}
 	}
 
 	r.Sink = mergeComponentDefaults(r.Sink, defaults.Sink)

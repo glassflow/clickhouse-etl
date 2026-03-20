@@ -360,7 +360,7 @@ func TestCreatePipeline_CRDAlignedValidations(t *testing.T) {
 			modify: func(b map[string]interface{}) {
 				b["source"].(map[string]interface{})["type"] = "rabbitmq"
 			},
-			wantContain: "source type must be \"kafka\"",
+			wantContain: "unsupported source kind",
 		},
 	}
 

@@ -13,8 +13,9 @@ import (
 func TestToPipelineJSON_BasicConfig(t *testing.T) {
 	// Test case 1: Basic config with SchemaFields, SchemaVersion, SourceID, and TableMapping
 	pipelineConfig := models.PipelineConfig{
-		ID:   "test-pipeline-1",
-		Name: "Test Pipeline",
+		ID:         "test-pipeline-1",
+		Name:       "Test Pipeline",
+		SourceType: internal.KafkaIngestorType,
 		Ingestor: models.IngestorComponentConfig{
 			Type:     internal.KafkaIngestorType,
 			Provider: "confluent",
@@ -105,7 +106,7 @@ func TestToPipelineJSON_BasicConfig(t *testing.T) {
 	assert.Equal(t, "v3", result.Version)
 
 	// Verify source configuration
-	assert.Equal(t, internal.KafkaIngestorType, result.Source.Kind)
+	assert.Equal(t, internal.KafkaIngestorType, result.Source.Type)
 	assert.Equal(t, "confluent", result.Source.Provider)
 	assert.Len(t, result.Source.Topics, 1)
 
@@ -133,8 +134,9 @@ func TestToPipelineJSON_BasicConfig(t *testing.T) {
 func TestToPipelineJSON_WithSchemaRegistry(t *testing.T) {
 	// Test case 2: Config with SchemaRegistry in topics
 	pipelineConfig := models.PipelineConfig{
-		ID:   "test-pipeline-2",
-		Name: "Test Pipeline with Schema Registry",
+		ID:         "test-pipeline-2",
+		Name:       "Test Pipeline with Schema Registry",
+		SourceType: internal.KafkaIngestorType,
 		Ingestor: models.IngestorComponentConfig{
 			Type:     internal.KafkaIngestorType,
 			Provider: "confluent",
@@ -244,8 +246,9 @@ func TestToPipelineJSON_WithSchemaRegistry(t *testing.T) {
 func TestToPipelineJSON_WithStatelessTransformation(t *testing.T) {
 	// Test case 3: Config with enabled StatelessTransformation
 	pipelineConfig := models.PipelineConfig{
-		ID:   "test-pipeline-3",
-		Name: "Test Pipeline with Transformation",
+		ID:         "test-pipeline-3",
+		Name:       "Test Pipeline with Transformation",
+		SourceType: internal.KafkaIngestorType,
 		Ingestor: models.IngestorComponentConfig{
 			Type:     internal.KafkaIngestorType,
 			Provider: "confluent",
@@ -429,8 +432,9 @@ func TestToPipelineJSON_WithStatelessTransformation(t *testing.T) {
 func TestToPipelineJSON_WithJoin(t *testing.T) {
 	// Test case 4: Config with enabled Join
 	pipelineConfig := models.PipelineConfig{
-		ID:   "test-pipeline-4",
-		Name: "Test Pipeline with Join",
+		ID:         "test-pipeline-4",
+		Name:       "Test Pipeline with Join",
+		SourceType: internal.KafkaIngestorType,
 		Ingestor: models.IngestorComponentConfig{
 			Type:     internal.KafkaIngestorType,
 			Provider: "confluent",
@@ -748,8 +752,9 @@ func TestToPipelineJSON_WithJoin(t *testing.T) {
 func TestToPipelineJSON_EmptySchemaVersion(t *testing.T) {
 	// Test case with no schema versions
 	pipelineConfig := models.PipelineConfig{
-		ID:   "test-pipeline-5",
-		Name: "Test Pipeline No Schema",
+		ID:         "test-pipeline-5",
+		Name:       "Test Pipeline No Schema",
+		SourceType: internal.KafkaIngestorType,
 		Ingestor: models.IngestorComponentConfig{
 			Type:     internal.KafkaIngestorType,
 			Provider: "confluent",

@@ -35,10 +35,10 @@ type PipelineService interface { //nolint:interfacebloat //important interface
 }
 
 type pipelineSource struct {
-	Kind             string                 `json:"type"`
+	Type             string                 `json:"type"`
 	Provider         string                 `json:"provider,omitempty"`
-	ConnectionParams sourceConnectionParams `json:"connection_params"`
-	Topics           []kafkaTopic           `json:"topics"`
+	ConnectionParams sourceConnectionParams `json:"connection_params,omitempty"`
+	Topics           []kafkaTopic           `json:"topics,omitempty"`
 }
 
 type pipelineJoin struct {
@@ -608,6 +608,37 @@ func statelessTransformValidationError(err error) error {
 	return err
 }
 
+func validateSourceType(pipeline pipelineJSON) (string, error) {
+	sourceType := strings.ToLower(strings.TrimSpace(pipeline.Source.Type))
+	switch sourceType {
+	case internal.KafkaIngestorType:
+		if len(pipeline.Source.Topics) < 1 {
+			return "", fmt.Errorf("source must have at least one topic")
+		}
+		if len(pipeline.Source.Topics) > internal.MaxStreamsSupportedWithJoin {
+			return "", fmt.Errorf("source must have at most %d topics", internal.MaxStreamsSupportedWithJoin)
+		}
+		for i, t := range pipeline.Source.Topics {
+			if len(strings.TrimSpace(t.Topic)) == 0 {
+				return "", fmt.Errorf("topic name at index %d cannot be empty", i)
+			}
+		}
+		if err := validateJoinCompatibility(pipeline); err != nil {
+			return "", err
+		}
+
+	case internal.OTLPLogsSourceType, internal.OTLPTracesSourceType, internal.OTLPMetricsSourceType:
+		if pipeline.Join.Enabled {
+			return "", fmt.Errorf("join is not supported for the OTLP pipelines")
+		}
+
+	default:
+		return "", fmt.Errorf("unsupported source kind: %s", pipeline.Source.Type)
+	}
+
+	return sourceType, nil
+}
+
 const minPipelineIDLength = 5
 
 func (pipeline pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
@@ -623,27 +654,17 @@ func (pipeline pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
 	}
 
 	// Validations aligned with Pipeline CRD spec (sources.topics, topic_name, replicas, type)
-	if strings.ToLower(strings.TrimSpace(pipeline.Source.Kind)) != internal.KafkaIngestorType {
-		return zero, fmt.Errorf("source type must be %q", internal.KafkaIngestorType)
-	}
-	if len(pipeline.Source.Topics) < 1 {
-		return zero, fmt.Errorf("source must have at least one topic")
-	}
-	if len(pipeline.Source.Topics) > internal.MaxStreamsSupportedWithJoin {
-		return zero, fmt.Errorf("source must have at most %d topics", internal.MaxStreamsSupportedWithJoin)
-	}
-	for i, t := range pipeline.Source.Topics {
-		if len(strings.TrimSpace(t.Topic)) == 0 {
-			return zero, fmt.Errorf("topic name at index %d cannot be empty", i)
-		}
-	}
-	if err := validateJoinCompatibility(pipeline); err != nil {
-		return zero, err
+	sourceType, err := validateSourceType(pipeline)
+	if err != nil {
+		return zero, fmt.Errorf("validate source type: %w", err)
 	}
 
-	ingestorComponentConfig, err := newIngestorComponentConfig(pipeline, schemaVersions)
-	if err != nil {
-		return zero, fmt.Errorf("create ingestor component config: %w", err)
+	var ingestorComponentConfig models.IngestorComponentConfig
+	if sourceType == internal.KafkaIngestorType {
+		ingestorComponentConfig, err = newIngestorComponentConfig(pipeline, schemaVersions)
+		if err != nil {
+			return zero, fmt.Errorf("create ingestor component config: %w", err)
+		}
 	}
 
 	joinComponentConfig, err := newJoinComponentConfig(pipeline, schemaVersions)
@@ -675,6 +696,7 @@ func (pipeline pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
 		pipeline.PipelineID,
 		pipeline.Name,
 		mapperConfig,
+		sourceType,
 		ingestorComponentConfig,
 		joinComponentConfig,
 		sinkComponentConfig,
@@ -777,24 +799,28 @@ func toPipelineJSON(p models.PipelineConfig) pipelineJSON {
 		})
 	}
 
+	source := pipelineSource{
+		Type: p.SourceType,
+	}
+	if p.SourceType == internal.KafkaIngestorType {
+		source.Provider = p.Ingestor.Provider
+		source.ConnectionParams = sourceConnectionParams{
+			Brokers:             p.Ingestor.KafkaConnectionParams.Brokers,
+			SkipAuth:            p.Ingestor.KafkaConnectionParams.SkipAuth,
+			SASLProtocol:        p.Ingestor.KafkaConnectionParams.SASLProtocol,
+			SASLMechanism:       p.Ingestor.KafkaConnectionParams.SASLMechanism,
+			SASLUsername:        p.Ingestor.KafkaConnectionParams.SASLUsername,
+			SASLPassword:        p.Ingestor.KafkaConnectionParams.SASLPassword,
+			TLSRoot:             p.Ingestor.KafkaConnectionParams.TLSRoot,
+			SkipTLSVerification: p.Ingestor.KafkaConnectionParams.SkipTLSVerification,
+		}
+		source.Topics = topics
+	}
+
 	return pipelineJSON{
 		PipelineID: p.ID,
 		Name:       p.Name,
-		Source: pipelineSource{
-			Kind:     p.Ingestor.Type,
-			Provider: p.Ingestor.Provider,
-			ConnectionParams: sourceConnectionParams{
-				Brokers:             p.Ingestor.KafkaConnectionParams.Brokers,
-				SkipAuth:            p.Ingestor.KafkaConnectionParams.SkipAuth,
-				SASLProtocol:        p.Ingestor.KafkaConnectionParams.SASLProtocol,
-				SASLMechanism:       p.Ingestor.KafkaConnectionParams.SASLMechanism,
-				SASLUsername:        p.Ingestor.KafkaConnectionParams.SASLUsername,
-				SASLPassword:        p.Ingestor.KafkaConnectionParams.SASLPassword,
-				TLSRoot:             p.Ingestor.KafkaConnectionParams.TLSRoot,
-				SkipTLSVerification: p.Ingestor.KafkaConnectionParams.SkipTLSVerification,
-			},
-			Topics: topics,
-		},
+		Source:     source,
 		Join: pipelineJoin{
 			ID:      p.Join.ID,
 			Kind:    internal.TemporalJoinType,

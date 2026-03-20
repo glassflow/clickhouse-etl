@@ -420,6 +420,7 @@ type PipelineMetadata struct {
 type PipelineConfig struct {
 	ID                      string                   `json:"pipeline_id"`
 	Name                    string                   `json:"name"`
+	SourceType              string                   `json:"source_type"`
 	Mapper                  MapperConfig             `json:"mapper"`
 	Ingestor                IngestorComponentConfig  `json:"ingestor"`
 	Join                    JoinComponentConfig      `json:"join"`
@@ -490,6 +491,7 @@ func (e PipelineConfigError) Error() string {
 func NewPipelineConfig(
 	id, name string,
 	mc MapperConfig,
+	st string,
 	ic IngestorComponentConfig,
 	jc JoinComponentConfig,
 	sc SinkComponentConfig,
@@ -502,6 +504,7 @@ func NewPipelineConfig(
 	return PipelineConfig{
 		ID:                      id,
 		Name:                    name,
+		SourceType:              st,
 		Mapper:                  mc,
 		Ingestor:                ic,
 		Join:                    jc,
