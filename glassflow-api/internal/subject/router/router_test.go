@@ -4,14 +4,16 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
 
 func TestSubject_PodIndex(t *testing.T) {
-	r, err := New(RoutingConfig{
+	r, err := New(models.RoutingConfig{
 		OutputSubject: "events",
 		SubjectCount:  5,
-		Type:          RoutingTypePodIndex,
-		PodIndex:      &PodIndexConfig{Index: 2},
+		Type:          models.RoutingTypePodIndex,
+		PodIndex:      &models.RoutingConfigFieldPodIndex{Index: 2},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -25,10 +27,10 @@ func TestSubject_PodIndex(t *testing.T) {
 }
 
 func TestSubject_Random(t *testing.T) {
-	r, err := New(RoutingConfig{
+	r, err := New(models.RoutingConfig{
 		OutputSubject: "events",
 		SubjectCount:  10,
-		Type:          RoutingTypeRandom,
+		Type:          models.RoutingTypeRandom,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -50,10 +52,10 @@ func TestSubject_MessageHash(t *testing.T) {
 	msg := []byte(`{"id":1}`)
 	subjectCount := 4
 
-	r, err := New(RoutingConfig{
+	r, err := New(models.RoutingConfig{
 		OutputSubject: "events",
 		SubjectCount:  subjectCount,
-		Type:          RoutingTypeHash,
+		Type:          models.RoutingTypeHash,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -72,11 +74,11 @@ func TestSubject_Dedup(t *testing.T) {
 	field := "user_id"
 	subjectCount := 4
 
-	r, err := New(RoutingConfig{
+	r, err := New(models.RoutingConfig{
 		OutputSubject: "events",
 		SubjectCount:  subjectCount,
-		Type:          RoutingTypeField,
-		Field:         &Field{Name: field},
+		Type:          models.RoutingTypeField,
+		Field:         &models.RoutingConfigField{Name: field},
 	})
 	if err != nil {
 		t.Fatal(err)
