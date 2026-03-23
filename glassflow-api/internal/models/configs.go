@@ -417,10 +417,17 @@ type PipelineMetadata struct {
 	Tags []string `json:"tags"`
 }
 
+type OTLPSourceConfig struct {
+	ID            string              `json:"id"`
+	DataType      string              `json:"data_type"`
+	Deduplication DeduplicationConfig `json:"deduplication,omitempty"`
+}
+
 type PipelineConfig struct {
 	ID                      string                   `json:"pipeline_id"`
 	Name                    string                   `json:"name"`
 	SourceType              string                   `json:"source_type"`
+	OTLPSource              OTLPSourceConfig         `json:"otlp_source,omitempty"`
 	Mapper                  MapperConfig             `json:"mapper"`
 	Ingestor                IngestorComponentConfig  `json:"ingestor"`
 	Join                    JoinComponentConfig      `json:"join"`
@@ -492,6 +499,7 @@ func NewPipelineConfig(
 	id, name string,
 	mc MapperConfig,
 	st string,
+	otlpSource OTLPSourceConfig,
 	ic IngestorComponentConfig,
 	jc JoinComponentConfig,
 	sc SinkComponentConfig,
@@ -505,6 +513,7 @@ func NewPipelineConfig(
 		ID:                      id,
 		Name:                    name,
 		SourceType:              st,
+		OTLPSource:              otlpSource,
 		Mapper:                  mc,
 		Ingestor:                ic,
 		Join:                    jc,

@@ -18,7 +18,7 @@ func TestPipelineJSON_ToModel_BasicConfig(t *testing.T) {
 		Source: pipelineSource{
 			Type:     internal.KafkaIngestorType,
 			Provider: "confluent",
-			ConnectionParams: sourceConnectionParams{
+			ConnectionParams: &sourceConnectionParams{
 				Brokers:       []string{"localhost:9092"},
 				SASLProtocol:  "SASL_PLAINTEXT",
 				SASLMechanism: "PLAIN",
@@ -30,7 +30,7 @@ func TestPipelineJSON_ToModel_BasicConfig(t *testing.T) {
 					Topic:                      "users",
 					ConsumerGroupInitialOffset: "earliest",
 					Replicas:                   1,
-					Deduplication: topicDedupConfig{
+					Deduplication: dedupConfig{
 						Enabled: true,
 						Key:     "event_id",
 						Window:  *models.NewJSONDuration(1 * time.Hour),
@@ -155,7 +155,7 @@ func TestPipelineJSON_ToModel_WithSchemaRegistry(t *testing.T) {
 		Source: pipelineSource{
 			Type:     internal.KafkaIngestorType,
 			Provider: "confluent",
-			ConnectionParams: sourceConnectionParams{
+			ConnectionParams: &sourceConnectionParams{
 				Brokers:       []string{"localhost:9092"},
 				SASLProtocol:  "SASL_PLAINTEXT",
 				SASLMechanism: "PLAIN",
@@ -167,7 +167,7 @@ func TestPipelineJSON_ToModel_WithSchemaRegistry(t *testing.T) {
 					Topic:                      "events",
 					ConsumerGroupInitialOffset: "latest",
 					Replicas:                   3,
-					Deduplication: topicDedupConfig{
+					Deduplication: dedupConfig{
 						Enabled: false,
 					},
 					SchemaRegistry: models.SchemaRegistryConfig{
@@ -257,7 +257,7 @@ func TestPipelineJSON_ToModel_WithStatelessTransformation(t *testing.T) {
 		Source: pipelineSource{
 			Type:     internal.KafkaIngestorType,
 			Provider: "confluent",
-			ConnectionParams: sourceConnectionParams{
+			ConnectionParams: &sourceConnectionParams{
 				Brokers:       []string{"localhost:9092"},
 				SASLProtocol:  "SASL_PLAINTEXT",
 				SASLMechanism: "PLAIN",
@@ -269,7 +269,7 @@ func TestPipelineJSON_ToModel_WithStatelessTransformation(t *testing.T) {
 					Topic:                      "users",
 					ConsumerGroupInitialOffset: "earliest",
 					Replicas:                   1,
-					Deduplication: topicDedupConfig{
+					Deduplication: dedupConfig{
 						Enabled: true,
 						Key:     "event_id",
 						Window:  *models.NewJSONDuration(1 * time.Hour),
@@ -399,7 +399,7 @@ func TestPipelineJSON_ToModel_WithJoin(t *testing.T) {
 		Source: pipelineSource{
 			Type:     internal.KafkaIngestorType,
 			Provider: "confluent",
-			ConnectionParams: sourceConnectionParams{
+			ConnectionParams: &sourceConnectionParams{
 				Brokers:       []string{"localhost:9092"},
 				SASLProtocol:  "SASL_PLAINTEXT",
 				SASLMechanism: "PLAIN",
@@ -411,7 +411,7 @@ func TestPipelineJSON_ToModel_WithJoin(t *testing.T) {
 					Topic:                      "users",
 					ConsumerGroupInitialOffset: "earliest",
 					Replicas:                   1,
-					Deduplication: topicDedupConfig{
+					Deduplication: dedupConfig{
 						Enabled: true,
 						Key:     "event_id",
 						Window:  *models.NewJSONDuration(24 * time.Hour),
@@ -427,7 +427,7 @@ func TestPipelineJSON_ToModel_WithJoin(t *testing.T) {
 					Topic:                      "events",
 					ConsumerGroupInitialOffset: "earliest",
 					Replicas:                   1,
-					Deduplication: topicDedupConfig{
+					Deduplication: dedupConfig{
 						Enabled: true,
 						Key:     "event_id",
 						Window:  *models.NewJSONDuration(1 * time.Hour),
@@ -659,7 +659,7 @@ func TestPipelineJSON_ToModel_ValidationErrors(t *testing.T) {
 			Source: pipelineSource{
 				Type:     internal.KafkaIngestorType,
 				Provider: "confluent",
-				ConnectionParams: sourceConnectionParams{
+				ConnectionParams: &sourceConnectionParams{
 					Brokers:       []string{"localhost:9092"},
 					SASLProtocol:  "SASL_PLAINTEXT",
 					SASLMechanism: "PLAIN",
@@ -709,7 +709,7 @@ func TestPipelineJSON_ToModel_ValidationErrors(t *testing.T) {
 			Source: pipelineSource{
 				Type:     internal.KafkaIngestorType,
 				Provider: "confluent",
-				ConnectionParams: sourceConnectionParams{
+				ConnectionParams: &sourceConnectionParams{
 					Brokers:       []string{"localhost:9092"},
 					SASLProtocol:  "SASL_PLAINTEXT",
 					SASLMechanism: "PLAIN",
@@ -753,4 +753,154 @@ func TestPipelineJSON_ToModel_ValidationErrors(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "mapping field 'nonexistent' not found in schema")
 	})
+}
+
+func TestPipelineJSON_ToModel_OTLPLogs(t *testing.T) {
+	p := pipelineJSON{
+		PipelineID: "otlp-logs-pipeline",
+		Name:       "OTLP Logs Pipeline",
+		Source: pipelineSource{
+			Type:     internal.OTLPSourceType,
+			DataType: "logs",
+			ID:       "otlp-logs-1",
+			Deduplication: &dedupConfig{
+				Enabled: false,
+			},
+		},
+		Sink: clickhouseSink{
+			Kind: internal.ClickHouseSinkType,
+			ConnectionParams: sinkConnectionParams{
+				Host:     "localhost",
+				Port:     "9000",
+				HttpPort: "8123",
+				Database: "default",
+				Username: "default",
+				Password: "password",
+			},
+			Table:        "logs_table",
+			MaxBatchSize: 1000,
+			MaxDelayTime: *models.NewJSONDuration(60 * time.Second),
+			SourceID:     "otlp-logs-1",
+			TableMapping: []tableMappingEntry{
+				{Name: "timestamp", ColumnName: "timestamp", ColumnType: "DateTime64(9)"},
+				{Name: "severity_text", ColumnName: "severity", ColumnType: "String"},
+				{Name: "body", ColumnName: "body", ColumnType: "String"},
+			},
+		},
+		Join:                    pipelineJoin{Enabled: false},
+		Filter:                  pipelineFilter{Enabled: false},
+		StatelessTransformation: models.StatelessTransformation{Enabled: false},
+	}
+
+	result, err := p.toModel()
+	require.NoError(t, err)
+
+	// Verify OTLP source config
+	assert.Equal(t, "otlp-logs-1", result.OTLPSource.ID)
+	assert.Equal(t, "logs", result.OTLPSource.DataType)
+	assert.False(t, result.OTLPSource.Deduplication.Enabled)
+
+	// Verify schema version was auto-generated from OTLP logs schema
+	require.Contains(t, result.SchemaVersions, "otlp-logs-1")
+	schema := result.SchemaVersions["otlp-logs-1"]
+	assert.Equal(t, "otlp-logs-1", schema.SourceID)
+	assert.Equal(t, "1", schema.VersionID)
+
+	// Verify logs-specific fields are present
+	expectedFields := []string{
+		"timestamp", "observed_timestamp", "severity_number", "severity_text",
+		"body", "trace_id", "span_id", "flags", "dropped_attributes_count",
+		"resource_attributes", "scope_name", "scope_version", "scope_attributes", "attributes",
+	}
+	require.Len(t, schema.Fields, len(expectedFields))
+	for i, expected := range expectedFields {
+		assert.Equal(t, expected, schema.Fields[i].Name)
+	}
+
+	// Verify sink mappings resolved types from schema
+	require.Len(t, result.Sink.Config, 3)
+	assert.Equal(t, "timestamp", result.Sink.Config[0].SourceField)
+	assert.Equal(t, "string", result.Sink.Config[0].SourceType)
+	assert.Equal(t, "severity_text", result.Sink.Config[1].SourceField)
+	assert.Equal(t, "string", result.Sink.Config[1].SourceType)
+	assert.Equal(t, "body", result.Sink.Config[2].SourceField)
+	assert.Equal(t, "string", result.Sink.Config[2].SourceType)
+}
+
+func TestPipelineJSON_ToModel_OTLPTraces(t *testing.T) {
+	p := pipelineJSON{
+		PipelineID: "otlp-traces-pipeline",
+		Name:       "OTLP Traces Pipeline",
+		Source: pipelineSource{
+			Type:     internal.OTLPSourceType,
+			DataType: "traces",
+			ID:       "otlp-traces-1",
+			Deduplication: &dedupConfig{
+				Enabled: true,
+				Key:     "trace_id",
+				Window:  *models.NewJSONDuration(1 * time.Hour),
+			},
+		},
+		Sink: clickhouseSink{
+			Kind: internal.ClickHouseSinkType,
+			ConnectionParams: sinkConnectionParams{
+				Host:     "localhost",
+				Port:     "9000",
+				HttpPort: "8123",
+				Database: "default",
+				Username: "default",
+				Password: "password",
+			},
+			Table:        "traces_table",
+			MaxBatchSize: 500,
+			MaxDelayTime: *models.NewJSONDuration(30 * time.Second),
+			SourceID:     "otlp-traces-1",
+			TableMapping: []tableMappingEntry{
+				{Name: "trace_id", ColumnName: "trace_id", ColumnType: "String"},
+				{Name: "span_id", ColumnName: "span_id", ColumnType: "String"},
+				{Name: "name", ColumnName: "span_name", ColumnType: "String"},
+				{Name: "duration_ns", ColumnName: "duration", ColumnType: "UInt64"},
+			},
+		},
+		Join:                    pipelineJoin{Enabled: false},
+		Filter:                  pipelineFilter{Enabled: false},
+		StatelessTransformation: models.StatelessTransformation{Enabled: false},
+	}
+
+	result, err := p.toModel()
+	require.NoError(t, err)
+
+	// Verify OTLP source config with deduplication
+	assert.Equal(t, "otlp-traces-1", result.OTLPSource.ID)
+	assert.Equal(t, "traces", result.OTLPSource.DataType)
+	assert.True(t, result.OTLPSource.Deduplication.Enabled)
+	assert.Equal(t, "trace_id", result.OTLPSource.Deduplication.ID)
+	assert.Equal(t, 1*time.Hour, result.OTLPSource.Deduplication.Window.Duration())
+
+	// Verify schema version was auto-generated from OTLP traces schema
+	require.Contains(t, result.SchemaVersions, "otlp-traces-1")
+	schema := result.SchemaVersions["otlp-traces-1"]
+	assert.Equal(t, "otlp-traces-1", schema.SourceID)
+	assert.Equal(t, "1", schema.VersionID)
+
+	// Verify traces-specific fields
+	expectedFields := []string{
+		"trace_id", "span_id", "parent_span_id", "trace_state", "flags",
+		"name", "kind", "start_timestamp", "end_timestamp", "duration_ns",
+		"status_code", "status_message",
+		"dropped_attributes_count", "dropped_events_count", "dropped_links_count",
+		"events", "links",
+		"resource_attributes", "scope_name", "scope_version", "scope_attributes", "attributes",
+	}
+	require.Len(t, schema.Fields, len(expectedFields))
+	for i, expected := range expectedFields {
+		assert.Equal(t, expected, schema.Fields[i].Name)
+	}
+
+	// Verify sink mappings resolved types from traces schema
+	require.Len(t, result.Sink.Config, 4)
+	assert.Equal(t, "trace_id", result.Sink.Config[0].SourceField)
+	assert.Equal(t, "string", result.Sink.Config[0].SourceType)
+	assert.Equal(t, "duration_ns", result.Sink.Config[3].SourceField)
+	assert.Equal(t, "uint", result.Sink.Config[3].SourceType)
 }
