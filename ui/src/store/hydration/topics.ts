@@ -20,6 +20,8 @@ function mapBackendTopicToStore(topicConfig: any, index: number) {
     }
   }
 
+  const schemaSource = topicConfig.schema_registry?.url ? 'external' : 'internal'
+
   return {
     index,
     name: topicConfig.name,
@@ -33,6 +35,9 @@ function mapBackendTopicToStore(topicConfig: any, index: number) {
     replicas: topicConfig.replicas || 1,
     partitionCount: topicConfig.partition_count || 1,
     schema, // Include verified schema types from backend
+    schemaSource: schemaSource as 'internal' | 'external',
+    schemaRegistryVersion: topicConfig.schema_version,
+    // schemaRegistrySubject is not stored in pipeline JSON; requires re-selection on edit
   }
 }
 

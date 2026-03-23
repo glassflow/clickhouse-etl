@@ -142,6 +142,14 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
       return (
         <li key={index} className="mb-4">
           <div className="font-medium">{topicName}</div>
+          {typeof topic !== 'string' && topic?.schemaSource === 'external' && (
+            <div className="ml-4 mt-1 text-sm text-muted-foreground">
+              {`External schema: ${topic.schemaRegistrySubject ?? '—'} v${topic.schemaRegistryVersion ?? '?'}`}
+            </div>
+          )}
+          {typeof topic !== 'string' && (!topic?.schemaSource || topic.schemaSource === 'internal') && (
+            <div className="ml-4 mt-1 text-sm text-muted-foreground">Auto-detected schema</div>
+          )}
           {(() => {
             const deduplicationConfig = deduplicationStore.getDeduplication(index)
             return (

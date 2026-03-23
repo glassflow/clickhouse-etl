@@ -391,6 +391,15 @@ export const buildInternalPipelineConfig = ({
           type: 'kafka',
           provider: 'custom', // Or determine from connection details
           connection_params: connectionParams as KafkaConnectionParams,
+          ...(kafkaStore?.schemaRegistry?.enabled
+            ? {
+                schemaRegistry: {
+                  url: kafkaStore.schemaRegistry.url ?? '',
+                  apiKey: kafkaStore.schemaRegistry.apiKey ?? '',
+                  apiSecret: kafkaStore.schemaRegistry.apiSecret ?? '',
+                },
+              }
+            : {}),
           topics: topicsConfig,
         },
     // Include join configuration for Kafka multi-topic pipelines; disabled join for all others

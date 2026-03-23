@@ -329,16 +329,29 @@ export class V3PipelineAdapter implements PipelineAdapter {
     if (isOtlp) {
       output.sources = [{ type: cfg.source.type, source_id: (cfg.source as any).id ?? 'source' }]
     } else {
-      output.sources = topics.map((t: any) => ({
-        type: 'kafka',
-        source_id: t.id ?? t.name,
-        connection_params: cfg.source?.connection_params,
-        topic: t.name,
-        consumer_group_initial_offset: t.consumer_group_initial_offset ?? 'latest',
-        schema_fields: (t.schema?.fields ?? []).map((f: any) => ({ name: f.name, type: f.type ?? 'string' })),
-        schema_version: t.schema_version ?? '1',
-        schema_registry: t.schema_registry ?? { url: '', api_key: '', api_secret: '' },
-      }))
+      const reg = cfg.source?.schemaRegistry
+      output.sources = topics.map((t: any) => {
+        const schemaVersion =
+          t.schemaSource === 'external' && t.schemaRegistryVersion && t.schemaRegistryVersion !== 'latest'
+            ? t.schemaRegistryVersion
+            : (t.schema_version ?? '1')
+        return {
+          type: 'kafka',
+          source_id: t.id ?? t.name,
+          connection_params: cfg.source?.connection_params,
+          topic: t.name,
+          consumer_group_initial_offset: t.consumer_group_initial_offset ?? 'latest',
+          schema_fields: (t.schema?.fields ?? [])
+            .filter((f: any) => !f.isRemoved)
+            .map((f: any) => ({ name: f.name, type: f.userType || f.type ?? 'string' })),
+          schema_version: schemaVersion,
+          schema_registry: t.schema_registry ?? {
+            url: reg?.url ?? '',
+            api_key: reg?.apiKey ?? '',
+            api_secret: reg?.apiSecret ?? '',
+          },
+        }
+      })
     }
 
     // ── 2. dedup / filter / transformation → transforms[] ────────────────────

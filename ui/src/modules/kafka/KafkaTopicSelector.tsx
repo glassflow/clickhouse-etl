@@ -13,6 +13,7 @@ import useGetIndex from '@/src/modules/kafka/useGetIndex'
 import { useKafkaTopicSelectorState } from '@/src/modules/kafka/hooks/useKafkaTopicSelectorState'
 import { useTopicSelectorTopics } from '@/src/modules/kafka/hooks/useTopicSelectorTopics'
 import TopicChangeConfirmationModal from '@/src/modules/kafka/components/TopicChangeConfirmationModal'
+import { SchemaSourceSelector } from '@/src/modules/kafka/components/SchemaSourceSelector'
 
 export function KafkaTopicSelector({
   steps,
@@ -28,7 +29,7 @@ export function KafkaTopicSelector({
   pipelineActionState,
   onCompleteStandaloneEditing,
 }: TopicSelectorProps) {
-  const { topicsStore, coreStore } = useStore()
+  const { topicsStore, coreStore, kafkaStore } = useStore()
   const validationEngine = useValidationEngine()
   const getIndex = useGetIndex(currentStep || '')
   const index = getIndex()
@@ -244,6 +245,16 @@ export function KafkaTopicSelector({
     )
   }
 
+  const renderSchemaSourceSection = () => {
+    if (!kafkaStore.schemaRegistry?.enabled || !topicName) return null
+
+    return (
+      <div className="mt-4">
+        <SchemaSourceSelector topicName={topicName} topicIndex={index} readOnly={readOnly} />
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6 w-full">
       <div className="flex flex-col gap-6 bg-background-neutral-faded rounded-md p-0">
@@ -255,7 +266,12 @@ export function KafkaTopicSelector({
             onOffsetChange={handleOffsetChange}
             onManualEventChange={handleManualEventChange}
             availableTopics={availableTopics}
-            additionalContent={renderDeduplicationSection()}
+            additionalContent={
+              <>
+                {renderSchemaSourceSection()}
+                {renderDeduplicationSection()}
+              </>
+            }
             isEditingEnabled={!readOnly}
             readOnly={readOnly}
             disableTopicChange={false} // Allow topic selection in edit mode to enable topic changes
