@@ -151,4 +151,15 @@ export function hydrateKafkaConnection(pipelineConfig: any) {
     const kafkaConnection = mapBackendKafkaConfigToStore(connectionParams)
     useStore.getState().kafkaStore.setKafkaConnection(kafkaConnection)
   }
+
+  // Hydrate schema registry from first topic (all topics share the same registry)
+  const schemaReg = pipelineConfig?.source?.topics?.[0]?.schema_registry
+  if (schemaReg?.url) {
+    useStore.getState().kafkaStore.setKafkaSchemaRegistry({
+      enabled: true,
+      url: schemaReg.url,
+      apiKey: schemaReg.api_key ?? '',
+      apiSecret: schemaReg.api_secret ?? '',
+    })
+  }
 }

@@ -34,6 +34,7 @@ export function KafkaTypeVerification({
   const topic = topicsStore.getTopic(index)
   const selectedEvent = topic?.selectedEvent
   const eventData = selectedEvent?.event || null
+  const isExternalSchema = topic?.schemaSource === 'external'
 
   const {
     fieldTypes,
@@ -48,7 +49,7 @@ export function KafkaTypeVerification({
     handleRemoveField,
     handleRestoreField,
     canContinue,
-  } = useTypeVerificationState({ eventData, topic })
+  } = useTypeVerificationState({ eventData: isExternalSchema ? null : eventData, topic })
 
   const [isSaveSuccess, setIsSaveSuccess] = useState(false)
 
@@ -106,7 +107,7 @@ export function KafkaTypeVerification({
     return <div className="text-[var(--text-secondary)]">No topic data available. Please select a topic first.</div>
   }
 
-  if (!eventData) {
+  if (!isExternalSchema && !eventData) {
     return (
       <div className="text-[var(--text-secondary)]">
         No event data available for topic &quot;{topic.name}&quot;. Please ensure the topic has events.
@@ -114,17 +115,46 @@ export function KafkaTypeVerification({
     )
   }
 
+  // For external schema: use the registry fields directly
+  const externalFields: typeof fieldTypes = isExternalSchema
+    ? (topic.schema?.fields || []).map((f) => ({
+        name: f.name,
+        inferredType: f.type,
+        userType: f.userType || f.type,
+        isManuallyAdded: false,
+        isRemoved: false,
+      }))
+    : []
+
+  const displayFields = isExternalSchema ? externalFields : fieldTypes
+  const canSubmit = isExternalSchema ? externalFields.length > 0 : canContinue
+
   return (
     <div className="flex flex-col gap-6">
-      <div className="text-content-faded text-sm">
-        Review and customize the schema for your Kafka events. You can verify inferred types, add new fields, or remove
-        fields you don&apos;t need. This schema will be used for transformations and mapping to ClickHouse.
-      </div>
+      {isExternalSchema ? (
+        <div className="rounded-md border border-border bg-background-neutral-faded px-4 py-3 text-sm text-content">
+          <strong>Schema loaded from Schema Registry</strong>
+          {topic.schemaRegistrySubject && (
+            <span className="ml-2 text-content-faded">
+              Subject: {topic.schemaRegistrySubject}
+              {topic.schemaRegistryVersion && ` · Version: ${topic.schemaRegistryVersion}`}
+            </span>
+          )}
+          <div className="mt-1 text-content-faded">
+            Fields are read-only. To change the schema, update the subject on the Topic Selection step.
+          </div>
+        </div>
+      ) : (
+        <div className="text-content-faded text-sm">
+          Review and customize the schema for your Kafka events. You can verify inferred types, add new fields, or
+          remove fields you don&apos;t need. This schema will be used for transformations and mapping to ClickHouse.
+        </div>
+      )}
 
       <div className="flex gap-4 w-full">
         <FieldTypesTable
-          fieldTypes={fieldTypes}
-          readOnly={readOnly}
+          fieldTypes={displayFields}
+          readOnly={readOnly || isExternalSchema}
           dataTypes={JSON_DATA_TYPES}
           onTypeChange={handleTypeChange}
           onRemoveField={handleRemoveField}
@@ -146,10 +176,10 @@ export function KafkaTypeVerification({
           onDiscard={handleDiscardChanges}
           isLoading={false}
           isSuccess={isSaveSuccess}
-          disabled={!canContinue}
+          disabled={!canSubmit}
           successText="Continue"
           loadingText="Saving..."
-          regularText="Confirm Types"
+          regularText={isExternalSchema ? 'Confirm Schema' : 'Confirm Types'}
           actionType="primary"
           showLoadingIcon={false}
           readOnly={readOnly}

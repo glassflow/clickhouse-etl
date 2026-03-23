@@ -180,6 +180,11 @@ export interface Pipeline {
       password?: string
       root_ca?: string
     }
+    schemaRegistry?: {
+      url: string
+      apiKey: string
+      apiSecret: string
+    }
     topics?: Array<{
       name: string
       id: string
