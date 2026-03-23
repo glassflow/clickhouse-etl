@@ -14,5 +14,9 @@ func (s *traceServiceServer) Export(
 	_ context.Context,
 	_ *coltracepb.ExportTraceServiceRequest,
 ) (*coltracepb.ExportTraceServiceResponse, error) {
-	return &coltracepb.ExportTraceServiceResponse{}, nil
+	return &coltracepb.ExportTraceServiceResponse{
+		PartialSuccess: &coltracepb.ExportTracePartialSuccess{
+			ErrorMessage: "hello world traces!",
+		},
+	}, nil
 }

@@ -16,6 +16,17 @@ type OTLPConfigFetcher interface {
 	GetOTLPConfig(ctx context.Context, pipelineID string) (models.OTLPConfig, error)
 }
 
+func NewProcessor(
+	otlpConfigFetcher OTLPConfigFetcher,
+	nc *client.NATSClient,
+) *Processor {
+	return &Processor{
+		otlpConfigFetcher: otlpConfigFetcher,
+		natsWriterCache:   make(map[string]batch.BatchWriter),
+		nc:                nc,
+	}
+}
+
 type Processor struct {
 	otlpConfigFetcher OTLPConfigFetcher
 	natsWriterCache   map[string]batch.BatchWriter

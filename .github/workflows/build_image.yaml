@@ -24,6 +24,8 @@ jobs:
       glassflow-sink-arm64: ${{ steps.gen-output.outputs.glassflow-sink-arm64 }}
       glassflow-dedup-amd64: ${{ steps.gen-output.outputs.glassflow-dedup-amd64 }}
       glassflow-dedup-arm64: ${{ steps.gen-output.outputs.glassflow-dedup-arm64 }}
+      glassflow-otlp-receiver-amd64: ${{ steps.gen-output.outputs.glassflow-otlp-receiver-amd64 }}
+      glassflow-otlp-receiver-arm64: ${{ steps.gen-output.outputs.glassflow-otlp-receiver-arm64 }}
       glassflow-migration-amd64: ${{ steps.gen-output.outputs.glassflow-migration-amd64 }}
       glassflow-migration-arm64: ${{ steps.gen-output.outputs.glassflow-migration-arm64 }}
     permissions:
@@ -42,6 +44,8 @@ jobs:
             image_name: glassflow-etl-sink
           - name: glassflow-dedup
             image_name: glassflow-etl-dedup
+          - name: glassflow-otlp-receiver
+            image_name: glassflow-etl-otlp-receiver
           - name: glassflow-migration
             image_name: glassflow-etl-migration
         platform:
@@ -132,6 +136,9 @@ jobs:
           - amd64_digest: ${{ needs.build-docker-image.outputs.glassflow-dedup-amd64 }}
             arm64_digest: ${{ needs.build-docker-image.outputs.glassflow-dedup-arm64 }}
             repository: glassflow-etl-dedup
+          - amd64_digest: ${{ needs.build-docker-image.outputs.glassflow-otlp-receiver-amd64 }}
+            arm64_digest: ${{ needs.build-docker-image.outputs.glassflow-otlp-receiver-arm64 }}
+            repository: glassflow-etl-otlp-receiver
           - amd64_digest: ${{ needs.build-docker-image.outputs.glassflow-migration-amd64 }}
             arm64_digest: ${{ needs.build-docker-image.outputs.glassflow-migration-arm64 }}
             repository: glassflow-etl-migration

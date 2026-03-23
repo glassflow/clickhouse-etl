@@ -9,7 +9,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
 
-func (p *Processor) ProcessOTLPTraces(
+func (p *Processor) ProcessTraces(
 	ctx context.Context,
 	pipelineID string,
 	exportTracesRequest *coltracepb.ExportTraceServiceRequest,

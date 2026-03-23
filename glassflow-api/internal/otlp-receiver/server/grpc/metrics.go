@@ -14,5 +14,9 @@ func (s *metricServiceServer) Export(
 	_ context.Context,
 	_ *colmetricspb.ExportMetricsServiceRequest,
 ) (*colmetricspb.ExportMetricsServiceResponse, error) {
-	return &colmetricspb.ExportMetricsServiceResponse{}, nil
+	return &colmetricspb.ExportMetricsServiceResponse{
+		PartialSuccess: &colmetricspb.ExportMetricsPartialSuccess{
+			ErrorMessage: "hello world metrics!",
+		},
+	}, nil
 }

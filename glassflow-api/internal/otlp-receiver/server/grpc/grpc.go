@@ -1,6 +1,8 @@
 package grpc
 
 import (
+	"context"
+	"log/slog"
 	"net"
 
 	collogspb "go.opentelemetry.io/proto/otlp/collector/logs/v1"
@@ -11,7 +13,17 @@ import (
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
-func NewGRPCServer(addr string) (*grpc.Server, *health.Server, net.Listener, error) {
+type OTLPDataProcessor interface {
+	ProcessLogs(ctx context.Context, pipelineID string, exportLogsRequest *collogspb.ExportLogsServiceRequest) error
+	ProcessTraces(ctx context.Context, pipelineID string, exportTracesRequest *coltracepb.ExportTraceServiceRequest) error
+	ProcessMetrics(ctx context.Context, pipelineID string, exportMetricsRequest *colmetricspb.ExportMetricsServiceRequest) error
+}
+
+func NewGRPCServer(
+	addr string,
+	_ *slog.Logger,
+	_ OTLPDataProcessor,
+) (*grpc.Server, *health.Server, net.Listener, error) {
 	grpcServer := grpc.NewServer()
 
 	grpcHealth := health.NewServer()
