@@ -14,6 +14,7 @@ import (
 
 	grpcQ "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/otlp-receiver/server/grpc"
 	httpQ "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/otlp-receiver/server/http"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/otlp-receiver/server/processor"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/server"
 )
 
@@ -31,8 +32,11 @@ type Receiver struct {
 	log        *slog.Logger
 }
 
-func New(log *slog.Logger) (*Receiver, error) {
-	grpcServer, grpcHealth, grpcLis, err := grpcQ.NewGRPCServer(grpcAddr)
+func New(
+	log *slog.Logger,
+	otlpDataProcessor *processor.Processor,
+) (*Receiver, error) {
+	grpcServer, grpcHealth, grpcLis, err := grpcQ.NewGRPCServer(grpcAddr, log, otlpDataProcessor)
 	if err != nil {
 		return nil, err
 	}
@@ -44,7 +48,7 @@ func New(log *slog.Logger) (*Receiver, error) {
 		grpcLis:    grpcLis,
 	}
 
-	r.httpServer = httpQ.NewHTTPServer(httpAddr, &r.ready, log)
+	r.httpServer = httpQ.NewHTTPServer(httpAddr, &r.ready, log, otlpDataProcessor)
 
 	return r, nil
 }

@@ -10,12 +10,23 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humamux"
 	"github.com/gorilla/mux"
+	collogspb "go.opentelemetry.io/proto/otlp/collector/logs/v1"
+	colmetricspb "go.opentelemetry.io/proto/otlp/collector/metrics/v1"
+	coltracepb "go.opentelemetry.io/proto/otlp/collector/trace/v1"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/server"
 )
 
+type OTLPDataProcessor interface {
+	ProcessLogs(ctx context.Context, pipelineID string, exportLogsRequest *collogspb.ExportLogsServiceRequest) error
+	ProcessTraces(ctx context.Context, pipelineID string, exportTracesRequest *coltracepb.ExportTraceServiceRequest) error
+	ProcessMetrics(ctx context.Context, pipelineID string, exportMetricsRequest *colmetricspb.ExportMetricsServiceRequest) error
+}
+
 type handler struct {
-	ready *atomic.Bool
+	ready             *atomic.Bool
+	log               *slog.Logger
+	otlpDataProcessor OTLPDataProcessor
 }
 
 type healthResponse struct {
@@ -27,7 +38,12 @@ type healthStatus struct {
 	Status string `json:"status"`
 }
 
-func NewHTTPServer(addr string, ready *atomic.Bool, log *slog.Logger) *server.Server {
+func NewHTTPServer(
+	addr string,
+	ready *atomic.Bool,
+	log *slog.Logger,
+	otlpDataProcessor OTLPDataProcessor,
+) *server.Server {
 	r := mux.NewRouter()
 
 	config := huma.DefaultConfig("GlassFlow OLTP Receiver", "1.0.0")
@@ -38,7 +54,11 @@ func NewHTTPServer(addr string, ready *atomic.Bool, log *slog.Logger) *server.Se
 
 	humaAPI := humamux.New(r, config)
 
-	h := handler{ready: ready}
+	h := handler{
+		ready:             ready,
+		log:               log,
+		otlpDataProcessor: otlpDataProcessor,
+	}
 	registerHumaHandler("/healthz", h.healthz, healthzOperation(), humaAPI)
 	registerHumaHandler("/readyz", h.readyz, readyzOperation(), humaAPI)
 
