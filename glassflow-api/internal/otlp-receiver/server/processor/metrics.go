@@ -6,7 +6,7 @@ import (
 
 	colmetricspb "go.opentelemetry.io/proto/otlp/collector/metrics/v1"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/otlp-receiver/server/processor/flattener"
 )
 
 func (p *Processor) ProcessMetrics(
@@ -14,7 +14,7 @@ func (p *Processor) ProcessMetrics(
 	pipelineID string,
 	exportMetricsRequest *colmetricspb.ExportMetricsServiceRequest,
 ) error {
-	messages, err := p.flattenMetrics(exportMetricsRequest)
+	messages, err := flattener.FlattenMetrics(exportMetricsRequest)
 	if err != nil {
 		return fmt.Errorf("flattenMetrics: %w", err)
 	}
@@ -30,8 +30,4 @@ func (p *Processor) ProcessMetrics(
 	}
 
 	return nil
-}
-
-func (p *Processor) flattenMetrics(exportMetricsRequest *colmetricspb.ExportMetricsServiceRequest) ([]models.Message, error) {
-	return nil, fmt.Errorf("not implemented yet")
 }
