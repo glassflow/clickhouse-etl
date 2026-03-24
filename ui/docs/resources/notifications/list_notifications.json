@@ -1,0 +1,150 @@
+kiran@Mac ~ % curl -X GET "http://localhost:8082/api/notifications" -H "Accept: application/json" | jq
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100  5944  100  5944    0     0  42131      0 --:--:-- --:--:-- --:--:-- 42156
+{
+  "notifications": [
+    {
+      "notification_id": "0dd2b471-b758-46bc-9ded-71f130348797",
+      "pipeline_id": "demo-llm-otel-logs-pipeline-2658-demo-12",
+      "timestamp": "2026-03-23T12:46:47.339487+00:00",
+      "severity": "warn",
+      "event_type": "pipeline_deleted",
+      "title": "Pipeline Uninstalled",
+      "message": "Pipeline has been uninstalled",
+      "metadata": "{\"tags\": [\"deployment\"], \"source\": \"glassflow-operator\", \"custom_fields\": {\"status\": \"success\", \"operation\": \"helm-uninstall\", \"cluster_provider\": \"unknown\"}}",
+      "created_at": "2026-03-23T12:46:47.341402+00:00",
+      "deleted": false,
+      "read": false
+    },
+    {
+      "notification_id": "9eb8d16a-d31c-445e-b054-e99a0d27ede4",
+      "pipeline_id": "demo-llm-otel-logs-pipeline-2658-demo-12",
+      "timestamp": "2026-03-23T12:46:32.313602+00:00",
+      "severity": "info",
+      "event_type": "pipeline_deployed",
+      "title": "Pipeline Deployed Successfully",
+      "message": "Pipeline has been deployed successfully",
+      "metadata": "{\"tags\": [\"deployment\"], \"source\": \"glassflow-operator\", \"custom_fields\": {\"status\": \"success\", \"operation\": \"create\", \"cluster_provider\": \"unknown\"}}",
+      "created_at": "2026-03-23T12:46:32.393673+00:00",
+      "deleted": false,
+      "read": false
+    },
+    {
+      "notification_id": "00362324-d29a-4698-9ba3-59ee727bfb2c",
+      "pipeline_id": "demo-llm-otel-logs-pipeline-2658-demo-12",
+      "timestamp": "2026-03-23T12:35:07.296357+00:00",
+      "severity": "warn",
+      "event_type": "pipeline_deleted",
+      "title": "Pipeline Deleted",
+      "message": "Pipeline has been deleted",
+      "metadata": "{\"tags\": [\"deployment\"], \"source\": \"glassflow-operator\", \"custom_fields\": {\"status\": \"success\", \"operation\": \"delete\", \"cluster_provider\": \"unknown\"}}",
+      "created_at": "2026-03-23T12:35:07.298599+00:00",
+      "deleted": false,
+      "read": false
+    },
+    {
+      "notification_id": "d2df5c45-5191-476e-8761-7759e4da0176",
+      "pipeline_id": "demo-llm-otel-logs-pipeline-2658-demo-12",
+      "timestamp": "2026-03-23T12:34:58.487374+00:00",
+      "severity": "warn",
+      "event_type": "pipeline_stopped",
+      "title": "Pipeline Terminated",
+      "message": "Pipeline has been terminated",
+      "metadata": "{\"tags\": [\"deployment\"], \"source\": \"glassflow-operator\", \"custom_fields\": {\"status\": \"success\", \"operation\": \"terminate\", \"cluster_provider\": \"unknown\"}}",
+      "created_at": "2026-03-23T12:34:58.489338+00:00",
+      "deleted": false,
+      "read": false
+    },
+    {
+      "notification_id": "c3008325-f748-4053-8a18-c80525732823",
+      "pipeline_id": "demo-llm-otel-logs-pipeline-2658-demo-12",
+      "timestamp": "2026-03-23T12:34:51.373051+00:00",
+      "severity": "info",
+      "event_type": "pipeline_deployed",
+      "title": "Pipeline Updated Successfully",
+      "message": "Pipeline has been updated successfully",
+      "metadata": "{\"tags\": [\"deployment\"], \"source\": \"glassflow-operator\", \"custom_fields\": {\"status\": \"success\", \"operation\": \"edit\", \"cluster_provider\": \"unknown\"}}",
+      "created_at": "2026-03-23T12:34:51.375212+00:00",
+      "deleted": false,
+      "read": false
+    },
+    {
+      "notification_id": "80f428cf-e630-434c-9ce5-6317a8ab98ff",
+      "pipeline_id": "demo-llm-otel-logs-pipeline-2658-demo-12",
+      "timestamp": "2026-03-23T12:34:39.860692+00:00",
+      "severity": "warn",
+      "event_type": "pipeline_stopped",
+      "title": "Pipeline Stopped",
+      "message": "Pipeline has been stopped",
+      "metadata": "{\"tags\": [\"deployment\"], \"source\": \"glassflow-operator\", \"custom_fields\": {\"status\": \"success\", \"operation\": \"stop\", \"cluster_provider\": \"unknown\"}}",
+      "created_at": "2026-03-23T12:34:39.863110+00:00",
+      "deleted": false,
+      "read": false
+    },
+    {
+      "notification_id": "3f1a9613-ea4f-4513-aae5-e16faf8539e0",
+      "pipeline_id": "demo-llm-otel-logs-pipeline-2658-demo-12",
+      "timestamp": "2026-03-23T12:34:13.266927+00:00",
+      "severity": "info",
+      "event_type": "pipeline_resumed",
+      "title": "Pipeline Resumed",
+      "message": "Pipeline has been resumed",
+      "metadata": "{\"tags\": [\"deployment\"], \"source\": \"glassflow-operator\", \"custom_fields\": {\"status\": \"success\", \"operation\": \"resume\", \"cluster_provider\": \"unknown\"}}",
+      "created_at": "2026-03-23T12:34:13.269247+00:00",
+      "deleted": false,
+      "read": false
+    },
+    {
+      "notification_id": "c24853d7-15e6-4cb3-b274-7218a1931f98",
+      "pipeline_id": "demo-llm-otel-logs-pipeline-2658-demo-12",
+      "timestamp": "2026-03-23T12:33:51.163684+00:00",
+      "severity": "warn",
+      "event_type": "pipeline_stopped",
+      "title": "Pipeline Stopped",
+      "message": "Pipeline has been stopped",
+      "metadata": "{\"tags\": [\"deployment\"], \"source\": \"glassflow-operator\", \"custom_fields\": {\"status\": \"success\", \"operation\": \"stop\", \"cluster_provider\": \"unknown\"}}",
+      "created_at": "2026-03-23T12:33:51.208667+00:00",
+      "deleted": false,
+      "read": false
+    },
+    {
+      "notification_id": "5939ba45-0468-4a22-9cc7-6a80383e5d2a",
+      "pipeline_id": "demo-llm-otel-logs-pipeline-2658-demo-12",
+      "timestamp": "2026-03-23T12:20:48.584815+00:00",
+      "severity": "info",
+      "event_type": "pipeline_deployed",
+      "title": "Pipeline Deployed Successfully",
+      "message": "Pipeline has been deployed successfully",
+      "metadata": "{\"tags\": [\"deployment\"], \"source\": \"glassflow-operator\", \"custom_fields\": {\"status\": \"success\", \"operation\": \"create\", \"cluster_provider\": \"unknown\"}}",
+      "created_at": "2026-03-23T12:20:48.587007+00:00",
+      "deleted": false,
+      "read": false
+    },
+    {
+      "notification_id": "bd594554-e495-400e-9971-135375e95081",
+      "pipeline_id": "demo-llm-otel-logs-pipeline-2658-demo-12",
+      "timestamp": "2026-03-23T11:51:48.257934+00:00",
+      "severity": "info",
+      "event_type": "pipeline_deployed",
+      "title": "Pipeline Deployed Successfully",
+      "message": "Pipeline has been deployed successfully",
+      "metadata": "{\"tags\": [\"deployment\"], \"source\": \"glassflow-operator\", \"custom_fields\": {\"status\": \"success\", \"operation\": \"create\", \"cluster_provider\": \"unknown\"}}",
+      "created_at": "2026-03-23T12:16:08.860242+00:00",
+      "deleted": false,
+      "read": false
+    }
+  ],
+  "pagination": {
+    "total": 10,
+    "limit": 100,
+    "offset": 0,
+    "returned": 10
+  },
+  "filters": {
+    "pipeline_id": null,
+    "severity": null,
+    "start_date": null,
+    "end_date": null
+  }
+}
