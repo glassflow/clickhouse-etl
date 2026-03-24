@@ -164,6 +164,37 @@ export const getPipeline = async (id: string): Promise<any> => {
 }
 
 /**
+ * Fetch the pipeline configuration for a specific schema binding (topic + version).
+ * Returns the same shape as getPipeline but for the historical config.
+ * Returns null when no binding exists for that combination (404).
+ */
+export const getPipelineForBinding = async (
+  id: string,
+  topicName: string,
+  version: string,
+): Promise<any | null> => {
+  try {
+    const url = getApiUrl(`pipeline/${id}?topic=${encodeURIComponent(topicName)}&schema=${encodeURIComponent(version)}`)
+    const response = await fetch(url)
+
+    if (!response.ok) {
+      return null
+    }
+
+    const data = await response.json()
+    if (data?.success === true && data.pipeline) {
+      return data.pipeline
+    }
+    if (data && typeof data === 'object' && data.pipeline_id) {
+      return data
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+/**
  * Check if a pipeline exists by ID
  */
 export const checkPipelineExists = async (pipelineId: string): Promise<boolean> => {

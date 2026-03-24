@@ -29,6 +29,8 @@ export interface UseResumeWithPendingEditOptions {
   executeEditAction: (apiConfig: any) => Promise<any>
   /** Callback to update the pipeline in parent component */
   onPipelineUpdate?: (pipeline: Pipeline) => void
+  /** Called after a successful edit so schema bindings can be refreshed */
+  onBindingsChanged?: () => void
 }
 
 export interface UseResumeWithPendingEditResult {
@@ -69,7 +71,7 @@ export interface UseResumeWithPendingEditResult {
 export function useResumeWithPendingEdit(
   options: UseResumeWithPendingEditOptions
 ): UseResumeWithPendingEditResult {
-  const { pipeline, executeEditAction, onPipelineUpdate } = options
+  const { pipeline, executeEditAction, onPipelineUpdate, onBindingsChanged } = options
 
   /**
    * Check if there are unsaved changes in the core store.
@@ -186,6 +188,9 @@ export function useResumeWithPendingEdit(
     // Send edit request to backend (backend will automatically resume after edit)
     await executeEditAction(apiConfig)
 
+    // Notify parent that bindings may have changed (e.g. new schema version deployed)
+    onBindingsChanged?.()
+
     // Mark as clean after successful edit
     coreStore.markAsClean()
 
@@ -219,7 +224,7 @@ export function useResumeWithPendingEdit(
     }
 
     return true
-  }, [pipeline.pipeline_id, executeEditAction, onPipelineUpdate])
+  }, [pipeline.pipeline_id, executeEditAction, onPipelineUpdate, onBindingsChanged])
 
   return {
     hasPendingEdits,

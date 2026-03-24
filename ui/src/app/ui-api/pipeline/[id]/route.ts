@@ -14,7 +14,18 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   if (validationError) return validationError
 
   try {
-    const response = await axios.get(`${API_URL}/pipeline/${id}`)
+    // Forward binding query params (topic, schema) to backend when present
+    const { searchParams } = new URL(request.url)
+    const topic = searchParams.get('topic')
+    const schema = searchParams.get('schema')
+    const queryString = [
+      topic ? `topic=${encodeURIComponent(topic)}` : null,
+      schema ? `schema=${encodeURIComponent(schema)}` : null,
+    ]
+      .filter(Boolean)
+      .join('&')
+    const url = queryString ? `${API_URL}/pipeline/${id}?${queryString}` : `${API_URL}/pipeline/${id}`
+    const response = await axios.get(url)
 
     return NextResponse.json({
       success: true,
