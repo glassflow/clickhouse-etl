@@ -150,8 +150,11 @@ export function KafkaConnectionContainer({
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               url: values.schemaRegistry.url,
+              authMethod: values.schemaRegistry.authMethod,
               apiKey: values.schemaRegistry.apiKey,
               apiSecret: values.schemaRegistry.apiSecret,
+              username: values.schemaRegistry.username,
+              password: values.schemaRegistry.password,
             }),
           })
           const srResult = await srResponse.json()

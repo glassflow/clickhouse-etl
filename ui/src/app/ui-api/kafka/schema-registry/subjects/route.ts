@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { buildRegistryAuthHeaders } from '../_auth'
 import { structuredLogger } from '@/src/observability'
 
 function rankSubjects(subjects: string[], topicName: string): string[] {
@@ -26,20 +27,15 @@ function rankSubjects(subjects: string[], topicName: string): string[] {
 
 export async function POST(request: Request) {
   try {
-    const { url, apiKey, apiSecret, topicName } = await request.json()
+    const body = await request.json()
+    const { url, authMethod, apiKey, apiSecret, username, password, topicName } = body
 
     if (!url?.trim()) {
       return NextResponse.json({ success: false, error: 'Registry URL is required' }, { status: 400 })
     }
 
     const subjectsUrl = `${url.replace(/\/$/, '')}/subjects`
-    const headers: Record<string, string> = {}
-
-    if (apiKey && apiSecret) {
-      headers['Authorization'] = `Basic ${Buffer.from(`${apiKey}:${apiSecret}`).toString('base64')}`
-    } else if (apiKey) {
-      headers['Authorization'] = `Basic ${Buffer.from(`${apiKey}:`).toString('base64')}`
-    }
+    const headers = buildRegistryAuthHeaders({ authMethod, apiKey, apiSecret, username, password })
 
     const response = await fetch(subjectsUrl, { headers })
 

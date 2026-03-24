@@ -225,8 +225,11 @@ export const initialKafkaStore: KafkaStoreProps = {
   schemaRegistry: {
     enabled: false,
     url: '',
+    authMethod: 'none' as const,
     apiKey: '',
     apiSecret: '',
+    username: '',
+    password: '',
   },
 }
 

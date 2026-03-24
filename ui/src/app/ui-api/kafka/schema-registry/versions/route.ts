@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server'
+import { buildRegistryAuthHeaders } from '../_auth'
 import { structuredLogger } from '@/src/observability'
 
 export async function POST(request: Request) {
   try {
-    const { url, apiKey, apiSecret, subject } = await request.json()
+    const body = await request.json()
+    const { url, authMethod, apiKey, apiSecret, username, password, subject } = body
 
     if (!url?.trim()) {
       return NextResponse.json({ success: false, error: 'Registry URL is required' }, { status: 400 })
@@ -13,13 +15,7 @@ export async function POST(request: Request) {
     }
 
     const versionsUrl = `${url.replace(/\/$/, '')}/subjects/${encodeURIComponent(subject)}/versions`
-    const headers: Record<string, string> = {}
-
-    if (apiKey && apiSecret) {
-      headers['Authorization'] = `Basic ${Buffer.from(`${apiKey}:${apiSecret}`).toString('base64')}`
-    } else if (apiKey) {
-      headers['Authorization'] = `Basic ${Buffer.from(`${apiKey}:`).toString('base64')}`
-    }
+    const headers = buildRegistryAuthHeaders({ authMethod, apiKey, apiSecret, username, password })
 
     const response = await fetch(versionsUrl, { headers })
 
@@ -32,7 +28,6 @@ export async function POST(request: Request) {
     }
 
     const versionNumbers: number[] = await response.json()
-    // Newest first, with label indicating which is newest
     const sorted = [...versionNumbers].sort((a, b) => b - a)
     const versions = sorted.map((v, idx) => ({
       version: v,

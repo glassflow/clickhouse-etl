@@ -15,6 +15,7 @@ import { PipelineAdapter } from './types'
 import { InternalPipelineConfig } from '@/src/types/pipeline'
 import { PipelineVersion } from '@/src/config/pipeline-versions'
 import { toTransformArray, exprToFieldName } from '@/src/modules/transformation/utils'
+import { isRegistrySchema } from '@/src/modules/kafka/utils/schemaSource'
 
 function parseFunctionArgs(argsString: string): string[] {
   const args: string[] = []
@@ -332,7 +333,7 @@ export class V3PipelineAdapter implements PipelineAdapter {
       const reg = cfg.source?.schemaRegistry
       output.sources = topics.map((t: any) => {
         const schemaVersion =
-          t.schemaSource === 'external' && t.schemaRegistryVersion && t.schemaRegistryVersion !== 'latest'
+          isRegistrySchema(t.schemaSource) && t.schemaRegistryVersion && t.schemaRegistryVersion !== 'latest'
             ? t.schemaRegistryVersion
             : (t.schema_version ?? '1')
         return {
@@ -343,7 +344,7 @@ export class V3PipelineAdapter implements PipelineAdapter {
           consumer_group_initial_offset: t.consumer_group_initial_offset ?? 'latest',
           schema_fields: (t.schema?.fields ?? [])
             .filter((f: any) => !f.isRemoved)
-            .map((f: any) => ({ name: f.name, type: f.userType || f.type ?? 'string' })),
+            .map((f: any) => ({ name: f.name, type: f.userType || (f.type ?? 'string') })),
           schema_version: schemaVersion,
           schema_registry: t.schema_registry ?? {
             url: reg?.url ?? '',

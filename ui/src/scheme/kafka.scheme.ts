@@ -102,8 +102,11 @@ const MtlsFormSchema = z.object({
 const SchemaRegistryFormSchema = z.object({
   enabled: z.boolean().default(false),
   url: z.string().optional(),
+  authMethod: z.enum(['none', 'api_key', 'basic']).default('none'),
   apiKey: z.string().optional(),
   apiSecret: z.string().optional(),
+  username: z.string().optional(),
+  password: z.string().optional(),
 })
 
 // First, define a base schema with the common fields
@@ -191,6 +194,24 @@ const KafkaConnectionFormSchema = z
         message: 'Registry URL is required when Schema Registry is enabled',
         path: ['schemaRegistry', 'url'],
       })
+    }
+
+    // Validate credentials for basic auth
+    if (data.schemaRegistry?.enabled && data.schemaRegistry.authMethod === 'basic') {
+      if (!data.schemaRegistry.username?.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Username is required',
+          path: ['schemaRegistry', 'username'],
+        })
+      }
+      if (!data.schemaRegistry.password?.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Password is required',
+          path: ['schemaRegistry', 'password'],
+        })
+      }
     }
 
     // Validate certificate requirement based on security protocol at the top level
