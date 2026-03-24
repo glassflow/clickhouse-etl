@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useStore } from '@/src/store'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/src/components/ui/select'
 import { useSchemaRegistryState } from '@/src/modules/kafka/hooks/useSchemaRegistryState'
@@ -12,7 +12,7 @@ interface SchemaSourceSelectorProps {
 }
 
 export function SchemaSourceSelector({ topicName, topicIndex, readOnly }: SchemaSourceSelectorProps) {
-  const { topicsStore } = useStore()
+  const { topicsStore, kafkaStore } = useStore()
   const topic = topicsStore.getTopic(topicIndex)
   const schemaSource = topic?.schemaSource ?? 'internal'
 
@@ -27,13 +27,40 @@ export function SchemaSourceSelector({ topicName, topicIndex, readOnly }: Schema
     schemaError,
     schemaLoaded,
     schemaFieldCount,
+    autoResolved,
+    isResolvingFromEvent,
     fetchSubjects,
     selectSubject,
+    fetchVersionsForSubject,
     selectVersion,
     loadSchema,
+    resolveFromEvent,
+    applyAutoResolved,
   } = useSchemaRegistryState(topicName, topicIndex)
 
-  // Fetch subjects when user switches to external schema source
+  // On mount: restore full subjects list (and versions for persisted subject) if registry is active.
+  // This covers the case where the user navigates back to this step after already selecting a schema.
+  useEffect(() => {
+    if (!kafkaStore.schemaRegistry?.enabled) return
+    if (schemaSource !== 'external' && schemaSource !== 'registry_resolved_from_event') return
+    fetchSubjects()
+    if (selectedSubject) {
+      fetchVersionsForSubject(selectedSubject)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-resolve from event when raw bytes are available and registry is enabled
+  const lastAttemptedRawBase64 = useRef<string | null>(null)
+  const rawBase64 = topic?.selectedEvent?.event?._metadata?.rawBase64
+
+  useEffect(() => {
+    if (!rawBase64 || rawBase64 === lastAttemptedRawBase64.current) return
+    if (!kafkaStore.schemaRegistry?.enabled) return
+    lastAttemptedRawBase64.current = rawBase64
+    resolveFromEvent(rawBase64)
+  }, [rawBase64, kafkaStore.schemaRegistry?.enabled]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Fetch subjects when user explicitly switches to external schema source
   useEffect(() => {
     if (schemaSource === 'external' && subjects.length === 0 && !isLoadingSubjects) {
       fetchSubjects()
@@ -48,8 +75,60 @@ export function SchemaSourceSelector({ topicName, topicIndex, readOnly }: Schema
     }
   }
 
+  const handleUseAutoResolved = () => {
+    applyAutoResolved()
+  }
+
+  const isRegistryActive = schemaSource === 'external' || schemaSource === 'registry_resolved_from_event'
+
   return (
     <div className="space-y-3 pt-2">
+      {/* Confluent wire format hint banner */}
+      {autoResolved && schemaSource !== 'registry_resolved_from_event' && !isResolvingFromEvent && (
+        <div className="rounded-md border border-border bg-background-neutral-faded px-4 py-3 text-sm space-y-1">
+          <div className="font-medium text-content">
+            Confluent schema ID {autoResolved.schemaId} detected in event
+          </div>
+          {autoResolved.subject && (
+            <div className="text-content-faded">
+              Subject: {autoResolved.subject}
+              {autoResolved.version !== undefined && ` · Version: ${autoResolved.version}`}
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={handleUseAutoResolved}
+            disabled={readOnly}
+            className="text-sm font-medium text-primary hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Use this schema
+          </button>
+        </div>
+      )}
+
+      {schemaSource === 'registry_resolved_from_event' && (
+        <div className="rounded-md border border-border bg-background-neutral-faded px-4 py-3 text-sm space-y-1">
+          <div className="font-medium text-content-success">
+            Schema auto-resolved from event
+          </div>
+          {topic?.schemaRegistrySubject && (
+            <div className="text-content-faded">
+              Subject: {topic.schemaRegistrySubject}
+              {topic.schemaRegistryVersion && ` · Version: ${topic.schemaRegistryVersion}`}
+            </div>
+          )}
+          {!readOnly && (
+            <button
+              type="button"
+              onClick={() => handleSchemaSourceChange('internal')}
+              className="text-sm text-content-faded hover:underline"
+            >
+              Switch to auto-detect instead
+            </button>
+          )}
+        </div>
+      )}
+
       <p className="text-sm font-medium text-content">Schema Source</p>
 
       <div className="space-y-2">
@@ -71,7 +150,7 @@ export function SchemaSourceSelector({ topicName, topicIndex, readOnly }: Schema
             type="radio"
             name={`schemaSource-${topicIndex}`}
             value="external"
-            checked={schemaSource === 'external'}
+            checked={isRegistryActive}
             onChange={() => handleSchemaSourceChange('external')}
             disabled={readOnly}
             className="accent-primary"

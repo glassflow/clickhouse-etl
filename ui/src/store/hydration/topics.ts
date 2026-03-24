@@ -20,6 +20,10 @@ function mapBackendTopicToStore(topicConfig: any, index: number) {
     }
   }
 
+  // When hydrating from backend JSON, a non-empty schema_registry.url means the topic
+  // was saved with a registry schema. We use 'external' since we can't distinguish
+  // between manual selection and auto-resolved at this point.
+  // NOTE: schemaRegistrySubject is not stored in pipeline JSON — requires re-selection on edit.
   const schemaSource = topicConfig.schema_registry?.url ? 'external' : 'internal'
 
   return {
@@ -35,9 +39,8 @@ function mapBackendTopicToStore(topicConfig: any, index: number) {
     replicas: topicConfig.replicas || 1,
     partitionCount: topicConfig.partition_count || 1,
     schema, // Include verified schema types from backend
-    schemaSource: schemaSource as 'internal' | 'external',
+    schemaSource: schemaSource as 'internal' | 'external' | 'registry_resolved_from_event',
     schemaRegistryVersion: topicConfig.schema_version,
-    // schemaRegistrySubject is not stored in pipeline JSON; requires re-selection on edit
   }
 }
 

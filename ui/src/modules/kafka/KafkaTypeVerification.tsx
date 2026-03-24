@@ -8,6 +8,7 @@ import { useValidationEngine } from '@/src/store/state-machine/validation-engine
 import type { PipelineActionState } from '@/src/modules/kafka/types'
 import { useTypeVerificationState } from '@/src/modules/kafka/hooks/useTypeVerificationState'
 import { FieldTypesTable } from '@/src/modules/kafka/components/FieldTypesTable'
+import { isRegistrySchema } from '@/src/modules/kafka/utils/schemaSource'
 
 export interface KafkaTypeVerificationProps {
   onCompleteStep: (stepName: string) => void
@@ -34,7 +35,7 @@ export function KafkaTypeVerification({
   const topic = topicsStore.getTopic(index)
   const selectedEvent = topic?.selectedEvent
   const eventData = selectedEvent?.event || null
-  const isExternalSchema = topic?.schemaSource === 'external'
+  const isExternalSchema = isRegistrySchema(topic?.schemaSource)
 
   const {
     fieldTypes,

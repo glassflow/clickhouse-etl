@@ -33,7 +33,7 @@ const KafkaTopicSchema = z.object({
   replicas: z.number().optional(), // number of replicas for this topic
   partitionCount: z.number().optional(), // number of partitions for this topic
   schema: KafkaTopicSchemaSchema.optional(), // verified field types from type verification step
-  schemaSource: z.enum(['internal', 'external']).optional(), // 'internal' = auto-detect, 'external' = schema registry
+  schemaSource: z.enum(['internal', 'external', 'registry_resolved_from_event']).optional(), // 'internal' = auto-detect, 'external' = manual registry selection, 'registry_resolved_from_event' = auto-resolved via Confluent wire format
   schemaRegistrySubject: z.string().optional(), // e.g. 'orders-value'
   schemaRegistryVersion: z.string().optional(), // e.g. '3' or 'latest'
 })

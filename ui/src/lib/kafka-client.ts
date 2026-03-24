@@ -1171,6 +1171,7 @@ export class KafkaClient {
               partition,
               offset: message.offset,
               timestamp: message.timestamp,
+              rawBase64: message.value?.toString('base64'),
             }
 
             if (message.key) {
