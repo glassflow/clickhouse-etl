@@ -87,6 +87,46 @@ type OTLPLog struct {
 	Attributes             map[string]string `json:"attributes"`
 }
 
+type OTLPSpanEvent struct {
+	Timestamp              string            `json:"timestamp"`
+	Name                   string            `json:"name"`
+	Attributes             map[string]string `json:"attributes"`
+	DroppedAttributesCount uint32            `json:"dropped_attributes_count"`
+}
+
+type OTLPSpanLink struct {
+	TraceID                string            `json:"trace_id,omitempty"`
+	SpanID                 string            `json:"span_id,omitempty"`
+	TraceState             string            `json:"trace_state,omitempty"`
+	Attributes             map[string]string `json:"attributes"`
+	DroppedAttributesCount uint32            `json:"dropped_attributes_count"`
+}
+
+type OTLPSpan struct {
+	TraceID                string            `json:"trace_id,omitempty"`
+	SpanID                 string            `json:"span_id,omitempty"`
+	ParentSpanID           string            `json:"parent_span_id,omitempty"`
+	TraceState             string            `json:"trace_state,omitempty"`
+	Flags                  uint32            `json:"flags"`
+	Name                   string            `json:"name"`
+	Kind                   uint32            `json:"kind"`
+	StartTimestamp         string            `json:"start_timestamp"`
+	EndTimestamp           string            `json:"end_timestamp"`
+	DurationNS             uint64            `json:"duration_ns"`
+	StatusCode             string            `json:"status_code"`
+	StatusMessage          string            `json:"status_message,omitempty"`
+	DroppedAttributesCount uint32            `json:"dropped_attributes_count"`
+	DroppedEventsCount     uint32            `json:"dropped_events_count"`
+	DroppedLinksCount      uint32            `json:"dropped_links_count"`
+	Events                 []OTLPSpanEvent   `json:"events"`
+	Links                  []OTLPSpanLink    `json:"links"`
+	ResourceAttributes     map[string]string `json:"resource_attributes"`
+	ScopeName              string            `json:"scope_name"`
+	ScopeVersion           string            `json:"scope_version,omitempty"`
+	ScopeAttributes        map[string]string `json:"scope_attributes"`
+	Attributes             map[string]string `json:"attributes"`
+}
+
 type OTLPDataType string
 
 func (c OTLPDataType) String() string {
