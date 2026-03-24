@@ -364,6 +364,7 @@ export const createKafkaSlice: StateCreator<KafkaSlice> = (set, get) => ({
       url: '',
       apiKey: '',
       apiSecret: '',
+      authMethod: 'none' as const,
     },
 
     // base actions

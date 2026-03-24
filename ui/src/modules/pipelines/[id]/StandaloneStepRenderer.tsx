@@ -25,6 +25,8 @@ interface StandaloneStepRendererProps {
   pipeline?: any
   onPipelineStatusUpdate?: (status: string) => void
   topicIndex?: number // Topic index for multi-topic deduplication (0 = left, 1 = right)
+  /** Called after a successful save/deploy so parent can refresh schema bindings */
+  onBindingsChanged?: () => void
 }
 
 /**
@@ -54,6 +56,7 @@ function StandaloneStepRenderer({
   pipeline,
   onPipelineStatusUpdate,
   topicIndex = 0,
+  onBindingsChanged,
 }: StandaloneStepRendererProps) {
   // Always start in read-only mode - user must click "Edit" to enable editing
   const [editMode, setEditMode] = useState(false)
@@ -221,6 +224,7 @@ function StandaloneStepRenderer({
     toggleEditMode: handleToggleEditMode,
     pipelineActionState: actionState,
     pipeline,
+    onBindingsChanged,
   }
 
   // Get extended props based on step type

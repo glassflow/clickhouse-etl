@@ -63,6 +63,8 @@ export interface StepBaseProps {
     lastAction: string | null
   }
   pipeline: any
+  /** Called after a successful save/deploy so parent can refresh schema bindings */
+  onBindingsChanged?: () => void
 }
 
 /**
@@ -92,10 +94,12 @@ export function getStepProps(
   }
 
   // ClickHouse mapper: disallow "Create New Table" when editing a deployed pipeline
+  // Also thread onBindingsChanged so the mapper can trigger a refresh after save
   if (stepKey === StepKeys.CLICKHOUSE_MAPPER) {
     return {
       ...baseProps,
       allowCreateNewTable: !baseProps.pipeline?.pipeline_id,
+      onBindingsChanged: baseProps.onBindingsChanged,
     }
   }
 
