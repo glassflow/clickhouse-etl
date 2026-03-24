@@ -19,6 +19,7 @@ import { usePlatformDetection } from '@/src/hooks/usePlatformDetection'
 import { getPipelines } from '@/src/api/pipeline-api'
 import { countPipelinesBlockingCreation } from '@/src/utils/pipeline-actions'
 import { markStoresValidAfterImport } from '@/src/utils/pipeline-import'
+import { isAiAssistantEnabled } from '@/src/config/feature-flags'
 import type { Pipeline } from '@/src/types/pipeline'
 
 function OrSeparator() {
@@ -304,28 +305,32 @@ export default function HomePageClient() {
           </Card>
         </section>
 
-        {/* <OrSeparator /> */}
+        {isAiAssistantEnabled() && (
+          <>
+            <OrSeparator />
 
-        {/* Section 3: Configure with AI assistant (placeholder for future) */}
-        {/* <section className="flex flex-col gap-3 sm:gap-4 w-full" aria-labelledby="section-ai-heading">
-          <h2 id="section-ai-heading" className="subtitle-2 text-content text-xs sm:text-sm font-medium mb-3">
-            Configure with AI assistant
-          </h2>
-          <p className="subtitle-3 text-muted-foreground text-xs sm:text-sm -mt-1">
-            Use the AI assistant to configure your pipeline
-          </p>
-          <div
-            className={cn(
-              'btn-card opacity-60 cursor-not-allowed h-16 sm:h-20 lg:h-24 w-full max-w-md',
-              'border-dashed',
-            )}
-            aria-hidden
-          >
-            <div className="flex items-center justify-center px-4 sm:px-6 w-full h-full pointer-events-none">
-              <span className="text-sm sm:text-lg font-medium text-muted-foreground">Coming soon</span>
-            </div>
-          </div>
-        </section> */}
+            {/* Section 3: Configure with AI assistant */}
+            <section className="flex flex-col gap-3 sm:gap-4 w-full" aria-labelledby="section-ai-heading">
+              <h2 id="section-ai-heading" className="subtitle-2 text-content text-xs sm:text-sm font-medium mb-3">
+                Configure with AI assistant
+              </h2>
+              <p className="subtitle-3 text-xs sm:text-sm -mt-1">
+                Describe your pipeline in plain language and let the AI fill in the configuration
+              </p>
+              <Card variant="selectable" className="h-16 sm:h-20 lg:h-24 w-full max-w-md">
+                <button
+                  className="flex items-center justify-center px-4 sm:px-6 w-full h-full"
+                  onClick={() => router.push('/pipelines/create/ai')}
+                >
+                  <span className="text-2xl sm:text-3xl select-none" aria-hidden>✦</span>
+                  <span className="ml-3 sm:ml-4 text-sm sm:text-lg font-medium text-muted-foreground">
+                    Create with AI
+                  </span>
+                </button>
+              </Card>
+            </section>
+          </>
+        )}
       </div>
 
       <InfoModal

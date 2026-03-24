@@ -93,3 +93,14 @@ export const isTransformationsEnabled = (): boolean => {
 export const isNotificationsEnabled = (): boolean => {
   return getFeatureFlag('NEXT_PUBLIC_NOTIFICATIONS_ENABLED')
 }
+
+/**
+ * Check if the AI pipeline assistant feature is enabled.
+ * Controls visibility of the "Create with AI" section on the home page
+ * and the /pipelines/create/ai route.
+ *
+ * @env NEXT_PUBLIC_AI_ENABLED - Set to 'true' to enable AI-assisted pipeline creation
+ */
+export const isAiAssistantEnabled = (): boolean => {
+  return getFeatureFlag('NEXT_PUBLIC_AI_ENABLED')
+}
