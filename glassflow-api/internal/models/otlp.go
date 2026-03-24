@@ -1,6 +1,10 @@
 package models
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
+)
 
 type OTLPConfig struct {
 	PipelineID string        `json:"pipeline_id"`
@@ -64,4 +68,106 @@ func (c RoutingConfig) Validate() error {
 		return fmt.Errorf("unknown routing type %q", c.Type)
 	}
 	return nil
+}
+
+type OTLPDataType string
+
+func (c OTLPDataType) String() string {
+	return string(c)
+}
+
+func (t OTLPDataType) Valid() bool {
+	switch t {
+	case internal.OTLPDataTypeLogs, internal.OTLPDataTypeTraces, internal.OTLPDataTypeMetrics:
+		return true
+	default:
+		return false
+	}
+}
+
+// OTLPSchemaFields returns the predefined source schema fields for the given OTLP data type.
+func OTLPSchemaFields(dataType OTLPDataType) []Field {
+	switch dataType.String() {
+	case internal.OTLPDataTypeLogs:
+		return otlpLogsSchemaFields()
+	case internal.OTLPDataTypeMetrics:
+		return otlpMetricsSchemaFields()
+	case internal.OTLPDataTypeTraces:
+		return otlpTracesSchemaFields()
+	default:
+		return nil
+	}
+}
+
+func otlpLogsSchemaFields() []Field {
+	return []Field{
+		{Name: "timestamp", Type: "string"},
+		{Name: "observed_timestamp", Type: "string"},
+		{Name: "severity_number", Type: "uint"},
+		{Name: "severity_text", Type: "string"},
+		{Name: "body", Type: "string"},
+		{Name: "trace_id", Type: "string"},
+		{Name: "span_id", Type: "string"},
+		{Name: "flags", Type: "uint"},
+		{Name: "dropped_attributes_count", Type: "uint"},
+		{Name: "resource_attributes", Type: "map"},
+		{Name: "scope_name", Type: "string"},
+		{Name: "scope_version", Type: "string"},
+		{Name: "scope_attributes", Type: "map"},
+		{Name: "attributes", Type: "map"},
+	}
+}
+
+func otlpMetricsSchemaFields() []Field {
+	return []Field{
+		{Name: "timestamp", Type: "string"},
+		{Name: "start_timestamp", Type: "string"},
+		{Name: "metric_name", Type: "string"},
+		{Name: "metric_description", Type: "string"},
+		{Name: "metric_unit", Type: "string"},
+		{Name: "metric_type", Type: "string"},
+		{Name: "aggregation_temporality", Type: "string"},
+		{Name: "is_monotonic", Type: "bool"},
+		{Name: "flags", Type: "uint"},
+		{Name: "value_double", Type: "float"},
+		{Name: "value_int", Type: "int"},
+		{Name: "count", Type: "uint"},
+		{Name: "sum", Type: "float"},
+		{Name: "min", Type: "float"},
+		{Name: "max", Type: "float"},
+		{Name: "bucket_counts", Type: "array"},
+		{Name: "explicit_bounds", Type: "array"},
+		{Name: "resource", Type: "map"},
+		{Name: "scope_name", Type: "string"},
+		{Name: "scope_version", Type: "string"},
+		{Name: "scope_attributes", Type: "map"},
+		{Name: "attributes", Type: "map"},
+	}
+}
+
+func otlpTracesSchemaFields() []Field {
+	return []Field{
+		{Name: "trace_id", Type: "string"},
+		{Name: "span_id", Type: "string"},
+		{Name: "parent_span_id", Type: "string"},
+		{Name: "trace_state", Type: "string"},
+		{Name: "flags", Type: "uint"},
+		{Name: "name", Type: "string"},
+		{Name: "kind", Type: "uint"},
+		{Name: "start_timestamp", Type: "string"},
+		{Name: "end_timestamp", Type: "string"},
+		{Name: "duration_ns", Type: "uint"},
+		{Name: "status_code", Type: "string"},
+		{Name: "status_message", Type: "string"},
+		{Name: "dropped_attributes_count", Type: "uint"},
+		{Name: "dropped_events_count", Type: "uint"},
+		{Name: "dropped_links_count", Type: "uint"},
+		{Name: "events", Type: "array"},
+		{Name: "links", Type: "array"},
+		{Name: "resource_attributes", Type: "map"},
+		{Name: "scope_name", Type: "string"},
+		{Name: "scope_version", Type: "string"},
+		{Name: "scope_attributes", Type: "map"},
+		{Name: "attributes", Type: "map"},
+	}
 }

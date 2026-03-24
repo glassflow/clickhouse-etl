@@ -817,3 +817,163 @@ func TestToPipelineJSON_EmptySchemaVersion(t *testing.T) {
 	assert.Equal(t, "", topic.SchemaVersion)
 	assert.Nil(t, topic.SchemaFields)
 }
+
+func TestToPipelineJSON_OTLPLogs(t *testing.T) {
+	pipelineConfig := models.PipelineConfig{
+		ID:         "otlp-logs-pipeline",
+		Name:       "OTLP Logs Pipeline",
+		SourceType: internal.OTLPSourceType,
+		OTLPSource: models.OTLPSourceConfig{
+			ID:       "otlp-logs-1",
+			DataType: "logs",
+			Deduplication: models.DeduplicationConfig{
+				Enabled: false,
+			},
+		},
+		Sink: models.SinkComponentConfig{
+			Type:     internal.ClickHouseSinkType,
+			SourceID: "otlp-logs-1",
+			Batch: models.BatchConfig{
+				MaxBatchSize: 1000,
+				MaxDelayTime: *models.NewJSONDuration(60 * time.Second),
+			},
+			ClickHouseConnectionParams: models.ClickHouseConnectionParamsConfig{
+				Host:     "localhost",
+				Port:     "9000",
+				HttpPort: "8123",
+				Database: "default",
+				Username: "default",
+				Password: "password",
+				Table:    "logs_table",
+			},
+			Config: []models.Mapping{
+				{
+					SourceField:      "body",
+					SourceType:       "string",
+					DestinationField: "body",
+					DestinationType:  "String",
+				},
+				{
+					SourceField:      "severity_text",
+					SourceType:       "string",
+					DestinationField: "severity",
+					DestinationType:  "String",
+				},
+			},
+		},
+		Join:                    models.JoinComponentConfig{Enabled: false},
+		Filter:                  models.FilterComponentConfig{Enabled: false},
+		StatelessTransformation: models.StatelessTransformation{Enabled: false},
+		SchemaVersions: map[string]models.SchemaVersion{
+			"otlp-logs-1": {
+				SourceID:  "otlp-logs-1",
+				VersionID: "1",
+				DataType:  models.SchemaDataFormatJSON,
+				Fields:    models.OTLPSchemaFields(models.OTLPDataType("logs")),
+			},
+		},
+	}
+
+	result := toPipelineJSON(pipelineConfig)
+
+	// Verify basic fields
+	assert.Equal(t, "otlp-logs-pipeline", result.PipelineID)
+	assert.Equal(t, "OTLP Logs Pipeline", result.Name)
+	assert.Equal(t, "v3", result.Version)
+
+	// Verify source is OTLP type
+	assert.Equal(t, internal.OTLPSourceType, result.Source.Type)
+	assert.Equal(t, "logs", result.Source.DataType)
+	assert.Equal(t, "otlp-logs-1", result.Source.ID)
+
+	// Verify deduplication
+	require.NotNil(t, result.Source.Deduplication)
+	assert.False(t, result.Source.Deduplication.Enabled)
+
+	// Verify no kafka topics
+	assert.Empty(t, result.Source.Topics)
+
+	// Verify sink
+	assert.Equal(t, "otlp-logs-1", result.Sink.SourceID)
+	assert.Len(t, result.Sink.TableMapping, 2)
+	assert.Equal(t, "body", result.Sink.TableMapping[0].Name)
+	assert.Equal(t, "severity_text", result.Sink.TableMapping[1].Name)
+}
+
+func TestToPipelineJSON_OTLPMetrics(t *testing.T) {
+	pipelineConfig := models.PipelineConfig{
+		ID:         "otlp-metrics-pipeline",
+		Name:       "OTLP Metrics Pipeline",
+		SourceType: internal.OTLPSourceType,
+		OTLPSource: models.OTLPSourceConfig{
+			ID:       "otlp-metrics-1",
+			DataType: "metrics",
+			Deduplication: models.DeduplicationConfig{
+				Enabled: true,
+				ID:      "metric_name",
+				Window:  *models.NewJSONDuration(5 * time.Minute),
+			},
+		},
+		Sink: models.SinkComponentConfig{
+			Type:     internal.ClickHouseSinkType,
+			SourceID: "otlp-metrics-1",
+			Batch: models.BatchConfig{
+				MaxBatchSize: 2000,
+				MaxDelayTime: *models.NewJSONDuration(30 * time.Second),
+			},
+			ClickHouseConnectionParams: models.ClickHouseConnectionParamsConfig{
+				Host:     "localhost",
+				Port:     "9000",
+				HttpPort: "8123",
+				Database: "default",
+				Username: "default",
+				Password: "password",
+				Table:    "metrics_table",
+			},
+			Config: []models.Mapping{
+				{
+					SourceField:      "metric_name",
+					SourceType:       "string",
+					DestinationField: "name",
+					DestinationType:  "String",
+				},
+				{
+					SourceField:      "value_double",
+					SourceType:       "float",
+					DestinationField: "value",
+					DestinationType:  "Float64",
+				},
+			},
+		},
+		Join:                    models.JoinComponentConfig{Enabled: false},
+		Filter:                  models.FilterComponentConfig{Enabled: false},
+		StatelessTransformation: models.StatelessTransformation{Enabled: false},
+		SchemaVersions: map[string]models.SchemaVersion{
+			"otlp-metrics-1": {
+				SourceID:  "otlp-metrics-1",
+				VersionID: "1",
+				DataType:  models.SchemaDataFormatJSON,
+				Fields:    models.OTLPSchemaFields(models.OTLPDataType("metrics")),
+			},
+		},
+	}
+
+	result := toPipelineJSON(pipelineConfig)
+
+	// Verify source is OTLP metrics
+	assert.Equal(t, internal.OTLPSourceType, result.Source.Type)
+	assert.Equal(t, "metrics", result.Source.DataType)
+	assert.Equal(t, "otlp-metrics-1", result.Source.ID)
+
+	// Verify deduplication is set
+	require.NotNil(t, result.Source.Deduplication)
+	assert.True(t, result.Source.Deduplication.Enabled)
+	assert.Equal(t, "metric_name", result.Source.Deduplication.Key)
+	assert.Equal(t, 5*time.Minute, result.Source.Deduplication.Window.Duration())
+
+	// Verify sink
+	assert.Equal(t, "otlp-metrics-1", result.Sink.SourceID)
+	assert.Len(t, result.Sink.TableMapping, 2)
+	assert.Equal(t, "metric_name", result.Sink.TableMapping[0].Name)
+	assert.Equal(t, "value_double", result.Sink.TableMapping[1].Name)
+}

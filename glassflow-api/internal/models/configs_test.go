@@ -47,6 +47,7 @@ func TestNewPipelineConfig(t *testing.T) {
 		name,
 		mapper,
 		sourceType,
+		OTLPSourceConfig{},
 		ingestor,
 		join,
 		sink,

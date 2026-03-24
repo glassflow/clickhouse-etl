@@ -36,10 +36,13 @@ type PipelineService interface { //nolint:interfacebloat //important interface
 }
 
 type pipelineSource struct {
-	Type             string                 `json:"type"`
-	Provider         string                 `json:"provider,omitempty"`
-	ConnectionParams sourceConnectionParams `json:"connection_params,omitempty"`
-	Topics           []kafkaTopic           `json:"topics,omitempty"`
+	Type             string                  `json:"type"`
+	DataType         string                  `json:"data_type,omitempty"`
+	Provider         string                  `json:"provider,omitempty"`
+	ConnectionParams *sourceConnectionParams `json:"connection_params,omitempty"`
+	Topics           []kafkaTopic            `json:"topics,omitempty"`
+	ID               string                  `json:"id,omitempty"`
+	Deduplication    *dedupConfig            `json:"deduplication,omitempty"`
 }
 
 type pipelineJoin struct {
@@ -108,7 +111,7 @@ type kafkaTopic struct {
 	Topic                      string                      `json:"name"`
 	ConsumerGroupInitialOffset string                      `json:"consumer_group_initial_offset,omitempty" default:"earliest"`
 	Replicas                   int                         `json:"replicas,omitempty" default:"1"`
-	Deduplication              topicDedupConfig            `json:"deduplication,omitempty"`
+	Deduplication              dedupConfig                 `json:"deduplication,omitempty"`
 	SchemaRegistry             models.SchemaRegistryConfig `json:"schema_registry,omitempty"`
 	SchemaVersion              string                      `json:"schema_version,omitempty" default:"1"`
 	SchemaFields               []models.Field              `json:"schema_fields,omitempty"`
@@ -129,7 +132,7 @@ type topicSchemaFieldV1 struct {
 	Type string `json:"type"`
 }
 
-type topicDedupConfig struct {
+type dedupConfig struct {
 	Enabled bool `json:"enabled"`
 
 	Key    string              `json:"key,omitempty"`
@@ -188,6 +191,10 @@ type tableMappingEntry struct {
 }
 
 func newIngestorComponentConfig(p pipelineJSON, schemaVersions map[string]models.SchemaVersion) (zero models.IngestorComponentConfig, _ error) {
+	if !internal.IsKafkaSourceType(p.Source.Type) {
+		return zero, nil
+	}
+
 	kafkaConfig := models.KafkaConnectionParamsConfig{
 		Brokers:             p.Source.ConnectionParams.Brokers,
 		SkipAuth:            p.Source.ConnectionParams.SkipAuth,
@@ -235,6 +242,40 @@ func newIngestorComponentConfig(p pipelineJSON, schemaVersions map[string]models
 	}
 
 	return ingestorComponentConfig, nil
+}
+
+func newOTLPSourceConfig(p pipelineJSON, schemaVersions map[string]models.SchemaVersion) (zero models.OTLPSourceConfig, _ error) {
+	if !internal.IsOTLPSourceType(p.Source.Type) {
+		return zero, nil
+	}
+
+	otlpDataType := models.OTLPDataType(strings.ToLower(strings.TrimSpace(p.Source.DataType)))
+	if !otlpDataType.Valid() {
+		return zero, fmt.Errorf("invalid OTLP data type: %s", p.Source.DataType)
+	}
+	if p.Source.ID == "" {
+		return zero, fmt.Errorf("OTLP source must have a non-empty ID")
+	}
+
+	fields := models.OTLPSchemaFields(otlpDataType)
+	if len(fields) > 0 {
+		schemaVersions[p.Source.ID] = models.SchemaVersion{
+			SourceID:  p.Source.ID,
+			VersionID: "1",
+			Fields:    fields,
+		}
+	}
+
+	return models.OTLPSourceConfig{
+		ID:       p.Source.ID,
+		DataType: otlpDataType.String(),
+		Deduplication: models.DeduplicationConfig{
+			Enabled: p.Source.Deduplication.Enabled,
+			ID:      p.Source.Deduplication.Key,
+			Window:  p.Source.Deduplication.Window,
+		},
+	}, nil
+
 }
 
 func newJoinComponentConfig(p pipelineJSON, schemaVersions map[string]models.SchemaVersion) (zero models.JoinComponentConfig, _ error) {
@@ -628,7 +669,7 @@ func validateSourceType(pipeline pipelineJSON) (string, error) {
 			return "", err
 		}
 
-	case internal.OTLPLogsSourceType, internal.OTLPTracesSourceType, internal.OTLPMetricsSourceType:
+	case internal.OTLPSourceType:
 		if pipeline.Join.Enabled {
 			return "", fmt.Errorf("join is not supported for the OTLP pipelines")
 		}
@@ -660,12 +701,14 @@ func (pipeline pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
 		return zero, fmt.Errorf("validate source type: %w", err)
 	}
 
-	var ingestorComponentConfig models.IngestorComponentConfig
-	if sourceType == internal.KafkaIngestorType {
-		ingestorComponentConfig, err = newIngestorComponentConfig(pipeline, schemaVersions)
-		if err != nil {
-			return zero, fmt.Errorf("create ingestor component config: %w", err)
-		}
+	ingestorComponentConfig, err := newIngestorComponentConfig(pipeline, schemaVersions)
+	if err != nil {
+		return zero, fmt.Errorf("create ingestor component config: %w", err)
+	}
+
+	otlpSourceConfig, err := newOTLPSourceConfig(pipeline, schemaVersions)
+	if err != nil {
+		return zero, fmt.Errorf("create OTLP source config: %w", err)
 	}
 
 	joinComponentConfig, err := newJoinComponentConfig(pipeline, schemaVersions)
@@ -698,6 +741,7 @@ func (pipeline pipelineJSON) toModel() (zero models.PipelineConfig, _ error) {
 		pipeline.Name,
 		mapperConfig,
 		sourceType,
+		otlpSourceConfig,
 		ingestorComponentConfig,
 		joinComponentConfig,
 		sinkComponentConfig,
@@ -723,7 +767,7 @@ func toPipelineJSON(p models.PipelineConfig) pipelineJSON {
 			Topic:                      t.Name,
 			ConsumerGroupInitialOffset: t.ConsumerGroupInitialOffset,
 			Replicas:                   t.Replicas,
-			Deduplication: topicDedupConfig{
+			Deduplication: dedupConfig{
 				Enabled: t.Deduplication.Enabled,
 				Key:     t.Deduplication.ID,
 				Window:  t.Deduplication.Window,
@@ -803,9 +847,10 @@ func toPipelineJSON(p models.PipelineConfig) pipelineJSON {
 	source := pipelineSource{
 		Type: p.SourceType,
 	}
-	if p.SourceType == internal.KafkaIngestorType {
+	switch p.SourceType {
+	case internal.KafkaIngestorType:
 		source.Provider = p.Ingestor.Provider
-		source.ConnectionParams = sourceConnectionParams{
+		source.ConnectionParams = &sourceConnectionParams{
 			Brokers:             p.Ingestor.KafkaConnectionParams.Brokers,
 			SkipAuth:            p.Ingestor.KafkaConnectionParams.SkipAuth,
 			SASLProtocol:        p.Ingestor.KafkaConnectionParams.SASLProtocol,
@@ -816,6 +861,14 @@ func toPipelineJSON(p models.PipelineConfig) pipelineJSON {
 			SkipTLSVerification: p.Ingestor.KafkaConnectionParams.SkipTLSVerification,
 		}
 		source.Topics = topics
+	case internal.OTLPSourceType:
+		source.DataType = p.OTLPSource.DataType
+		source.ID = p.OTLPSource.ID
+		source.Deduplication = &dedupConfig{
+			Enabled: p.OTLPSource.Deduplication.Enabled,
+			Key:     p.OTLPSource.Deduplication.ID,
+			Window:  p.OTLPSource.Deduplication.Window,
+		}
 	}
 
 	return pipelineJSON{

@@ -19,9 +19,10 @@ const (
 	ClickHouseSinkType       = "clickhouse"
 
 	// source types
-	OTLPLogsSourceType    = "otlp.logs"
-	OTLPTracesSourceType  = "otlp.traces"
-	OTLPMetricsSourceType = "otlp.metrics"
+	OTLPSourceType      = "otlp"
+	OTLPDataTypeLogs    = "logs"
+	OTLPDataTypeTraces  = "traces"
+	OTLPDataTypeMetrics = "metrics"
 
 	// Stream naming constants
 	MaxStreamNameLength  = 32
@@ -260,10 +261,10 @@ func IsFixedStringType(t string) bool {
 	return false
 }
 
+func IsKafkaSourceType(kind string) bool {
+	return strings.ToLower(strings.TrimSpace(kind)) == KafkaIngestorType
+}
+
 func IsOTLPSourceType(kind string) bool {
-	switch strings.ToLower(strings.TrimSpace(kind)) {
-	case OTLPLogsSourceType, OTLPTracesSourceType, OTLPMetricsSourceType:
-		return true
-	}
-	return false
+	return strings.ToLower(strings.TrimSpace(kind)) == OTLPSourceType
 }
