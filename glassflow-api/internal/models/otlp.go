@@ -70,6 +70,23 @@ func (c RoutingConfig) Validate() error {
 	return nil
 }
 
+type OTLPLog struct {
+	Timestamp              string            `json:"timestamp"`
+	ObservedTimestamp      string            `json:"observed_timestamp"`
+	SeverityNumber         uint32            `json:"severity_number"`
+	SeverityText           string            `json:"severity_text"`
+	Body                   string            `json:"body"`
+	TraceID                string            `json:"trace_id,omitempty"`
+	SpanID                 string            `json:"span_id,omitempty"`
+	Flags                  uint32            `json:"flags"`
+	DroppedAttributesCount uint32            `json:"dropped_attributes_count"`
+	ResourceAttributes     map[string]string `json:"resource_attributes"`
+	ScopeName              string            `json:"scope_name"`
+	ScopeVersion           string            `json:"scope_version,omitempty"`
+	ScopeAttributes        map[string]string `json:"scope_attributes"`
+	Attributes             map[string]string `json:"attributes"`
+}
+
 type OTLPDataType string
 
 func (c OTLPDataType) String() string {

@@ -6,7 +6,7 @@ import (
 
 	collogspb "go.opentelemetry.io/proto/otlp/collector/logs/v1"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/otlp-receiver/server/processor/flattener"
 )
 
 func (p *Processor) ProcessLogs(
@@ -14,9 +14,9 @@ func (p *Processor) ProcessLogs(
 	pipelineID string,
 	exportLogsRequest *collogspb.ExportLogsServiceRequest,
 ) error {
-	messages, err := p.flattenLogs(exportLogsRequest)
+	messages, err := flattener.FlattenLogs(exportLogsRequest)
 	if err != nil {
-		return fmt.Errorf("flattenLogs: %w", err)
+		return fmt.Errorf("FlattenLogs: %w", err)
 	}
 
 	natsWriter, err := p.getNatsWriter(ctx, pipelineID)
@@ -30,8 +30,4 @@ func (p *Processor) ProcessLogs(
 	}
 
 	return nil
-}
-
-func (p *Processor) flattenLogs(exportLogsRequest *collogspb.ExportLogsServiceRequest) ([]models.Message, error) {
-	return nil, fmt.Errorf("not implemented yet")
 }
