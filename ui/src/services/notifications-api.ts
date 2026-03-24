@@ -93,7 +93,7 @@ export interface EmailChannelConfig {
   smtp_host: string
   smtp_port?: number
   smtp_username: string
-  smtp_password: string
+  smtp_password?: string // omit on edit to keep existing; required when creating
   smtp_use_tls?: boolean
   from_address?: string
   from_name?: string
