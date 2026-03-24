@@ -238,7 +238,7 @@ export const getChannel = (channelType: ChannelType): Channel | undefined => {
 }
 
 /**
- * Update a channel
+ * Create or update a channel (upsert) — matches the real API's PUT semantics.
  */
 export const updateChannel = (
   channelType: ChannelType,
@@ -247,7 +247,18 @@ export const updateChannel = (
   const index = channels.findIndex((c) => c.channel_type === channelType)
 
   if (index === -1) {
-    return { success: false, error: 'Channel not found' }
+    // Create — mirrors the real API's PUT upsert behaviour
+    const now = new Date().toISOString()
+    const newChannel: Channel = {
+      id: Date.now(),
+      channel_type: channelType,
+      enabled: updates.enabled ?? true,
+      config: updates.config ?? ({} as Channel['config']),
+      created_at: now,
+      updated_at: now,
+    }
+    channels.push(newChannel)
+    return { success: true, channel: newChannel }
   }
 
   channels[index] = {

@@ -76,8 +76,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
       if (!result.success) {
         return NextResponse.json(
-          { error: result.error || 'Channel not found' },
-          { status: 404 },
+          { error: result.error || 'Failed to update channel' },
+          { status: 400 },
         )
       }
 

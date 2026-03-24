@@ -9,7 +9,7 @@
 // Types
 // ============================================================================
 
-export type NotificationSeverity = 'info' | 'warning' | 'error' | 'critical'
+export type NotificationSeverity = 'debug' | 'info' | 'warn' | 'error' | 'fatal'
 export type SeverityLevel = 'debug' | 'info' | 'warn' | 'error' | 'fatal'
 export type ChannelType = 'slack' | 'email'
 export type EventType =
@@ -33,6 +33,8 @@ export interface Notification {
   event_type: EventType
   title: string
   message: string
+  // The API may return metadata as a JSON-encoded string or as a parsed object.
+  // Always access via normalizeNotification() — consumers receive a parsed object.
   metadata: NotificationMetadata
   created_at: string
   read?: boolean
@@ -91,7 +93,7 @@ export interface EmailChannelConfig {
   smtp_host: string
   smtp_port?: number
   smtp_username: string
-  smtp_password: string
+  smtp_password?: string // omit on edit to keep existing; required when creating
   smtp_use_tls?: boolean
   from_address?: string
   from_name?: string
@@ -130,6 +132,33 @@ export interface ApiResponse<T> {
 }
 
 // ============================================================================
+// Normalization helpers
+// ============================================================================
+
+/**
+ * The notifier service stores metadata as a JSON-encoded string in the database
+ * and returns it as a string in API responses. Parse it into an object so all
+ * consumers deal with a consistent shape.
+ */
+function parseNotificationMetadata(raw: unknown): NotificationMetadata {
+  if (typeof raw === 'string') {
+    try {
+      return JSON.parse(raw) as NotificationMetadata
+    } catch {
+      return {}
+    }
+  }
+  if (raw && typeof raw === 'object') {
+    return raw as NotificationMetadata
+  }
+  return {}
+}
+
+function normalizeNotification(n: Notification): Notification {
+  return { ...n, metadata: parseNotificationMetadata(n.metadata) }
+}
+
+// ============================================================================
 // API Client Class
 // ============================================================================
 
@@ -149,7 +178,7 @@ export class NotificationsApiClient {
 
       if (filters?.pipeline_id) params.set('pipeline_id', filters.pipeline_id)
       if (filters?.severity) params.set('severity', filters.severity)
-      if (filters?.read_status) params.set('read_status', filters.read_status)
+      // read_status is not supported by the notifier backend — applied client-side in the store
       if (filters?.start_date) params.set('start_date', filters.start_date)
       if (filters?.end_date) params.set('end_date', filters.end_date)
       if (filters?.limit) params.set('limit', filters.limit.toString())
@@ -166,7 +195,11 @@ export class NotificationsApiClient {
         return { success: false, error: data.error || 'Failed to fetch notifications' }
       }
 
-      return { success: true, data }
+      const normalized: NotificationListResponse = {
+        ...data,
+        notifications: (data.notifications as Notification[]).map(normalizeNotification),
+      }
+      return { success: true, data: normalized }
     } catch (error) {
       return { success: false, error: 'Error connecting to notification service' }
     }
@@ -184,7 +217,7 @@ export class NotificationsApiClient {
         return { success: false, error: data.error || 'Failed to fetch notification' }
       }
 
-      return { success: true, data }
+      return { success: true, data: normalizeNotification(data) }
     } catch (error) {
       return { success: false, error: 'Error connecting to notification service' }
     }

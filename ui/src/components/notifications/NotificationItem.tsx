@@ -24,7 +24,7 @@ const SEVERITY_CONFIG: Record<
   NotificationSeverity,
   { icon: typeof AlertCircle; colorVar: string; borderColorVar: string; bgColorVar: string }
 > = {
-  critical: {
+  fatal: {
     icon: XCircle,
     colorVar: 'var(--color-foreground-critical)',
     borderColorVar: 'var(--color-border-critical)',
@@ -36,7 +36,7 @@ const SEVERITY_CONFIG: Record<
     borderColorVar: 'var(--color-border-critical-faded)',
     bgColorVar: 'var(--color-background-critical-faded)',
   },
-  warning: {
+  warn: {
     icon: AlertTriangle,
     colorVar: 'var(--color-foreground-warning)',
     borderColorVar: 'var(--color-border-warning)',
@@ -47,6 +47,12 @@ const SEVERITY_CONFIG: Record<
     colorVar: 'var(--color-foreground-info)',
     borderColorVar: 'var(--color-border-info)',
     bgColorVar: 'var(--color-background-info-faded)',
+  },
+  debug: {
+    icon: Info,
+    colorVar: 'var(--color-foreground-neutral-faded)',
+    borderColorVar: 'var(--color-border-neutral-faded)',
+    bgColorVar: 'var(--color-background-neutral-faded)',
   },
 }
 

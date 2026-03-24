@@ -49,10 +49,11 @@ export const runtimeConfig = {
    * Default: http://notifier:8080 (Docker internal network)
    */
   get notifierUrl(): string {
-    // Use non-prefixed NOTIFIER_URL - NOT inlined by Next.js, read at runtime
-    // Falls back to NEXT_PUBLIC_NOTIFIER_URL for backward compatibility
-    const notifierUrl = process.env.NOTIFIER_URL || process.env.NEXT_PUBLIC_NOTIFIER_URL || 'http://notifier:8080'
-    // Remove trailing slash if present
+    const notifierUrl =
+      process.env.NEXT_PUBLIC_NOTIFICATIONS_URL ||
+      process.env.NOTIFIER_URL ||
+      process.env.NEXT_PUBLIC_NOTIFIER_URL ||
+      'http://notifier:8082'
     return notifierUrl.replace(/\/$/, '')
   },
   /**
