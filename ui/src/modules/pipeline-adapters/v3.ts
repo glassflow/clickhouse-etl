@@ -331,6 +331,19 @@ export class V3PipelineAdapter implements PipelineAdapter {
       output.sources = [{ type: cfg.source.type, source_id: (cfg.source as any).id ?? 'source' }]
     } else {
       const reg = cfg.source?.schemaRegistry
+      // Map UI auth methods to backend api_key/api_secret fields:
+      // - 'api_key': apiKey → api_key, apiSecret → api_secret
+      // - 'basic': username → api_key, password → api_secret
+      // - 'none' / undefined: empty strings
+      let regApiKey = ''
+      let regApiSecret = ''
+      if (reg?.authMethod === 'api_key') {
+        regApiKey = reg.apiKey ?? ''
+        regApiSecret = reg.apiSecret ?? ''
+      } else if (reg?.authMethod === 'basic') {
+        regApiKey = reg.username ?? ''
+        regApiSecret = reg.password ?? ''
+      }
       output.sources = topics.map((t: any) => {
         const schemaVersion =
           isRegistrySchema(t.schemaSource) && t.schemaRegistryVersion && t.schemaRegistryVersion !== 'latest'
@@ -348,8 +361,8 @@ export class V3PipelineAdapter implements PipelineAdapter {
           schema_version: schemaVersion,
           schema_registry: t.schema_registry ?? {
             url: reg?.url ?? '',
-            api_key: reg?.apiKey ?? '',
-            api_secret: reg?.apiSecret ?? '',
+            api_key: regApiKey,
+            api_secret: regApiSecret,
           },
         }
       })

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useStore } from '@/src/store'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/src/components/ui/select'
 import { useSchemaRegistryState } from '@/src/modules/kafka/hooks/useSchemaRegistryState'
@@ -14,7 +14,17 @@ interface SchemaSourceSelectorProps {
 export function SchemaSourceSelector({ topicName, topicIndex, readOnly }: SchemaSourceSelectorProps) {
   const { topicsStore, kafkaStore } = useStore()
   const topic = topicsStore.getTopic(topicIndex)
-  const schemaSource = topic?.schemaSource ?? 'internal'
+  // When no topic exists in the store yet (user hasn't selected one), track the
+  // preference locally so the radio is interactive. Apply it once the topic appears.
+  const [pendingSchemaSource, setPendingSchemaSource] = useState<'internal' | 'external'>('internal')
+  const schemaSource = topic?.schemaSource ?? pendingSchemaSource
+
+  // Once a topic appears in the store, apply any pending non-default preference
+  useEffect(() => {
+    if (topic && pendingSchemaSource !== 'internal' && topic.schemaSource === undefined) {
+      topicsStore.updateTopic({ ...topic, schemaSource: pendingSchemaSource })
+    }
+  }, [topic?.index]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const {
     subjects,
@@ -68,8 +78,12 @@ export function SchemaSourceSelector({ topicName, topicIndex, readOnly }: Schema
   }, [schemaSource]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSchemaSourceChange = (source: 'internal' | 'external') => {
-    if (readOnly || !topic) return
-    topicsStore.updateTopic({ ...topic, schemaSource: source })
+    if (readOnly) return
+    if (topic) {
+      topicsStore.updateTopic({ ...topic, schemaSource: source })
+    } else {
+      setPendingSchemaSource(source)
+    }
     if (source === 'external' && subjects.length === 0) {
       fetchSubjects()
     }

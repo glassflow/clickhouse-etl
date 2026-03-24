@@ -246,7 +246,7 @@ export function KafkaTopicSelector({
   }
 
   const renderSchemaSourceSection = () => {
-    if (!kafkaStore.schemaRegistry?.enabled || !topicName) return null
+    if (!kafkaStore.schemaRegistry?.enabled) return null
 
     return (
       <div className="mt-4">
