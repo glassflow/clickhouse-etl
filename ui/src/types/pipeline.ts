@@ -181,9 +181,13 @@ export interface Pipeline {
       root_ca?: string
     }
     schemaRegistry?: {
-      url: string
-      apiKey: string
-      apiSecret: string
+      enabled?: boolean
+      url?: string
+      authMethod?: 'none' | 'api_key' | 'basic'
+      apiKey?: string
+      apiSecret?: string
+      username?: string
+      password?: string
     }
     topics?: Array<{
       name: string
