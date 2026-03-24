@@ -127,6 +127,31 @@ type OTLPSpan struct {
 	Attributes             map[string]string `json:"attributes"`
 }
 
+type OTLPMetric struct {
+	Timestamp              string            `json:"timestamp"`
+	StartTimestamp         string            `json:"start_timestamp"`
+	MetricName             string            `json:"metric_name"`
+	MetricDescription      string            `json:"metric_description"`
+	MetricUnit             string            `json:"metric_unit"`
+	MetricType             string            `json:"metric_type"`
+	AggregationTemporality *string           `json:"aggregation_temporality"`
+	IsMonotonic            *bool             `json:"is_monotonic"`
+	Flags                  uint32            `json:"flags"`
+	ValueDouble            *float64          `json:"value_double"`
+	ValueInt               *int64            `json:"value_int"`
+	Count                  *uint64           `json:"count"`
+	Sum                    *float64          `json:"sum"`
+	Min                    *float64          `json:"min"`
+	Max                    *float64          `json:"max"`
+	BucketCounts           []uint64          `json:"bucket_counts"`
+	ExplicitBounds         []float64         `json:"explicit_bounds"`
+	Resource               map[string]string `json:"resource"`
+	ScopeName              string            `json:"scope_name"`
+	ScopeVersion           string            `json:"scope_version,omitempty"`
+	ScopeAttributes        map[string]string `json:"scope_attributes"`
+	Attributes             map[string]string `json:"attributes"`
+}
+
 type OTLPDataType string
 
 func (c OTLPDataType) String() string {
