@@ -34,7 +34,7 @@ const EVENT_TYPES: EventType[] = [
   'pipeline_failed',
 ]
 
-const SEVERITIES: NotificationSeverity[] = ['info', 'warning', 'error', 'critical']
+const SEVERITIES: NotificationSeverity[] = ['debug', 'info', 'warn', 'error', 'fatal']
 
 // Helper to generate random date within last N days
 const randomDate = (daysAgo: number = 7): string => {
@@ -76,9 +76,9 @@ const getNotificationMessage = (eventType: EventType, pipelineId: string): strin
 const getSeverityForEvent = (eventType: EventType): NotificationSeverity => {
   const severityMap: Record<EventType, NotificationSeverity> = {
     pipeline_deployed: 'info',
-    pipeline_stopped: 'warning',
+    pipeline_stopped: 'warn',
     pipeline_resumed: 'info',
-    pipeline_deleted: 'warning',
+    pipeline_deleted: 'warn',
     pipeline_failed: 'error',
   }
   return severityMap[eventType]
