@@ -41,6 +41,7 @@ type pipelineData struct {
 	pipelineID      string
 	name            string
 	status          string
+	sourceType      string
 	source          json.RawMessage
 	kafkaConn       json.RawMessage
 	sink            json.RawMessage
@@ -194,8 +195,13 @@ func (s *PostgresStorage) InsertPipeline(ctx context.Context, p models.PipelineC
 	}
 	defer tx.Rollback(ctx)
 
-	// Insert Kafka connection and source
-	sourceID, err := s.insertKafkaSource(ctx, tx, p)
+	// Insert source (Kafka or OTLP)
+	var sourceID uuid.UUID
+	if internal.IsOTLPSourceType(p.SourceType) {
+		sourceID, err = s.insertOTLPSource(ctx, tx, p)
+	} else {
+		sourceID, err = s.insertKafkaSource(ctx, tx, p)
+	}
 	if err != nil {
 		return err
 	}
@@ -228,7 +234,7 @@ func (s *PostgresStorage) InsertPipeline(ctx context.Context, p models.PipelineC
 	}
 
 	// Now insert schema versions (after pipeline exists)
-	err = s.upsertKafkaSourceSchemaVersions(ctx, tx, p.ID, p)
+	err = s.upsertPipelineSourceSchemaVersions(ctx, tx, insertData.pipelineID, p)
 	if err != nil {
 		return err
 	}
@@ -410,8 +416,16 @@ func (s *PostgresStorage) UpdatePipeline(ctx context.Context, id string, newCfg 
 	}
 	defer tx.Rollback(ctx)
 
-	// Get connection IDs from existing source and sink
-	var kafkaConnID, chConnID uuid.UUID
+	// Get source type and connection IDs from existing source and sink
+	var sourceType string
+	err = tx.QueryRow(ctx, `
+		SELECT type FROM sources WHERE id = $1
+	`, oldRow.sourceID).Scan(&sourceType)
+	if err != nil {
+		return fmt.Errorf("get source type: %w", err)
+	}
+
+	var kafkaConnID pgtype.UUID
 	err = tx.QueryRow(ctx, `
 		SELECT connection_id FROM sources WHERE id = $1
 	`, oldRow.sourceID).Scan(&kafkaConnID)
@@ -419,6 +433,7 @@ func (s *PostgresStorage) UpdatePipeline(ctx context.Context, id string, newCfg 
 		return fmt.Errorf("get kafka connection ID: %w", err)
 	}
 
+	var chConnID uuid.UUID
 	err = tx.QueryRow(ctx, `
 		SELECT connection_id FROM sinks WHERE id = $1
 	`, oldRow.sinkID).Scan(&chConnID)
@@ -426,14 +441,16 @@ func (s *PostgresStorage) UpdatePipeline(ctx context.Context, id string, newCfg 
 		return fmt.Errorf("get clickhouse connection ID: %w", err)
 	}
 
-	// Update Kafka connection and source
-	err = s.updateKafkaSource(ctx, tx, kafkaConnID, oldRow.sourceID, newCfg)
-	if err != nil {
-		return err
+	// Update source
+	if sourceType == internal.KafkaIngestorType {
+		err = s.updateKafkaSource(ctx, tx, uuid.UUID(kafkaConnID.Bytes), oldRow.sourceID, newCfg)
+		if err != nil {
+			return err
+		}
 	}
 
-	// Update Kafka source schema versions
-	err = s.upsertKafkaSourceSchemaVersions(ctx, tx, existingData.pipelineID, newCfg)
+	// Update source and schema versions
+	err = s.upsertPipelineSourceSchemaVersions(ctx, tx, existingData.pipelineID, newCfg)
 	if err != nil {
 		return err
 	}
@@ -630,7 +647,7 @@ func (s *PostgresStorage) DeletePipeline(ctx context.Context, id string) error {
 	transformationIDs := handleTransformationIDs(row.transformationIDsPtr)
 
 	// Get connection IDs from source and sink
-	var kafkaConnID, chConnID uuid.UUID
+	var kafkaConnID pgtype.UUID
 	err = s.pool.QueryRow(ctx, `
 		SELECT connection_id FROM sources WHERE id = $1
 	`, row.sourceID).Scan(&kafkaConnID)
@@ -638,6 +655,7 @@ func (s *PostgresStorage) DeletePipeline(ctx context.Context, id string) error {
 		return fmt.Errorf("get kafka connection ID: %w", err)
 	}
 
+	var chConnID uuid.UUID
 	err = s.pool.QueryRow(ctx, `
 		SELECT connection_id FROM sinks WHERE id = $1
 	`, row.sinkID).Scan(&chConnID)
@@ -691,15 +709,17 @@ func (s *PostgresStorage) DeletePipeline(ctx context.Context, id string) error {
 	}
 
 	// 5. Delete connections (no longer referenced by sources/sinks)
-	_, err = tx.Exec(ctx, `
-		DELETE FROM connections WHERE id = $1
-	`, kafkaConnID)
-	if err != nil {
-		return fmt.Errorf("delete kafka connection: %w", err)
+	if kafkaConnID.Valid {
+		_, err = tx.Exec(ctx, `
+			DELETE FROM connections WHERE id = $1
+		`, uuid.UUID(kafkaConnID.Bytes))
+		if err != nil {
+			return fmt.Errorf("delete kafka connection: %w", err)
+		}
 	}
 
 	// Only delete ClickHouse connection if it's different from Kafka connection
-	if chConnID != kafkaConnID {
+	if !kafkaConnID.Valid || uuid.UUID(kafkaConnID.Bytes) != chConnID {
 		_, err = tx.Exec(ctx, `
 			DELETE FROM connections WHERE id = $1
 		`, chConnID)
@@ -743,9 +763,32 @@ func (s *PostgresStorage) insertKafkaSource(ctx context.Context, tx pgx.Tx, p mo
 		return uuid.Nil, fmt.Errorf("insert kafka connection: %w", err)
 	}
 
-	sourceID, err := s.insertSource(ctx, tx, "kafka", kafkaConnID, p.Mapper.Streams)
+	sourceID, err := s.insertSource(ctx, tx, "kafka", &kafkaConnID, p.Mapper.Streams)
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("insert source: %w", err)
+	}
+
+	return sourceID, nil
+}
+
+// insertOTLPSource inserts an OTLP source (no Kafka connection)
+func (s *PostgresStorage) insertOTLPSource(ctx context.Context, tx pgx.Tx, p models.PipelineConfig) (uuid.UUID, error) {
+	configJSON, err := json.Marshal(p.OTLPSource)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("marshal otlp source config: %w", err)
+	}
+
+	var sourceID uuid.UUID
+	err = tx.QueryRow(ctx, `
+		INSERT INTO sources (type, connection_id, config)
+		VALUES ($1, NULL, $2)
+		RETURNING id
+	`, p.SourceType, configJSON).Scan(&sourceID)
+	if err != nil {
+		s.logger.ErrorContext(ctx, "failed to insert otlp source",
+			slog.String("source_type", p.SourceType),
+			slog.String("error", err.Error()))
+		return uuid.Nil, fmt.Errorf("insert otlp source: %w", err)
 	}
 
 	return sourceID, nil
@@ -777,27 +820,40 @@ func (s *PostgresStorage) updateKafkaSource(ctx context.Context, tx pgx.Tx, kafk
 	return nil
 }
 
-// insertKafkaSourceSchemaVersions inserts schema versions for Kafka topics
-func (s *PostgresStorage) upsertKafkaSourceSchemaVersions(ctx context.Context, tx pgx.Tx, pipelineID string, p models.PipelineConfig) error {
-	// backward compatibility check
+func (s *PostgresStorage) upsertPipelineSourceSchemaVersions(ctx context.Context, tx pgx.Tx, pipelineID string, p models.PipelineConfig) error {
 	if p.SchemaVersions == nil {
 		return nil
 	}
 
-	for _, topic := range p.Ingestor.KafkaTopics {
-		schema, found := p.SchemaVersions[topic.Name]
-		if !found {
-			return fmt.Errorf("schema version for topic '%s' not found", topic.Name)
+	switch p.SourceType {
+	case internal.KafkaIngestorType:
+		for _, topic := range p.Ingestor.KafkaTopics {
+			if err := s.upsertSourceSchemaVersion(ctx, tx, pipelineID, p, topic.Name); err != nil {
+				return err
+			}
 		}
-
-		versionID, err := s.upsertSchemaVersion(ctx, tx, pipelineID, topic.Name, schema.VersionID, schema.Fields)
-		if err != nil {
-			return fmt.Errorf("upsert schema version for topic '%s': %w", topic.Name, err)
-		}
-
-		schema.VersionID = versionID
-		p.SchemaVersions[topic.Name] = schema
+	case internal.OTLPSourceType:
+		return s.upsertSourceSchemaVersion(ctx, tx, pipelineID, p, p.OTLPSource.ID)
+	default:
+		return fmt.Errorf("unsupported source type '%s' for schema version upsert", p.SourceType)
 	}
+
+	return nil
+}
+
+func (s *PostgresStorage) upsertSourceSchemaVersion(ctx context.Context, tx pgx.Tx, pipelineID string, p models.PipelineConfig, sourceID string) error {
+	schema, found := p.SchemaVersions[sourceID]
+	if !found {
+		return fmt.Errorf("schema version for source '%s' not found", sourceID)
+	}
+
+	versionID, err := s.upsertSchemaVersion(ctx, tx, pipelineID, sourceID, schema.VersionID, schema.Fields)
+	if err != nil {
+		return fmt.Errorf("upsert schema version for source '%s': %w", sourceID, err)
+	}
+
+	schema.VersionID = versionID
+	p.SchemaVersions[sourceID] = schema
 
 	return nil
 }
@@ -1024,6 +1080,16 @@ func (s *PostgresStorage) loadPipelineRow(ctx context.Context, pipelineID string
 func (s *PostgresStorage) buildPipelineData(ctx context.Context, row *pipelineRow) (*pipelineData, error) {
 	transformationIDs := handleTransformationIDs(row.transformationIDsPtr)
 
+	var sourceType string
+	err := s.pool.QueryRow(ctx, `SELECT type FROM sources WHERE id = $1`, row.sourceID).Scan(&sourceType)
+	if err != nil {
+		s.logger.ErrorContext(ctx, "failed to get source type",
+			slog.String("pipeline_id", row.pipelineID),
+			slog.String("source_id", row.sourceID.String()),
+			slog.String("error", err.Error()))
+		return nil, fmt.Errorf("get source type: %w", err)
+	}
+
 	source, kafkaConn, err := s.getSource(ctx, row.sourceID)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to get source",
@@ -1059,6 +1125,7 @@ func (s *PostgresStorage) buildPipelineData(ctx context.Context, row *pipelineRo
 		pipelineID:      row.pipelineID,
 		name:            row.name,
 		status:          row.status,
+		sourceType:      sourceType,
 		source:          source,
 		kafkaConn:       kafkaConn,
 		sink:            sink,
@@ -1121,6 +1188,27 @@ func (s *PostgresStorage) loadConfigsAndSchemaVersionsWithSelection(
 			pipelineCfg.SchemaVersions = make(map[string]models.SchemaVersion)
 		}
 		pipelineCfg.SchemaVersions[topic.Name] = schemaVersion
+	}
+
+	if internal.IsOTLPSourceType(pipelineCfg.SourceType) {
+		otlpSourceID := pipelineCfg.OTLPSource.ID
+		var schemaVersion models.SchemaVersion
+
+		requestedVersionID, hasRequestedVersion := sourceSchemaVersions[otlpSourceID]
+		if hasRequestedVersion {
+			schemaVersion, err = s.getSchemaVersion(ctx, tx, pipelineCfg.ID, otlpSourceID, requestedVersionID)
+			delete(notFoundSchemas, otlpSourceID)
+		} else {
+			schemaVersion, err = s.getLatestSchemaVersion(ctx, tx, pipelineCfg.ID, otlpSourceID)
+		}
+		if err != nil {
+			return fmt.Errorf("get schema version for otlp source '%s': %w", otlpSourceID, err)
+		}
+
+		if pipelineCfg.SchemaVersions == nil {
+			pipelineCfg.SchemaVersions = make(map[string]models.SchemaVersion)
+		}
+		pipelineCfg.SchemaVersions[otlpSourceID] = schemaVersion
 	}
 
 	if len(notFoundSchemas) > 0 {

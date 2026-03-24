@@ -10,6 +10,7 @@ Feature: Working with DLQ
             """json
             {
                 "pipeline_id": "kafka-to-ch-pipeline-123",
+                "source_type": "kafka",
                 "name": "kafka-to-ch-pipeline-123",
                 "ingestor": {
                     "type": "kafka",

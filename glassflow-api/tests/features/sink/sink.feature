@@ -28,6 +28,7 @@ Feature: Clickhouse ETL sink
             """json
             {
                 "pipeline_id": "test-pipline-1",
+                "source_type": "kafka",
                 "name": "test-pipline-1",
                 "source": {
                     "type": "kafka",
@@ -134,6 +135,7 @@ Feature: Clickhouse ETL sink
             """json
             {
                 "pipeline_id": "test-pipeline-2",
+                "source_type": "kafka",
                 "name": "test-pipeline-2",
                 "source": {
                     "type": "kafka",
@@ -244,6 +246,7 @@ Feature: Clickhouse ETL sink
             """json
             {
                 "pipeline_id": "test-pipeline-3",
+                "source_type": "kafka",
                 "name": "test-pipeline-3",
                 "source": {
                     "type": "kafka",
@@ -327,6 +330,7 @@ Feature: Clickhouse ETL sink
             """json
             {
                 "pipeline_id": "test-pipeline-4",
+                "source_type": "kafka",
                 "name": "test-pipeline-4",
                 "source": {
                     "type": "kafka",
@@ -393,6 +397,7 @@ Feature: Clickhouse ETL sink
             """json
             {
                 "pipeline_id": "test-pipeline-5",
+                "source_type": "kafka",
                 "name": "test-pipeline-5",
                 "source": {
                     "type": "kafka",
@@ -471,6 +476,7 @@ Feature: Clickhouse ETL sink
             """json
             {
                 "pipeline_id": "test-pipeline-6",
+                "source_type": "kafka",
                 "name": "test-pipeline-6",
                 "source": {
                     "type": "kafka",
@@ -551,6 +557,7 @@ Feature: Clickhouse ETL sink
             """json
             {
                 "pipeline_id": "test-pipeline-7",
+                "source_type": "kafka",
                 "name": "test-pipeline-7",
                 "source": {
                     "type": "kafka",
@@ -626,6 +633,7 @@ Feature: Clickhouse ETL sink
             """json
             {
                 "pipeline_id": "test-pipeline-8",
+                "source_type": "kafka",
                 "name": "test-pipeline-8",
                 "source": {
                     "type": "kafka",
@@ -699,6 +707,7 @@ Feature: Clickhouse ETL sink
             """json
             {
                 "pipeline_id": "test-pipeline-9",
+                "source_type": "kafka",
                 "name": "test-pipeline-9",
                 "source": {
                     "type": "kafka",
@@ -772,6 +781,7 @@ Feature: Clickhouse ETL sink
             """json
             {
                 "pipeline_id": "test-pipeline-10",
+                "source_type": "kafka",
                 "name": "test-pipeline-10",
                 "source": {
                     "type": "kafka",
@@ -845,6 +855,7 @@ Feature: Clickhouse ETL sink
             """json
             {
                 "pipeline_id": "test-pipeline-10",
+                "source_type": "kafka",
                 "name": "test-pipeline-10",
                 "source": {
                     "type": "kafka",
@@ -914,6 +925,7 @@ Feature: Clickhouse ETL sink
             """json
             {
                 "pipeline_id": "test-pipeline-10",
+                "source_type": "kafka",
                 "name": "test-pipeline-10",
                 "source": {
                     "type": "kafka",
