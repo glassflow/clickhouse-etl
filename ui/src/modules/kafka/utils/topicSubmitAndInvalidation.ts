@@ -77,6 +77,7 @@ export function executeTopicSubmitAndInvalidation({ state, stores, originalTopic
     return
   }
 
+  const existingTopic: Record<string, unknown> = (topicsStore.topics[index] as Record<string, unknown>) || {}
   const previousTopicName = originalTopicRef.current?.name || topicsStore.topics[index]?.name
   let previousEvent = originalTopicRef.current?.event || topicsStore.topics[index]?.selectedEvent?.event
 
@@ -90,7 +91,13 @@ export function executeTopicSubmitAndInvalidation({ state, stores, originalTopic
     structuredLogger.warn('Topic Submit neither finalEvent nor previousEvent exists')
   }
 
+  const isTopicChanging = !!previousTopicName && topicName !== previousTopicName
+
   const topicData = {
+    // Spread existing topic to preserve schema registry state (schemaSource,
+    // schemaRegistrySubject, schemaRegistryVersion, schema) across navigation.
+    ...existingTopic,
+    // Always override event and offset fields with current values.
     index,
     name: topicName,
     initialOffset: offset,
@@ -103,6 +110,14 @@ export function executeTopicSubmitAndInvalidation({ state, stores, originalTopic
     },
     replicas,
     partitionCount: effectivePartitionCount,
+    // Clear schema state when the user picks a different topic — the previous
+    // schema was for the old topic and is no longer valid.
+    ...(isTopicChanging && {
+      schema: undefined,
+      schemaSource: undefined,
+      schemaRegistrySubject: undefined,
+      schemaRegistryVersion: undefined,
+    }),
   }
 
   const hasDeduplicationConfig = !!(deduplicationConfig.key && deduplicationConfig.window)
