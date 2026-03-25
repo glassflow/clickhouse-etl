@@ -83,7 +83,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'No fields found in schema' })
     }
 
-    return NextResponse.json({ success: true, fields })
+    return NextResponse.json({ success: true, fields, version: data.version })
   } catch (error) {
     structuredLogger.error('Schema registry schema fetch failed', {
       error: error instanceof Error ? error.message : String(error),
