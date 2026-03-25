@@ -1,0 +1,21 @@
+# Bitnami ClickHouse - minimal single-shard demo config
+shards: 1
+replicaCount: 1
+
+auth:
+  username: default
+  password: secret
+
+zookeeper:
+  enabled: false
+
+keeper:
+  enabled: true
+
+resources:
+  limits:
+    cpu: "1"
+    memory: 2Gi
+  requests:
+    cpu: 200m
+    memory: 512Mi

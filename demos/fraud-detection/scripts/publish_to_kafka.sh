@@ -8,21 +8,18 @@ fi
 
 EVENT_FILE="$1"
 TOPIC_NAME="${2:-login-attempts}"
+KAFKA_NS="${KAFKA_NS:-kafka}"
+KAFKA_SVC="${KAFKA_SVC:-kafka}"
 
 if [[ ! -f "$EVENT_FILE" ]]; then
   echo "Event file not found: $EVENT_FILE" >&2
   exit 1
 fi
 
-kubectl exec -i -n kafka svc/kafka -- bash -c "
-cat > /tmp/client.properties <<'EOF'
-security.protocol=SASL_PLAINTEXT
-sasl.mechanism=PLAIN
-sasl.jaas.config=org.apache.kafka.common.security.plain.PlainLoginModule required username=\"user1\" password=\"glassflow-demo-password\";
-EOF
-kafka-console-producer.sh --bootstrap-server kafka.kafka.svc.cluster.local:9092 \
-  --producer.config /tmp/client.properties \
-  --topic \"$TOPIC_NAME\"
-" < "$EVENT_FILE"
+kubectl exec -i -n "$KAFKA_NS" svc/"$KAFKA_SVC" -- \
+  kafka-console-producer.sh \
+    --bootstrap-server "${KAFKA_SVC}.${KAFKA_NS}.svc.cluster.local:9092" \
+    --topic "$TOPIC_NAME" \
+  < "$EVENT_FILE"
 
 echo "Published $(wc -l < "$EVENT_FILE") events to topic '$TOPIC_NAME'."

@@ -1,17 +1,15 @@
 {
   "version": "v2",
-  "pipeline_id": "fraud-detection-logins-tested",
-  "name": "Fraud Detection Logins Tested",
+  "pipeline_id": "fraud-detection-demo",
+  "name": "Fraud Detection Demo",
   "source": {
     "type": "kafka",
     "connection_params": {
       "brokers": [
         "kafka.kafka.svc.cluster.local:9092"
       ],
-      "protocol": "SASL_PLAINTEXT",
-      "mechanism": "PLAIN",
-      "username": "user1",
-      "password": "glassflow-demo-password"
+      "protocol": "PLAINTEXT",
+      "mechanism": "NO_AUTH"
     },
     "topics": [
       {
@@ -37,7 +35,7 @@
     "http_port": "8123",
     "database": "default",
     "username": "default",
-    "password": "Z2xhc3NmbG93LWRlbW8tcGFzc3dvcmQ=",
+    "password": "c2VjcmV0",
     "table": "fraud_login_events",
     "secure": false,
     "max_batch_size": 500,
@@ -105,7 +103,7 @@
   },
   "metadata": {
     "tags": [
-      "tutorial",
+      "demo",
       "fraud-detection"
     ]
   }
