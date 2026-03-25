@@ -46,8 +46,8 @@ const SchemaBindingsSection = forwardRef<SchemaBindingsSectionHandle, SchemaBind
 
     const topicNames = Object.keys(bindingsPerTopic)
 
-    // Don't render anything if no topics have multiple bindings
-    if (!isLoading && topicNames.every((t) => (bindingsPerTopic[t]?.length ?? 0) <= 1)) {
+    // Don't render anything until discovery has run and found no bindings at all
+    if (!isLoading && topicNames.length === 0) {
       return null
     }
 
