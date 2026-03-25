@@ -2,7 +2,7 @@
 title: 'Web UI'
 description: 'Learn how to use the GlassFlow web interface to create and manage data pipelines'
 ---
-import { Steps } from 'nextra/components'
+import { Callout, Steps } from 'nextra/components'
 
 # Web UI
 
@@ -286,6 +286,24 @@ All pipeline configurations can be edited. Only stopped (or terminated) pipeline
 ### Deleting Pipelines
 
 Only stopped (or terminated) pipelines can be deleted. Deleting a pipeline will remove all pipeline resources and configuration.
+
+## Pipeline States
+
+Every pipeline moves through a defined set of states. Understanding these states helps you interpret the dashboard, respond to failures, and avoid invalid operations.
+
+### State Reference
+
+| State | Type | Description |
+|-------|------|-------------|
+| `Created` | Stable | The pipeline configuration has been saved but the pipeline has never been started. No Kubernetes workloads are running. |
+| `Running` | Stable | The pipeline is actively consuming from Kafka, processing data, and writing to ClickHouse. |
+| `Stopping` | Transitional | A stop has been requested. The pipeline is draining in-flight messages from the queue before scaling down to zero replicas. |
+| `Stopped` | Stable | The pipeline has scaled down to zero replicas. No data is being processed. Configuration is preserved and the pipeline can be resumed or deleted. |
+| `Resuming` | Transitional | A resume has been requested. Kubernetes workloads are scaling back up. The pipeline transitions to `Running` once all components are healthy. |
+| `Terminating` | Transitional | A terminate has been requested. The pipeline is scaling down immediately, without waiting to drain the queue. |
+| `Failed` | Stable | A system-level failure has occurred that the pipeline cannot recover from automatically (for example, a Kubernetes workload crash or an unrecoverable NATS error). |
+
+**Transitional states** (`Stopping`, `Resuming`, `Terminating`) are temporary. The pipeline moves through them automatically; you cannot directly request a transitional state. While a pipeline is in a transitional state, most operations are blocked — the exception is that `Terminating` can always be requested from any non-terminal state.
 
 ## Best Practices
 

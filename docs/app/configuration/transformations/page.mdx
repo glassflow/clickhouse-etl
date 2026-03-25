@@ -12,14 +12,14 @@ GlassFlow supports several transformations that can be applied to your data as i
 
 - [**Deduplication**](/configuration/transformations/deduplication) — Remove duplicate events from your data stream based on a unique identifier field.
 - [**Join**](/configuration/transformations/join) — Combine data from multiple Kafka topics based on join keys and time windows.
-- [**Filter**](/configuration/transformations/filter) — Selectively process events based on configurable expressions.
+- [**Filter**](/configuration/transformations/filter) — Drop events that match a configurable expression. Events that do not match the expression pass through the pipeline.
 - [**Stateless Transformation**](/configuration/transformations/stateless-transformation) — Reshape event payloads on the fly using expression-based mappings.
 
 ## Transformation Order
 
 Transformations are applied in the following order within a pipeline:
 
-1. **Filter** — Applied at the ingestor stage, before any other processing.
-2. **Deduplication** — Applied after ingestion, before joining.
-3. **Stateless Transformation** — Applied after deduplication, before joining.
-4. **Join** — Applied after stateless transformations, before sinking to ClickHouse.
+1. **Filter** — Applied in the Transform stage, alongside deduplication and stateless transformations. Events that match the filter expression are dropped before deduplication or stateless transforms run.
+2. **Deduplication** — Applied in the Transform stage, after filtering.
+3. **Stateless Transformation** — Applied in the Transform stage, after deduplication.
+4. **Join** — Applied after the Transform stage, before sinking to ClickHouse.

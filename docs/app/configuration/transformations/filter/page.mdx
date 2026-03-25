@@ -6,20 +6,20 @@ import { Callout, Tabs } from 'nextra/components'
 
 # Filter
 
-The **Filter** transformation allows you to selectively process events based on configurable expressions. Events that match the filter expression are processed further in the pipeline, while non-matching events are filtered out and not processed.
+The **Filter** transformation allows you to selectively drop events based on configurable expressions. Events that match the filter expression are **dropped** and not processed further. Events that do not match the filter expression continue through the rest of the pipeline.
 
 ## How It Works
 
-Filtering in GlassFlow is applied at the ingestor stage, before any other processing. The filter uses expression-based evaluation to determine whether an event should be processed.
+Filtering in GlassFlow runs in the **Transform stage** (Stage 3), the same stage as deduplication and stateless transformations. Events are read from NATS JetStream and evaluated against the filter expression before deduplication or stateless transforms run. The filter uses expression-based evaluation to determine whether an event should be processed.
 
 ### Internal Process
 
-1. **Event Reception**: Events are received from Kafka topics
+1. **Event Reception**: Events are read from NATS JetStream (after the Ingestor stage)
 2. **Expression Evaluation**: Each event is evaluated against the configured filter expression
-3. **Filtering Decision**: 
-   - If the expression evaluates to `true`, the event is processed further
-   - If the expression evaluates to `false`, the event is filtered out
-4. **Processing**: Only matching events continue through the pipeline (deduplication, join, sink)
+3. **Filtering Decision**:
+   - If the expression evaluates to `true`, the event is **dropped** and not processed further
+   - If the expression evaluates to `false`, the event **passes through** to the rest of the pipeline
+4. **Processing**: Only events where the expression evaluated to `false` continue through the pipeline (deduplication, stateless transformations, join, sink)
 
 ### Expression Language
 
@@ -33,7 +33,7 @@ GlassFlow uses the [expr](https://github.com/expr-lang/expr) expression language
 
 ## Configuration
 
-Filter is configured at the pipeline level. Here's the configuration structure:
+Filter is configured at the pipeline level. The `expression` field defines the **drop condition**: events for which the expression evaluates to `true` are discarded, and events for which it evaluates to `false` pass through.
 
 <Tabs items={['Web UI', 'Pipeline JSON']} defaultIndex="0" storageKey="client_preference">
   <Tabs.Tab>
@@ -73,7 +73,11 @@ Filter expressions use field names from your event schema and support the follow
 
 #### Examples
 
-**String comparison:**
+<Callout type="warning">
+  The filter expression defines the **drop condition**. When the expression evaluates to `true`, the event is dropped. When it evaluates to `false`, the event passes through. Write your expression to match the events you want to **exclude**, not the events you want to keep.
+</Callout>
+
+**Drop events where `status` equals `'active'` (string comparison):**
 <Tabs items={['Web UI', 'Pipeline JSON']} defaultIndex="0" storageKey="client_preference">
   <Tabs.Tab>
     <img alt="String Comparison" src="/assets/ui_filter_string_comparison.png" />
@@ -90,7 +94,7 @@ Filter expressions use field names from your event schema and support the follow
   </Tabs.Tab>
 </Tabs>
 
-**Numeric comparison:**
+**Drop events where `age` is greater than 18 (numeric comparison):**
 <Tabs items={['Web UI', 'Pipeline JSON']} defaultIndex="0" storageKey="client_preference">
   <Tabs.Tab>
     <img alt="Numeric Comparison" src="/assets/ui_filter_numeric_comparison.png" />
@@ -107,7 +111,7 @@ Filter expressions use field names from your event schema and support the follow
   </Tabs.Tab>
 </Tabs>
 
-**Boolean field:**
+**Drop events where `is_premium` is `true` (boolean field):**
 <Tabs items={['Web UI', 'Pipeline JSON']} defaultIndex="0" storageKey="client_preference">
   <Tabs.Tab>
     <img alt="Boolean Field" src="/assets/ui_filter_boolean_field.png" />
@@ -124,7 +128,7 @@ Filter expressions use field names from your event schema and support the follow
   </Tabs.Tab>
 </Tabs>
 
-**Multiple conditions with AND:**
+**Drop events matching multiple conditions with AND:**
 <Tabs items={['Web UI', 'Pipeline JSON']} defaultIndex="0" storageKey="client_preference">
   <Tabs.Tab>
     <img alt="Multiple Conditions with AND" src="/assets/ui_filter_multiple_conditions_with_and.png" />
@@ -141,7 +145,7 @@ Filter expressions use field names from your event schema and support the follow
   </Tabs.Tab>
 </Tabs>
 
-**Multiple conditions with OR:**
+**Drop events matching any condition with OR:**
 <Tabs items={['Web UI', 'Pipeline JSON']} defaultIndex="0" storageKey="client_preference">
   <Tabs.Tab>
     <img alt="Multiple Conditions with OR" src="/assets/ui_filter_multiple_conditions_with_or.png" />
@@ -158,7 +162,7 @@ Filter expressions use field names from your event schema and support the follow
   </Tabs.Tab>
 </Tabs>
 
-**Complex expression with parentheses:**
+**Drop events matching a complex expression with parentheses:**
 <Tabs items={['Web UI', 'Pipeline JSON']} defaultIndex="0" storageKey="client_preference">
   <Tabs.Tab>
     <img alt="Complex Expression with Parentheses" src="/assets/ui_filter_complex_expression_with_parentheses.png" />
@@ -175,7 +179,7 @@ Filter expressions use field names from your event schema and support the follow
   </Tabs.Tab>
 </Tabs>
 
-**Nested field access:**
+**Drop events using nested field access:**
 <Tabs items={['Web UI', 'Pipeline JSON']} defaultIndex="0" storageKey="client_preference">
   <Tabs.Tab>
     <img alt="Nested Field Access" src="/assets/ui_filter_nested_field_access.png" />
@@ -196,6 +200,7 @@ Filter expressions use field names from your event schema and support the follow
 
 ### Expression Design
 
+- **Write drop conditions**: The expression defines what to discard, not what to keep. If you want to keep events where `status == 'active'`, write the expression as `status != 'active'` to drop everything else.
 - **Keep expressions simple**: Complex expressions can be harder to maintain and debug
 - **Use parentheses**: Explicitly group conditions with parentheses for clarity
 - **Test expressions**: Validate filter expressions before deploying to production
@@ -215,7 +220,7 @@ Filter expressions use field names from your event schema and support the follow
 
 ## Example Configuration
 
-Here's a complete example of a pipeline with filtering enabled:
+Here's a complete example of a pipeline with filtering enabled. In this example, events where `age > 18` **and** `status == 'active'` are **dropped**. Events that do not meet both conditions pass through to ClickHouse.
 
 ```json
 {
@@ -248,7 +253,7 @@ Here's a complete example of a pipeline with filtering enabled:
 
 ## Related Documentation
 
-- [Data Flow - Ingestor Stage](/architecture/data-flow#stage-1-kafka-to-nats-jetstream-ingestor)
+- [Data Flow - Transform Stage](/architecture/data-flow#stage-3-transformations-optional)
 - [Pipeline JSON Reference - Filter Configuration](/configuration/pipeline-json-reference#filter-configuration)
 - [Transformations Overview](/configuration/transformations)
 - [expr Language Documentation](https://github.com/expr-lang/expr)

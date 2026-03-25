@@ -444,6 +444,53 @@ serviceAccount:
 | `serviceAccount.name` | Service account name | `""` | Use custom name if needed |
 | `serviceAccount.annotations` | Service account annotations | `{}` | Useful for IAM roles, OIDC providers |
 
+## Credential Encryption
+
+GlassFlow can encrypt Kafka and ClickHouse credentials before they are persisted in PostgreSQL. When enabled, the API uses **AES-256-GCM** to encrypt the following fields at rest:
+
+- Kafka: SASL password, TLS private key, Kerberos keytab
+- ClickHouse: connection password
+
+Credentials are decrypted transparently at runtime and are never stored or logged in plaintext when encryption is active.
+
+<Callout type="important">
+Enable credential encryption for all production deployments. When `global.encryption.enabled` is `false` (the default), Kafka and ClickHouse credentials are stored in plaintext in the PostgreSQL `connections` table. Any user or process with read access to the database can retrieve them without restriction.
+</Callout>
+
+### How it works
+
+The encryption key is a 32-byte (256-bit) random value stored in a Kubernetes Secret that you create and manage. You must supply the Secret before enabling encryption — the chart does not generate one automatically. This keeps the key lifecycle outside of Helm and prevents accidental key rotation during upgrades.
+
+<Callout type="important">
+When `global.encryption.enabled` is `true`, `global.encryption.existingSecret.name` **must** be set. The chart will fail with a validation error if the field is empty.
+</Callout>
+
+### Configuration
+
+```yaml
+global:
+  encryption:
+    # Set to true to enable AES-256-GCM encryption of credentials in PostgreSQL.
+    # When false (default), credentials are stored in plaintext.
+    enabled: false
+
+    # Reference an existing Kubernetes Secret that contains the encryption key.
+    # Required when enabled=true — the chart does not generate this Secret.
+    existingSecret:
+      # Name of the Kubernetes Secret in the same namespace as GlassFlow.
+      name: ""
+      # Key within the Secret whose value is the 32-byte encryption key.
+      key: "encryption-key"
+```
+
+### Encryption configuration options
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `global.encryption.enabled` | `bool` | `false` | Enable AES-256-GCM encryption of credentials stored in PostgreSQL |
+| `global.encryption.existingSecret.name` | `string` | `""` | Name of a pre-existing Kubernetes Secret containing the encryption key. **Required** when `enabled` is `true` |
+| `global.encryption.existingSecret.key` | `string` | `"encryption-key"` | Key inside the Secret whose value is the 32-byte encryption key |
+
 ## Pod Configuration
 
 Configure pod-level settings for scheduling and labeling.

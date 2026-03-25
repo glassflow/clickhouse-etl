@@ -108,7 +108,7 @@ SUCCESS: target-secret.yaml applied and verified.
 
 ### 2. Upgrade the release and point encryption to the existing secret
 
-Run the Helm upgrade using chart version **0.5.12** and set encryption to use the secret you created in step 3 (replace `<secret-name>` with the name you chose in step 2, e.g. `glassflow-encryption-key-external`):
+Run the Helm upgrade using chart version **0.5.12** and set encryption to use the secret you created in step 1 (replace `<secret-name>` with the name you chose in step 1, e.g. `glassflow-encryption-key-external`):
 
 ```bash
 helm upgrade <release_name> <chart_reference> -n <namespace> --version 0.5.12 \
