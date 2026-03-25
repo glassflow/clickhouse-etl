@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/encryption"
@@ -35,7 +36,7 @@ func getEntityWithConnection(
 	encryptionService *encryption.Service,
 ) (entityConfig json.RawMessage, connConfig json.RawMessage, err error) {
 	var (
-		connID           uuid.UUID
+		connID           pgtype.UUID
 		entityConfigJSON []byte
 	)
 
@@ -53,6 +54,13 @@ func getEntityWithConnection(
 		return nil, nil, fmt.Errorf("get %s: %w", entityTable, err)
 	}
 
+	// For OTLP sources, connection_id is NULL — return only entity config
+	if !connID.Valid {
+		return entityConfigJSON, nil, nil
+	}
+
+	connUUID := uuid.UUID(connID.Bytes)
+
 	// Query connection (type and config)
 	var connType string
 	var connConfigJSON []byte
@@ -60,11 +68,11 @@ func getEntityWithConnection(
 		SELECT type, config
 		FROM connections
 		WHERE id = $1
-	`, connID).Scan(&connType, &connConfigJSON)
+	`, connUUID).Scan(&connType, &connConfigJSON)
 	if err != nil {
 		logger.ErrorContext(ctx, "failed to query connection",
 			slog.String("entity_table", entityTable),
-			slog.String("connection_id", connID.String()),
+			slog.String("connection_id", connUUID.String()),
 			slog.String("error", err.Error()))
 		return nil, nil, fmt.Errorf("get connection: %w", err)
 	}
@@ -78,13 +86,13 @@ func getEntityWithConnection(
 			if json.Unmarshal(connConfigJSON, &testJSON) == nil {
 				logger.WarnContext(ctx, "failed to decrypt sensitive fields, treating as unencrypted",
 					slog.String("entity_table", entityTable),
-					slog.String("connection_id", connID.String()),
+					slog.String("connection_id", connUUID.String()),
 					slog.String("error", err.Error()))
 				return entityConfigJSON, connConfigJSON, nil
 			}
 			logger.ErrorContext(ctx, "failed to decrypt sensitive fields",
 				slog.String("entity_table", entityTable),
-				slog.String("connection_id", connID.String()),
+				slog.String("connection_id", connUUID.String()),
 				slog.String("error", err.Error()))
 			return nil, nil, fmt.Errorf("decrypt sensitive fields: %w", err)
 		}
@@ -97,9 +105,9 @@ func getEntityWithConnection(
 
 // ------------------------------------------------------------------------------------------------
 
-// insertSource inserts a source
-func (s *PostgresStorage) insertSource(ctx context.Context, tx pgx.Tx, sourceType string, connID uuid.UUID, streams map[string]models.StreamSchemaConfig) (uuid.UUID, error) {
-	configJSON, err := json.Marshal(map[string]interface{}{
+// insertSource inserts a source. connID may be nil for OTLP sources (no Kafka connection).
+func (s *PostgresStorage) insertSource(ctx context.Context, tx pgx.Tx, sourceType string, connID *uuid.UUID, streams map[string]models.StreamSchemaConfig) (uuid.UUID, error) {
+	configJSON, err := json.Marshal(map[string]any{
 		"streams": streams,
 	})
 	if err != nil {
@@ -109,16 +117,21 @@ func (s *PostgresStorage) insertSource(ctx context.Context, tx pgx.Tx, sourceTyp
 		return uuid.Nil, fmt.Errorf("marshal source config: %w", err)
 	}
 
+	var connIDParam pgtype.UUID
+	if connID != nil {
+		connIDParam = pgtype.UUID{Bytes: *connID, Valid: true}
+	}
+
 	var sourceID uuid.UUID
 	err = tx.QueryRow(ctx, `
 		INSERT INTO sources (type, connection_id, config)
 		VALUES ($1, $2, $3)
 		RETURNING id
-	`, sourceType, connID, configJSON).Scan(&sourceID)
+	`, sourceType, connIDParam, configJSON).Scan(&sourceID)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to insert source",
 			slog.String("source_type", sourceType),
-			slog.String("connection_id", connID.String()),
+			slog.String("connection_id", connIDParam.String()),
 			slog.String("error", err.Error()))
 		return uuid.Nil, fmt.Errorf("insert source: %w", err)
 	}

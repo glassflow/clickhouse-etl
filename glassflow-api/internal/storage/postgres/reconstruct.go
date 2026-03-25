@@ -20,9 +20,17 @@ func (s *PostgresStorage) reconstructPipelineConfig(ctx context.Context, data *p
 		return nil, err
 	}
 
-	ingestorConfig, err := reconstructKafkaConfig(data.kafkaConn)
+	ingestorConfig, err := reconstructKafkaConfig(data)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to reconstruct kafka config",
+			slog.String("pipeline_id", data.pipelineID),
+			slog.String("error", err.Error()))
+		return nil, err
+	}
+
+	otlpSourceConfig, err := reconstructOTLPSourceConfig(data)
+	if err != nil {
+		s.logger.ErrorContext(ctx, "failed to reconstruct otlp source config",
 			slog.String("pipeline_id", data.pipelineID),
 			slog.String("error", err.Error()))
 		return nil, err
@@ -52,6 +60,8 @@ func (s *PostgresStorage) reconstructPipelineConfig(ctx context.Context, data *p
 	cfg := &models.PipelineConfig{
 		ID:                      id,
 		Name:                    data.name,
+		SourceType:              data.sourceType,
+		OTLPSource:              otlpSourceConfig,
 		Mapper:                  mapperConfig,
 		Ingestor:                ingestorConfig,
 		Join:                    joinConfig,
@@ -72,11 +82,36 @@ func (s *PostgresStorage) reconstructPipelineConfig(ctx context.Context, data *p
 	return cfg, nil
 }
 
+// reconstructOTLPSourceConfig reconstructs OTLPSourceConfig from JSONB
+func reconstructOTLPSourceConfig(data *pipelineData) (zero models.OTLPSourceConfig, _ error) {
+	if data.sourceType != internal.OTLPSourceType {
+		return zero, nil
+	}
+
+	if len(data.source) == 0 {
+		return zero, fmt.Errorf("otlp source config is empty")
+	}
+
+	var cfg models.OTLPSourceConfig
+	if err := json.Unmarshal(data.source, &cfg); err != nil {
+		return zero, fmt.Errorf("unmarshal otlp source config: %w", err)
+	}
+	return cfg, nil
+}
+
 // reconstructKafkaConfig reconstructs Kafka connection config from JSONB
-func reconstructKafkaConfig(kafkaConnJSON json.RawMessage) (models.IngestorComponentConfig, error) {
+func reconstructKafkaConfig(data *pipelineData) (zero models.IngestorComponentConfig, _ error) {
+	if data.sourceType != internal.KafkaIngestorType {
+		return zero, nil
+	}
+
+	if len(data.kafkaConn) == 0 {
+		return zero, fmt.Errorf("kafka source config is empty")
+	}
+
 	var cfg models.IngestorComponentConfig
-	if err := json.Unmarshal(kafkaConnJSON, &cfg); err != nil {
-		return models.IngestorComponentConfig{}, fmt.Errorf("unmarshal kafka connection config: %w", err)
+	if err := json.Unmarshal(data.kafkaConn, &cfg); err != nil {
+		return zero, fmt.Errorf("unmarshal kafka connection config: %w", err)
 	}
 	return cfg, nil
 }

@@ -19,6 +19,7 @@ Feature: Kafka to CH pipeline
             """json
             {
                 "pipeline_id": "kafka-to-clickhouse-pipeline-b00001",
+                "source_type": "kafka",
                 "name": "kafka-to-clickhouse-pipeline-b00001",
                 "ingestor": {
                     "type": "kafka",
@@ -110,6 +111,7 @@ Feature: Kafka to CH pipeline
             """json
             {
                 "pipeline_id": "kafka-to-clickhouse-pipeline-b00002",
+                "source_type": "kafka",
                 "name": "kafka-to-clickhouse-pipeline-b00002",
                 "ingestor": {
                     "type": "kafka",
@@ -283,6 +285,7 @@ Feature: Kafka to CH pipeline
             """json
             {
                 "pipeline_id": "kafka-to-clickhouse-pipeline-b00003",
+                "source_type": "kafka",
                 "name": "kafka-to-clickhouse-pipeline-b00003",
                 "ingestor": {
                     "type": "kafka",
@@ -469,6 +472,7 @@ Feature: Kafka to CH pipeline
             """json
             {
                 "pipeline_id": "kafka-to-clickhouse-pipeline-b00004",
+                "source_type": "kafka",
                 "name": "kafka-to-clickhouse-pipeline-b00004",
                 "ingestor": {
                     "type": "kafka",
@@ -562,6 +566,7 @@ Feature: Kafka to CH pipeline
             """json
             {
                 "pipeline_id": "kafka-to-clickhouse-pipeline-b00005",
+                "source_type": "kafka",
                 "name": "kafka-to-clickhouse-pipeline-b00005",
                 "ingestor": {
                     "type": "kafka",
@@ -663,6 +668,7 @@ Feature: Kafka to CH pipeline
             """json
             {
                 "pipeline_id": "kafka-to-clickhouse-pipeline-b00006",
+                "source_type": "kafka",
                 "name": "kafka-to-clickhouse-pipeline-b00006",
                 "ingestor": {
                     "type": "kafka",
@@ -759,6 +765,7 @@ Feature: Kafka to CH pipeline
             """json
             {
                 "pipeline_id": "kafka-to-clickhouse-pipeline-b00007",
+                "source_type": "kafka",
                 "name": "kafka-to-clickhouse-pipeline-b00007",
                 "ingestor": {
                     "type": "kafka",
@@ -853,6 +860,7 @@ Feature: Kafka to CH pipeline
             """json
             {
                 "pipeline_id": "kafka-to-clickhouse-pipeline-b00008",
+                "source_type": "kafka",
                 "name": "kafka-to-clickhouse-pipeline-b00008",
                 "ingestor": {
                     "type": "kafka",

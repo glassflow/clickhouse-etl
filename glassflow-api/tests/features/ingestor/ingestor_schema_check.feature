@@ -16,6 +16,7 @@ Feature: Ingestor supports schema registry with multiple schemas
             """json
             {
                 "pipeline_id": "test-pipeline-5",
+                "source_type": "kafka",
                 "ingestor": {
                     "type": "kafka",
                     "kafka_connection_params": {
@@ -95,6 +96,7 @@ Feature: Ingestor supports schema registry with multiple schemas
             """json
             {
                 "pipeline_id": "test-pipeline-5",
+                "source_type": "kafka",
                 "ingestor": {
                     "type": "kafka",
                     "kafka_connection_params": {
@@ -176,6 +178,7 @@ Feature: Ingestor supports schema registry with multiple schemas
             """json
             {
                 "pipeline_id": "test-pipeline-6",
+                "source_type": "kafka",
                 "ingestor": {
                     "type": "kafka",
                     "kafka_connection_params": {

@@ -36,6 +36,7 @@ Feature: Join component
             """json
             {
                 "pipeline_id": "join-test-basic",
+                "source_type": "kafka",
                 "name": "join-test-basic",
                 "source": {
                     "type": "kafka",
@@ -155,6 +156,7 @@ Feature: Join component
             """json
             {
                 "pipeline_id": "join-test-multiple",
+                "source_type": "kafka",
                 "name": "join-test-multiple",
                 "source": {
                     "type": "kafka",
@@ -275,6 +277,7 @@ Feature: Join component
             """json
             {
                 "pipeline_id": "join-test-nomatch",
+                "source_type": "kafka",
                 "name": "join-test-nomatch",
                 "source": {
                     "type": "kafka",
@@ -391,6 +394,7 @@ Feature: Join component
             """json
             {
                 "pipeline_id": "join-test-graceful",
+                "source_type": "kafka",
                 "name": "join-test-graceful",
                 "source": {
                     "type": "kafka",

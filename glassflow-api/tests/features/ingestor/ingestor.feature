@@ -17,6 +17,7 @@ Feature: Kafka Ingestor
             """json
             {
                 "pipeline_id": "test-pipeline-1",
+                "source_type": "kafka",
                 "ingestor": {
                     "type": "kafka",
                     "kafka_connection_params": {
@@ -90,6 +91,7 @@ Feature: Kafka Ingestor
             """json
             {
                 "pipeline_id": "test-pipeline-1",
+                "source_type": "kafka",
                 "ingestor": {
                     "type": "kafka",
                     "kafka_connection_params": {
@@ -161,6 +163,7 @@ Feature: Kafka Ingestor
             """json
             {
                 "pipeline_id": "test-pipeline-1",
+                "source_type": "kafka",
                 "ingestor": {
                     "type": "kafka",
                     "kafka_connection_params": {
@@ -234,6 +237,7 @@ Feature: Kafka Ingestor
             """json
             {
                 "pipeline_id": "test-pipeline-1",
+                "source_type": "kafka",
                 "ingestor": {
                     "type": "kafka",
                     "kafka_connection_params": {
@@ -305,6 +309,7 @@ Feature: Kafka Ingestor
             """json
             {
                 "pipeline_id": "test-pipeline-1",
+                "source_type": "kafka",
                 "ingestor": {
                     "type": "kafka",
                     "kafka_connection_params": {
@@ -377,6 +382,7 @@ Feature: Kafka Ingestor
             """json
             {
                 "pipeline_id": "test-pipeline-2",
+                "source_type": "kafka",
                 "ingestor": {
                     "type": "kafka",
                     "kafka_connection_params": {
@@ -441,6 +447,7 @@ Feature: Kafka Ingestor
             """json
             {
                 "pipeline_id": "test-pipeline-3",
+                "source_type": "kafka",
                 "ingestor": {
                     "type": "kafka",
                     "kafka_connection_params": {
@@ -525,6 +532,7 @@ Feature: Kafka Ingestor
             """json
             {
                 "pipeline_id": "test-pipeline-4",
+                "source_type": "kafka",
                 "ingestor": {
                     "type": "kafka",
                     "kafka_connection_params": {
@@ -610,6 +618,7 @@ Feature: Kafka Ingestor
             """json
             {
                 "pipeline_id": "test-pipeline-11",
+                "source_type": "kafka",
                 "ingestor": {
                     "type": "kafka",
                     "kafka_connection_params": {
