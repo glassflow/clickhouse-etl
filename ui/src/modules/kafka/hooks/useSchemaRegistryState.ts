@@ -166,11 +166,15 @@ export function useSchemaRegistryState(topicName: string, topicIndex: number): S
       if (data.success && data.fields) {
         const topic = topicsStore.getTopic(topicIndex)
         if (topic) {
+          // Use the resolved version number from the registry (e.g. 1) instead of 'latest'.
+          // V3 generate() excludes 'latest' from the subject:version format, causing bare
+          // schema_version = '1' which the backend can't look up by schema subject.
+          const resolvedVersion = data.version !== undefined ? String(data.version) : selectedVersion
           topicsStore.updateTopic({
             ...topic,
             schemaSource: 'external',
             schemaRegistrySubject: selectedSubject,
-            schemaRegistryVersion: selectedVersion,
+            schemaRegistryVersion: resolvedVersion,
             schema: {
               fields: data.fields.map((f: { name: string; type: string }) => ({
                 name: f.name,
