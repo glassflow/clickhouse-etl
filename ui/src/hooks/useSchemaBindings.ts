@@ -6,6 +6,7 @@ import type { SchemaRegistryFormType } from '@/src/scheme/kafka.scheme'
 
 export interface SchemaBinding {
   topicName: string
+  subject: string
   version: string
   isCurrent: boolean
 }
@@ -86,8 +87,8 @@ export function useSchemaBindings(
           )
           const subjectsToCheck = relevantSubjects.length > 0 ? relevantSubjects : allSubjects
 
-          // Collect all versions across relevant subjects (deduplicated)
-          const versionSet = new Set<string>()
+          // Collect {subject, version} pairs — backend requires "subject:version" format
+          const subjectVersionPairs: Array<{ subject: string; version: string }> = []
           await Promise.all(
             subjectsToCheck.map(async (subject) => {
               try {
@@ -99,7 +100,7 @@ export function useSchemaBindings(
                 const versionsData = await versionsRes.json()
                 if (versionsData.success && Array.isArray(versionsData.versions)) {
                   versionsData.versions.forEach((v: { version: number | string }) => {
-                    versionSet.add(String(v.version))
+                    subjectVersionPairs.push({ subject, version: String(v.version) })
                   })
                 }
               } catch {
@@ -108,35 +109,38 @@ export function useSchemaBindings(
             }),
           )
 
-          if (versionSet.size === 0) return
+          if (subjectVersionPairs.length === 0) return
 
-          // Probe each version against the backend pipeline config
+          // Probe each subject:version against the backend pipeline config
           const probeResults = await Promise.allSettled(
-            Array.from(versionSet).map(async (version) => {
-              const config = await getPipelineForBinding(pipelineId, topicName, version)
+            subjectVersionPairs.map(async (pair) => {
+              const schemaParam = `${pair.subject}:${pair.version}`
+              const config = await getPipelineForBinding(pipelineId, topicName, schemaParam)
               if (!config) return null
-              return version
+              return pair
             }),
           )
 
-          const existingVersions: string[] = probeResults
+          const existingPairs: Array<{ subject: string; version: string }> = probeResults
             .filter((r) => r.status === 'fulfilled' && r.value !== null)
-            .map((r) => (r as PromiseFulfilledResult<string>).value)
+            .map((r) => (r as PromiseFulfilledResult<{ subject: string; version: string }>).value)
 
-          if (existingVersions.length === 0) return
+          if (existingPairs.length === 0) return
 
-          // Sort descending numerically, fallback to string sort
-          existingVersions.sort((a, b) => {
-            const na = parseInt(a, 10)
-            const nb = parseInt(b, 10)
+          // Sort descending by version number, fallback to string sort
+          existingPairs.sort((a, b) => {
+            const na = parseInt(a.version, 10)
+            const nb = parseInt(b.version, 10)
             if (!isNaN(na) && !isNaN(nb)) return nb - na
-            return b.localeCompare(a)
+            return b.version.localeCompare(a.version)
           })
 
-          result[topicName] = existingVersions.map((version) => ({
+          result[topicName] = existingPairs.map((pair) => ({
             topicName,
-            version,
-            isCurrent: version === currentVersion,
+            subject: pair.subject,
+            version: pair.version,
+            // currentVersion from backend is "subject:version"; match accordingly
+            isCurrent: `${pair.subject}:${pair.version}` === currentVersion || pair.version === currentVersion,
           }))
         }),
       )

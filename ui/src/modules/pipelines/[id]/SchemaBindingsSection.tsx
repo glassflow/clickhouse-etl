@@ -73,18 +73,19 @@ const SchemaBindingsSection = forwardRef<SchemaBindingsSectionHandle, SchemaBind
       }
 
       // Load the historical binding
-      setLoadingVersion(binding.version)
+      const schemaParam = `${binding.subject}:${binding.version}`
+      setLoadingVersion(schemaParam)
       try {
-        const config = await getPipelineForBinding(pipelineId, binding.topicName, binding.version)
+        const config = await getPipelineForBinding(pipelineId, binding.topicName, schemaParam)
         if (!config) {
           structuredLogger.warn('SchemaBindingsSection binding config not found', {
             topic: binding.topicName,
-            version: binding.version,
+            version: schemaParam,
           })
           return
         }
         await hydrateFromSchemaBinding(config)
-        coreStore.setSelectedBindingVersion(binding.topicName, binding.version)
+        coreStore.setSelectedBindingVersion(binding.topicName, schemaParam)
       } catch (error) {
         structuredLogger.error('SchemaBindingsSection failed to load binding', {
           topic: binding.topicName,
@@ -144,14 +145,15 @@ const SchemaBindingsSection = forwardRef<SchemaBindingsSectionHandle, SchemaBind
                       )}
                       <div className="flex flex-wrap gap-2">
                         {bindings.map((binding) => {
+                          const bindingId = `${binding.subject}:${binding.version}`
                           const isSelected = selectedVersion
-                            ? selectedVersion === binding.version
+                            ? selectedVersion === bindingId
                             : binding.isCurrent
-                          const isThisLoading = loadingVersion === binding.version
+                          const isThisLoading = loadingVersion === bindingId
 
                           return (
                             <button
-                              key={binding.version}
+                              key={bindingId}
                               disabled={!!loadingVersion}
                               onClick={() => handleSelectBinding(binding)}
                               className={cn(
@@ -159,7 +161,7 @@ const SchemaBindingsSection = forwardRef<SchemaBindingsSectionHandle, SchemaBind
                                 isSelected
                                   ? 'border-[var(--color-border-primary)] bg-[var(--color-bg-primary-faded,hsl(var(--primary)/0.08))] text-[var(--color-foreground-primary,hsl(var(--primary)))] font-medium'
                                   : 'border-border bg-background text-content hover:border-[var(--color-border-primary)] hover:bg-[var(--color-bg-primary-faded,hsl(var(--primary)/0.04))]',
-                                loadingVersion && loadingVersion !== binding.version && 'opacity-50 cursor-not-allowed',
+                                loadingVersion && loadingVersion !== bindingId && 'opacity-50 cursor-not-allowed',
                               )}
                             >
                               {isThisLoading ? (

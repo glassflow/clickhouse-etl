@@ -345,9 +345,12 @@ export class V3PipelineAdapter implements PipelineAdapter {
         regApiSecret = reg.password ?? ''
       }
       output.sources = topics.map((t: any) => {
+        // Backend expects "subject:version" format for registry-sourced topics
         const schemaVersion =
           isRegistrySchema(t.schemaSource) && t.schemaRegistryVersion && t.schemaRegistryVersion !== 'latest'
-            ? t.schemaRegistryVersion
+            ? t.schemaRegistrySubject
+              ? `${t.schemaRegistrySubject}:${t.schemaRegistryVersion}`
+              : t.schemaRegistryVersion
             : (t.schema_version ?? '1')
         return {
           type: 'kafka',
