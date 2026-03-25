@@ -54,9 +54,7 @@ You should see the version number of the installed GlassFlow CLI.
 
 <Steps>
 
-### Step 1: Bring up the services
-
-Run `glassflow up` to create the cluster and install the core services:
+### Step 1: Start GlassFlow
 
 ```bash
 glassflow up
@@ -65,26 +63,36 @@ glassflow up
 This will:
 
 - Create a **Kind** cluster (if needed)
-- Install **GlassFlow ETL** (glassflow namespace) via Helm
-- Install **Kafka** (kafka namespace) and **ClickHouse** (clickhouse namespace) via Helm
-- Wait for all services to be ready (up to ~25 minutes)
+- Download pre-built container images (first run only, cached for future runs)
+- Install **GlassFlow ETL** (API, UI, operator, NATS, PostgreSQL) via Helm
+- Wait for services to be ready
 - Configure port forwarding for UI and API access
 
-**Access GlassFlow services** (available after Step 1; ports may vary if alternatives were chosen):
+Once ready, you can access:
 
 - **GlassFlow UI**: [http://localhost:30080](http://localhost:30080)
 - **GlassFlow API**: [http://localhost:30180](http://localhost:30180)
-- **ClickHouse HTTP**: [http://localhost:30090](http://localhost:30090)
+
+From the UI, you can connect GlassFlow to your own Kafka and ClickHouse instances.
 
 ### Step 2: Set up the demo (optional)
 
-To create a demo pipeline, Kafka topic, ClickHouse table, and a data producer that sends sample events:
+To see data flowing end-to-end with a local Kafka and ClickHouse:
 
 ```bash
 glassflow setup-demo
 ```
 
-This will create a pipeline, create a Kafka topic, create a ClickHouse table, and start a data producer.
+This will:
+
+- Install **Kafka** (kafka namespace) and **ClickHouse** (clickhouse namespace)
+- Create a demo pipeline, ClickHouse table, and Kafka topic
+- Start a data producer that sends sample events
+- Set up port forwarding for ClickHouse HTTP ([http://localhost:30090](http://localhost:30090))
+
+<Callout type="info" emoji="💡">
+You can also run both steps in one command: `glassflow up --demo`
+</Callout>
 
 <Callout type="info" emoji="💡">
 After running `glassflow setup-demo`, a pipeline ingests events from the `demo_events` Kafka topic into the `demo_events` table in ClickHouse. You can view this pipeline in the GlassFlow UI.
@@ -106,11 +114,11 @@ This will stop all running services, remove the Kind cluster, and clean up all r
 
 **After `glassflow up`:**
 
-- **Kind**: Local Kubernetes cluster for running all services
-- **Kafka**: Message broker (kafka namespace, Bitnami Helm chart)
-- **ClickHouse**: Columnar database (clickhouse namespace, Bitnami Helm chart)
-- **GlassFlow ETL**: Real-time streaming ETL service (glassflow namespace, GlassFlow Helm chart)
+- **Kind**: Local Kubernetes cluster
+- **GlassFlow ETL**: Real-time streaming ETL service (API, UI, operator, NATS, PostgreSQL)
 
 **After `glassflow setup-demo` (optional):**
 
-- A demo pipeline, Kafka topic, ClickHouse table, and a data producer that sends sample events
+- **Kafka**: Message broker (kafka namespace, Bitnami Helm chart)
+- **ClickHouse**: Columnar database (clickhouse namespace, Bitnami Helm chart)
+- A demo pipeline, Kafka topic, ClickHouse table, and a data producer
