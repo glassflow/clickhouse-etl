@@ -401,8 +401,11 @@ export const buildInternalPipelineConfig = ({
             ? {
                 schemaRegistry: {
                   url: kafkaStore.schemaRegistry.url ?? '',
+                  authMethod: kafkaStore.schemaRegistry.authMethod,
                   apiKey: kafkaStore.schemaRegistry.apiKey ?? '',
                   apiSecret: kafkaStore.schemaRegistry.apiSecret ?? '',
+                  username: kafkaStore.schemaRegistry.username ?? '',
+                  password: kafkaStore.schemaRegistry.password ?? '',
                 },
               }
             : {}),
