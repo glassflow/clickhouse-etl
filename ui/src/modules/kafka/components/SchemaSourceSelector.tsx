@@ -9,9 +9,10 @@ interface SchemaSourceSelectorProps {
   topicName: string
   topicIndex: number
   readOnly?: boolean
+  liveEvent?: unknown
 }
 
-export function SchemaSourceSelector({ topicName, topicIndex, readOnly }: SchemaSourceSelectorProps) {
+export function SchemaSourceSelector({ topicName, topicIndex, readOnly, liveEvent }: SchemaSourceSelectorProps) {
   const { topicsStore, kafkaStore } = useStore()
   const topic = topicsStore.getTopic(topicIndex)
   // When no topic exists in the store yet (user hasn't selected one), track the
@@ -38,6 +39,7 @@ export function SchemaSourceSelector({ topicName, topicIndex, readOnly }: Schema
     schemaLoaded,
     schemaFieldCount,
     autoResolved,
+    autoResolutionAttempted,
     isResolvingFromEvent,
     fetchSubjects,
     selectSubject,
@@ -61,7 +63,9 @@ export function SchemaSourceSelector({ topicName, topicIndex, readOnly }: Schema
 
   // Auto-resolve from event when raw bytes are available and registry is enabled
   const lastAttemptedRawBase64 = useRef<string | null>(null)
-  const rawBase64 = topic?.selectedEvent?.event?._metadata?.rawBase64
+  // Prefer the live (pre-submit) event; fall back to stored topic event for edit/revisit mode
+  const rawBase64 =
+    (liveEvent as any)?._metadata?.rawBase64 ?? topic?.selectedEvent?.event?._metadata?.rawBase64
 
   useEffect(() => {
     if (!rawBase64 || rawBase64 === lastAttemptedRawBase64.current) return
@@ -94,6 +98,14 @@ export function SchemaSourceSelector({ topicName, topicIndex, readOnly }: Schema
   }
 
   const isRegistryActive = schemaSource === 'external' || schemaSource === 'registry_resolved_from_event'
+
+  const eventAvailable = !!liveEvent || !!topic?.selectedEvent?.event
+  const showNoSchemaWarning =
+    schemaSource === 'internal' &&
+    eventAvailable &&
+    !isResolvingFromEvent &&
+    autoResolved === null &&
+    (rawBase64 ? autoResolutionAttempted : true)
 
   return (
     <div className="space-y-3 pt-2">
@@ -172,6 +184,28 @@ export function SchemaSourceSelector({ topicName, topicIndex, readOnly }: Schema
           <span className="text-sm">Load from Schema Registry</span>
         </label>
       </div>
+
+      {showNoSchemaWarning && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm space-y-1">
+          <div className="font-medium text-amber-800">
+            Schema not found in this event
+          </div>
+          <div className="text-amber-700">
+            No schema information was detected automatically. You can select a schema manually from the registry, or
+            continue — GlassFlow will infer the schema from the event data and you&apos;ll be able to make corrections
+            later.
+          </div>
+          {!readOnly && (
+            <button
+              type="button"
+              onClick={() => handleSchemaSourceChange('external')}
+              className="text-sm font-medium text-amber-900 hover:underline"
+            >
+              Select schema manually
+            </button>
+          )}
+        </div>
+      )}
 
       {schemaSource === 'external' && (
         <div className="pl-6 space-y-3">

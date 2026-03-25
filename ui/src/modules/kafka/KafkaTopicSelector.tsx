@@ -250,7 +250,7 @@ export function KafkaTopicSelector({
 
     return (
       <div className="mt-4">
-        <SchemaSourceSelector topicName={topicName} topicIndex={index} readOnly={readOnly} />
+        <SchemaSourceSelector topicName={topicName} topicIndex={index} readOnly={readOnly} liveEvent={event} />
       </div>
     )
   }

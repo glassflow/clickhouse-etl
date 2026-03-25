@@ -23,6 +23,7 @@ export interface SchemaRegistryStateHook {
   schemaLoaded: boolean
   schemaFieldCount: number
   autoResolved: AutoResolved | null
+  autoResolutionAttempted: boolean
   isResolvingFromEvent: boolean
   fetchSubjects: () => Promise<void>
   selectSubject: (subject: string) => Promise<void>
@@ -55,6 +56,7 @@ export function useSchemaRegistryState(topicName: string, topicIndex: number): S
   const [schemaLoaded, setSchemaLoaded] = useState(initialSchemaLoaded)
   const [schemaFieldCount, setSchemaFieldCount] = useState(initialFieldCount)
   const [autoResolved, setAutoResolved] = useState<AutoResolved | null>(null)
+  const [autoResolutionAttempted, setAutoResolutionAttempted] = useState(false)
   const [isResolvingFromEvent, setIsResolvingFromEvent] = useState(false)
 
   const authBody = {
@@ -210,6 +212,7 @@ export function useSchemaRegistryState(topicName: string, topicIndex: number): S
         setAutoResolved(null)
       } finally {
         setIsResolvingFromEvent(false)
+        setAutoResolutionAttempted(true)
       }
     },
     [schemaRegistry], // eslint-disable-line react-hooks/exhaustive-deps
@@ -246,6 +249,7 @@ export function useSchemaRegistryState(topicName: string, topicIndex: number): S
     schemaLoaded,
     schemaFieldCount,
     autoResolved,
+    autoResolutionAttempted,
     isResolvingFromEvent,
     fetchSubjects,
     selectSubject,
