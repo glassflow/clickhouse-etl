@@ -68,9 +68,6 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
   // Ref for SchemaBindingsSection to allow refreshing after save/deploy
   const schemaBindingsRef = useRef<SchemaBindingsSectionHandle>(null)
 
-  // Determine if this pipeline uses an external schema registry
-  const hasExternalSchema = pipeline.source?.topics?.some((t: any) => t.schema_registry?.url)
-
   // Use the centralized pipeline actions hook to get current pipeline actions status and transitions
   const { actionState } = usePipelineActions(pipeline)
   const operations = usePipelineOperations()
@@ -85,6 +82,13 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
 
   const { coreStore, transformationStore, kafkaStore } = useStore()
   const { mode } = coreStore
+
+  // Determine if this pipeline uses an external schema registry.
+  // Check both the hydrated store (reliable after hydration) and per-topic backend data
+  // (present when the backend returns schema_registry per topic in the pipeline response).
+  const hasExternalSchema =
+    !!kafkaStore.schemaRegistry?.url ||
+    pipeline.source?.topics?.some((t: any) => t.schema_registry?.url)
 
   // Determine if pipeline editing operations should be disabled
   // Consider pipeline status, loading state, AND demo mode

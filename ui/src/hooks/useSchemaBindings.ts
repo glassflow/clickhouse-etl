@@ -71,9 +71,8 @@ export function useSchemaBindings(
       await Promise.all(
         pipeline.source.topics.map(async (topicConfig: any) => {
           const topicName: string = topicConfig.name
-          const registryUrl: string = topicConfig.schema_registry?.url ?? ''
-          if (!registryUrl) return
-
+          // schema_version may come from the backend per-topic field; fall back to empty string
+          // (isCurrent matching is best-effort — the backend may not return this field)
           const currentVersion: string = topicConfig.schema_version ?? ''
 
           // Filter subjects relevant to this topic (match by topic name prefix)
