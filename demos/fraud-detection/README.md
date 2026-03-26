@@ -1,141 +1,88 @@
-# Fraud Detection Demo with GlassFlow and ClickHouse
+# Fraud Detection Demo
 
-Kubernetes-based fraud detection pipeline: Kafka → GlassFlow (filter + dedup) → ClickHouse
+Detect brute-force login attacks using Kafka, GlassFlow, and ClickHouse.
 
-This demo shows how to use GlassFlow to build a real-time fraud detection pipeline for login events. GlassFlow filters out successful logins (keeping only failures) and deduplicates retry events before writing clean data to ClickHouse, where SQL window queries surface brute-force and credential-stuffing patterns.
+GlassFlow sits between Kafka and ClickHouse: it filters out successful logins, deduplicates retried events by `event_id` (1 h window), and delivers only unique failed logins to ClickHouse. Fraud queries then run directly on clean data.
 
-## Requirements
+## Prerequisites
 
-- `kubectl` configured to connect to your cluster
-- `helm` (v3.x)
-- `kind` (Kubernetes in Docker) — for local cluster setup
-- A running Kubernetes cluster (or use kind to create one) with:
-  - **Minimum**: 4 CPU cores, 8 GB RAM
+- [GlassFlow CLI](https://docs.glassflow.dev/installation/cli) installed
+- Docker running
 - Python 3.10+
 
 ## Quick Start
 
+### 1. Start the local environment
+
 ```bash
-# 0. Create a kind cluster (if you don't have one)
-kind create cluster --name demo
-
-# 1. Install the stack (Kafka, ClickHouse, GlassFlow)
-make install-stack
-
-# 2. Port-forward the GlassFlow API
-make pf-glassflow-api   # runs in foreground — open a second terminal for the next steps
-
-# 3. Run the demo (creates table, pipeline, publishes events)
-make deploy-demo
-
-# 4. Query for fraud signals
-make query-fraud
-
-# 5. Tear down
-make delete-stack
-kind delete cluster --name demo
+glassflow up --demo
 ```
 
-Or follow the steps below individually.
+### 2. Configure credentials
 
-## Step-by-step
-
-### 1. Install the stack
+All credentials in `.env` are base64-encoded. The defaults match `glassflow up --demo`.
 
 ```bash
-make install-stack
+cp .env.example .env
+# To encode your own values: echo -n 'my-password' | base64
 ```
 
-This adds the Bitnami and GlassFlow Helm repos, creates namespaces, installs Kafka (no auth), ClickHouse, and GlassFlow, then waits for each component to become ready.
-
-### 2. Port-forward the GlassFlow API
-
-The GlassFlow API is a ClusterIP service. Port-forward it before running any pipeline commands:
+### 3. Create the Kafka topic and ClickHouse table
 
 ```bash
-make pf-glassflow-api   # http://localhost:8081
-```
-
-Optionally, open the GlassFlow UI in a separate terminal:
-
-```bash
-make pf-glassflow-ui    # http://localhost:8080
-```
-
-### 3. Create the ClickHouse table
-
-```bash
-make create-table
+./scripts/create_topic.sh
+./scripts/create_table.sh
 ```
 
 ### 4. Create the GlassFlow pipeline
 
 ```bash
-make create-pipeline
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+.venv/bin/python scripts/create_pipeline.py
 ```
 
-This uses the Python SDK to POST `glassflow/fraud_detection_pipeline.json` to the GlassFlow API.
-
-### 5. Publish login events
-
-Use the pre-built sample dataset or regenerate it:
+### 5. Generate and publish sample events
 
 ```bash
-# Regenerate (optional — data/login-events.ndjson is already included)
-make generate-events
+python3 scripts/generate_login_events.py \
+  --count 40 --duplicates 6 --seed 7 \
+  --output data/login-events.ndjson
 
-# Publish to Kafka
-make publish-events
+./scripts/publish_to_kafka.sh data/login-events.ndjson
 ```
 
-### 6. Run fraud detection queries
+The dataset contains ~21 successful logins, ~19 unique failed logins, and 6 duplicate retries.
+
+### 6. Query for suspicious activity
+
+Wait ~15 seconds for GlassFlow to flush, then:
 
 ```bash
-make query-burst    # 30-second burst detection
-make query-fraud    # 5-minute brute-force window (main demo query)
-make query-hourly   # 1-hour distributed attack view
+./scripts/run_fraud_queries.sh
 ```
 
-### 7. Tear down
-
-Remove only the demo (table + pipeline), keeping the stack running:
+### 7. Clean up
 
 ```bash
-make delete-demo
+glassflow down
 ```
 
-Remove everything:
+## Files
 
-```bash
-make delete-stack
-```
+| Path | Purpose |
+|------|---------|
+| `scripts/generate_login_events.py` | Deterministic login event generator |
+| `scripts/publish_to_kafka.sh` | Publishes NDJSON events to Kafka via `kubectl exec` |
+| `scripts/create_topic.sh` | Creates the `login-attempts` Kafka topic |
+| `scripts/create_table.sh` | Creates the `fraud_login_events` ClickHouse table |
+| `scripts/create_pipeline.py` | Creates the GlassFlow pipeline via the Python SDK |
+| `scripts/run_fraud_queries.sh` | Runs the 5-minute fraud detection query |
+| `glassflow/fraud_detection_pipeline.json` | GlassFlow pipeline config (filter + dedup + sink) |
+| `sql/fraud_detection_queries.sql` | ClickHouse DDL and fraud detection queries (30 s, 5 min, 1 h) |
+| `data/login-events.ndjson` | Pre-generated sample dataset |
 
-## Architecture
+## Resources
 
-```
-LoginEventGenerator → Kafka (login-attempts) → GlassFlow → ClickHouse ← SQL Fraud Queries
-                                                    │
-                                              filter: drop success events
-                                              dedup:  drop retry duplicates (1h window)
-```
-
-## Configuration
-
-- **Helm Values**: `k8s/helm-values/` — Kafka (no auth), ClickHouse, GlassFlow configs
-- **GlassFlow Pipeline**: `glassflow/fraud_detection_pipeline.json` — Kafka source, filter, deduplication, ClickHouse sink
-- **SQL Queries**: `sql/fraud_detection_queries.sql` — table DDL and three fraud detection windows
-- **Event Generator**: `scripts/generate_login_events.py` — deterministic NDJSON generator (seed-based)
-- **Sample Dataset**: `data/login-events.ndjson` — pre-generated dataset (40 events, 6 duplicates, burst pattern)
-
-## Notes
-
-- The sample dataset is deterministic. Re-running the generator with the same `--seed` produces identical events.
-- GlassFlow filters define what to **drop**. The pipeline uses `status != 'failed'` to keep only failed logins.
-- Deduplication uses `event_id` with a 1-hour time window to absorb client retries.
-
-## References
-
-- [Pipeline Configuration Reference](https://docs.glassflow.dev/configuration/pipeline-json-reference)
-- [GlassFlow Python SDK](https://github.com/glassflow/glassflow-python-sdk)
-- [ClickHouse Documentation](https://clickhouse.com/docs/en/)
-- [Kafka Documentation](https://kafka.apache.org/documentation/)
+- [GlassFlow Documentation](https://docs.glassflow.dev/)
+- [Blog: Fraud Detection with Kafka, GlassFlow, and ClickHouse](https://glassflow.dev/blog/fraud-detection)

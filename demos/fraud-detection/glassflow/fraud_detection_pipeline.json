@@ -1,15 +1,17 @@
 {
   "version": "v2",
-  "pipeline_id": "fraud-detection-demo",
-  "name": "Fraud Detection Demo",
+  "pipeline_id": "fraud-detection-logins-tested",
+  "name": "Fraud Detection Logins Tested",
   "source": {
     "type": "kafka",
     "connection_params": {
       "brokers": [
         "kafka.kafka.svc.cluster.local:9092"
       ],
-      "protocol": "PLAINTEXT",
-      "mechanism": "NO_AUTH"
+      "protocol": "SASL_PLAINTEXT",
+      "mechanism": "PLAIN",
+      "username": "${KAFKA_USERNAME}",
+      "password": "${KAFKA_PASSWORD}"
     },
     "topics": [
       {
@@ -34,8 +36,8 @@
     "port": "9000",
     "http_port": "8123",
     "database": "default",
-    "username": "default",
-    "password": "c2VjcmV0",
+    "username": "${CLICKHOUSE_USER}",
+    "password": "${CLICKHOUSE_PASSWORD_B64}",
     "table": "fraud_login_events",
     "secure": false,
     "max_batch_size": 500,
@@ -103,7 +105,7 @@
   },
   "metadata": {
     "tags": [
-      "demo",
+      "tutorial",
       "fraud-detection"
     ]
   }

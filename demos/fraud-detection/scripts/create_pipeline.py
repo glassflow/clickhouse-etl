@@ -1,39 +1,41 @@
 #!/usr/bin/env python3
-"""Create the fraud detection GlassFlow pipeline."""
+"""Create the fraud detection pipeline via the GlassFlow Python SDK."""
 
-from __future__ import annotations
-
-import argparse
+import base64
+import json
+import os
 import sys
-from pathlib import Path
+
+from dotenv import load_dotenv
+from glassflow.etl import Client
+
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description="Create the fraud detection GlassFlow pipeline.")
-    parser.add_argument(
-        "--host",
-        default="http://localhost:8081",
-        help="GlassFlow API host (default: http://localhost:8081)",
-    )
-    parser.add_argument(
-        "--pipeline-json",
-        default="glassflow/fraud_detection_pipeline.json",
-        type=Path,
-        help="Path to the pipeline JSON config",
-    )
-    args = parser.parse_args()
-
-    try:
-        from glassflow.etl import Client  # type: ignore[import]
-    except ImportError:
-        print("glassflow package not found. Run: pip install -r requirements.txt", file=sys.stderr)
-        return 1
-
-    client = Client(host=args.host)
-    pipeline = client.create_pipeline(pipeline_config_json_path=str(args.pipeline_json))
-    print(f"✓ Pipeline created: {pipeline.pipeline_id}  status={pipeline.status}")
-    return 0
+def b64decode(env_var: str) -> str:
+    return base64.b64decode(os.environ[env_var]).decode()
 
 
-if __name__ == "__main__":
-    raise SystemExit(main())
+GLASSFLOW_API = os.environ.get("GLASSFLOW_API", "http://localhost:30180")
+PIPELINE_JSON = os.path.join(
+    os.path.dirname(__file__), "..", "glassflow", "fraud_detection_pipeline.json"
+)
+
+with open(PIPELINE_JSON) as f:
+    raw = f.read()
+
+replacements = {
+    "${KAFKA_USERNAME}": b64decode("KAFKA_USERNAME"),
+    "${KAFKA_PASSWORD}": b64decode("KAFKA_PASSWORD"),
+    "${CLICKHOUSE_USER}": b64decode("CLICKHOUSE_USER"),
+    "${CLICKHOUSE_PASSWORD_B64}": os.environ["CLICKHOUSE_PASSWORD"],
+}
+for placeholder, value in replacements.items():
+    raw = raw.replace(placeholder, value)
+
+config = json.loads(raw)
+
+client = Client(host=GLASSFLOW_API)
+pipeline = client.create_pipeline(config)
+print(f"Pipeline created: {pipeline.pipeline_id} ({pipeline.status})")
+sys.exit(0)
