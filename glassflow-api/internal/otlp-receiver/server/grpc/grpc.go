@@ -22,16 +22,16 @@ type OTLPDataProcessor interface {
 func NewGRPCServer(
 	addr string,
 	_ *slog.Logger,
-	_ OTLPDataProcessor,
+	processor OTLPDataProcessor,
 ) (*grpc.Server, *health.Server, net.Listener, error) {
 	grpcServer := grpc.NewServer()
 
 	grpcHealth := health.NewServer()
 	grpcHealth.SetServingStatus("", healthpb.HealthCheckResponse_NOT_SERVING)
 	healthpb.RegisterHealthServer(grpcServer, grpcHealth)
-	coltracepb.RegisterTraceServiceServer(grpcServer, &traceServiceServer{})
-	collogspb.RegisterLogsServiceServer(grpcServer, &logServiceServer{})
-	colmetricspb.RegisterMetricsServiceServer(grpcServer, &metricServiceServer{})
+	coltracepb.RegisterTraceServiceServer(grpcServer, &traceServiceServer{processor: processor})
+	collogspb.RegisterLogsServiceServer(grpcServer, &logServiceServer{processor: processor})
+	colmetricspb.RegisterMetricsServiceServer(grpcServer, &metricServiceServer{processor: processor})
 
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {

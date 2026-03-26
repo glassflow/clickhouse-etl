@@ -239,6 +239,8 @@ const (
 
 	// Schema version id NATS header
 	SchemaVersionIDHeader = "Schema-Version-Id"
+
+	OTLPPipelineIDHeader = "x-glassflow-pipeline-id"
 )
 
 // IsFixedStringType reports whether t is a ClickHouse FixedString type (with or without length).
