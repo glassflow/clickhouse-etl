@@ -73,7 +73,8 @@ const SchemaBindingsSection = forwardRef<SchemaBindingsSectionHandle, SchemaBind
       }
 
       // Load the historical binding
-      const schemaParam = `${binding.subject}:${binding.version}`
+      // Format: "topicName:subject:version" — backend splits on first colon to get sourceID=topicName
+      const schemaParam = `${binding.topicName}:${binding.subject}:${binding.version}`
       setLoadingVersion(schemaParam)
       try {
         const config = await getPipelineForBinding(pipelineId, binding.topicName, schemaParam)

@@ -153,7 +153,24 @@ export class V3PipelineAdapter implements PipelineAdapter {
           deduplication: { enabled: false, id_field: '', id_field_type: 'string', time_window: '1h' },
           ...(s.schema_version != null ? { schema_version: s.schema_version } : {}),
           ...(s.schema_registry != null ? { schema_registry: s.schema_registry } : {}),
+          // Infer schemaSource so generate() can reconstruct schema_version in subject:version format
+          ...(s.schema_registry?.url ? { schemaSource: 'external' } : {}),
         })),
+      }
+
+      // Extract registry credentials from the first topic that has them into source.schemaRegistry
+      // so that the hydrate→generate round-trip (download, edit/resume) preserves credentials.
+      const firstRegSource = kafkaSources.find((s: any) => s.schema_registry?.url)
+      if (firstRegSource) {
+        const sr = firstRegSource.schema_registry
+        internalSource.schemaRegistry = {
+          url: sr.url ?? '',
+          authMethod: sr.api_key ? 'api_key' : 'none',
+          apiKey: sr.api_key ?? '',
+          apiSecret: sr.api_secret ?? '',
+          username: '',
+          password: '',
+        }
       }
     }
 
