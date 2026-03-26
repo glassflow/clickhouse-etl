@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 )
 
 type Fetcher struct {
@@ -32,6 +33,10 @@ func (f *Fetcher) GetOTLPConfig(
 		return models.OTLPConfig{}, fmt.Errorf("fetch otlp config: %w", err)
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return models.OTLPConfig{}, service.ErrPipelineNotFound
+	}
 
 	if resp.StatusCode != http.StatusOK {
 		return models.OTLPConfig{}, fmt.Errorf("unexpected status %d", resp.StatusCode)
