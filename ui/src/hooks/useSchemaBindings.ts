@@ -111,10 +111,13 @@ export function useSchemaBindings(
 
           if (subjectVersionPairs.length === 0) return
 
-          // Probe each subject:version against the backend pipeline config
+          // Probe each subject:version against the backend pipeline config.
+          // The backend's parseSchemaQueryParams splits on the FIRST colon:
+          //   "topicName:subject:version" → sourceID="topicName", versionID="subject:version"
+          // schemaVersions is keyed by topic name, so sourceID must match.
           const probeResults = await Promise.allSettled(
             subjectVersionPairs.map(async (pair) => {
-              const schemaParam = `${pair.subject}:${pair.version}`
+              const schemaParam = `${topicName}:${pair.subject}:${pair.version}`
               const config = await getPipelineForBinding(pipelineId, topicName, schemaParam)
               if (!config) return null
               return pair
