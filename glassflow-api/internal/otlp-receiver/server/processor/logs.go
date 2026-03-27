@@ -7,6 +7,7 @@ import (
 	collogspb "go.opentelemetry.io/proto/otlp/collector/logs/v1"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/otlp-receiver/server/processor/flattener"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 )
 
 func (p *Processor) ProcessLogs(
@@ -19,5 +20,15 @@ func (p *Processor) ProcessLogs(
 		return fmt.Errorf("FlattenLogs: %w", err)
 	}
 
-	return p.sendBatch(ctx, pipelineID, messages)
+	err = p.sendBatch(
+		ctx,
+		observability.MetricComponentOTLPLogs,
+		pipelineID,
+		messages,
+	)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
