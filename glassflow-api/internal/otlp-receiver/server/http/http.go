@@ -62,6 +62,7 @@ func NewHTTPServer(
 	registerHumaHandler("/healthz", h.healthz, healthzOperation(), humaAPI)
 	registerHumaHandler("/readyz", h.readyz, readyzOperation(), humaAPI)
 
+	r.Use(otlpMetricsMiddleware)
 	r.Handle("/v1/traces", nethttp.HandlerFunc(h.exportTraces)).Methods(nethttp.MethodPost)
 	r.Handle("/v1/metrics", nethttp.HandlerFunc(h.exportMetrics)).Methods(nethttp.MethodPost)
 	r.Handle("/v1/logs", nethttp.HandlerFunc(h.exportLogs)).Methods(nethttp.MethodPost)

@@ -15,6 +15,18 @@ import (
 
 const GfMetricPrefix = "gfm"
 
+type MetricComponent string
+
+const (
+	MetricComponentOTLPLogs    MetricComponent = "otlp.logs"
+	MetricComponentOTLPMetrics MetricComponent = "otlp.metrics"
+	MetricComponentOTLPTraces  MetricComponent = "otlp.traces"
+)
+
+func (mc MetricComponent) String() string {
+	return string(mc)
+}
+
 // Package-level instrument vars (nil when metrics disabled).
 var (
 	KafkaRecordsRead         metric.Int64Counter
@@ -26,6 +38,8 @@ var (
 	HTTPRequestCount         metric.Int64Counter
 	HTTPRequestDuration      metric.Float64Histogram
 	BytesProcessed           metric.Int64Counter
+	ReceiverRequestCount     metric.Int64Counter
+	ReceiverRequestDuration  metric.Float64Histogram
 )
 
 // pipelineID is set once at component startup (not used by the API which handles multiple pipelines).
@@ -91,6 +105,10 @@ func InitMetrics(cfg *Config) error {
 		"Total number of messages processed by processor")
 	BytesProcessed = mustCreateCounter(m, GfMetricPrefix+"_"+"bytes_processed_total",
 		"Total bytes processed by component and direction")
+	ReceiverRequestCount = mustCreateCounter(m, GfMetricPrefix+"_"+"receiver_request_count",
+		"Total number of requests received by the receiver")
+	ReceiverRequestDuration = mustCreateHistogram(m, GfMetricPrefix+"_"+"receiver_request_duration_seconds",
+		"Duration of receiver requests in seconds")
 
 	return nil
 }
@@ -218,6 +236,17 @@ func RecordBytesProcessed(ctx context.Context, component, direction string, byte
 	))
 }
 
+func RecordBytesProcessedByPipelineID(ctx context.Context, component, direction, pid string, bytes int64) {
+	if BytesProcessed == nil {
+		return
+	}
+	BytesProcessed.Add(ctx, bytes, metric.WithAttributes(
+		attribute.String("component", component),
+		attribute.String("pipeline_id", pid),
+		attribute.String("direction", direction),
+	))
+}
+
 func RecordHTTPRequest(ctx context.Context, method, route string, status int, duration float64) {
 	attrs := []attribute.KeyValue{
 		attribute.String("method", method),
@@ -229,5 +258,20 @@ func RecordHTTPRequest(ctx context.Context, method, route string, status int, du
 	}
 	if HTTPRequestDuration != nil {
 		HTTPRequestDuration.Record(ctx, duration, metric.WithAttributes(attrs...))
+	}
+}
+
+func RecordReceiverRequest(ctx context.Context, component, transport, status, pid string, duration float64) {
+	attrs := []attribute.KeyValue{
+		attribute.String("component", component),
+		attribute.String("pipeline_id", pid),
+		attribute.String("transport", transport),
+		attribute.String("status", status),
+	}
+	if ReceiverRequestCount != nil {
+		ReceiverRequestCount.Add(ctx, 1, metric.WithAttributes(attrs...))
+	}
+	if ReceiverRequestDuration != nil {
+		ReceiverRequestDuration.Record(ctx, duration, metric.WithAttributes(attrs...))
 	}
 }

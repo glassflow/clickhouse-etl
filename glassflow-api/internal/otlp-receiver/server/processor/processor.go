@@ -15,6 +15,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 	subjectrouter "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/subject/router"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 )
 
 type OTLPConfigFetcher interface {
@@ -90,8 +91,13 @@ func (p *Processor) invalidateNatsWriter(pipelineID string) {
 	delete(p.natsWriterCache, pipelineID)
 }
 
-func (p *Processor) sendBatch(ctx context.Context, pipelineID string, messages []models.Message) error {
-	return retry.Do(
+func (p *Processor) sendBatch(
+	ctx context.Context,
+	component observability.MetricComponent,
+	pipelineID string,
+	messages []models.Message,
+) error {
+	err := retry.Do(
 		func() error {
 			natsWriter, err := p.getNatsWriter(ctx, pipelineID)
 			if err != nil {
@@ -114,6 +120,18 @@ func (p *Processor) sendBatch(ctx context.Context, pipelineID string, messages [
 		retry.Delay(time.Second),
 		retry.LastErrorOnly(true),
 	)
+	if err != nil {
+		return err
+	}
+
+	var bytesOut int64
+	for _, msg := range messages {
+		bytesOut += int64(len(msg.Payload()))
+	}
+	observability.RecordBytesProcessed(ctx, component.String(), "out", bytesOut)
+	observability.RecordProcessorMessages(ctx, component.String(), "out", int64(len(messages)))
+
+	return nil
 }
 
 func extractMessages(failed []models.FailedMessage) []models.Message {
