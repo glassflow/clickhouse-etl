@@ -37,7 +37,7 @@
     "http_port": "8123",
     "database": "default",
     "username": "${CLICKHOUSE_USER}",
-    "password": "${CLICKHOUSE_PASSWORD_B64}",
+    "password": "${CLICKHOUSE_PASSWORD}",
     "table": "fraud_login_events",
     "secure": false,
     "max_batch_size": 500,

@@ -11,17 +11,14 @@ fi
 : "${CLICKHOUSE_USER:?Set CLICKHOUSE_USER in .env or environment}"
 : "${CLICKHOUSE_PASSWORD:?Set CLICKHOUSE_PASSWORD in .env or environment}"
 
-CH_USER_PLAIN=$(echo "$CLICKHOUSE_USER" | base64 -d)
-CH_PASS_PLAIN=$(echo "$CLICKHOUSE_PASSWORD" | base64 -d)
-
 SQL_FILE="${SCRIPT_DIR}/../sql/fraud_detection_queries.sql"
 
 # Extract only the CREATE TABLE statement (first statement, up to the first semicolon)
 CREATE_STMT=$(sed -n '1,/;/p' "$SQL_FILE")
 
 kubectl exec -n clickhouse svc/clickhouse -- clickhouse-client \
-  --user "$CH_USER_PLAIN" \
-  --password "$CH_PASS_PLAIN" \
+  --user "$CLICKHOUSE_USER" \
+  --password "$CLICKHOUSE_PASSWORD" \
   --query "$CREATE_STMT"
 
 echo "Table 'fraud_login_events' ready."

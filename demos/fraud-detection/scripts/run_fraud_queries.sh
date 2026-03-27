@@ -11,13 +11,10 @@ fi
 : "${CLICKHOUSE_USER:?Set CLICKHOUSE_USER in .env or environment}"
 : "${CLICKHOUSE_PASSWORD:?Set CLICKHOUSE_PASSWORD in .env or environment}"
 
-CH_USER_PLAIN=$(echo "$CLICKHOUSE_USER" | base64 -d)
-CH_PASS_PLAIN=$(echo "$CLICKHOUSE_PASSWORD" | base64 -d)
-
 echo "=== 5-minute window: suspicious login activity ==="
 kubectl exec -n clickhouse svc/clickhouse -- clickhouse-client \
-  --user "$CH_USER_PLAIN" \
-  --password "$CH_PASS_PLAIN" \
+  --user "$CLICKHOUSE_USER" \
+  --password "$CLICKHOUSE_PASSWORD" \
   --query "
 SELECT
     toStartOfInterval(event_time, INTERVAL 5 MINUTE) AS window_start,

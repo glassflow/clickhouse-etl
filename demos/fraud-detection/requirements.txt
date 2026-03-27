@@ -1,2 +1,3 @@
 glassflow>=3.6.0
+glassgen==0.3.0
 python-dotenv

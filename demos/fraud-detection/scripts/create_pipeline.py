@@ -12,10 +12,6 @@ from glassflow.etl import Client
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 
-def b64decode(env_var: str) -> str:
-    return base64.b64decode(os.environ[env_var]).decode()
-
-
 GLASSFLOW_API = os.environ.get("GLASSFLOW_API", "http://localhost:30180")
 PIPELINE_JSON = os.path.join(
     os.path.dirname(__file__), "..", "glassflow", "fraud_detection_pipeline.json"
@@ -24,11 +20,15 @@ PIPELINE_JSON = os.path.join(
 with open(PIPELINE_JSON) as f:
     raw = f.read()
 
+# ClickHouse sink expects the password field as base64 in the API payload; keep .env plaintext for scripts.
+_ch_pw = os.environ["CLICKHOUSE_PASSWORD"]
+_clickhouse_password_b64 = base64.b64encode(_ch_pw.encode()).decode()
+
 replacements = {
-    "${KAFKA_USERNAME}": b64decode("KAFKA_USERNAME"),
-    "${KAFKA_PASSWORD}": b64decode("KAFKA_PASSWORD"),
-    "${CLICKHOUSE_USER}": b64decode("CLICKHOUSE_USER"),
-    "${CLICKHOUSE_PASSWORD_B64}": os.environ["CLICKHOUSE_PASSWORD"],
+    "${KAFKA_USERNAME}": os.environ["KAFKA_USERNAME"],
+    "${KAFKA_PASSWORD}": os.environ["KAFKA_PASSWORD"],
+    "${CLICKHOUSE_USER}": os.environ["CLICKHOUSE_USER"],
+    "${CLICKHOUSE_PASSWORD}": _clickhouse_password_b64,
 }
 for placeholder, value in replacements.items():
     raw = raw.replace(placeholder, value)

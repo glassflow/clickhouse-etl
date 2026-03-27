@@ -11,9 +11,6 @@ fi
 : "${KAFKA_USERNAME:?Set KAFKA_USERNAME in .env or environment}"
 : "${KAFKA_PASSWORD:?Set KAFKA_PASSWORD in .env or environment}"
 
-KAFKA_USERNAME_PLAIN=$(echo "$KAFKA_USERNAME" | base64 -d)
-KAFKA_PASSWORD_PLAIN=$(echo "$KAFKA_PASSWORD" | base64 -d)
-
 if [[ $# -lt 1 ]]; then
   echo "Usage: $0 <events.ndjson> [topic-name]" >&2
   exit 1
@@ -31,7 +28,7 @@ kubectl exec -i -n kafka svc/kafka -- bash -c "
 cat > /tmp/client.properties <<'EOF'
 security.protocol=SASL_PLAINTEXT
 sasl.mechanism=PLAIN
-sasl.jaas.config=org.apache.kafka.common.security.plain.PlainLoginModule required username=\"${KAFKA_USERNAME_PLAIN}\" password=\"${KAFKA_PASSWORD_PLAIN}\";
+sasl.jaas.config=org.apache.kafka.common.security.plain.PlainLoginModule required username=\"${KAFKA_USERNAME}\" password=\"${KAFKA_PASSWORD}\";
 EOF
 kafka-console-producer.sh --bootstrap-server kafka.kafka.svc.cluster.local:9092 \
   --producer.config /tmp/client.properties \

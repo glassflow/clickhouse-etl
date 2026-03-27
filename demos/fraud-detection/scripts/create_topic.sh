@@ -11,15 +11,12 @@ fi
 : "${KAFKA_USERNAME:?Set KAFKA_USERNAME in .env or environment}"
 : "${KAFKA_PASSWORD:?Set KAFKA_PASSWORD in .env or environment}"
 
-KAFKA_USERNAME_PLAIN=$(echo "$KAFKA_USERNAME" | base64 -d)
-KAFKA_PASSWORD_PLAIN=$(echo "$KAFKA_PASSWORD" | base64 -d)
-
 TOPIC_NAME="${1:-login-attempts}"
 
 kubectl exec -n kafka svc/kafka -- bash -c "cat > /tmp/client.properties << EOF
 security.protocol=SASL_PLAINTEXT
 sasl.mechanism=SCRAM-SHA-256
-sasl.jaas.config=org.apache.kafka.common.security.scram.ScramLoginModule required username=\"${KAFKA_USERNAME_PLAIN}\" password=\"${KAFKA_PASSWORD_PLAIN}\";
+sasl.jaas.config=org.apache.kafka.common.security.scram.ScramLoginModule required username=\"${KAFKA_USERNAME}\" password=\"${KAFKA_PASSWORD}\";
 EOF
 kafka-topics.sh --bootstrap-server kafka.kafka.svc.cluster.local:9092 \
   --command-config /tmp/client.properties \
