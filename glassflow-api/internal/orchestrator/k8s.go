@@ -498,16 +498,29 @@ func (k *K8sOrchestrator) EditPipeline(ctx context.Context, pipelineID string, n
 
 // buildPipelineSpec creates a complete PipelineSpec from a PipelineConfig
 func (k *K8sOrchestrator) buildPipelineSpec(ctx context.Context, cfg *models.PipelineConfig) (map[string]any, error) {
-	// Build source streams
-	src := make([]operator.SourceStream, 0, len(cfg.Ingestor.KafkaTopics))
-	for _, s := range cfg.Ingestor.KafkaTopics {
-		src = append(src, operator.SourceStream{
-			TopicName:   s.Name,
-			DedupWindow: s.Deduplication.Window.Duration(),
-			Deduplication: &operator.Deduplication{
-				Enabled: s.Deduplication.Enabled || cfg.StatelessTransformation.Enabled || cfg.Filter.Enabled,
-			},
-		})
+	var src []operator.SourceStream
+	var sourceType string
+	var isDedupEnabled bool
+
+	if internal.IsOTLPSourceType(cfg.SourceType) {
+		sourceType = internal.OTLPSourceType + "." + cfg.OTLPSource.DataType
+		isDedupEnabled = cfg.OTLPSource.Deduplication.Enabled
+	} else {
+		sourceType = cfg.Ingestor.Type
+		src = make([]operator.SourceStream, 0, len(cfg.Ingestor.KafkaTopics))
+		for _, s := range cfg.Ingestor.KafkaTopics {
+			sDedupEnabled := s.Deduplication.Enabled || cfg.StatelessTransformation.Enabled || cfg.Filter.Enabled
+			src = append(src, operator.SourceStream{
+				TopicName:   s.Name,
+				DedupWindow: s.Deduplication.Window.Duration(),
+				Deduplication: &operator.Deduplication{
+					Enabled: sDedupEnabled,
+				},
+			})
+		}
+		if len(src) > 0 {
+			isDedupEnabled = src[0].Deduplication.Enabled
+		}
 	}
 
 	operatorResources, err := toOperatorResources(cfg.PipelineResources)
@@ -517,8 +530,8 @@ func (k *K8sOrchestrator) buildPipelineSpec(ctx context.Context, cfg *models.Pip
 
 	spec := operator.PipelineSpec{
 		ID: cfg.ID,
-		Ingestor: operator.Sources{
-			Type:    cfg.Ingestor.Type,
+		Source: operator.Sources{
+			Type:    sourceType,
 			Streams: src,
 		},
 		Join: operator.Join{
@@ -531,7 +544,7 @@ func (k *K8sOrchestrator) buildPipelineSpec(ctx context.Context, cfg *models.Pip
 			Type: cfg.Sink.Type,
 		},
 		Transform: operator.Transform{
-			IsDedupEnabled:              src[0].Deduplication.Enabled,
+			IsDedupEnabled:              isDedupEnabled,
 			IsFilterEnabled:             cfg.Filter.Enabled,
 			IsStatelessTransformEnabled: cfg.StatelessTransformation.Enabled,
 		},
