@@ -47,12 +47,7 @@ func NewPostgres(ctx context.Context, dsn string, logger *slog.Logger, encryptio
 	}
 	config.MaxConnLifetime = 5 * time.Minute
 
-	// Use the simple query protocol so that PGBouncer transaction pooling works
-	// correctly. Named prepared statements (the pgx default) are connection-scoped
-	// and incompatible with transaction pooling — connections are shared across
-	// clients and a prepared statement created on one may not exist on another.
-	// Simple protocol re-sends the full SQL text per query, which is compatible
-	// with both direct PostgreSQL connections and PGBouncer in any pool mode.
+	// Since we use pgbouncer pool, prepared statements might fail
 	config.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
 
 	var pool *pgxpool.Pool
