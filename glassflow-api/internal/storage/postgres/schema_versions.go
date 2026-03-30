@@ -52,7 +52,7 @@ func (s *PostgresStorage) upsertSchemaVersion(ctx context.Context, tx pgx.Tx, pi
 		ON CONFLICT (pipeline_id, source_id, version_id)
 		DO UPDATE SET fields = EXCLUDED.fields, updated_at = NOW()
 		RETURNING version_id
-	`, pipelineID, sourceID, version, fieldsJSON).Scan(&versionID)
+	`, pipelineID, sourceID, version, string(fieldsJSON)).Scan(&versionID)
 	if err != nil {
 		return "", fmt.Errorf("upsert schema version: %w", err)
 	}

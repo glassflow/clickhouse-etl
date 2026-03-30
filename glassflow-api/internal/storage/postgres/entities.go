@@ -127,7 +127,7 @@ func (s *PostgresStorage) insertSource(ctx context.Context, tx pgx.Tx, sourceTyp
 		INSERT INTO sources (type, connection_id, config)
 		VALUES ($1, $2, $3)
 		RETURNING id
-	`, sourceType, connIDParam, configJSON).Scan(&sourceID)
+	`, sourceType, connIDParam, string(configJSON)).Scan(&sourceID)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to insert source",
 			slog.String("source_type", sourceType),
@@ -155,7 +155,7 @@ func (s *PostgresStorage) updateSource(ctx context.Context, tx pgx.Tx, sourceID 
 		UPDATE sources
 		SET config = $1, updated_at = NOW()
 		WHERE id = $2
-	`, configJSON, sourceID)
+	`, string(configJSON), sourceID)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to update source",
 			slog.String("source_id", sourceID.String()),
@@ -185,7 +185,7 @@ func (s *PostgresStorage) insertSink(ctx context.Context, tx pgx.Tx, sinkType st
 		INSERT INTO sinks (type, connection_id, config)
 		VALUES ($1, $2, $3)
 		RETURNING id
-	`, sinkType, connID, configJSON).Scan(&sinkID)
+	`, sinkType, connID, string(configJSON)).Scan(&sinkID)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to insert sink",
 			slog.String("sink_type", sinkType),
@@ -213,7 +213,7 @@ func (s *PostgresStorage) updateSink(ctx context.Context, tx pgx.Tx, sinkID uuid
 		UPDATE sinks
 		SET config = $1, updated_at = NOW()
 		WHERE id = $2
-	`, configJSON, sinkID)
+	`, string(configJSON), sinkID)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to update sink",
 			slog.String("sink_id", sinkID.String()),
@@ -241,7 +241,7 @@ func (s *PostgresStorage) insertTransformation(ctx context.Context, tx pgx.Tx, t
 		INSERT INTO transformations (type, config)
 		VALUES ($1, $2)
 		RETURNING id
-	`, transType, configJSON).Scan(&transID)
+	`, transType, string(configJSON)).Scan(&transID)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to insert transformation",
 			slog.String("transformation_type", transType),
@@ -266,7 +266,7 @@ func (s *PostgresStorage) updateTransformation(ctx context.Context, tx pgx.Tx, t
 		UPDATE transformations
 		SET config = $1, updated_at = NOW()
 		WHERE id = $2
-	`, configJSON, transID)
+	`, string(configJSON), transID)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to update transformation",
 			slog.String("transformation_id", transID.String()),
