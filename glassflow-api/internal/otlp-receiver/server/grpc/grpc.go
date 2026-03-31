@@ -24,7 +24,7 @@ func NewGRPCServer(
 	_ *slog.Logger,
 	processor OTLPDataProcessor,
 ) (*grpc.Server, *health.Server, net.Listener, error) {
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(otlpMetricsInterceptor))
 
 	grpcHealth := health.NewServer()
 	grpcHealth.SetServingStatus("", healthpb.HealthCheckResponse_NOT_SERVING)
