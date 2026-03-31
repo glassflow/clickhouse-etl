@@ -106,7 +106,7 @@ func getEntityWithConnection(
 // ------------------------------------------------------------------------------------------------
 
 // insertSource inserts a source. connID may be nil for OTLP sources (no Kafka connection).
-func (s *PostgresStorage) insertSource(ctx context.Context, tx pgx.Tx, sourceType string, connID *uuid.UUID, streams map[string]models.StreamSchemaConfig) (uuid.UUID, error) {
+func (s *PostgresStorage) insertSource(ctx context.Context, tx pgx.Tx, pipelineID string, sourceType string, connID *uuid.UUID, streams map[string]models.StreamSchemaConfig) (uuid.UUID, error) {
 	configJSON, err := json.Marshal(map[string]any{
 		"streams": streams,
 	})
@@ -124,10 +124,10 @@ func (s *PostgresStorage) insertSource(ctx context.Context, tx pgx.Tx, sourceTyp
 
 	var sourceID uuid.UUID
 	err = tx.QueryRow(ctx, `
-		INSERT INTO sources (type, connection_id, config)
-		VALUES ($1, $2, $3)
+		INSERT INTO sources (type, connection_id, config, pipeline_id)
+		VALUES ($1, $2, $3, $4)
 		RETURNING id
-	`, sourceType, connIDParam, string(configJSON)).Scan(&sourceID)
+	`, sourceType, connIDParam, string(configJSON),pipelineID).Scan(&sourceID)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to insert source",
 			slog.String("source_type", sourceType),
@@ -169,7 +169,7 @@ func (s *PostgresStorage) updateSource(ctx context.Context, tx pgx.Tx, sourceID 
 // ------------------------------------------------------------------------------------------------
 
 // insertSink inserts a sink
-func (s *PostgresStorage) insertSink(ctx context.Context, tx pgx.Tx, sinkType string, connID uuid.UUID, sinkMapping []models.SinkMappingConfig) (uuid.UUID, error) {
+func (s *PostgresStorage) insertSink(ctx context.Context, tx pgx.Tx, pipelineID string, sinkType string, connID uuid.UUID, sinkMapping []models.SinkMappingConfig) (uuid.UUID, error) {
 	configJSON, err := json.Marshal(map[string]interface{}{
 		"sink_mapping": sinkMapping,
 	})
@@ -182,10 +182,10 @@ func (s *PostgresStorage) insertSink(ctx context.Context, tx pgx.Tx, sinkType st
 
 	var sinkID uuid.UUID
 	err = tx.QueryRow(ctx, `
-		INSERT INTO sinks (type, connection_id, config)
-		VALUES ($1, $2, $3)
+		INSERT INTO sinks (type, connection_id, config, pipeline_id)
+		VALUES ($1, $2, $3, $4)
 		RETURNING id
-	`, sinkType, connID, string(configJSON)).Scan(&sinkID)
+	`, sinkType, connID, string(configJSON),pipelineID).Scan(&sinkID)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to insert sink",
 			slog.String("sink_type", sinkType),
@@ -227,7 +227,7 @@ func (s *PostgresStorage) updateSink(ctx context.Context, tx pgx.Tx, sinkID uuid
 // ------------------------------------------------------------------------------------------------
 
 // insertTransformation inserts a transformation entity
-func (s *PostgresStorage) insertTransformation(ctx context.Context, tx pgx.Tx, transType string, config interface{}) (uuid.UUID, error) {
+func (s *PostgresStorage) insertTransformation(ctx context.Context, tx pgx.Tx, pipelineID string, transType string, config interface{}) (uuid.UUID, error) {
 	configJSON, err := json.Marshal(config)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to marshal transformation config",
@@ -238,10 +238,10 @@ func (s *PostgresStorage) insertTransformation(ctx context.Context, tx pgx.Tx, t
 
 	var transID uuid.UUID
 	err = tx.QueryRow(ctx, `
-		INSERT INTO transformations (type, config)
-		VALUES ($1, $2)
+		INSERT INTO transformations (type, config, pipeline_id)
+		VALUES ($1, $2, $3)
 		RETURNING id
-	`, transType, string(configJSON)).Scan(&transID)
+	`, transType, string(configJSON),pipelineID).Scan(&transID)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to insert transformation",
 			slog.String("transformation_type", transType),
@@ -318,7 +318,7 @@ func (s *PostgresStorage) upsertTransformationEntity(
 	}
 
 	// Insert new transformation
-	transID, err := s.insertTransformation(ctx, tx, transType, config)
+	transID, err := s.insertTransformation(ctx, tx, pipelineID, transType, config)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to insert transformation",
 			slog.String("pipeline_id", pipelineID),
@@ -640,7 +640,7 @@ func (s *PostgresStorage) insertTransformationsFromPipeline(ctx context.Context,
 	// Deduplication transformation (from topics)
 	for _, topic := range p.Ingestor.KafkaTopics {
 		if topic.Deduplication.Enabled {
-			dedupID, err := s.insertTransformation(ctx, tx, "deduplication", topic.Deduplication)
+			dedupID, err := s.insertTransformation(ctx, tx, p.ID, "deduplication", topic.Deduplication)
 			if err != nil {
 				s.logger.ErrorContext(ctx, "failed to insert deduplication transformation",
 					slog.String("pipeline_id", p.ID),
@@ -654,7 +654,7 @@ func (s *PostgresStorage) insertTransformationsFromPipeline(ctx context.Context,
 
 	// Filter transformation
 	if p.Filter.Enabled {
-		filterID, err := s.insertTransformation(ctx, tx, "filter", p.Filter)
+		filterID, err := s.insertTransformation(ctx, tx, p.ID, "filter", p.Filter)
 		if err != nil {
 			s.logger.ErrorContext(ctx, "failed to insert filter transformation",
 				slog.String("pipeline_id", p.ID),
@@ -666,7 +666,7 @@ func (s *PostgresStorage) insertTransformationsFromPipeline(ctx context.Context,
 
 	// Stateless transformation
 	if p.StatelessTransformation.Enabled {
-		statelessID, err := s.insertTransformation(ctx, tx, "stateless_transformation", p.StatelessTransformation)
+		statelessID, err := s.insertTransformation(ctx, tx, p.ID, "stateless_transformation", p.StatelessTransformation)
 		if err != nil {
 			s.logger.ErrorContext(ctx, "failed to insert stateless transformation",
 				slog.String("pipeline_id", p.ID),
@@ -678,7 +678,7 @@ func (s *PostgresStorage) insertTransformationsFromPipeline(ctx context.Context,
 
 	// Join transformation
 	if p.Join.Enabled {
-		joinID, err := s.insertTransformation(ctx, tx, "join", p.Join)
+		joinID, err := s.insertTransformation(ctx, tx, p.ID, "join", p.Join)
 		if err != nil {
 			s.logger.ErrorContext(ctx, "failed to insert join transformation",
 				slog.String("pipeline_id", p.ID),

@@ -1,5 +1,4 @@
 export default {
     'web-ui': '',
-    'python-sdk': '',
-    'scaling': ''
+    'python-sdk': ''
 }
