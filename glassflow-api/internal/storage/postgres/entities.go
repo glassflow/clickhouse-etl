@@ -127,7 +127,7 @@ func (s *PostgresStorage) insertSource(ctx context.Context, tx pgx.Tx, pipelineI
 		INSERT INTO sources (type, connection_id, config, pipeline_id)
 		VALUES ($1, $2, $3, $4)
 		RETURNING id
-	`, sourceType, connIDParam, string(configJSON),pipelineID).Scan(&sourceID)
+	`, sourceType, connIDParam, string(configJSON), pipelineID).Scan(&sourceID)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to insert source",
 			slog.String("source_type", sourceType),
@@ -185,7 +185,7 @@ func (s *PostgresStorage) insertSink(ctx context.Context, tx pgx.Tx, pipelineID 
 		INSERT INTO sinks (type, connection_id, config, pipeline_id)
 		VALUES ($1, $2, $3, $4)
 		RETURNING id
-	`, sinkType, connID, string(configJSON),pipelineID).Scan(&sinkID)
+	`, sinkType, connID, string(configJSON), pipelineID).Scan(&sinkID)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to insert sink",
 			slog.String("sink_type", sinkType),
@@ -241,7 +241,7 @@ func (s *PostgresStorage) insertTransformation(ctx context.Context, tx pgx.Tx, p
 		INSERT INTO transformations (type, config, pipeline_id)
 		VALUES ($1, $2, $3)
 		RETURNING id
-	`, transType, string(configJSON),pipelineID).Scan(&transID)
+	`, transType, string(configJSON), pipelineID).Scan(&transID)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to insert transformation",
 			slog.String("transformation_type", transType),
