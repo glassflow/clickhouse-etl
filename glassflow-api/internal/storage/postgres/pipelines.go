@@ -783,7 +783,7 @@ func (s *PostgresStorage) insertOTLPSource(ctx context.Context, tx pgx.Tx, p mod
 		INSERT INTO sources (type, connection_id, config, pipeline_id)
 		VALUES ($1, NULL, $2, $3)
 		RETURNING id
-	`, p.SourceType, string(configJSON),p.ID).Scan(&sourceID)
+	`, p.SourceType, string(configJSON), p.ID).Scan(&sourceID)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to insert otlp source",
 			slog.String("source_type", p.SourceType),
