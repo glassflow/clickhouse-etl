@@ -51,7 +51,7 @@ func NewPostgres(ctx context.Context, dsn string, logger *slog.Logger, encryptio
 	config.MaxConnLifetime = 5 * time.Minute
 
 	// Since we use pgbouncer pool, prepared statements might fail
-	config.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
+	config.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeExec
 
 	// set application name
 	config.ConnConfig.RuntimeParams = map[string]string{
