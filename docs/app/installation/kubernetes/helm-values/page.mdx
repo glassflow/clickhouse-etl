@@ -33,7 +33,15 @@ global:
       enabled: false  # Enable log export
       exporter:
         otlp: {}  # OTLP exporter configuration
-  
+    otelCollector:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi
+
   # NATS global configuration
   nats:
     # NATS address for operator connection
@@ -41,7 +49,7 @@ global:
     address: ""
     stream:
       maxAge: 24h      # Maximum age of messages in streams
-      maxBytes: 25GB   # Maximum size of streams
+      maxBytes: 0      # Maximum size of streams (0 = unlimited)
   
   # Pipeline namespace configuration
   pipelines:
@@ -49,6 +57,10 @@ global:
       auto: true        # When true, operator creates per-pipeline namespaces (pipeline-<id>)
       name: "glassflow-pipelines"  # Fixed namespace to deploy all pipelines into (when auto is false)
       create: true      # When auto is false, Helm can optionally create the namespace
+
+  usageStats:
+    enabled: true
+    installationId: ""
 ```
 
 <Callout type="info">
@@ -67,10 +79,12 @@ global:
 | `observability.logs.enabled` | Enable log export | `false` | Enable for production monitoring |
 | `observability.logs.exporter.otlp` | Your OTLP collector endpoint | `{}` | Configure your OTLP endpoint where glassflow will send logs. See [OTLP Exporter Configuration](/installation/kubernetes/observability#configure-otlp-exporter) for detailed setup |
 | `nats.stream.maxAge` | Message retention period | `24h` | Adjust based on your data retention needs |
-| `nats.stream.maxBytes` | Maximum stream size | `25GB` | Scale based on expected data volume |
+| `nats.stream.maxBytes` | Maximum stream size | `0` (unlimited) | Set a byte limit based on expected data volume |
+| `otelCollector.resources` | OTel collector sidecar resources | `100m/128Mi req, 500m/512Mi lim` | Increase if log/metric volume is high |
 | `pipelines.namespace.auto` | Create per-pipeline namespaces | `true` | Set to `false` to use fixed namespace |
 | `pipelines.namespace.name` | Fixed namespace for all pipelines | `glassflow-pipelines` | Used when `auto` is `false` |
 | `pipelines.namespace.create` | Create namespace if it doesn't exist | `true` | Only applies when `auto` is `false` |
+| `usageStats.enabled` | Send anonymous usage statistics | `true` | Set to `false` to opt out |
 
 ## API Component
 
@@ -85,7 +99,7 @@ api:
   # Container image settings
   image:
     repository: glassflow-etl-be
-    tag: v2.4.0
+    tag: v2.11.2
     pullPolicy: IfNotPresent
   
   # Resource allocation
@@ -129,7 +143,7 @@ ui:
   # Container image settings
   image:
     repository: glassflow-etl-fe
-    tag: v2.4.0
+    tag: v2.11.2
     pullPolicy: IfNotPresent
   
   # Resource allocation
@@ -165,7 +179,20 @@ ui:
         memory: "256Mi"
         cpu: "200m"
     port: 8082  # Internal port within the UI pod
+
+  # Auth0 authentication configuration
+  auth0:
+    enabled: false
+    profileRoute: "/api/auth/me"
+    secret: ""
+    appBaseUrl: "http://localhost:8080"
+    domain: ""
+    issuerBaseUrl: ""
+    clientId: ""
+    clientSecret: ""
 ```
+
+Auth0 integration is disabled by default. Set `enabled: true` and configure the domain, client ID, client secret, and base URL to enable authentication.
 
 ### UI Configuration Options
 
@@ -190,10 +217,12 @@ glassflow-operator:
     replicas: 1
     
     manager:
+      # Maximum duration a reconcile operation can run before timing out
+      reconcileTimeout: 15m
       # Operator image configuration
       image:
         repository: glassflow-etl-k8s-operator
-        tag: v1.3.0
+        tag: v2.1.0
         pullPolicy: IfNotPresent
       
       # Resource allocation
@@ -214,43 +243,61 @@ glassflow-operator:
     ingestor:
       image:
         repository: glassflow-etl-ingestor
-        tag: v2.4.0
+        tag: v2.11.2
       logLevel: "INFO"
       resources:
         requests:
           cpu: 1000m
-          memory: 1Gi
+          memory: 256Mi
         limits:
           cpu: 1500m
-          memory: 1.5Gi
+          memory: 512Mi
       affinity: {}
     
     join:
       image:
         repository: glassflow-etl-join
-        tag: v2.4.0
+        tag: v2.11.2
       logLevel: "INFO"
       resources:
         requests:
+          cpu: 500m
+          memory: 256Mi
+        limits:
           cpu: 1000m
           memory: 1Gi
-        limits:
-          cpu: 1500m
-          memory: 1.5Gi
       affinity: {}
     
     sink:
       image:
         repository: glassflow-etl-sink
-        tag: v2.4.0
+        tag: v2.11.2
+      logLevel: "INFO"
+      resources:
+        requests:
+          cpu: 1000m
+          memory: 500Mi
+        limits:
+          cpu: 1500m
+          memory: 1.5Gi
+      affinity: {}
+
+    dedup:
+      image:
+        repository: glassflow-etl-dedup
+        tag: v2.11.2
+        pullPolicy: IfNotPresent
       logLevel: "INFO"
       resources:
         requests:
           cpu: 1000m
           memory: 1Gi
         limits:
-          cpu: 1500m
-          memory: 1.5Gi
+          cpu: 2000m
+          memory: 2Gi
+      storage:
+        size: "40Gi"
+        className: ""
       affinity: {}
 ```
 
@@ -259,9 +306,12 @@ glassflow-operator:
 | Component | CPU Request | Memory Request | CPU Limit | Memory Limit |
 |-----------|-------------|----------------|-----------|--------------|
 | Controller Manager | `10m` | `64Mi` | `500m` | `128Mi` |
-| Ingestor | `1000m` | `1Gi` | `1500m` | `1.5Gi` |
-| Join | `1000m` | `1Gi` | `1500m` | `1.5Gi` |
-| Sink | `1000m` | `1Gi` | `1500m` | `1.5Gi` |
+| Ingestor | `1000m` | `256Mi` | `1500m` | `512Mi` |
+| Join | `500m` | `256Mi` | `1000m` | `1Gi` |
+| Sink | `1000m` | `500Mi` | `1500m` | `1.5Gi` |
+| Dedup | `1000m` | `1Gi` | `2000m` | `2Gi` |
+
+The `dedup.storage` field provisions a PersistentVolumeClaim for the deduplication state store. Set `storage.size` based on your expected deduplication key volume and `storage.className` to a StorageClass name if you need a specific provisioner.
 
 ## NATS Configuration
 
@@ -272,14 +322,7 @@ Nats is deployed as a dependency chart using the [official nats charts repo](htt
 nats:
   # Enable/disable NATS deployment
   enabled: true
-  
-  # NATS container image
-  container:
-    image:
-      repository: nats
-      tag: 2.12.0-alpine
-      pullPolicy: IfNotPresent
-  
+
   # NATS configuration
   config:
     # Clustering for high availability
@@ -287,16 +330,16 @@ nats:
       enabled: true
       port: 6222
       replicas: 3  # Must be 2+ when JetStream is enabled
-    
+
     # JetStream for persistent messaging
     jetstream:
       enabled: true
-      
+
       # Memory store (fast, non-persistent)
       memoryStore:
         enabled: false
         maxSize: 1Gi
-      
+
       # File store (persistent, recommended for production)
       fileStore:
         enabled: true
@@ -305,15 +348,17 @@ nats:
           enabled: true
           size: 100Gi
           storageClassName: ""
-    
-    # Resource allocation
-    resources:
-      requests:
-        memory: "2Gi"
-        cpu: "500m"
-      limits:
-        memory: "4Gi"
-        cpu: "1000m"
+
+  # Container resource allocation
+  container:
+    merge:
+      resources:
+        requests:
+          memory: "3Gi"
+          cpu: "4000m"
+        limits:
+          memory: "3Gi"
+          cpu: "4000m"
 ```
 
 ### NATS Configuration Options
@@ -323,7 +368,7 @@ nats:
 | `enabled` | Deploy NATS with GlassFlow | `true` | Use external NATS for large deployments |
 | `cluster.replicas` | Number of NATS nodes | `3` | Use 3+ for production |
 | `jetstream.fileStore.pvc.size` | Storage size | `100Gi` | Scale based on data volume |
-| `resources.requests` | Minimum resources | `2Gi/500m` | NATS is resource-intensive |
+| `resources.requests` | Minimum resources | `3Gi/4000m` | NATS is I/O and CPU intensive at high throughput |
 
 ### NATS Prometheus Exporter
 
@@ -356,6 +401,103 @@ natsPrometheusExporter:
     protocol: TCP
     name: http
 ```
+
+## PostgreSQL Configuration
+
+GlassFlow requires PostgreSQL for persisting pipeline definitions, connection credentials, and run history. By default, the chart deploys a single-node PostgreSQL instance. Set `postgresql.enabled: false` and configure `global.postgres.connection_url` (or `global.postgres.secret`) to use an external PostgreSQL instance.
+
+```yaml
+postgresql:
+  enabled: true
+  image:
+    repository: postgres
+    tag: "17-alpine"
+    pullPolicy: IfNotPresent
+  replicaCount: 1
+  auth:
+    enabled: true
+    database: "glassflow"
+    sslmode: "disable"
+    username: "glassflow"
+    password: "glassflow123"
+    existingSecret:
+      enabled: false
+      name: ""
+      keys:
+        usernameKey: username
+        passwordKey: password
+        databaseKey: database
+  service:
+    type: ClusterIP
+    port: 5432
+  persistence:
+    enabled: true
+    size: 10Gi
+    storageClass: ""
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "100m"
+    limits:
+      memory: "2Gi"
+      cpu: "1000m"
+```
+
+<Callout type="warning">
+Change `postgresql.auth.password` before deploying to production. For production, prefer `auth.existingSecret` to avoid storing credentials in `values.yaml`.
+</Callout>
+
+### PostgreSQL Configuration Options
+
+| Setting | Description | Default | Production Recommendation |
+|---------|-------------|---------|---------------------------|
+| `enabled` | Deploy PostgreSQL with GlassFlow | `true` | Set to `false` to use an external instance |
+| `auth.password` | Database password | `glassflow123` | Change before deploying to production |
+| `auth.existingSecret.enabled` | Source credentials from a Kubernetes Secret | `false` | Enable for production to avoid plaintext credentials in `values.yaml` |
+| `persistence.size` | PVC size for PostgreSQL data | `10Gi` | Scale based on pipeline and connection volume |
+| `global.postgres.connection_url` | External PostgreSQL URL | `""` | Set when `postgresql.enabled` is `false` |
+
+## Notification Service
+
+The notification service sends Slack and email alerts for pipeline events. Notifications are activated by setting `global.notifications.enabled: true`; the channel details are configured in this section.
+
+```yaml
+notificationService:
+  replicas: 1
+  image:
+    repository: glassflow-notifier
+    tag: v1.0.1
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      memory: "100Mi"
+      cpu: "100m"
+    limits:
+      memory: "200Mi"
+      cpu: "250m"
+  slack:
+    enabled: "false"
+    webhookUrl: ""
+    defaultChannel: "#notifications"
+  email:
+    enabled: "false"
+    smtpHost: ""
+    smtpPort: 587
+    smtpUsername: ""
+    smtpPassword: ""
+    fromAddress: ""
+    toAddress: ""
+```
+
+### Notification Service Configuration Options
+
+| Setting | Description | Default | Production Recommendation |
+|---------|-------------|---------|---------------------------|
+| `slack.enabled` | Enable Slack notifications | `"false"` | Set to `"true"` and provide `webhookUrl` |
+| `slack.webhookUrl` | Incoming webhook URL | `""` | Required when Slack is enabled |
+| `slack.defaultChannel` | Default Slack channel | `#notifications` | Override per-alert in pipeline config |
+| `email.enabled` | Enable email notifications | `"false"` | Set to `"true"` and configure SMTP fields |
+| `email.smtpHost` | SMTP server host | `""` | Required when email is enabled |
 
 ## Ingress Configuration
 
@@ -410,19 +552,19 @@ Configure security contexts and service accounts.
 
 ```yaml
 # Pod security context
-podSecurityContext:
-  fsGroup: 2000
-  runAsNonRoot: true
-  runAsUser: 1000
+podSecurityContext: {}
+  # fsGroup: 2000
+  # runAsNonRoot: true
+  # runAsUser: 1000
 
 # Container security context
-securityContext:
-  capabilities:
-    drop:
-      - ALL
-  readOnlyRootFilesystem: true
-  runAsNonRoot: true
-  runAsUser: 1000
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
 
 # Service account configuration
 serviceAccount:
@@ -437,8 +579,8 @@ serviceAccount:
 
 | Setting | Description | Default | Production Recommendation |
 |---------|-------------|---------|---------------------------|
-| `podSecurityContext.fsGroup` | File system group | `{}` | Set for proper permissions |
-| `securityContext.readOnlyRootFilesystem` | Read-only root filesystem | `{}` | Enable for security |
+| `podSecurityContext` | Pod-level security context | `{}` | Configure `fsGroup`, `runAsNonRoot`, etc. for proper permissions |
+| `securityContext` | Container-level security context | `{}` | Enable `readOnlyRootFilesystem`, `runAsNonRoot`, etc. for hardened containers |
 | `serviceAccount.create` | Create service account | `true` | Use existing for production |
 | `serviceAccount.automount` | Automount API credentials | `true` | Enable for service account token mounting |
 | `serviceAccount.name` | Service account name | `""` | Use custom name if needed |
@@ -561,11 +703,11 @@ autoscaling:
 
 ### Resource Sizing Guidelines
 
-| Environment | API CPU | API Memory | UI CPU | UI Memory | NATS CPU | NATS Memory | NATS Replicas | NATS Storage |
-|-------------|---------|------------|--------|-----------|----------|-------------|---------------|--------------|
-| Development | 50m | 50Mi | 50m | 256Mi | 200m | 1Gi | 1 | 10Gi |
-| Production | 500m | 500Mi | 200m | 1Gi | 1000m | 4Gi | 3 | 100Gi |
-| High-Performance | 1000m | 1Gi | 500m | 2Gi | 2000m | 8Gi | 5 | 500Gi |
+| Environment | API CPU | API Memory | UI CPU | UI Memory | NATS CPU | NATS Memory | NATS Replicas | NATS Storage | Dedup CPU | Dedup Memory |
+|-------------|---------|------------|--------|-----------|----------|-------------|---------------|--------------|-----------|--------------|
+| Development | 50m | 50Mi | 50m | 256Mi | 500m | 1Gi | 1 | 10Gi | 500m | 512Mi |
+| Production | 500m | 500Mi | 200m | 1Gi | 4000m | 4Gi | 3 | 100Gi | 1000m | 1Gi |
+| High-Performance | 1000m | 1Gi | 500m | 2Gi | 4000m+ | 8Gi | 5 | 500Gi | 2000m | 2Gi |
 
 ### Monitoring Configuration
 

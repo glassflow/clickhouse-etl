@@ -53,7 +53,7 @@ At 2 replicas the ingestor stabilizes around ~110k rps and the sink around ~105k
 
 GlassFlow scales throughput horizontally by increasing the number of ingestor and sink replicas. Each replica consumes from Kafka and writes to ClickHouse independently, distributing the load across multiple NATS JetStream streams in parallel.
 
-As replica count increases, the internal NATS cluster becomes the throughput bottleneck. A higher number of replicas requires a larger NATS cluster to sustain the increased message volume — the test infrastructure used 9 NATS nodes to support runs up to 10 replicas. For component-level scaling configuration, see [Scaling Pipelines](/usage-guide/scaling).
+As replica count increases, the internal NATS cluster becomes the throughput bottleneck. A higher number of replicas requires a larger NATS cluster to sustain the increased message volume — the test infrastructure used 9 NATS nodes to support runs up to 10 replicas. For component-level scaling configuration, see [Scaling Pipelines](/installation/kubernetes/scaling).
 
 <Mermaid chart={`
 flowchart LR
