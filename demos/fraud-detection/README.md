@@ -90,4 +90,4 @@ glassflow down
 
 - [GlassFlow Documentation](https://docs.glassflow.dev/)
 - [GlassGen v0.3.0](https://github.com/glassflow/glassgen/releases/tag/v0.3.0)
-- [Blog: Fraud Detection with Kafka, GlassFlow, and ClickHouse](https://glassflow.dev/blog/fraud-detection)
+- [Blog: Fraud Detection with Kafka, GlassFlow, and ClickHouse](https://www.glassflow.dev/blog/fraud-detection-pipelines-kafka-glassflow-clickhouse)
