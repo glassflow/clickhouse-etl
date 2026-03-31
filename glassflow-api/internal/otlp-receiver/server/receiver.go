@@ -30,6 +30,7 @@ type Receiver struct {
 	grpcHealth *health.Server
 	grpcLis    net.Listener
 	log        *slog.Logger
+	done       chan struct{}
 }
 
 func New(
@@ -46,6 +47,7 @@ func New(
 		grpcServer: grpcServer,
 		grpcHealth: grpcHealth,
 		grpcLis:    grpcLis,
+		done:       make(chan struct{}),
 	}
 
 	r.httpServer = httpQ.NewHTTPServer(httpAddr, &r.ready, log, otlpDataProcessor)
@@ -54,6 +56,8 @@ func New(
 }
 
 func (r *Receiver) Start(ctx context.Context) error {
+	defer close(r.done)
+
 	grpcErrCh := make(chan error, 1)
 	go func() {
 		r.log.Info("gRPC server listening", slog.String("addr", r.grpcLis.Addr().String()))
@@ -78,7 +82,10 @@ func (r *Receiver) Start(ctx context.Context) error {
 	}
 }
 
-func (r *Receiver) Shutdown(ctx context.Context) {
+func (r *Receiver) Shutdown() {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
 	r.ready.Store(false)
 	r.grpcHealth.Shutdown()
 
@@ -105,4 +112,8 @@ func (r *Receiver) Shutdown(ctx context.Context) {
 	}()
 
 	wg.Wait()
+}
+
+func (r *Receiver) Done() <-chan struct{} {
+	return r.done
 }
