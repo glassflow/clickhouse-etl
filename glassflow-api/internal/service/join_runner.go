@@ -208,12 +208,30 @@ func (j *JoinRunner) Done() <-chan struct{} {
 	return j.doneCh
 }
 
-// getJoinInputStreamName returns the NATS stream name the join consumes from.
+// getJoinLeftInputStreamName returns the NATS stream name the join pod consumes from for the left input.
 func getJoinLeftInputStreamName() (string, error) {
-	return models.GetRequiredEnvVar("NATS_LEFT_INPUT_STREAM_PREFIX")
+	prefix, err := models.GetRequiredEnvVar("NATS_LEFT_INPUT_STREAM_PREFIX")
+	if err != nil {
+		return "", err
+	}
+	podIndex, err := models.GetRequiredEnvVar("GLASSFLOW_POD_INDEX")
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s_%s", prefix, podIndex), nil
 }
+
+// getJoinRightInputStreamName returns the NATS stream name the join pod consumes from for the right input.
 func getJoinRightInputStreamName() (string, error) {
-	return models.GetRequiredEnvVar("NATS_RIGHT_INPUT_STREAM_PREFIX")
+	prefix, err := models.GetRequiredEnvVar("NATS_RIGHT_INPUT_STREAM_PREFIX")
+	if err != nil {
+		return "", err
+	}
+	podIndex, err := models.GetRequiredEnvVar("GLASSFLOW_POD_INDEX")
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s_%s", prefix, podIndex), nil
 }
 
 // getJoinOutputSubject returns the NATS subject the join publishes to
