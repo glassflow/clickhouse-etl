@@ -53,6 +53,11 @@ func NewPostgres(ctx context.Context, dsn string, logger *slog.Logger, encryptio
 	// Since we use pgbouncer pool, prepared statements might fail
 	config.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
 
+	// set application name
+	config.ConnConfig.RuntimeParams = map[string]string{
+		"application_name": "glassflow_" + role.String(),
+	}
+
 	var pool *pgxpool.Pool
 
 	err = retry.Do(
