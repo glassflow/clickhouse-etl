@@ -42,11 +42,11 @@ func NewPostgres(ctx context.Context, dsn string, logger *slog.Logger, encryptio
 	// so connections are acquired on demand and returned to the pool immediately.
 	// The API keeps MinConns=2 to avoid cold-start latency on incoming requests.
 	if role == internal.RoleETL {
-		config.MaxConns = 25
-		config.MinConns = 0
+		config.MaxConns = 5
+		config.MinConns = 1
 	} else {
 		config.MaxConns = 5
-		config.MinConns = 2
+		config.MinConns = 0
 	}
 	config.MaxConnLifetime = 5 * time.Minute
 
