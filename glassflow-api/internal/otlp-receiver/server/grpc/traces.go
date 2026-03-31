@@ -31,6 +31,5 @@ func (s *traceServiceServer) Export(
 	if err := s.processor.ProcessTraces(ctx, vals[0], req); err != nil {
 		return nil, status.Errorf(codes.Internal, "processing traces: %v", err)
 	}
-
 	return &coltracepb.ExportTraceServiceResponse{}, nil
 }

@@ -150,6 +150,15 @@ func (m *Message) GetHeader(key string) string {
 	return ""
 }
 
+// SetHeader Sets a header
+func (m *Message) SetHeader(key string, value string) {
+	if m.headers == nil {
+		m.headers = make(map[string][]string)
+	}
+
+	m.headers[key] = []string{value}
+}
+
 // AddHeader adds a header value for a given key
 func (m *Message) AddHeader(key string, value string) {
 	if m.headers == nil {

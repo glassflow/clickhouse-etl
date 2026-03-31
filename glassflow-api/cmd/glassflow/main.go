@@ -86,6 +86,8 @@ type config struct {
 	UsageStatsUsername       string `default:"" split_words:"true"`
 	UsageStatsPassword       string `default:"" split_words:"true"`
 	UsageStatsInstallationID string `default:"" split_words:"true"`
+
+	OTLPConfigFetcherBaseURL string `default:"" split_words:"true"`
 }
 
 var version = "dev"
