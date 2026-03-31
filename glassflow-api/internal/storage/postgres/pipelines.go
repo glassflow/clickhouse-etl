@@ -763,7 +763,7 @@ func (s *PostgresStorage) insertKafkaSource(ctx context.Context, tx pgx.Tx, p mo
 		return uuid.Nil, fmt.Errorf("insert kafka connection: %w", err)
 	}
 
-	sourceID, err := s.insertSource(ctx, tx, "kafka", &kafkaConnID, p.Mapper.Streams)
+	sourceID, err := s.insertSource(ctx, tx, p.ID, "kafka", &kafkaConnID, p.Mapper.Streams)
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("insert source: %w", err)
 	}
@@ -780,10 +780,10 @@ func (s *PostgresStorage) insertOTLPSource(ctx context.Context, tx pgx.Tx, p mod
 
 	var sourceID uuid.UUID
 	err = tx.QueryRow(ctx, `
-		INSERT INTO sources (type, connection_id, config)
-		VALUES ($1, NULL, $2)
+		INSERT INTO sources (type, connection_id, config, pipeline_id)
+		VALUES ($1, NULL, $2, $3)
 		RETURNING id
-	`, p.SourceType, configJSON).Scan(&sourceID)
+	`, p.SourceType, configJSON, p.ID).Scan(&sourceID)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to insert otlp source",
 			slog.String("source_type", p.SourceType),
@@ -878,7 +878,7 @@ func (s *PostgresStorage) insertClickHouseSink(ctx context.Context, tx pgx.Tx, p
 		return uuid.Nil, fmt.Errorf("insert clickhouse connection: %w", err)
 	}
 
-	sinkID, err := s.insertSink(ctx, tx, "clickhouse", chConnID, p.Mapper.SinkMapping)
+	sinkID, err := s.insertSink(ctx, tx, p.ID, "clickhouse", chConnID, p.Mapper.SinkMapping)
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("insert sink: %w", err)
 	}
