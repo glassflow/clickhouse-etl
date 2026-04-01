@@ -9,7 +9,6 @@ import (
 	oltp_receiver "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/otlp-receiver/server"
 	configFetcher "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/otlp-receiver/server/config/fetcher"
 	otlp_processor "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/otlp-receiver/server/processor"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/usagestats"
 )
 
 func mainOLTPReceiver(
@@ -25,11 +24,13 @@ func mainOLTPReceiver(
 		return err
 	}
 
+	usageStatsClient := newUsageStatsClient(cfg, log, nil)
+
 	return runWithGracefulShutdown(
 		ctx,
 		r,
 		log,
 		internal.RoleOLTPReceiver,
-		&usagestats.Client{},
+		usageStatsClient,
 	)
 }
