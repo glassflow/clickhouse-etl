@@ -281,15 +281,31 @@ func (p *PipelineService) GetOTLPConfig(ctx context.Context, pid string) (models
 	if err != nil {
 		return models.OTLPConfig{}, fmt.Errorf("load pipeline: %w", err)
 	}
+
+	outputSubject := models.GetOTLPOutputSubjectPrefix(pipeline.ID)
+	dedup := pipeline.OTLPSource.Deduplication
+
+	var routing models.RoutingConfig
+	if dedup.Enabled {
+		routing = models.RoutingConfig{
+			OutputSubject: outputSubject,
+			SubjectCount:  int(*pipeline.PipelineResources.Transform.Replicas),
+			Type:          models.RoutingTypeField,
+			Field:         &models.RoutingConfigField{Name: dedup.ID},
+		}
+	} else {
+		routing = models.RoutingConfig{
+			OutputSubject: outputSubject,
+			SubjectCount:  int(*pipeline.PipelineResources.Sink.Replicas),
+			Type:          models.RoutingTypeRandom,
+		}
+	}
+
 	return models.OTLPConfig{
 		PipelineID: pipeline.ID,
-		//SourceType: pipeline.Ingestor.Type,
-		Routing: models.RoutingConfig{
-			OutputSubject: "testing-otlp",
-			SubjectCount:  1,
-			Type:          models.RoutingTypeName,
-		},
-		Status: string(pipeline.Status.OverallStatus),
+		SourceType: pipeline.SourceType,
+		Routing:    routing,
+		Status:     string(pipeline.Status.OverallStatus),
 	}, nil
 }
 
