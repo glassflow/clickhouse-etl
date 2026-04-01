@@ -31,9 +31,6 @@ func mainDeduplicatorV2(
 	cfg *config,
 	log *slog.Logger,
 ) error {
-	if cfg.DedupTopic == "" {
-		return fmt.Errorf("deduplicator topic must be specified via GLASSFLOW_DEDUP_TOPIC")
-	}
 
 	pipelineCfg, err := getPipelineConfigFromJSON(cfg.PipelineConfig)
 	if err != nil {
@@ -46,16 +43,9 @@ func mainDeduplicatorV2(
 
 	observability.SetPipelineID(pipelineCfg.ID)
 
-	var topicConfig *models.KafkaTopicsConfig
-	for i, topic := range pipelineCfg.Ingestor.KafkaTopics {
-		if topic.Name == cfg.DedupTopic {
-			topicConfig = &pipelineCfg.Ingestor.KafkaTopics[i]
-			break
-		}
-	}
-
-	if topicConfig == nil {
-		return fmt.Errorf("topic %s not found in pipeline config", cfg.DedupTopic)
+	dedupCfg, err := getDeduplicationCfgFromPipelineConfig(pipelineCfg, cfg.DedupTopic)
+	if err != nil {
+		return fmt.Errorf("failed to get deduplication config from pipeline config: %w", err)
 	}
 
 	inputStreamName, err := getInputStreamNameFromEnv()
@@ -99,12 +89,12 @@ func mainDeduplicatorV2(
 	}
 
 	log.InfoContext(ctx, "Starting deduplicator",
-		slog.String("topic", cfg.DedupTopic),
+		slog.String("source", sourceLabel(cfg.DedupTopic)),
 		slog.String("pipeline_id", pipelineCfg.ID),
 		slog.String("input_stream", inputStreamName),
 		slog.String("output_subject_prefix", outputRouter.Config().OutputSubject),
 		slog.String("dlq_subject", dlqSubjectRouter.Config().OutputSubject),
-		slog.Duration("ttl", topicConfig.Deduplication.Window.Duration()),
+		slog.Duration("ttl", dedupCfg.Window.Duration()),
 		slog.Int("batch_size", batchSize),
 		slog.Duration("max_wait", maxWait),
 		slog.Int("pending_publishes_limit", pendingPublishesLimit),
@@ -277,19 +267,9 @@ func dedupProcessorFromConfig(
 	config models.PipelineConfig,
 	cfg *config,
 ) (processor.Processor, error) {
-	var topicConfig *models.KafkaTopicsConfig
-	for i, topic := range config.Ingestor.KafkaTopics {
-		if topic.Name == cfg.DedupTopic {
-			topicConfig = &config.Ingestor.KafkaTopics[i]
-			break
-		}
-	}
-	if topicConfig == nil {
-		return nil, fmt.Errorf("topic %s not found in pipeline config", cfg.DedupTopic)
-	}
-
-	if !topicConfig.Deduplication.Enabled {
-		return &processor.NoopProcessor{}, nil
+	dedupCfg, err := getDeduplicationCfgFromPipelineConfig(config, cfg.DedupTopic)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get deduplication config from pipeline config: %w", err)
 	}
 
 	badgerOpts := badger.DefaultOptions("/data/badger").
@@ -300,7 +280,7 @@ func dedupProcessorFromConfig(
 		return nil, fmt.Errorf("open BadgerDB: %w", err)
 	}
 
-	ttl := topicConfig.Deduplication.Window.Duration()
+	ttl := dedupCfg.Window.Duration()
 	badgerDedup := badgerDeduplication.NewDeduplicator(db, ttl)
 
 	return processor.NewDedupProcessor(badgerDedup), nil
@@ -348,4 +328,27 @@ func getInputStreamNameFromEnv() (string, error) {
 	}
 
 	return fmt.Sprintf("%s_%s", prefix, podIndex), nil
+}
+
+func getDeduplicationCfgFromPipelineConfig(config models.PipelineConfig, topicName string) (*models.DeduplicationConfig, error) {
+	if topicName == "" {
+		if config.OTLPSource.Deduplication.Enabled {
+			return &config.OTLPSource.Deduplication, nil
+		}
+		return nil, fmt.Errorf("deduplication config not found for OTLP source")
+	}
+
+	for i, topic := range config.Ingestor.KafkaTopics {
+		if topic.Name == topicName {
+			return &config.Ingestor.KafkaTopics[i].Deduplication, nil
+		}
+	}
+	return nil, fmt.Errorf("deduplication config not found for topic %s", topicName)
+}
+
+func sourceLabel(topicName string) string {
+	if topicName == "" {
+		return "otlp"
+	}
+	return topicName
 }
