@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/tidwall/gjson"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
@@ -91,7 +90,7 @@ func NewDefaultPipelineResources(cfg *PipelineConfig) PipelineResources {
 		},
 	}
 
-	if !internal.IsOTLPSourceType(cfg.SourceType) {
+	if !cfg.SourceType.IsOTLP() {
 		r.Ingestor = &IngestorResources{}
 		if cfg.Join.Enabled {
 			r.Ingestor.Left = newDefaultIngestorComponentResources(topicReplicas(cfg.Ingestor.KafkaTopics, 0))
@@ -353,7 +352,7 @@ func MergeWithDefaults(cfg *PipelineConfig, r PipelineResources, defaults Pipeli
 		r.Nats = defaults.Nats
 	}
 
-	if !internal.IsOTLPSourceType(cfg.SourceType) {
+	if !cfg.SourceType.IsOTLP() {
 		if r.Ingestor == nil {
 			r.Ingestor = &IngestorResources{}
 		}

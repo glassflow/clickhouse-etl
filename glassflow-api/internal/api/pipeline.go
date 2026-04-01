@@ -37,7 +37,6 @@ type PipelineService interface { //nolint:interfacebloat //important interface
 
 type pipelineSource struct {
 	Type             string                  `json:"type"`
-	DataType         string                  `json:"data_type,omitempty"`
 	Provider         string                  `json:"provider,omitempty"`
 	ConnectionParams *sourceConnectionParams `json:"connection_params,omitempty"`
 	Topics           []kafkaTopic            `json:"topics,omitempty"`
@@ -191,7 +190,7 @@ type tableMappingEntry struct {
 }
 
 func newIngestorComponentConfig(p pipelineJSON, schemaVersions map[string]models.SchemaVersion) (zero models.IngestorComponentConfig, _ error) {
-	if !internal.IsKafkaSourceType(p.Source.Type) {
+	if !models.SourceType(strings.ToLower(strings.TrimSpace(p.Source.Type))).IsKafka() {
 		return zero, nil
 	}
 
@@ -245,19 +244,15 @@ func newIngestorComponentConfig(p pipelineJSON, schemaVersions map[string]models
 }
 
 func newOTLPSourceConfig(p pipelineJSON, schemaVersions map[string]models.SchemaVersion) (zero models.OTLPSourceConfig, _ error) {
-	if !internal.IsOTLPSourceType(p.Source.Type) {
+	st := models.SourceType(strings.ToLower(strings.TrimSpace(p.Source.Type)))
+	if !st.IsOTLP() {
 		return zero, nil
-	}
-
-	otlpDataType := models.OTLPDataType(strings.ToLower(strings.TrimSpace(p.Source.DataType)))
-	if !otlpDataType.Valid() {
-		return zero, fmt.Errorf("invalid OTLP data type: %s", p.Source.DataType)
 	}
 	if p.Source.ID == "" {
 		return zero, fmt.Errorf("OTLP source must have a non-empty ID")
 	}
 
-	fields := models.OTLPSchemaFields(otlpDataType)
+	fields := st.SchemaFields()
 	if len(fields) > 0 {
 		schemaVersions[p.Source.ID] = models.SchemaVersion{
 			SourceID:  p.Source.ID,
@@ -267,8 +262,7 @@ func newOTLPSourceConfig(p pipelineJSON, schemaVersions map[string]models.Schema
 	}
 
 	return models.OTLPSourceConfig{
-		ID:       p.Source.ID,
-		DataType: otlpDataType.String(),
+		ID: p.Source.ID,
 		Deduplication: models.DeduplicationConfig{
 			Enabled: p.Source.Deduplication.Enabled,
 			ID:      p.Source.Deduplication.Key,
@@ -650,10 +644,13 @@ func statelessTransformValidationError(err error) error {
 	return err
 }
 
-func validateSourceType(pipeline pipelineJSON) (string, error) {
-	sourceType := strings.ToLower(strings.TrimSpace(pipeline.Source.Type))
-	switch sourceType {
-	case internal.KafkaIngestorType:
+func validateSourceType(pipeline pipelineJSON) (models.SourceType, error) {
+	st := models.SourceType(strings.ToLower(strings.TrimSpace(pipeline.Source.Type)))
+	if !st.Valid() {
+		return "", fmt.Errorf("unsupported source kind: %s", pipeline.Source.Type)
+	}
+
+	if st.IsKafka() {
 		if len(pipeline.Source.Topics) < 1 {
 			return "", fmt.Errorf("source must have at least one topic")
 		}
@@ -668,17 +665,13 @@ func validateSourceType(pipeline pipelineJSON) (string, error) {
 		if err := validateJoinCompatibility(pipeline); err != nil {
 			return "", err
 		}
-
-	case internal.OTLPSourceType:
+	} else if st.IsOTLP() {
 		if pipeline.Join.Enabled {
 			return "", fmt.Errorf("join is not supported for the OTLP pipelines")
 		}
-
-	default:
-		return "", fmt.Errorf("unsupported source kind: %s", pipeline.Source.Type)
 	}
 
-	return sourceType, nil
+	return st, nil
 }
 
 const minPipelineIDLength = 5
@@ -845,10 +838,9 @@ func toPipelineJSON(p models.PipelineConfig) pipelineJSON {
 	}
 
 	source := pipelineSource{
-		Type: p.SourceType,
+		Type: string(p.SourceType),
 	}
-	switch p.SourceType {
-	case internal.KafkaIngestorType:
+	if p.SourceType.IsKafka() {
 		source.Provider = p.Ingestor.Provider
 		source.ConnectionParams = &sourceConnectionParams{
 			Brokers:             p.Ingestor.KafkaConnectionParams.Brokers,
@@ -861,8 +853,7 @@ func toPipelineJSON(p models.PipelineConfig) pipelineJSON {
 			SkipTLSVerification: p.Ingestor.KafkaConnectionParams.SkipTLSVerification,
 		}
 		source.Topics = topics
-	case internal.OTLPSourceType:
-		source.DataType = p.OTLPSource.DataType
+	} else if p.SourceType.IsOTLP() {
 		source.ID = p.OTLPSource.ID
 		source.Deduplication = &dedupConfig{
 			Enabled: p.OTLPSource.Deduplication.Enabled,

@@ -760,9 +760,8 @@ func TestPipelineJSON_ToModel_OTLPLogs(t *testing.T) {
 		PipelineID: "otlp-logs-pipeline",
 		Name:       "OTLP Logs Pipeline",
 		Source: pipelineSource{
-			Type:     internal.OTLPSourceType,
-			DataType: "logs",
-			ID:       "otlp-logs-1",
+			Type: internal.OTLPLogsSourceType,
+			ID:   "otlp-logs-1",
 			Deduplication: &dedupConfig{
 				Enabled: false,
 			},
@@ -797,7 +796,7 @@ func TestPipelineJSON_ToModel_OTLPLogs(t *testing.T) {
 
 	// Verify OTLP source config
 	assert.Equal(t, "otlp-logs-1", result.OTLPSource.ID)
-	assert.Equal(t, "logs", result.OTLPSource.DataType)
+	assert.Equal(t, models.SourceType(internal.OTLPLogsSourceType), result.SourceType)
 	assert.False(t, result.OTLPSource.Deduplication.Enabled)
 
 	// Verify schema version was auto-generated from OTLP logs schema
@@ -832,9 +831,8 @@ func TestPipelineJSON_ToModel_OTLPTraces(t *testing.T) {
 		PipelineID: "otlp-traces-pipeline",
 		Name:       "OTLP Traces Pipeline",
 		Source: pipelineSource{
-			Type:     internal.OTLPSourceType,
-			DataType: "traces",
-			ID:       "otlp-traces-1",
+			Type: internal.OTLPTracesSourceType,
+			ID:   "otlp-traces-1",
 			Deduplication: &dedupConfig{
 				Enabled: true,
 				Key:     "trace_id",
@@ -872,7 +870,7 @@ func TestPipelineJSON_ToModel_OTLPTraces(t *testing.T) {
 
 	// Verify OTLP source config with deduplication
 	assert.Equal(t, "otlp-traces-1", result.OTLPSource.ID)
-	assert.Equal(t, "traces", result.OTLPSource.DataType)
+	assert.Equal(t, models.SourceType(internal.OTLPTracesSourceType), result.SourceType)
 	assert.True(t, result.OTLPSource.Deduplication.Enabled)
 	assert.Equal(t, "trace_id", result.OTLPSource.Deduplication.ID)
 	assert.Equal(t, 1*time.Hour, result.OTLPSource.Deduplication.Window.Duration())

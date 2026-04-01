@@ -34,7 +34,7 @@ func TestNewPipelineConfig(t *testing.T) {
 	id := "test-pipeline"
 	name := "Test Pipeline"
 	mapper := MapperConfig{Type: internal.SchemaMapperJSONToCHType}
-	sourceType := internal.KafkaIngestorType
+	sourceType := SourceType(internal.KafkaIngestorType)
 	ingestor := IngestorComponentConfig{Type: internal.KafkaIngestorType}
 	join := JoinComponentConfig{Type: internal.TemporalJoinType}
 	sink := SinkComponentConfig{Type: internal.ClickHouseSinkType}
