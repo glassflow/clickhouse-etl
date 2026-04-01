@@ -732,6 +732,11 @@ func GetDedupOutputStreamName(pipelineID, topicName string) string {
 	return dedupStreamName
 }
 
+func GetOTLPOutputSubjectPrefix(pipelineID string) string {
+	hash := GenerateStreamHash(pipelineID)
+	return fmt.Sprintf("%s-%s-otlp-out", internal.PipelineStreamPrefix, hash)
+}
+
 type JoinRule struct {
 	SourceID   string `json:"source_id"`
 	SourceName string `json:"source_name"`
