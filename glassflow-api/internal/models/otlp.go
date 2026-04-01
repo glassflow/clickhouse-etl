@@ -8,7 +8,7 @@ import (
 
 type OTLPConfig struct {
 	PipelineID string        `json:"pipeline_id"`
-	SourceType string        `json:"source_type"`
+	SourceType SourceType    `json:"source_type"`
 	Routing    RoutingConfig `json:"routing"`
 	Status     string        `json:"status"`
 }
@@ -152,29 +152,15 @@ type OTLPMetric struct {
 	Attributes             map[string]string `json:"attributes"`
 }
 
-type OTLPDataType string
-
-func (c OTLPDataType) String() string {
-	return string(c)
-}
-
-func (t OTLPDataType) Valid() bool {
-	switch t {
-	case internal.OTLPDataTypeLogs, internal.OTLPDataTypeTraces, internal.OTLPDataTypeMetrics:
-		return true
-	default:
-		return false
-	}
-}
-
-// OTLPSchemaFields returns the predefined source schema fields for the given OTLP data type.
-func OTLPSchemaFields(dataType OTLPDataType) []Field {
-	switch dataType.String() {
-	case internal.OTLPDataTypeLogs:
+// SchemaFields returns the predefined source schema fields for OTLP source types.
+// Returns nil for non-OTLP source types.
+func (s SourceType) SchemaFields() []Field {
+	switch s {
+	case internal.OTLPLogsSourceType:
 		return otlpLogsSchemaFields()
-	case internal.OTLPDataTypeMetrics:
+	case internal.OTLPMetricsSourceType:
 		return otlpMetricsSchemaFields()
-	case internal.OTLPDataTypeTraces:
+	case internal.OTLPTracesSourceType:
 		return otlpTracesSchemaFields()
 	default:
 		return nil

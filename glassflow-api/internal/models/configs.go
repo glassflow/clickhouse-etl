@@ -97,6 +97,43 @@ type DeduplicationConfig struct {
 	Window JSONDuration `json:"time_window,omitempty"`
 }
 
+// SourceType represents the type of a pipeline source.
+// Valid values are: "kafka", "otlp.logs", "otlp.traces", "otlp.metrics".
+type SourceType string
+
+func (s SourceType) String() string {
+	return string(s)
+}
+
+func (s SourceType) Valid() bool {
+	switch s {
+	case internal.KafkaIngestorType,
+		internal.OTLPLogsSourceType,
+		internal.OTLPTracesSourceType,
+		internal.OTLPMetricsSourceType:
+		return true
+	default:
+		return false
+	}
+}
+
+// IsKafka reports whether this source type is Kafka.
+func (s SourceType) IsKafka() bool {
+	return s == internal.KafkaIngestorType
+}
+
+// IsOTLP reports whether this source type is any OTLP variant.
+func (s SourceType) IsOTLP() bool {
+	switch s {
+	case internal.OTLPLogsSourceType,
+		internal.OTLPTracesSourceType,
+		internal.OTLPMetricsSourceType:
+		return true
+	default:
+		return false
+	}
+}
+
 type KafkaTopicsConfig struct {
 	Name                       string               `json:"name"`
 	ID                         string               `json:"id"`
@@ -419,14 +456,13 @@ type PipelineMetadata struct {
 
 type OTLPSourceConfig struct {
 	ID            string              `json:"id"`
-	DataType      string              `json:"data_type"`
 	Deduplication DeduplicationConfig `json:"deduplication,omitempty"`
 }
 
 type PipelineConfig struct {
 	ID                      string                   `json:"pipeline_id"`
 	Name                    string                   `json:"name"`
-	SourceType              string                   `json:"source_type"`
+	SourceType              SourceType               `json:"source_type"`
 	OTLPSource              OTLPSourceConfig         `json:"otlp_source,omitempty"`
 	Mapper                  MapperConfig             `json:"mapper"`
 	Ingestor                IngestorComponentConfig  `json:"ingestor"`
@@ -498,7 +534,7 @@ func (e PipelineConfigError) Error() string {
 func NewPipelineConfig(
 	id, name string,
 	mc MapperConfig,
-	st string,
+	st SourceType,
 	otlpSource OTLPSourceConfig,
 	ic IngestorComponentConfig,
 	jc JoinComponentConfig,

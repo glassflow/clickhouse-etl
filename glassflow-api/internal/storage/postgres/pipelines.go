@@ -197,7 +197,7 @@ func (s *PostgresStorage) InsertPipeline(ctx context.Context, p models.PipelineC
 
 	// Insert source (Kafka or OTLP)
 	var sourceID uuid.UUID
-	if internal.IsOTLPSourceType(p.SourceType) {
+	if p.SourceType.IsOTLP() {
 		sourceID, err = s.insertOTLPSource(ctx, tx, p)
 	} else {
 		sourceID, err = s.insertKafkaSource(ctx, tx, p)
@@ -786,7 +786,7 @@ func (s *PostgresStorage) insertOTLPSource(ctx context.Context, tx pgx.Tx, p mod
 	`, p.SourceType, configJSON, p.ID).Scan(&sourceID)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to insert otlp source",
-			slog.String("source_type", p.SourceType),
+			slog.String("source_type", string(p.SourceType)),
 			slog.String("error", err.Error()))
 		return uuid.Nil, fmt.Errorf("insert otlp source: %w", err)
 	}
@@ -825,16 +825,15 @@ func (s *PostgresStorage) upsertPipelineSourceSchemaVersions(ctx context.Context
 		return nil
 	}
 
-	switch p.SourceType {
-	case internal.KafkaIngestorType:
+	if p.SourceType.IsKafka() {
 		for _, topic := range p.Ingestor.KafkaTopics {
 			if err := s.upsertSourceSchemaVersion(ctx, tx, pipelineID, p, topic.Name); err != nil {
 				return err
 			}
 		}
-	case internal.OTLPSourceType:
+	} else if p.SourceType.IsOTLP() {
 		return s.upsertSourceSchemaVersion(ctx, tx, pipelineID, p, p.OTLPSource.ID)
-	default:
+	} else {
 		return fmt.Errorf("unsupported source type '%s' for schema version upsert", p.SourceType)
 	}
 
@@ -1190,7 +1189,7 @@ func (s *PostgresStorage) loadConfigsAndSchemaVersionsWithSelection(
 		pipelineCfg.SchemaVersions[topic.Name] = schemaVersion
 	}
 
-	if internal.IsOTLPSourceType(pipelineCfg.SourceType) {
+	if pipelineCfg.SourceType.IsOTLP() {
 		otlpSourceID := pipelineCfg.OTLPSource.ID
 		var schemaVersion models.SchemaVersion
 

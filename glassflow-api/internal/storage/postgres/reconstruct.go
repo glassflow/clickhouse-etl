@@ -60,7 +60,7 @@ func (s *PostgresStorage) reconstructPipelineConfig(ctx context.Context, data *p
 	cfg := &models.PipelineConfig{
 		ID:                      id,
 		Name:                    data.name,
-		SourceType:              data.sourceType,
+		SourceType:              models.SourceType(data.sourceType),
 		OTLPSource:              otlpSourceConfig,
 		Mapper:                  mapperConfig,
 		Ingestor:                ingestorConfig,
@@ -84,7 +84,7 @@ func (s *PostgresStorage) reconstructPipelineConfig(ctx context.Context, data *p
 
 // reconstructOTLPSourceConfig reconstructs OTLPSourceConfig from JSONB
 func reconstructOTLPSourceConfig(data *pipelineData) (zero models.OTLPSourceConfig, _ error) {
-	if data.sourceType != internal.OTLPSourceType {
+	if !models.SourceType(data.sourceType).IsOTLP() {
 		return zero, nil
 	}
 

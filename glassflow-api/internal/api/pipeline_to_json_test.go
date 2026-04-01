@@ -822,10 +822,9 @@ func TestToPipelineJSON_OTLPLogs(t *testing.T) {
 	pipelineConfig := models.PipelineConfig{
 		ID:         "otlp-logs-pipeline",
 		Name:       "OTLP Logs Pipeline",
-		SourceType: internal.OTLPSourceType,
+		SourceType: internal.OTLPLogsSourceType,
 		OTLPSource: models.OTLPSourceConfig{
-			ID:       "otlp-logs-1",
-			DataType: "logs",
+			ID: "otlp-logs-1",
 			Deduplication: models.DeduplicationConfig{
 				Enabled: false,
 			},
@@ -869,7 +868,7 @@ func TestToPipelineJSON_OTLPLogs(t *testing.T) {
 				SourceID:  "otlp-logs-1",
 				VersionID: "1",
 				DataType:  models.SchemaDataFormatJSON,
-				Fields:    models.OTLPSchemaFields(models.OTLPDataType("logs")),
+				Fields:    models.SourceType(internal.OTLPLogsSourceType).SchemaFields(),
 			},
 		},
 	}
@@ -882,8 +881,7 @@ func TestToPipelineJSON_OTLPLogs(t *testing.T) {
 	assert.Equal(t, "v3", result.Version)
 
 	// Verify source is OTLP type
-	assert.Equal(t, internal.OTLPSourceType, result.Source.Type)
-	assert.Equal(t, "logs", result.Source.DataType)
+	assert.Equal(t, internal.OTLPLogsSourceType, result.Source.Type)
 	assert.Equal(t, "otlp-logs-1", result.Source.ID)
 
 	// Verify deduplication
@@ -904,10 +902,9 @@ func TestToPipelineJSON_OTLPMetrics(t *testing.T) {
 	pipelineConfig := models.PipelineConfig{
 		ID:         "otlp-metrics-pipeline",
 		Name:       "OTLP Metrics Pipeline",
-		SourceType: internal.OTLPSourceType,
+		SourceType: internal.OTLPMetricsSourceType,
 		OTLPSource: models.OTLPSourceConfig{
-			ID:       "otlp-metrics-1",
-			DataType: "metrics",
+			ID: "otlp-metrics-1",
 			Deduplication: models.DeduplicationConfig{
 				Enabled: true,
 				ID:      "metric_name",
@@ -953,7 +950,7 @@ func TestToPipelineJSON_OTLPMetrics(t *testing.T) {
 				SourceID:  "otlp-metrics-1",
 				VersionID: "1",
 				DataType:  models.SchemaDataFormatJSON,
-				Fields:    models.OTLPSchemaFields(models.OTLPDataType("metrics")),
+				Fields:    models.SourceType(internal.OTLPMetricsSourceType).SchemaFields(),
 			},
 		},
 	}
@@ -961,8 +958,7 @@ func TestToPipelineJSON_OTLPMetrics(t *testing.T) {
 	result := toPipelineJSON(pipelineConfig)
 
 	// Verify source is OTLP metrics
-	assert.Equal(t, internal.OTLPSourceType, result.Source.Type)
-	assert.Equal(t, "metrics", result.Source.DataType)
+	assert.Equal(t, internal.OTLPMetricsSourceType, result.Source.Type)
 	assert.Equal(t, "otlp-metrics-1", result.Source.ID)
 
 	// Verify deduplication is set

@@ -502,8 +502,8 @@ func (k *K8sOrchestrator) buildPipelineSpec(ctx context.Context, cfg *models.Pip
 	var sourceType string
 	var isDedupEnabled bool
 
-	if internal.IsOTLPSourceType(cfg.SourceType) {
-		sourceType = internal.OTLPSourceType + "." + cfg.OTLPSource.DataType
+	if cfg.SourceType.IsOTLP() {
+		sourceType = string(cfg.SourceType)
 		isDedupEnabled = cfg.OTLPSource.Deduplication.Enabled
 	} else {
 		sourceType = cfg.Ingestor.Type
