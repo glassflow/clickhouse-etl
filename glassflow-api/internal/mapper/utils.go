@@ -124,6 +124,11 @@ func ParseUint8(data any) (zero uint8, _ error) {
 			return zero, fmt.Errorf("value out of range of uint8: %d", value)
 		}
 		return uint8(value), nil
+	case uint64:
+		if value > math.MaxUint8 {
+			return zero, fmt.Errorf("value out of range of uint8: %d", value)
+		}
+		return uint8(value), nil
 	case float64:
 		if value > float64(math.MaxUint8) {
 			return zero, fmt.Errorf("value out of range of uint8: %f", value)
