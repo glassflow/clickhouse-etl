@@ -22,11 +22,11 @@ func TestFlattenTraces(t *testing.T) {
 	endNano := uint64(1705315800045000000)
 	eventNano := uint64(1705315800010000000)
 
-	traceID := []byte("my-trace-id-1234") // 16 bytes
-	spanID := []byte("my-span-")          // 8 bytes
-	parentSpanID := []byte("parent-span")  // 11 bytes — will be hex-encoded
+	traceID := []byte("my-trace-id-1234")     // 16 bytes
+	spanID := []byte("my-span-")              // 8 bytes
+	parentSpanID := []byte("parent-span")     // 11 bytes — will be hex-encoded
 	linkTraceID := []byte("link-trace-id--!") // 16 bytes
-	linkSpanID := []byte("lnk-span")           // 8 bytes
+	linkSpanID := []byte("lnk-span")          // 8 bytes
 
 	req := &coltracepb.ExportTraceServiceRequest{
 		ResourceSpans: []*tracev1.ResourceSpans{
@@ -44,16 +44,16 @@ func TestFlattenTraces(t *testing.T) {
 						},
 						Spans: []*tracev1.Span{
 							{
-								TraceId:            traceID,
-								SpanId:             spanID,
-								ParentSpanId:       parentSpanID,
-								TraceState:         "",
-								Flags:              1,
-								Name:               "HTTP POST /api/auth/login",
-								Kind:               tracev1.Span_SPAN_KIND_SERVER,
-								StartTimeUnixNano:  startNano,
-								EndTimeUnixNano:    endNano,
-								Status:             &tracev1.Status{Code: tracev1.Status_STATUS_CODE_OK, Message: ""},
+								TraceId:                traceID,
+								SpanId:                 spanID,
+								ParentSpanId:           parentSpanID,
+								TraceState:             "",
+								Flags:                  1,
+								Name:                   "HTTP POST /api/auth/login",
+								Kind:                   tracev1.Span_SPAN_KIND_SERVER,
+								StartTimeUnixNano:      startNano,
+								EndTimeUnixNano:        endNano,
+								Status:                 &tracev1.Status{Code: tracev1.Status_STATUS_CODE_OK, Message: ""},
 								DroppedAttributesCount: 0,
 								DroppedEventsCount:     0,
 								DroppedLinksCount:      0,
@@ -108,18 +108,18 @@ func TestFlattenTraces(t *testing.T) {
 	}
 
 	want := models.OTLPSpan{
-		TraceID:      hex.EncodeToString(traceID),
-		SpanID:       hex.EncodeToString(spanID),
-		ParentSpanID: hex.EncodeToString(parentSpanID),
-		TraceState:   "",
-		Flags:        1,
-		Name:         "HTTP POST /api/auth/login",
-		Kind:         2,
-		StartTimestamp: toTS(startNano),
-		EndTimestamp:   toTS(endNano),
-		DurationNS:     endNano - startNano,
-		StatusCode:     "OK",
-		StatusMessage:  "",
+		TraceID:                hex.EncodeToString(traceID),
+		SpanID:                 hex.EncodeToString(spanID),
+		ParentSpanID:           hex.EncodeToString(parentSpanID),
+		TraceState:             "",
+		Flags:                  1,
+		Name:                   "HTTP POST /api/auth/login",
+		Kind:                   "SPAN_KIND_SERVER",
+		StartTimestamp:         toTS(startNano),
+		EndTimestamp:           toTS(endNano),
+		DurationNS:             endNano - startNano,
+		StatusCode:             "OK",
+		StatusMessage:          "",
 		DroppedAttributesCount: 0,
 		DroppedEventsCount:     0,
 		DroppedLinksCount:      0,

@@ -109,7 +109,7 @@ type OTLPSpan struct {
 	TraceState             string            `json:"trace_state,omitempty"`
 	Flags                  uint32            `json:"flags"`
 	Name                   string            `json:"name"`
-	Kind                   uint32            `json:"kind"`
+	Kind                   string            `json:"kind"`
 	StartTimestamp         string            `json:"start_timestamp"`
 	EndTimestamp           string            `json:"end_timestamp"`
 	DurationNS             uint64            `json:"duration_ns"`
@@ -221,7 +221,7 @@ func otlpTracesSchemaFields() []Field {
 		{Name: "trace_state", Type: "string"},
 		{Name: "flags", Type: "uint"},
 		{Name: "name", Type: "string"},
-		{Name: "kind", Type: "uint"},
+		{Name: "kind", Type: "string"},
 		{Name: "start_timestamp", Type: "string"},
 		{Name: "end_timestamp", Type: "string"},
 		{Name: "duration_ns", Type: "uint"},
