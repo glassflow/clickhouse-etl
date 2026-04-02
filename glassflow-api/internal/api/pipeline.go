@@ -261,14 +261,17 @@ func newOTLPSourceConfig(p pipelineJSON, schemaVersions map[string]models.Schema
 		}
 	}
 
-	return models.OTLPSourceConfig{
+	cfg := models.OTLPSourceConfig{
 		ID: p.Source.ID,
-		Deduplication: models.DeduplicationConfig{
+	}
+	if p.Source.Deduplication != nil {
+		cfg.Deduplication = models.DeduplicationConfig{
 			Enabled: p.Source.Deduplication.Enabled,
 			ID:      p.Source.Deduplication.Key,
 			Window:  p.Source.Deduplication.Window,
-		},
-	}, nil
+		}
+	}
+	return cfg, nil
 
 }
 
