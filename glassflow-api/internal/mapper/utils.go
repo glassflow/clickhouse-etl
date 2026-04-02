@@ -30,6 +30,21 @@ func ParseInt8(data any) (zero int8, _ error) {
 	switch value := data.(type) {
 	case int8:
 		return value, nil
+	case int16:
+		if value < math.MinInt8 || value > math.MaxInt8 {
+			return zero, fmt.Errorf("value out of range of int8: %d", value)
+		}
+		return int8(value), nil
+	case int32:
+		if value < math.MinInt8 || value > math.MaxInt8 {
+			return zero, fmt.Errorf("value out of range of int8: %d", value)
+		}
+		return int8(value), nil
+	case int64:
+		if value < math.MinInt8 || value > math.MaxInt8 {
+			return zero, fmt.Errorf("value out of range of int8: %d", value)
+		}
+		return int8(value), nil
 	case int:
 		if value < math.MinInt8 || value > math.MaxInt8 {
 			return zero, fmt.Errorf("value out of range of int8: %d", value)
@@ -49,6 +64,16 @@ func ParseInt16(data any) (zero int16, _ error) {
 	switch value := data.(type) {
 	case int16:
 		return value, nil
+	case int32:
+		if value < math.MinInt16 || value > math.MaxInt16 {
+			return zero, fmt.Errorf("value out of range of int16: %d", value)
+		}
+		return int16(value), nil
+	case int64:
+		if value < math.MinInt16 || value > math.MaxInt16 {
+			return zero, fmt.Errorf("value out of range of int16: %d", value)
+		}
+		return int16(value), nil
 	case int:
 		if value < math.MinInt16 || value > math.MaxInt16 {
 			return zero, fmt.Errorf("value out of range of int16: %d", value)
@@ -119,6 +144,21 @@ func ParseUint8(data any) (zero uint8, _ error) {
 		return uint8(u), nil
 	case uint8:
 		return value, nil
+	case uint16:
+		if value > math.MaxUint8 {
+			return zero, fmt.Errorf("value out of range of uint8: %d", value)
+		}
+		return uint8(value), nil
+	case uint32:
+		if value > math.MaxUint8 {
+			return zero, fmt.Errorf("value out of range of uint8: %d", value)
+		}
+		return uint8(value), nil
+	case uint64:
+		if value > math.MaxUint8 {
+			return zero, fmt.Errorf("value out of range of uint8: %d", value)
+		}
+		return uint8(value), nil
 	case uint:
 		if value > math.MaxUint8 {
 			return zero, fmt.Errorf("value out of range of uint8: %d", value)
