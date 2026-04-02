@@ -52,8 +52,8 @@ func (c RoutingConfig) Validate() error {
 		if c.PodIndex == nil {
 			return fmt.Errorf("pod_index config is required for type %q", c.Type)
 		}
-		if c.PodIndex.Index < 0 || c.PodIndex.Index >= c.SubjectCount {
-			return fmt.Errorf("pod_index.index must be in [0, subject_count)")
+		if c.PodIndex.Index < 0 {
+			return fmt.Errorf("pod_index.index must be non-negative but is %d", c.PodIndex.Index)
 		}
 	case RoutingTypeRandom, RoutingTypeHash, RoutingTypeName:
 		// no extra config needed

@@ -10,6 +10,7 @@ import (
 	"github.com/avast/retry-go"
 	"github.com/tidwall/gjson"
 
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/batch"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/batch/nats"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
@@ -122,6 +123,8 @@ func (p *Processor) sendBatch(
 				}
 			}
 
+			messages = setupSchemaVersionHeader(messages)
+
 			failedMessages := cfg.nats.WriteBatch(ctx, messages)
 			if len(failedMessages) > 0 {
 				p.invalidateNatsWriter(pipelineID)
@@ -171,4 +174,12 @@ func setupNatsDedupHeader(cfg writerConfig, messages []models.Message) ([]models
 	}
 
 	return messages, nil
+}
+
+func setupSchemaVersionHeader(messages []models.Message) []models.Message {
+	for i := range messages {
+		messages[i].SetHeader(internal.SchemaVersionIDHeader, "1")
+	}
+
+	return messages
 }
