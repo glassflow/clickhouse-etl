@@ -71,6 +71,7 @@ func mainDeduplicatorV2(
 	batchSize := internal.DefaultDedupComponentBatchSize
 	maxWait := internal.DefaultDedupMaxWaitTime
 
+	// Calculate pending publishes limit
 	pendingPublishesLimit := min(internal.PublisherMaxPendingAcks, internal.NATSMaxBufferedMsgs)
 
 	// MaxAckPending for dedup consumer: 4x sink batch size (avoids NATS default 100 when using -1)

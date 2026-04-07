@@ -226,7 +226,7 @@ func (k *KafkaMsgProcessor) prepareMesssage(ctx context.Context, msg *kgo.Record
 	nMsg := nats.NewMsg(subject)
 	nMsg.Data = msgData
 
-	nMsg.Header.Set(internal.SchemaVersionIDHeader, version)
+	nMsg.Header.Set(internal.SchemaVersionIDHeader, version) // Set schema version header
 
 	k.setDedupHeader(nMsg.Header, dedupKeyStr)
 
@@ -271,6 +271,7 @@ func (k *KafkaMsgProcessor) processBatchSync(ctx context.Context, batch []*kgo.R
 			return lastProcessed, fmt.Errorf("failed to prepare message: %w", err)
 		}
 		if natsMsg == nil {
+			// Message was pushed to DLQ, count as processed
 			lastProcessed = msg
 			continue
 		}
@@ -321,6 +322,7 @@ func (k *KafkaMsgProcessor) processBatchAsync(_ context.Context, batch []*kgo.Re
 			return lastProcessed, fmt.Errorf("failed to prepare message: %w", err)
 		}
 		if natsMsg == nil {
+			// Message was pushed to DLQ, count as processed
 			lastProcessed = msg
 			continue
 		}
@@ -349,12 +351,14 @@ func (k *KafkaMsgProcessor) processBatchAsync(_ context.Context, batch []*kgo.Re
 		lastProcessed = msg
 	}
 
+	// Wait for all futures to complete
 	<-k.publisher.WaitForAsyncPublishAcks()
 
 	var outBytes int64
 	for _, f := range futures {
 		select {
 		case <-f.future.Ok():
+			// Successfully published
 			outBytes += int64(len(f.future.Msg().Data))
 			lastProcessed = f.record
 			continue

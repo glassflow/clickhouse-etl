@@ -38,6 +38,7 @@ type config struct {
 	LogAddSource bool       `default:"false" split_words:"true"`
 	LogFilePath  string     `split_words:"true"`
 
+	// OpenTelemetry observability configuration
 	OtelLogsEnabled       bool   `default:"true" split_words:"true"`
 	OtelMetricsEnabled    bool   `default:"true" split_words:"true"`
 	OtelServiceName       string `default:"glassflow" split_words:"true"`
@@ -67,8 +68,10 @@ type config struct {
 	NATSMaxStreamBytes int64         `default:"107374182400" split_words:"true"` // 100GB in bytes
 	NATSPipelineKV     string        `default:"glassflow-pipelines" split_words:"true"`
 
+	// Database configuration
 	DatabaseURL string `default:"" split_words:"true"`
 
+	// Encryption configuration
 	EncryptionKeyPath string `default:"/etc/glassflow/secrets/encryption-key" split_words:"true"`
 	EncryptionKey     string `default:"" split_words:"true"`
 
@@ -97,6 +100,8 @@ func main() {
 }
 
 func run() error {
+	// automaxprocs is used to set the number of CPU cores to use for the application.
+
 	var cfg config
 
 	roleStr := flag.String("role", "", "Role to run: sink, join, ingester or empty for pipeline manager")
@@ -138,6 +143,7 @@ func mainErr(cfg *config, role models.Role) error {
 		logOut = io.MultiWriter(os.Stdout, logFile)
 	}
 
+	// Configure observability
 	obsConfig := &observability.Config{
 		LogFormat:         cfg.LogFormat,
 		LogLevel:          cfg.LogLevel,

@@ -76,6 +76,7 @@ func (j *JoinRunner) Start(ctx context.Context) error {
 		return fmt.Errorf("resolve join output config: %w", err)
 	}
 
+	// Determine left and right streams based on orientation
 	if j.cfg.Join.Sources[0].Orientation == "left" {
 		leftSource = j.cfg.Join.Sources[0]
 		rightSource = j.cfg.Join.Sources[1]
@@ -128,6 +129,7 @@ func (j *JoinRunner) Start(ctx context.Context) error {
 		return fmt.Errorf("create right consumer: %w", err)
 	}
 
+	// Get existing KV stores (created by orchestrator)
 	leftKVStore, err := j.nc.GetKeyValueStore(ctx, leftInputStreamName)
 	if err != nil {
 		j.log.ErrorContext(ctx, "failed to get left stream buffer: ", "error", err)
@@ -140,6 +142,7 @@ func (j *JoinRunner) Start(ctx context.Context) error {
 		return fmt.Errorf("get right buffer: %w", err)
 	}
 
+	// Wrap the NATS KeyValue stores in our interface
 	leftBuffer = &kv.NATSKeyValueStore{KVstore: leftKVStore}
 	rightBuffer = &kv.NATSKeyValueStore{KVstore: rightKVStore}
 

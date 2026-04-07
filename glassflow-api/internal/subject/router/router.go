@@ -23,6 +23,9 @@ func New(config models.RoutingConfig) (*Router, error) {
 	return &Router{config: config}, nil
 }
 
+// since we don't have any support for protobuf now, router will only support
+// json, but it might be tricky in future to figure out support for proto
+
 func (r *Router) Config() models.RoutingConfig {
 	return r.config
 }
