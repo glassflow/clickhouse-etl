@@ -7,6 +7,7 @@ import (
 	"hash/fnv"
 	"log/slog"
 	"strconv"
+	"sync/atomic"
 
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
@@ -30,8 +31,11 @@ type KafkaMsgProcessor struct {
 	signalPublisher *componentsignals.ComponentSignalPublisher
 	log             *slog.Logger
 
-	outputSubject      string
-	dedupSubjectPrefix string
+	outputSubject       string
+	outputSubjectPrefix string
+	totalSubjectCount   int
+	roundRobinCounter   atomic.Int64
+	dedupSubjectPrefix  string
 	dedupSubjectCount  int
 	singleDedupSubject string
 
@@ -79,6 +83,8 @@ func NewKafkaMsgProcessor(
 		schema:                schema,
 		topic:                 topic,
 		outputSubject:         outputSubject,
+		outputSubjectPrefix:   runtimeCfg.OutputSubjectPrefix,
+		totalSubjectCount:     runtimeCfg.TotalSubjectCount,
 		dedupSubjectPrefix:    dedupSubjectPrefix,
 		dedupSubjectCount:     dedupSubjectCount,
 		singleDedupSubject:    singleDedupSubject,
@@ -109,7 +115,6 @@ func (k *KafkaMsgProcessor) pushMsgToDLQ(ctx context.Context, orgMsg []byte, err
 }
 
 // setDedupHeader sets the Nats-Msg-Id header from a pre-resolved dedup key string.
-// Call this only when dedupKeyStr is non-empty (dedup enabled and key already resolved in getSubjectAndDedupKey).
 func (k *KafkaMsgProcessor) setDedupHeader(headers nats.Header, dedupKeyStr string) {
 	if dedupKeyStr == "" {
 		return
@@ -123,10 +128,14 @@ func (k *KafkaMsgProcessor) setDedupHeader(headers nats.Header, dedupKeyStr stri
 	headers.Set("Nats-Msg-Id", dedupKeyStr)
 }
 
-// getSubject returns the fixed NATS subject for publishing (from publisher config).
-// Used when dedup is disabled.
+// getSubject returns the NATS subject for publishing.
+// When totalSubjectCount > 1, subjects are selected round-robin across all downstream subjects.
 func (k *KafkaMsgProcessor) getSubject() string {
-	return k.outputSubject
+	if k.totalSubjectCount <= 1 {
+		return k.outputSubject
+	}
+	n := k.roundRobinCounter.Add(1) - 1
+	return fmt.Sprintf("%s.%d", k.outputSubjectPrefix, n%int64(k.totalSubjectCount))
 }
 
 // getSubjectAndDedupKey returns the NATS subject for this message and, when dedup is enabled, the dedup key string for the header.
@@ -217,7 +226,7 @@ func (k *KafkaMsgProcessor) prepareMesssage(ctx context.Context, msg *kgo.Record
 	nMsg := nats.NewMsg(subject)
 	nMsg.Data = msgData
 
-	nMsg.Header.Set(internal.SchemaVersionIDHeader, version) // Set schema version header
+	nMsg.Header.Set(internal.SchemaVersionIDHeader, version)
 
 	k.setDedupHeader(nMsg.Header, dedupKeyStr)
 
@@ -262,7 +271,6 @@ func (k *KafkaMsgProcessor) processBatchSync(ctx context.Context, batch []*kgo.R
 			return lastProcessed, fmt.Errorf("failed to prepare message: %w", err)
 		}
 		if natsMsg == nil {
-			// Message was pushed to DLQ, count as processed
 			lastProcessed = msg
 			continue
 		}
@@ -313,7 +321,6 @@ func (k *KafkaMsgProcessor) processBatchAsync(_ context.Context, batch []*kgo.Re
 			return lastProcessed, fmt.Errorf("failed to prepare message: %w", err)
 		}
 		if natsMsg == nil {
-			// Message was pushed to DLQ, count as processed
 			lastProcessed = msg
 			continue
 		}
@@ -342,14 +349,12 @@ func (k *KafkaMsgProcessor) processBatchAsync(_ context.Context, batch []*kgo.Re
 		lastProcessed = msg
 	}
 
-	// Wait for all futures to complete
 	<-k.publisher.WaitForAsyncPublishAcks()
 
 	var outBytes int64
 	for _, f := range futures {
 		select {
 		case <-f.future.Ok():
-			// Successfully published
 			outBytes += int64(len(f.future.Msg().Data))
 			lastProcessed = f.record
 			continue

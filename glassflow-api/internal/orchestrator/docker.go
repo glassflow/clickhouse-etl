@@ -31,7 +31,6 @@ type LocalOrchestrator struct {
 	watcherCancel context.CancelFunc
 	watcherWG     sync.WaitGroup
 
-	// Store pipeline config in memory for cleanup
 	pipelineConfig *models.PipelineConfig
 }
 
@@ -107,7 +106,6 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 
 	d.id = pi.ID
 
-	// Store pipeline config in memory for cleanup
 	d.pipelineConfig = pi
 	sinkInputStreamPrefix, err = resolveSinkInputStreamPrefix(pi)
 	if err != nil {
@@ -167,9 +165,11 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 			}
 
 			runtimeCfg := models.IngestorRuntimeConfig{
-				OutputSubject:      outputSubject,
-				DedupSubjectPrefix: resolveDedupSubjectPrefix(subjectPattern),
-				DedupSubjectCount:  subjectCount,
+				OutputSubject:       outputSubject,
+				OutputSubjectPrefix: resolveDedupSubjectPrefix(subjectPattern),
+				TotalSubjectCount:   1,
+				DedupSubjectPrefix:  resolveDedupSubjectPrefix(subjectPattern),
+				DedupSubjectCount:   subjectCount,
 			}
 
 			ingestorRunner := service.NewIngestorRunner(
@@ -193,13 +193,11 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 
 	if pi.Join.Enabled {
 
-		// Resolve join input stream names from join source IDs.
 		leftInputStreamName, rightInputStreamName, err := resolveJoinStreamNames(pi)
 		if err != nil {
 			return fmt.Errorf("resolve join input stream names: %w", err)
 		}
 
-		// Create join KV stores for left and right buffers
 		err = d.nc.CreateOrUpdateJoinKeyValueStore(ctx, leftInputStreamName, pi.Join.LeftBufferTTL.Duration())
 		if err != nil {
 			d.log.ErrorContext(ctx, "failed to create join left buffer KV store", "stream_name", leftInputStreamName, "ttl", pi.Join.LeftBufferTTL.Duration(), "error", err)
@@ -214,7 +212,6 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 		}
 		d.log.DebugContext(ctx, "created join right buffer KV store successfully")
 
-		// Join runner resolves these from env (operator-style contract).
 		os.Setenv("NATS_LEFT_INPUT_STREAM_PREFIX", leftInputStreamName)
 		os.Setenv("NATS_RIGHT_INPUT_STREAM_PREFIX", rightInputStreamName)
 		os.Setenv("NATS_SUBJECT_PREFIX", sinkInputStreamPrefix)
@@ -380,12 +377,9 @@ func (d *LocalOrchestrator) StopPipeline(ctx context.Context, pid string) error 
 		d.watcherWG.Wait()
 	}
 
-	// First pause the pipeline if it's running
-	// Check if pipeline is active (has runners)
 	if d.ingestorRunners != nil || d.joinRunner != nil || d.sinkRunner != nil {
 		d.log.InfoContext(ctx, "pausing pipeline before stop", "pipeline_id", pid)
 
-		// Pause the pipeline (graceful shutdown of components)
 		err := d.pausePipelineComponents(ctx)
 		if err != nil {
 			d.log.ErrorContext(ctx, "failed to pause pipeline during stop", "error", err)

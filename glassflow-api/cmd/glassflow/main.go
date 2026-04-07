@@ -38,7 +38,6 @@ type config struct {
 	LogAddSource bool       `default:"false" split_words:"true"`
 	LogFilePath  string     `split_words:"true"`
 
-	// OpenTelemetry observability configuration
 	OtelLogsEnabled       bool   `default:"true" split_words:"true"`
 	OtelMetricsEnabled    bool   `default:"true" split_words:"true"`
 	OtelServiceName       string `default:"glassflow" split_words:"true"`
@@ -68,10 +67,8 @@ type config struct {
 	NATSMaxStreamBytes int64         `default:"107374182400" split_words:"true"` // 100GB in bytes
 	NATSPipelineKV     string        `default:"glassflow-pipelines" split_words:"true"`
 
-	// Database configuration
 	DatabaseURL string `default:"" split_words:"true"`
 
-	// Encryption configuration
 	EncryptionKeyPath string `default:"/etc/glassflow/secrets/encryption-key" split_words:"true"`
 	EncryptionKey     string `default:"" split_words:"true"`
 
@@ -100,8 +97,6 @@ func main() {
 }
 
 func run() error {
-	// automaxprocs is used to set the number of CPU cores to use for the application.
-
 	var cfg config
 
 	roleStr := flag.String("role", "", "Role to run: sink, join, ingester or empty for pipeline manager")
@@ -143,7 +138,6 @@ func mainErr(cfg *config, role models.Role) error {
 		logOut = io.MultiWriter(os.Stdout, logFile)
 	}
 
-	// Configure observability
 	obsConfig := &observability.Config{
 		LogFormat:         cfg.LogFormat,
 		LogLevel:          cfg.LogLevel,
@@ -457,14 +451,30 @@ func getIngestorRuntimeConfigFromEnv(dedupEnabled bool) (models.IngestorRuntimeC
 		return models.IngestorRuntimeConfig{}, fmt.Errorf("required environment variable NATS_SUBJECT_PREFIX is missing or empty")
 	}
 
-	podIndex := os.Getenv("GLASSFLOW_POD_INDEX")
-	if podIndex == "" {
+	podIndexRaw := os.Getenv("GLASSFLOW_POD_INDEX")
+	if podIndexRaw == "" {
 		return models.IngestorRuntimeConfig{}, fmt.Errorf("required environment variable GLASSFLOW_POD_INDEX is missing or empty")
 	}
 
+	podIndex, err := strconv.Atoi(podIndexRaw)
+	if err != nil || podIndex < 0 {
+		return models.IngestorRuntimeConfig{}, fmt.Errorf("invalid GLASSFLOW_POD_INDEX=%q: must be a non-negative integer", podIndexRaw)
+	}
+
+	totalSubjects := 1
+	if raw := os.Getenv("NATS_SUBJECT_TOTAL_COUNT"); raw != "" {
+		n, err := strconv.Atoi(raw)
+		if err != nil || n <= 0 {
+			return models.IngestorRuntimeConfig{}, fmt.Errorf("invalid NATS_SUBJECT_TOTAL_COUNT=%q: must be a positive integer", raw)
+		}
+		totalSubjects = n
+	}
+
 	cfg := models.IngestorRuntimeConfig{
-		OutputSubject:      fmt.Sprintf("%s.%s", prefix, podIndex),
-		DedupSubjectPrefix: prefix,
+		OutputSubject:       fmt.Sprintf("%s.%d", prefix, podIndex),
+		OutputSubjectPrefix: prefix,
+		TotalSubjectCount:   totalSubjects,
+		DedupSubjectPrefix:  prefix,
 	}
 
 	if !dedupEnabled {

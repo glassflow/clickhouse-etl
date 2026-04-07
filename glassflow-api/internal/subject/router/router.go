@@ -3,6 +3,7 @@ package router
 import (
 	"fmt"
 	"math/rand/v2"
+	"sync/atomic"
 
 	"github.com/cespare/xxhash/v2"
 	"github.com/tidwall/gjson"
@@ -11,7 +12,8 @@ import (
 )
 
 type Router struct {
-	config models.RoutingConfig
+	config  models.RoutingConfig
+	counter atomic.Int64
 }
 
 func New(config models.RoutingConfig) (*Router, error) {
@@ -20,9 +22,6 @@ func New(config models.RoutingConfig) (*Router, error) {
 	}
 	return &Router{config: config}, nil
 }
-
-// since we don't have any support for protobuf now, router will only support
-// json, but it might be tricky in future to figure out support for proto
 
 func (r *Router) Config() models.RoutingConfig {
 	return r.config
@@ -42,6 +41,9 @@ func (r *Router) Subject(msg []byte) string {
 		n = int(subjectNum([]byte(field), uint64(r.config.SubjectCount)))
 	case models.RoutingTypeName:
 		return r.config.OutputSubject
+	case models.RoutingTypeRoundRobin:
+		idx := r.counter.Add(1) - 1
+		n = int(idx % int64(r.config.SubjectCount))
 	}
 	return fmt.Sprintf("%s.%d", r.config.OutputSubject, n)
 }

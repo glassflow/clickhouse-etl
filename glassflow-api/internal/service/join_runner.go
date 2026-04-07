@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
+	"strconv"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
@@ -68,13 +70,12 @@ func (j *JoinRunner) Start(ctx context.Context) error {
 		return fmt.Errorf("resolve join right input stream: %w", err)
 	}
 
-	outputSubject, err := getJoinOutputSubject()
+	outputSubject, outputSubjectCount, err := getJoinOutputConfig()
 	if err != nil {
-		j.log.ErrorContext(ctx, "failed to resolve join output subject", "error", err)
-		return fmt.Errorf("resolve join output subject: %w", err)
+		j.log.ErrorContext(ctx, "failed to resolve join output config", "error", err)
+		return fmt.Errorf("resolve join output config: %w", err)
 	}
 
-	// Determine left and right streams based on orientation
 	if j.cfg.Join.Sources[0].Orientation == "left" {
 		leftSource = j.cfg.Join.Sources[0]
 		rightSource = j.cfg.Join.Sources[1]
@@ -87,6 +88,7 @@ func (j *JoinRunner) Start(ctx context.Context) error {
 		"left_input_stream", leftInputStreamName,
 		"right_input_stream", rightInputStreamName,
 		"output_subject", outputSubject,
+		"output_subject_count", outputSubjectCount,
 		"left_source", leftSource.SourceID,
 		"right_source", rightSource.SourceID)
 
@@ -126,7 +128,6 @@ func (j *JoinRunner) Start(ctx context.Context) error {
 		return fmt.Errorf("create right consumer: %w", err)
 	}
 
-	// Get existing KV stores (created by orchestrator)
 	leftKVStore, err := j.nc.GetKeyValueStore(ctx, leftInputStreamName)
 	if err != nil {
 		j.log.ErrorContext(ctx, "failed to get left stream buffer: ", "error", err)
@@ -139,7 +140,6 @@ func (j *JoinRunner) Start(ctx context.Context) error {
 		return fmt.Errorf("get right buffer: %w", err)
 	}
 
-	// Wrap the NATS KeyValue stores in our interface
 	leftBuffer = &kv.NATSKeyValueStore{KVstore: leftKVStore}
 	rightBuffer = &kv.NATSKeyValueStore{KVstore: rightKVStore}
 
@@ -156,7 +156,8 @@ func (j *JoinRunner) Start(ctx context.Context) error {
 	}
 
 	resultsPublisher := stream.NewNATSPublisher(j.nc.JetStream(), stream.PublisherConfig{
-		Subject: outputSubject,
+		Subject:           outputSubject,
+		TotalSubjectCount: outputSubjectCount,
 	})
 
 	jComponent, err := component.NewJoinComponent(
@@ -216,17 +217,32 @@ func getJoinRightInputStreamName() (string, error) {
 	return models.GetRequiredEnvVar("NATS_RIGHT_INPUT_STREAM_PREFIX")
 }
 
-// getJoinOutputSubject returns the NATS subject the join publishes to
-func getJoinOutputSubject() (string, error) {
+// getJoinOutputConfig returns the NATS subject (or prefix) and total subject count for the join publisher.
+// When totalSubjects == 1: subject is "prefix.podIndex" (single-subject legacy behavior).
+// When totalSubjects > 1: subject is "prefix" and the publisher round-robins across prefix.0..prefix.N-1.
+func getJoinOutputConfig() (subject string, totalSubjects int, err error) {
 	prefix, err := models.GetRequiredEnvVar("NATS_SUBJECT_PREFIX")
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 
 	podIndex, err := models.GetRequiredEnvVar("GLASSFLOW_POD_INDEX")
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 
-	return fmt.Sprintf("%s.%s", prefix, podIndex), nil
+	totalSubjects = 1
+	if raw := os.Getenv("NATS_SUBJECT_TOTAL_COUNT"); raw != "" {
+		n, parseErr := strconv.Atoi(raw)
+		if parseErr != nil || n <= 0 {
+			return "", 0, fmt.Errorf("invalid NATS_SUBJECT_TOTAL_COUNT=%q: must be a positive integer", raw)
+		}
+		totalSubjects = n
+	}
+
+	if totalSubjects == 1 {
+		return fmt.Sprintf("%s.%s", prefix, podIndex), 1, nil
+	}
+
+	return prefix, totalSubjects, nil
 }

@@ -16,12 +16,12 @@ type OTLPConfig struct {
 type RoutingType string
 
 const (
-	// RoutingTypeName - just returns OutputSubject without any logic
-	RoutingTypeName     RoutingType = "name"
-	RoutingTypeField    RoutingType = "field"
-	RoutingTypeHash     RoutingType = "message_hash"
-	RoutingTypeRandom   RoutingType = "random"
-	RoutingTypePodIndex RoutingType = "pod_index"
+	RoutingTypeName       RoutingType = "name"
+	RoutingTypeField      RoutingType = "field"
+	RoutingTypeHash       RoutingType = "message_hash"
+	RoutingTypeRandom     RoutingType = "random"
+	RoutingTypePodIndex   RoutingType = "pod_index"
+	RoutingTypeRoundRobin RoutingType = "round_robin"
 )
 
 type RoutingConfig struct {
@@ -63,6 +63,10 @@ func (c RoutingConfig) Validate() error {
 		}
 		if c.Field.Name == "" {
 			return fmt.Errorf("dedup.field is required")
+		}
+	case RoutingTypeRoundRobin:
+		if c.SubjectCount < 1 {
+			return fmt.Errorf("subject_count must be >= 1 for type %q", c.Type)
 		}
 	default:
 		return fmt.Errorf("unknown routing type %q", c.Type)
