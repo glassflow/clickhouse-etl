@@ -36,8 +36,8 @@ type KafkaMsgProcessor struct {
 	totalSubjectCount   int
 	roundRobinCounter   atomic.Int64
 	dedupSubjectPrefix  string
-	dedupSubjectCount  int
-	singleDedupSubject string
+	dedupSubjectCount   int
+	singleDedupSubject  string
 
 	pendingPublishesLimit int
 }
