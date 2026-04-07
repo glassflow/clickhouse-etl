@@ -96,7 +96,7 @@ func TestProcessTraces(t *testing.T) {
 
 	expected := models.OTLPSpan{
 		Name:               "test-span",
-		Kind:               tracev1.Span_SPAN_KIND_CLIENT.String(),
+		Kind:               "CLIENT",
 		StartTimestamp:     "1970-01-01T00:00:00Z",
 		EndTimestamp:       "1970-01-01T00:00:00Z",
 		StatusCode:         "UNSET",

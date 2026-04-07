@@ -1,4 +1,4 @@
-package flattener_test
+package flattener
 
 import (
 	"encoding/hex"
@@ -13,7 +13,6 @@ import (
 	tracev1 "go.opentelemetry.io/proto/otlp/trace/v1"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/otlp-receiver/server/processor/flattener"
 )
 
 func TestFlattenTraces(t *testing.T) {
@@ -88,7 +87,7 @@ func TestFlattenTraces(t *testing.T) {
 	}
 
 	// Act
-	messages, err := flattener.FlattenTraces(req)
+	messages, err := FlattenTraces(req)
 
 	// Assert
 	if err != nil {
@@ -114,7 +113,7 @@ func TestFlattenTraces(t *testing.T) {
 		TraceState:             "",
 		Flags:                  1,
 		Name:                   "HTTP POST /api/auth/login",
-		Kind:                   "SPAN_KIND_SERVER",
+		Kind:                   "SERVER",
 		StartTimestamp:         toTS(startNano),
 		EndTimestamp:           toTS(endNano),
 		DurationNS:             endNano - startNano,
@@ -149,5 +148,29 @@ func TestFlattenTraces(t *testing.T) {
 
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("mismatch (-want +got):\n%s", diff)
+	}
+}
+
+func TestSpanKindToString(t *testing.T) {
+	tests := []struct {
+		kind tracev1.Span_SpanKind
+		want string
+	}{
+		{tracev1.Span_SPAN_KIND_UNSPECIFIED, "UNSPECIFIED"},
+		{tracev1.Span_SPAN_KIND_INTERNAL, "INTERNAL"},
+		{tracev1.Span_SPAN_KIND_SERVER, "SERVER"},
+		{tracev1.Span_SPAN_KIND_CLIENT, "CLIENT"},
+		{tracev1.Span_SPAN_KIND_PRODUCER, "PRODUCER"},
+		{tracev1.Span_SPAN_KIND_CONSUMER, "CONSUMER"},
+		{tracev1.Span_SpanKind(99), "UNSPECIFIED"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.want, func(t *testing.T) {
+			got := spanKindToString(tt.kind)
+			if got != tt.want {
+				t.Errorf("spanKindToString(%d) = %q, want %q", tt.kind, got, tt.want)
+			}
+		})
 	}
 }

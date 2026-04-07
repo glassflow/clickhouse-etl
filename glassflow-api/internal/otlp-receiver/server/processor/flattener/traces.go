@@ -27,7 +27,7 @@ func FlattenTraces(req *coltracepb.ExportTraceServiceRequest) ([]models.Message,
 					TraceState:             s.GetTraceState(),
 					Flags:                  s.GetFlags(),
 					Name:                   s.GetName(),
-					Kind:                   s.GetKind().String(),
+					Kind:                   spanKindToString(s.GetKind()),
 					StartTimestamp:         unixNanoToRFC3339(startNS),
 					EndTimestamp:           unixNanoToRFC3339(endNS),
 					DurationNS:             endNS - startNS,
@@ -91,4 +91,20 @@ func spanStatusCodeToString(code tracev1.Status_StatusCode) string {
 	default:
 		return "UNSET"
 	}
+}
+
+var spanKindName = map[tracev1.Span_SpanKind]string{
+	tracev1.Span_SPAN_KIND_UNSPECIFIED: "UNSPECIFIED",
+	tracev1.Span_SPAN_KIND_INTERNAL:    "INTERNAL",
+	tracev1.Span_SPAN_KIND_SERVER:      "SERVER",
+	tracev1.Span_SPAN_KIND_CLIENT:      "CLIENT",
+	tracev1.Span_SPAN_KIND_PRODUCER:    "PRODUCER",
+	tracev1.Span_SPAN_KIND_CONSUMER:    "CONSUMER",
+}
+
+func spanKindToString(kind tracev1.Span_SpanKind) string {
+	if s, ok := spanKindName[kind]; ok {
+		return s
+	}
+	return "UNSPECIFIED"
 }
