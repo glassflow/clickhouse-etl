@@ -43,16 +43,7 @@ export function ConfirmationModal({
         if (!isOpen) onComplete(ModalResult.NO, pendingOperation || '')
       }}
     >
-      <DialogOverlay
-        className="!fixed !inset-0"
-        aria-hidden="true"
-        style={{
-          backgroundColor: 'rgba(17, 25, 40, 0.25)',
-          backdropFilter: 'blur(4px) saturate(30%)',
-          WebkitBackdropFilter: 'blur(4px) saturate(30%)',
-          border: '1px solid rgba(255, 255, 255, 0.125)',
-        }}
-      />
+      <DialogOverlay className="!fixed !inset-0 modal-overlay" aria-hidden="true" />
       <DialogContent className="sm:max-w-[500px] info-modal-container surface-gradient-border border-0">
         <DialogHeader>
           <DialogTitle className="modal-title flex items-center gap-2 mb-8">{title}</DialogTitle>

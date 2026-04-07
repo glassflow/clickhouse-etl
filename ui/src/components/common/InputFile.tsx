@@ -181,8 +181,8 @@ export function InputFile({
           // Override default InputGroup focus ring to remove it
           'has-[[data-slot=input-group-control]:focus-visible]:!ring-0',
           // Apply custom focus styling to match other form fields
-          'has-[[data-slot=input-group-control]:focus-visible]:!border-[var(--color-background-primary,#a5b9e4)]',
-          'has-[[data-slot=input-group-control]:focus-visible]:!shadow-[0_0_0_2px_rgba(165,185,228,0.25)]',
+          'has-[[data-slot=input-group-control]:focus-visible]:!border-[var(--color-background-primary)]',
+          'has-[[data-slot=input-group-control]:focus-visible]:![box-shadow:var(--control-shadow-focus)]',
         )}
       >
         <InputGroupInput

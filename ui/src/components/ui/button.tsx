@@ -27,6 +27,8 @@ const buttonVariants = cva(
         ghostOutline:
           'bg-[var(--button-ghost-bg)] text-[var(--button-ghost-text)] border-[var(--button-ghost-border)] shadow-[var(--button-ghost-shadow)] hover:bg-[var(--button-ghost-hover)] hover:border-[var(--button-ghost-border-hover)] active:bg-[var(--button-ghost-active)] active:border-[var(--button-ghost-border-active)] disabled:opacity-50 disabled:pointer-events-none',
         link: 'text-primary underline-offset-4 hover:underline disabled:opacity-50 disabled:pointer-events-none',
+        card: 'btn-card',
+        cardSecondary: 'btn-card-secondary',
         gradient:
           'rounded-md bg-gradient-to-br from-[var(--button-primary-gradient-start)] to-[var(--button-primary-gradient-end)] shadow-[0px_0px_4px_0px_rgba(0,0,0,0.20),0px_4px_8px_0px_rgba(0,0,0,0.30)] hover:shadow-[0px_0px_6px_0px_rgba(0,0,0,0.25),0px_6px_12px_0px_rgba(0,0,0,0.35)] disabled:bg-gradient-to-br disabled:from-[var(--button-primary-gradient-disabled-start)] disabled:to-[var(--button-primary-gradient-disabled-end)] disabled:shadow-[0px_0px_2px_0px_rgba(0,0,0,0.10),0px_2px_4px_0px_rgba(0,0,0,0.15)] disabled:pointer-events-none',
       },
