@@ -233,8 +233,9 @@ Use `--control-*` tokens. Map these in Figma for form components.
 | caption-1 | 0.75rem / 12px | 1rem / 16px | 400 |
 | caption-2 | 0.625rem / 10px | 0.75rem / 12px | 400 |
 
-Font family: **Inter** for all scales.
-CSS tokens: `--font-family-title` / `--font-family-body`
+Font families:
+- **Titles** (`--font-family-title`): Archivo (loaded via `next/font`, CSS var `--font-archivo`), fallback Inter
+- **Body** (`--font-family-body`): Inter (loaded via `next/font`, CSS var `--font-inter`), system stack fallback
 
 ---
 

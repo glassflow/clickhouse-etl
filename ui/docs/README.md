@@ -14,6 +14,7 @@ This folder is the **deep reference** for the ClickHouse ETL UI. For development
 | ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
 | [architecture/ARCHITECTURE_OVERVIEW.md](architecture/ARCHITECTURE_OVERVIEW.md) | Full architecture: tech stack, directory tree, data flows, store structure, API, invariants, testing note. |
 | [architecture/DESIGN_SYSTEM.md](architecture/DESIGN_SYSTEM.md)                 | Design system: base/theme/semantic layers, tokens, card variants, usage, migration.                        |
+| [architecture/COMPONENT_GALLERY.md](architecture/COMPONENT_GALLERY.md)         | Component gallery at `/dev/components`: URL map, file structure, shared primitives, how to extend.        |
 
 ## Design
 

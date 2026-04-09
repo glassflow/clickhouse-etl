@@ -4,10 +4,13 @@ import { cn } from '@/src/utils/common.client'
 
 const cardVariantClass: Record<string, string> = {
   selectable: 'btn-card',
+  dark: 'card-dark',
   outline: 'card-outline',
   elevated: 'card-elevated',
   elevatedSubtle: 'card-elevated-subtle',
   regular: 'card-regular',
+  feedback: 'feedback-card',
+  content: 'content-card',
 }
 
 function Card({
@@ -15,7 +18,7 @@ function Card({
   variant = 'default',
   ...props
 }: React.ComponentProps<'div'> & {
-  variant?: 'default' | 'selectable' | 'outline' | 'elevated' | 'elevatedSubtle' | 'regular'
+  variant?: 'default' | 'selectable' | 'dark' | 'outline' | 'elevated' | 'elevatedSubtle' | 'regular' | 'feedback' | 'content'
 }) {
   return (
     <div

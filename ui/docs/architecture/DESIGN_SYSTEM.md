@@ -50,7 +50,8 @@ All raw color values are defined in `base.css` using semantic naming:
 The theme file references base tokens to create semantic color mappings and component-specific tokens (dark theme only):
 
 ```css
-/* Dark Theme */
+/* Tokens apply to :root (immediate on load) AND [data-theme='dark'] (explicit theme hook) */
+:root,
 [data-theme='dark'] {
   /* Semantic color mappings */
   --color-background-primary: var(--color-orange-300);
@@ -111,6 +112,8 @@ Semantic tokens (control, surface, option, etc.) are defined in `theme.css` unde
   --text-link: var(--color-foreground-primary);
 }
 ```
+
+> **Theme selector note:** Semantic tokens use `:root, [data-theme='dark']` — not just `[data-theme='dark']`. This ensures tokens are available immediately on page load before React hydration sets the `data-theme` attribute, preventing a flash of unstyled shadcn/ui components. It also satisfies Figma Variable modes, which need a `:root` baseline.
 
 **Naming Convention**: `--{category}-{property}-{state}`
 

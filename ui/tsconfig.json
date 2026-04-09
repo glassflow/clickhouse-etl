@@ -38,6 +38,7 @@
   ],
   "exclude": [
     "node_modules",
-    "figma-sync"
+    "figma-sync",
+    ".next/dev"
   ]
 }
