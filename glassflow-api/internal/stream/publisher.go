@@ -130,6 +130,10 @@ func (p *NatsPublisher) PublishNatsMsgAsync(msg *nats.Msg, limit int) (jetstream
 		return nil, fmt.Errorf("message cannot be nil")
 	}
 
+	if p.totalSubjectCount > 1 || msg.Subject == "" {
+		msg.Subject = p.selectSubject()
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), internal.PublisherAsyncMaxRetryWait)
 	defer cancel()
 
