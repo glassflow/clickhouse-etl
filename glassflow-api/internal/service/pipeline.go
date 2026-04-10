@@ -79,13 +79,6 @@ func (p *PipelineService) NewPipelineResources(ctx context.Context, cfg *models.
 			return models.PipelineResources{}, fmt.Errorf("only 1 join replica is supported")
 		}
 
-		if err := validateJoinSinkReplicas(cfg.PipelineResources); err != nil {
-			return models.PipelineResources{}, fmt.Errorf("%w: %w", ErrPipelineResourcesValidation, err)
-		}
-	}
-
-	if err := validateReplicaOrdering(cfg.PipelineResources); err != nil {
-		return models.PipelineResources{}, fmt.Errorf("%w: %w", ErrPipelineResourcesValidation, err)
 	}
 
 	existing, err := p.db.GetPipelineResources(ctx, cfg.ID)
@@ -587,44 +580,6 @@ func (p *PipelineService) EditPipeline(ctx context.Context, pid string, newCfg *
 	}
 
 	p.log.InfoContext(ctx, "pipeline edit initiated successfully", "pipeline_id", pid)
-	return nil
-}
-
-// when join is enabled, join replicas are always 1, so sink must also be 1
-func validateJoinSinkReplicas(res models.PipelineResources) error {
-	if res.Sink != nil && res.Sink.Replicas != nil && *res.Sink.Replicas != 1 {
-		return fmt.Errorf("sink replicas must be 1 when join is enabled")
-	}
-	return nil
-}
-
-// ingestor >= dedup >= sink replicas
-// join is always = 1 for now
-func validateReplicaOrdering(res models.PipelineResources) error {
-	var ingestorReplicas, transformReplicas, sinkReplicas *int64
-
-	if res.Ingestor != nil && res.Ingestor.Base != nil {
-		ingestorReplicas = res.Ingestor.Base.Replicas
-	}
-	if res.Transform != nil {
-		transformReplicas = res.Transform.Replicas
-	}
-	if res.Sink != nil {
-		sinkReplicas = res.Sink.Replicas
-	}
-
-	if ingestorReplicas != nil && transformReplicas != nil {
-		if *ingestorReplicas < *transformReplicas {
-			return fmt.Errorf("ingestor replicas (%d) must be >= dedup replicas (%d)", *ingestorReplicas, *transformReplicas)
-		}
-	}
-
-	if transformReplicas != nil && sinkReplicas != nil {
-		if *transformReplicas < *sinkReplicas {
-			return fmt.Errorf("dedup replicas (%d) must be >= sink replicas (%d)", *transformReplicas, *sinkReplicas)
-		}
-	}
-
 	return nil
 }
 

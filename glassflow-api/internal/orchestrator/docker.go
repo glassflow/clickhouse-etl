@@ -167,9 +167,11 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 			}
 
 			runtimeCfg := models.IngestorRuntimeConfig{
-				OutputSubject:      outputSubject,
-				DedupSubjectPrefix: resolveDedupSubjectPrefix(subjectPattern),
-				DedupSubjectCount:  subjectCount,
+				OutputSubject:       outputSubject,
+				OutputSubjectPrefix: resolveDedupSubjectPrefix(subjectPattern),
+				TotalSubjectCount:   1,
+				DedupSubjectPrefix:  resolveDedupSubjectPrefix(subjectPattern),
+				DedupSubjectCount:   subjectCount,
 			}
 
 			ingestorRunner := service.NewIngestorRunner(

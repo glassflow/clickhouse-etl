@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
 	"strconv"
 
 	"github.com/dgraph-io/badger/v4"
@@ -286,7 +287,9 @@ func dedupProcessorFromConfig(
 	return processor.NewDedupProcessor(badgerDedup), nil
 }
 
-// getOutputRouterFromEnv builds a pod-index subject router from NATS_SUBJECT_PREFIX and GLASSFLOW_POD_INDEX.
+// getOutputRouterFromEnv builds a subject router from NATS_SUBJECT_PREFIX, GLASSFLOW_POD_INDEX,
+// and optional NATS_SUBJECT_TOTAL_COUNT / NATS_PUBLISHER_REPLICA_COUNT.
+// When multiple subjects are assigned to this pod, a round-robin router is returned.
 func getOutputRouterFromEnv() (*subjectrouter.Router, error) {
 	prefix, err := models.GetRequiredEnvVar("NATS_SUBJECT_PREFIX")
 	if err != nil {
@@ -301,6 +304,23 @@ func getOutputRouterFromEnv() (*subjectrouter.Router, error) {
 	podIndex, err := strconv.Atoi(podIndexStr)
 	if err != nil {
 		return nil, fmt.Errorf("parse GLASSFLOW_POD_INDEX: %w", err)
+	}
+
+	totalSubjects := 1
+	if raw := os.Getenv("NATS_SUBJECT_TOTAL_COUNT"); raw != "" {
+		n, parseErr := strconv.Atoi(raw)
+		if parseErr != nil || n <= 0 {
+			return nil, fmt.Errorf("invalid NATS_SUBJECT_TOTAL_COUNT=%q: must be a positive integer", raw)
+		}
+		totalSubjects = n
+	}
+
+	if totalSubjects > 1 {
+		return subjectrouter.New(models.RoutingConfig{
+			OutputSubject: prefix,
+			SubjectCount:  totalSubjects,
+			Type:          models.RoutingTypeRoundRobin,
+		})
 	}
 
 	return subjectrouter.New(models.RoutingConfig{
