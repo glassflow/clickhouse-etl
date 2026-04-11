@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/src/components/ui/ta
 import yaml from 'js-yaml'
 import { useRouter } from 'next/navigation'
 import { generateApiConfig, getMappingType } from '../clickhouse/utils'
+import { isOtlpSource, getOtlpSignalLabel } from '@/src/config/source-types'
 import { ReviewConfigurationProps } from './types'
 import { ClickhouseDestinationPreview } from './ClickhouseDestinationPreview'
 import { ClickhouseConnectionPreview } from './ClickhouseConnectionPreview'
@@ -18,6 +19,70 @@ import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 import { createPipeline } from '@/src/api/pipeline-api'
 import { Pipeline } from '@/src/types/pipeline'
 import { isFiltersEnabled, isTransformationsEnabled } from '@/src/config/feature-flags'
+
+function generateOtlpApiConfig(params: {
+  pipelineId: string
+  pipelineName: string
+  otlpStore: any
+  clickhouseConnection: any
+  clickhouseDestination: any
+  filterStore: any
+  transformationStore: any
+  pipeline_resources: any
+  version: string | undefined
+}) {
+  const { pipelineId, pipelineName, otlpStore, clickhouseConnection, clickhouseDestination, filterStore, transformationStore, pipeline_resources, version } = params
+
+  return {
+    pipeline_id: pipelineId,
+    name: pipelineName,
+    version,
+    source: {
+      type: otlpStore.signalType || '',
+      id: otlpStore.sourceId,
+      deduplication: otlpStore.deduplication.enabled ? {
+        enabled: true,
+        id_field: otlpStore.deduplication.id_field,
+        id_field_type: otlpStore.deduplication.id_field_type,
+        time_window: otlpStore.deduplication.time_window,
+      } : {
+        enabled: false,
+        id_field: '',
+        id_field_type: '',
+        time_window: '',
+      },
+    },
+    join: { type: '', enabled: false, sources: [] },
+    filter: filterStore?.filterConfig?.enabled ? {
+      enabled: true,
+      expression: filterStore.filterConfig.expression,
+    } : undefined,
+    stateless_transformation: transformationStore?.transformationConfig?.enabled ? {
+      enabled: true,
+      config: { transform: transformationStore.transformationConfig.fields },
+    } : undefined,
+    sink: {
+      type: 'clickhouse',
+      host: clickhouseConnection.host,
+      httpPort: clickhouseConnection.httpPort,
+      nativePort: clickhouseConnection.nativePort,
+      database: clickhouseConnection.database,
+      username: clickhouseConnection.username,
+      password: clickhouseConnection.password,
+      table: clickhouseDestination.tableName,
+      secure: clickhouseConnection.secure,
+      table_mapping: clickhouseDestination.mappedColumns || [],
+      max_batch_size: clickhouseDestination.maxBatchSize || 1000,
+      max_delay_time: clickhouseDestination.maxDelayTime || '5s',
+      skip_certificate_verification: clickhouseConnection.skipCertificateVerification || false,
+    },
+    pipeline_resources: pipeline_resources ? {
+      transform: pipeline_resources.transform,
+      sink: pipeline_resources.sink,
+      nats: pipeline_resources.nats,
+    } : undefined,
+  }
+}
 
 export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewConfigurationProps) {
   const {
@@ -31,7 +96,9 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
     filterStore,
     transformationStore,
     resourcesStore,
+    otlpStore,
   } = useStore()
+  const isOtlp = isOtlpSource(coreStore.sourceType)
   const { apiConfig, pipelineId, setPipelineId, pipelineName, pipelineVersion } = coreStore
   const { clickhouseConnection } = clickhouseConnectionStore
   const { clickhouseDestination } = clickhouseDestinationStore
@@ -47,6 +114,19 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
 
   // Compute config from current stores so display and deploy always reflect latest state
   const effectiveConfig = useMemo(() => {
+    if (isOtlp) {
+      return generateOtlpApiConfig({
+        pipelineId,
+        pipelineName: pipelineName || 'Pipeline',
+        otlpStore,
+        clickhouseConnection,
+        clickhouseDestination,
+        filterStore,
+        transformationStore,
+        pipeline_resources: resourcesStore.pipeline_resources,
+        version: pipelineVersion,
+      })
+    }
     const result = generateApiConfig({
       pipelineId,
       pipelineName: pipelineName || 'Pipeline',
@@ -65,6 +145,7 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
     })
     return result
   }, [
+    isOtlp,
     pipelineId,
     pipelineName,
     setPipelineId,
@@ -78,6 +159,7 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
     transformationStore,
     resourcesStore.pipeline_resources,
     pipelineVersion,
+    otlpStore,
   ])
 
   const configError = effectiveConfig && typeof effectiveConfig === 'object' && 'error' in effectiveConfig
@@ -187,15 +269,33 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
-          <div className="p-4 border-b border-[var(--color-border-neutral-faded)] last:border-b-0 transition-all duration-200 hover:bg-[var(--color-background-neutral-faded)] animate-fade-in-up animate-delay-100">
-            <h3 className="text-lg font-medium mb-2 transition-colors duration-200">Kafka Connection</h3>
-            <KafkaConnectionPreview kafkaStore={kafkaStore} />
-          </div>
+          {isOtlp ? (
+            <div className="p-4 border-b border-[var(--color-border-neutral-faded)] last:border-b-0 transition-all duration-200 hover:bg-[var(--color-background-neutral-faded)] animate-fade-in-up animate-delay-100">
+              <h3 className="text-lg font-medium mb-2 transition-colors duration-200">Source</h3>
+              <div className="space-y-2">
+                <p className="text-sm text-[var(--color-foreground-neutral)]">
+                  <strong>Source Type:</strong> OTLP {getOtlpSignalLabel(coreStore.sourceType)}
+                </p>
+                {otlpStore.deduplication.enabled && (
+                  <p className="text-sm text-[var(--color-foreground-neutral-faded)]">
+                    Deduplication: {otlpStore.deduplication.id_field} (window: {otlpStore.deduplication.time_window})
+                  </p>
+                )}
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="p-4 border-b border-[var(--color-border-neutral-faded)] last:border-b-0 transition-all duration-200 hover:bg-[var(--color-background-neutral-faded)] animate-fade-in-up animate-delay-100">
+                <h3 className="text-lg font-medium mb-2 transition-colors duration-200">Kafka Connection</h3>
+                <KafkaConnectionPreview kafkaStore={kafkaStore} />
+              </div>
 
-          <div className="p-4 border-b border-[var(--color-border-neutral-faded)] last:border-b-0 transition-all duration-200 hover:bg-[var(--color-background-neutral-faded)] animate-fade-in-up animate-delay-200">
-            <h3 className="text-lg font-medium mb-2 transition-colors duration-200">Selected Topics</h3>
-            <ul className="list-disc list-inside">{renderTopics()}</ul>
-          </div>
+              <div className="p-4 border-b border-[var(--color-border-neutral-faded)] last:border-b-0 transition-all duration-200 hover:bg-[var(--color-background-neutral-faded)] animate-fade-in-up animate-delay-200">
+                <h3 className="text-lg font-medium mb-2 transition-colors duration-200">Selected Topics</h3>
+                <ul className="list-disc list-inside">{renderTopics()}</ul>
+              </div>
+            </>
+          )}
 
           {isFiltersEnabled() && filterStore?.filterConfig?.enabled && (
             <div className="p-4 border-b border-gray-200 last:border-b-0 transition-all duration-200 hover:bg-[var(--color-background-neutral-faded)] animate-fade-in-up animate-delay-250">
