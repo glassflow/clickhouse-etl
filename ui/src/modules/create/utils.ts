@@ -89,6 +89,10 @@ const sidebarStepConfig: Record<StepKeys, Omit<SidebarStep, 'id' | 'key'>> = {
     title: 'Deploy Pipeline',
     parent: null,
   },
+  [StepKeys.OTLP_SIGNAL_TYPE]: {
+    title: 'Select Signal Type',
+    parent: null,
+  },
 }
 
 // Legacy journeys kept for backward compatibility

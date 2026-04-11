@@ -194,6 +194,7 @@ export class DistributedValidationEngine {
       [StepKeys.PIPELINE_RESOURCES]: 'pipeline-resources',
       [StepKeys.REVIEW_CONFIGURATION]: 'review-configuration',
       [StepKeys.DEPLOY_PIPELINE]: 'deploy-pipeline',
+      [StepKeys.OTLP_SIGNAL_TYPE]: 'otlp-signal-type',
     }
   }
 
