@@ -223,12 +223,12 @@ export function markStoresValidAfterImport(store: any, config: Pipeline): void {
   } = store
 
   // Mark Kafka connection as valid if brokers are present
-  if (config.source?.connection_params?.brokers?.length > 0) {
+  if ((config.source?.connection_params?.brokers?.length ?? 0) > 0) {
     kafkaStore.markAsValid()
   }
 
   // Mark topics store as valid if topics are present
-  if (config.source?.topics?.length > 0) {
+  if ((config.source?.topics?.length ?? 0) > 0) {
     topicsStore.markAsValid()
   }
 

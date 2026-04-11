@@ -81,6 +81,7 @@ interface CoreStoreProps {
   pipelineId: string
   pipelineName: string
   topicCount: number // Primary: number of topics (1 or 2)
+  sourceType: string // 'kafka' | 'otlp' — determines which source UI to render
   operationsSelected: OperationsSelectedType // Computed/derived for backward compatibility
   pipelineVersion: string | undefined // Track the version of the pipeline config
   outboundEventPreview: OutboundEventPreviewType
@@ -100,6 +101,7 @@ interface CoreStore extends CoreStoreProps {
   // actions
   setApiConfig: (config: Partial<Pipeline>) => void
   setTopicCount: (topicCount: number) => void
+  setSourceType: (sourceType: string) => void
   setOperationsSelected: (operations: OperationsSelectedType) => void // Kept for backward compatibility
   getComputedOperation: () => string // Computes operation from topicCount + deduplication + join
   setOutboundEventPreview: (preview: OutboundEventPreviewType) => void
@@ -142,6 +144,7 @@ export const initialCoreStore: CoreStoreProps = {
   pipelineId: '',
   pipelineName: '',
   topicCount: 0, // 0 = not set, 1 = single topic, 2 = two topics
+  sourceType: 'kafka', // Default to Kafka for backward compatibility
   pipelineVersion: undefined,
   operationsSelected: {
     operation: '',
@@ -171,6 +174,10 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
     setPipelineName: (name: string) =>
       set((state) => ({
         coreStore: { ...state.coreStore, pipelineName: name },
+      })),
+    setSourceType: (sourceType: string) =>
+      set((state) => ({
+        coreStore: { ...state.coreStore, sourceType },
       })),
     setTopicCount: (topicCount: number) => {
       set((state) => ({
