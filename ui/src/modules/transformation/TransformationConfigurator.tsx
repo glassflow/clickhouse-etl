@@ -7,6 +7,7 @@ import FormActions from '@/src/components/shared/FormActions'
 import { isFieldComplete } from '@/src/store/transformation.store'
 import { useValidationEngine } from '@/src/store/state-machine/validation-engine'
 import { buildEffectiveEvent, getSchemaModifications, type SchemaField } from '@/src/utils/common.client'
+import { isOtlpSource } from '@/src/config/source-types'
 import { CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline'
 import type { ApiValidationStatus } from './hooks/useTransformationActions'
 
@@ -39,7 +40,7 @@ export function TransformationConfigurator({
   onCompleteStandaloneEditing,
 }: TransformationConfiguratorProps) {
   // Store access
-  const { coreStore, transformationStore, topicsStore } = useStore()
+  const { coreStore, transformationStore, topicsStore, otlpStore } = useStore()
   const validationEngine = useValidationEngine()
 
   // Get transformation config from store
@@ -63,8 +64,13 @@ export function TransformationConfigurator({
     return getSchemaModifications(schemaFields)
   }, [schemaFields])
 
+  // For OTLP sources, use the predefined schema fields as override
+  const otlpFields = isOtlpSource(coreStore.sourceType)
+    ? otlpStore.schemaFields.map((f) => ({ name: f.name, type: f.type }))
+    : undefined
+
   // Custom hook for available fields derivation
-  const availableFields = useAvailableFields(schemaFields, effectiveEventData, transformationConfig.fields)
+  const availableFields = useAvailableFields(schemaFields, effectiveEventData, transformationConfig.fields, otlpFields)
 
   // Custom hook for validation state management
   const validation = useTransformationValidation(transformationConfig, transformationStore)

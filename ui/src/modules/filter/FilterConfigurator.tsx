@@ -18,6 +18,7 @@ import {
   getAllRules,
 } from './utils'
 import { validateFilterExpression, FilterValidationField } from '@/src/api/pipeline-api'
+import { isOtlpSource } from '@/src/config/source-types'
 
 export interface FilterConfiguratorProps {
   onCompleteStep: (stepName: string) => void
@@ -36,7 +37,7 @@ export function FilterConfigurator({
   pipelineActionState,
   onCompleteStandaloneEditing,
 }: FilterConfiguratorProps) {
-  const { coreStore, filterStore, topicsStore } = useStore()
+  const { coreStore, filterStore, topicsStore, otlpStore } = useStore()
 
   // Get filter config from store
   const filterConfig = filterStore.filterConfig
@@ -50,6 +51,10 @@ export function FilterConfigurator({
 
   // Extract available fields from schema or event (use effective type: userType || type for overrides)
   const availableFields = useMemo((): Array<{ name: string; type: string }> => {
+    if (isOtlpSource(coreStore.sourceType)) {
+      return otlpStore.schemaFields.map((f) => ({ name: f.name, type: f.type }))
+    }
+
     if (eventSchema && eventSchema.length > 0) {
       return eventSchema
         .filter((f: any) => !f.isRemoved)
@@ -82,7 +87,7 @@ export function FilterConfigurator({
     }
 
     return []
-  }, [eventSchema, selectedEvent])
+  }, [coreStore.sourceType, otlpStore.schemaFields, eventSchema, selectedEvent])
 
   // Local validation state
   const [localValidation, setLocalValidation] = useState<FilterConfigValidation>({
