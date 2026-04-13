@@ -20,6 +20,36 @@ import { createPipeline } from '@/src/api/pipeline-api'
 import { Pipeline } from '@/src/types/pipeline'
 import { isFiltersEnabled, isTransformationsEnabled } from '@/src/config/feature-flags'
 
+// Build OTLP table_mapping with source_id attribution. Mirrors the Kafka behaviour in
+// modules/clickhouse/utils.ts where the dedup key is added as a schema-only entry
+// (empty column_name/column_type) when not already mapped to a ClickHouse column.
+function buildOtlpTableMapping(mappedColumns: any[], otlpStore: any) {
+  const sourceId = otlpStore.sourceId
+  const mappings = mappedColumns.map((col: any) => ({
+    source_id: sourceId,
+    field_name: col.eventField || col.field_name,
+    column_name: col.name || col.column_name,
+    column_type: (col.type || col.column_type || '').replace(/Nullable\((.*)\)/, '$1'),
+  }))
+
+  // If dedup is enabled, ensure the dedup id_field is present in table_mapping so the
+  // backend knows it's part of the source schema (even if not mapped to ClickHouse).
+  const dedup = otlpStore.deduplication
+  if (dedup?.enabled && dedup?.id_field) {
+    const alreadyMapped = mappings.some((m) => m.field_name === dedup.id_field)
+    if (!alreadyMapped) {
+      mappings.push({
+        source_id: sourceId,
+        field_name: dedup.id_field,
+        column_name: '',
+        column_type: '',
+      })
+    }
+  }
+
+  return mappings
+}
+
 function generateOtlpApiConfig(params: {
   pipelineId: string
   pipelineName: string
@@ -71,7 +101,9 @@ function generateOtlpApiConfig(params: {
       password: clickhouseConnection.password,
       table: clickhouseDestination.tableName,
       secure: clickhouseConnection.secure,
-      table_mapping: clickhouseDestination.mappedColumns || [],
+      // Each mapping entry must reference the OTLP source via source_id so the backend
+      // can attribute columns to the correct source in the pipeline schema.
+      table_mapping: buildOtlpTableMapping(clickhouseDestination.mappedColumns || [], otlpStore),
       max_batch_size: clickhouseDestination.maxBatchSize || 1000,
       max_delay_time: clickhouseDestination.maxDelayTime || '5s',
       skip_certificate_verification: clickhouseConnection.skipCertificateVerification || false,
