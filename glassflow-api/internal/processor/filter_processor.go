@@ -52,8 +52,8 @@ func (fp *FilterProcessor) ProcessBatch(
 			continue
 		}
 
-		if matched {
-			// Message matches the filter expression, so it should be filtered out
+		if !matched {
+			// Message does not match the filter expression, so it should be filtered out
 			continue
 		}
 
