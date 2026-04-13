@@ -1,0 +1,77 @@
+mode: deployment
+
+image:
+  repository: otel/opentelemetry-collector-contrib
+  tag: "0.120.0"
+
+config:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+        http:
+          endpoint: 0.0.0.0:4318
+
+  processors:
+    batch:
+      send_batch_size: 64
+      send_batch_max_size: 128
+    memory_limiter:
+      limit_mib: 128
+      check_interval: 1s
+
+  exporters:
+    otlp/glassflow-logs:
+      endpoint: "glassflow-otlp-receiver.glassflow.svc.cluster.local:4317"
+      tls:
+        insecure: true
+      headers:
+        x-glassflow-pipeline-id: "otlp-logs"
+    otlp/glassflow-metrics:
+      endpoint: "glassflow-otlp-receiver.glassflow.svc.cluster.local:4317"
+      tls:
+        insecure: true
+      headers:
+        x-glassflow-pipeline-id: "otlp-metrics"
+    otlp/glassflow-traces:
+      endpoint: "glassflow-otlp-receiver.glassflow.svc.cluster.local:4317"
+      tls:
+        insecure: true
+      headers:
+        x-glassflow-pipeline-id: "otlp-traces"
+
+  service:
+    pipelines:
+      logs:
+        receivers: [otlp]
+        processors: [memory_limiter, batch]
+        exporters: [otlp/glassflow-logs]
+      metrics:
+        receivers: [otlp]
+        processors: [memory_limiter, batch]
+        exporters: [otlp/glassflow-metrics]
+      traces:
+        receivers: [otlp]
+        processors: [memory_limiter, batch]
+        exporters: [otlp/glassflow-traces]
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 200m
+    memory: 256Mi
+
+ports:
+  otlp:
+    enabled: true
+    containerPort: 4317
+    servicePort: 4317
+    protocol: TCP
+  otlp-http:
+    enabled: true
+    containerPort: 4318
+    servicePort: 4318
+    protocol: TCP

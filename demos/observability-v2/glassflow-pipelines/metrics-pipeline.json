@@ -1,0 +1,67 @@
+{
+    "pipeline_id": "otlp-metrics",
+    "name": "OTLP Metrics Pipeline",
+    "version": "v3",
+    "pipeline_resources": {
+        "ingestor": {
+            "base": {
+                "replicas": 1,
+                "requests": {"cpu": "1500m", "memory": "512Mi"},
+                "limits": {"cpu": "1500m", "memory": "1024Mi"}
+            }
+        },
+        "sink": {
+            "replicas": 1,
+            "requests": { "cpu": "1500m", "memory": "2Gi" },
+            "limits":   { "cpu": "1500m", "memory": "2Gi" }
+        }
+    },
+    "source": {
+        "type": "otlp.metrics",
+        "id": "otlp-metrics"
+    },
+    "sink": {
+        "type": "clickhouse",
+        "connection_params": {
+            "host": "hyperdx-clickstack-clickhouse.hyperdx.svc.cluster.local",
+            "port": "9000",
+            "http_port": "8123",
+            "database": "default",
+            "username": "otel",
+            "password": "password",
+            "secure": false,
+            "skip_certificate_verification": true
+        },
+        "table": "otel_metrics",
+        "max_batch_size": 30000,
+        "max_delay_time": "5s",
+        "source_id": "otlp-metrics",
+        "mapping": [
+            {"name":  "timestamp", "column_name": "timestamp", "column_type":  "DateTime64"},
+            {"name":  "start_timestamp", "column_name": "start_timestamp", "column_type":  "DateTime64"},
+            {"name":  "metric_name", "column_name": "metric_name", "column_type":  "LowCardinality(String)"},
+            {"name":  "metric_description", "column_name": "metric_description", "column_type":  "String"},
+            {"name":  "metric_unit", "column_name": "metric_unit", "column_type":  "String"},
+            {"name":  "metric_type", "column_name": "metric_type", "column_type":  "String"},
+            {"name":  "aggregation_temporality", "column_name": "aggregation_temporality", "column_type":  "String"},
+            {"name":  "is_monotonic", "column_name": "is_monotonic", "column_type":  "Bool"},
+            {"name":  "flags", "column_name": "flags", "column_type":  "UInt32"},
+            {"name":  "value_double", "column_name": "value_double", "column_type":  "Float64"},
+            {"name":  "value_int", "column_name": "value_int", "column_type":  "Int64"},
+            {"name":  "count", "column_name": "count", "column_type":  "UInt64"},
+            {"name":  "sum", "column_name": "sum", "column_type":  "Float64"},
+            {"name":  "min", "column_name": "min", "column_type":  "Float64"},
+            {"name":  "max", "column_name": "max", "column_type":  "Float64"},
+            {"name":  "bucket_counts", "column_name": "bucket_counts", "column_type":  "Array(UInt64)"},
+            {"name":  "explicit_bounds", "column_name": "explicit_bounds", "column_type":  "Array(Float64)"},
+            {"name":  "resource", "column_name": "resource", "column_type":  "Map(LowCardinality(String), String)"},
+            {"name":  "scope_name", "column_name": "scope_name", "column_type":  "String"},
+            {"name":  "scope_version", "column_name": "scope_version", "column_type":  "String"},
+            {"name":  "scope_attributes", "column_name": "scope_attributes", "column_type":  "Map(LowCardinality(String), String)"},
+            {"name":  "attributes", "column_name": "attributes", "column_type":  "Map(LowCardinality(String), String)"}
+        ]
+    },
+    "metadata": {
+        "tags": []
+    }
+}

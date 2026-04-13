@@ -1,0 +1,43 @@
+storageClassName: standard
+
+clickhouse:
+  enabled: true
+  resources:
+    limits:
+      cpu: "800m"
+      memory: "2Gi"
+    requests:
+      cpu: "200m"
+      memory: "512Mi"
+  auth:
+    otelUserName: otel
+    otelUserPassword: password
+    appUserPassword: hyperdx
+
+hyperdx:
+  enabled: true
+  resources:
+    limits:
+      cpu: "500m"
+      memory: "1Gi"
+    requests:
+      cpu: "200m"
+      memory: "412Mi"
+  env:
+    - name: USAGE_STATS_ENABLED
+      value: "false"
+
+mongodb:
+  enabled: true
+  persistence:
+    size: 10Gi
+  resources:
+    limits:
+      cpu: "300m"
+      memory: "412Mi"
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+
+otel:
+  enabled: false

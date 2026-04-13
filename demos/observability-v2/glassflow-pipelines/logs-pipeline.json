@@ -1,0 +1,64 @@
+{
+    "pipeline_id": "otlp-logs",
+    "name": "OTLP Logs Pipeline",
+    "version": "v3",
+    "pipeline_resources": {
+        "ingestor": {
+            "base": {
+                "replicas": 1,
+                "requests": {"cpu": "1500m", "memory": "512Mi"},
+                "limits": {"cpu": "1500m", "memory": "1024Mi"}
+            }
+        },
+        "sink": {
+            "replicas": 1,
+            "requests": { "cpu": "1500m", "memory": "2Gi" },
+            "limits":   { "cpu": "1500m", "memory": "2Gi" }
+        }
+    },
+    "source": {
+        "type": "otlp.logs",
+        "id": "otlp-logs",
+        "deduplication": {
+            "enabled": false,
+            "key": "trace_id",
+            "time_window": "1m0s"
+        }
+    },
+    "sink": {
+        "type": "clickhouse",
+        "connection_params": {
+            "host": "hyperdx-clickstack-clickhouse.hyperdx.svc.cluster.local",
+            "port": "9000",
+            "http_port": "8123",
+            "database": "default",
+            "username": "otel",
+            "password": "password",
+            "secure": false,
+            "skip_certificate_verification": true
+        },
+        "table": "otel_logs",
+        "max_batch_size": 30000,
+        "max_delay_time": "5s",
+        "source_id": "otlp-logs",
+        "mapping": [
+            {"name":  "timestamp", "column_name": "timestamp", "column_type":  "DateTime64"},
+            {"name":  "observed_timestamp", "column_name": "observed_timestamp", "column_type":  "DateTime64"},
+            {"name":  "severity_number", "column_name": "severity_number", "column_type":  "UInt8"},
+            {"name":  "severity_text", "column_name": "severity_text", "column_type":  "LowCardinality(String)"},
+            {"name":  "body", "column_name": "body", "column_type":  "String"},
+            {"name":  "trace_id", "column_name": "trace_id", "column_type":  "String"},
+            {"name":  "span_id", "column_name": "span_id", "column_type":  "String"},
+            {"name":  "flags", "column_name": "flags", "column_type":  "UInt32"},
+            {"name":  "dropped_attributes_count", "column_name": "dropped_attributes_count", "column_type":  "UInt32"},
+            {"name":  "resource_attributes", "column_name": "resource_attributes", "column_type":  "Map(LowCardinality(String), String)"},
+            {"name":  "scope_name", "column_name": "scope_name", "column_type":  "LowCardinality(String)"},
+            {"name":  "scope_version", "column_name": "scope_version", "column_type":  "String"},
+            {"name":  "scope_attributes", "column_name": "scope_attributes", "column_type":  "Map(LowCardinality(String), String)"},
+            {"name":  "attributes", "column_name": "attributes", "column_type":  "Map(LowCardinality(String), String)"}
+        ]
+    },
+    "metadata": {
+        "tags": []
+    }
+}
