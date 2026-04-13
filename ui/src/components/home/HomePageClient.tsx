@@ -48,7 +48,7 @@ function OrSeparator() {
 // Client Component for handling searchParams
 export default function HomePageClient() {
   const store = useStore()
-  const { topicsStore, kafkaStore, joinStore, coreStore, resetForNewPipeline, resetAllPipelineState } = store
+  const { topicsStore, kafkaStore, joinStore, coreStore, otlpStore, resetForNewPipeline, resetAllPipelineState } = store
   const analytics = useJourneyAnalytics()
   const searchParams = useSearchParams()
   const showWarning = searchParams?.get('showWarning') === 'true'
@@ -165,6 +165,9 @@ export default function HomePageClient() {
       // Set source type based on selection
       if (selectedSource === 'otlp' && selectedOtlpSignal) {
         setSourceType(selectedOtlpSignal)
+        // Auto-generate OTLP source ID — backend uses this to identify the source
+        // and the sink table_mapping references it via source_id
+        otlpStore.setSourceId(`${finalPipelineId}-source`)
       } else {
         setSourceType(SourceType.KAFKA)
       }
