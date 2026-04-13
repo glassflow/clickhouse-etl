@@ -228,7 +228,7 @@ func (s *PostgresStorage) InsertPipeline(ctx context.Context, p models.PipelineC
 	_, err = tx.Exec(ctx, `
 		INSERT INTO pipelines (id, name, status, source_id, sink_id, transformation_ids, metadata, version, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-	`, insertData.pipelineID, insertData.name, insertData.status, insertData.sourceID, insertData.sinkID, insertData.transformationIDsArg, insertData.metadataJSON, "v2", insertData.createdAt, insertData.updatedAt)
+	`, insertData.pipelineID, insertData.name, insertData.status, insertData.sourceID, insertData.sinkID, insertData.transformationIDsArg, string(insertData.metadataJSON), "v2", insertData.createdAt, insertData.updatedAt)
 	if err != nil {
 		return fmt.Errorf("insert pipeline: %w", err)
 	}
@@ -478,7 +478,7 @@ func (s *PostgresStorage) UpdatePipeline(ctx context.Context, id string, newCfg 
 		UPDATE pipelines
 		SET name = $1, status = $2, transformation_ids = $3, metadata = $4, version = $5, updated_at = $6
 		WHERE id = $7
-	`, updateData.name, updateData.status, updateData.transformationIDsArg, updateData.metadataJSON, "v2", updateData.updatedAt, updateData.pipelineID)
+	`, updateData.name, updateData.status, updateData.transformationIDsArg, string(updateData.metadataJSON), "v2", updateData.updatedAt, updateData.pipelineID)
 	if err != nil {
 		return fmt.Errorf("update pipeline: %w", err)
 	}
@@ -554,7 +554,7 @@ func (s *PostgresStorage) PatchPipelineMetadata(ctx context.Context, id string, 
 		UPDATE pipelines
 		SET metadata = $1, updated_at = NOW()
 		WHERE id = $2
-	`, metadataJSON, pipelineID)
+	`, string(metadataJSON), pipelineID)
 	if err != nil {
 		return fmt.Errorf("update pipeline metadata: %w", err)
 	}
@@ -616,7 +616,7 @@ func (s *PostgresStorage) insertPipelineHistoryEvent(ctx context.Context, tx pgx
 	_, err = tx.Exec(ctx, `
 		INSERT INTO pipeline_history (pipeline_id, type, event)
 		VALUES ($1, $2, $3)
-	`, pipelineID, eventType, eventJSON)
+	`, pipelineID, eventType, string(eventJSON))
 	if err != nil {
 		return fmt.Errorf("insert pipeline history event: %w", err)
 	}
@@ -783,7 +783,7 @@ func (s *PostgresStorage) insertOTLPSource(ctx context.Context, tx pgx.Tx, p mod
 		INSERT INTO sources (type, connection_id, config, pipeline_id)
 		VALUES ($1, NULL, $2, $3)
 		RETURNING id
-	`, p.SourceType, configJSON, p.ID).Scan(&sourceID)
+	`, p.SourceType, string(configJSON), p.ID).Scan(&sourceID)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to insert otlp source",
 			slog.String("source_type", string(p.SourceType)),
@@ -934,7 +934,7 @@ type pipelineInsertData struct {
 	status               string
 	sourceID             uuid.UUID
 	sinkID               uuid.UUID
-	transformationIDsArg interface{} // nil or []uuid.UUID
+	transformationIDsArg pgtype.Array[pgtype.UUID]
 	metadataJSON         []byte
 	createdAt            time.Time
 	updatedAt            time.Time
@@ -957,12 +957,7 @@ func (s *PostgresStorage) preparePipelineUpdateData(p models.PipelineConfig, sou
 		return nil, fmt.Errorf("marshal metadata: %w", err)
 	}
 
-	var transformationIDsArg interface{}
-	if len(transformationIDs) == 0 {
-		transformationIDsArg = nil
-	} else {
-		transformationIDsArg = transformationIDs
-	}
+	transformationIDsArg := uuidsToArrayArg(transformationIDs)
 
 	return &pipelineInsertData{
 		pipelineID:           pipelineID,
@@ -994,12 +989,7 @@ func (s *PostgresStorage) preparePipelineInsertData(p models.PipelineConfig, sou
 		return nil, fmt.Errorf("marshal metadata: %w", err)
 	}
 
-	var transformationIDsArg interface{}
-	if len(transformationIDs) == 0 {
-		transformationIDsArg = nil
-	} else {
-		transformationIDsArg = transformationIDs
-	}
+	transformationIDsArg := uuidsToArrayArg(transformationIDs)
 
 	return &pipelineInsertData{
 		pipelineID:           pipelineID,
@@ -1012,6 +1002,20 @@ func (s *PostgresStorage) preparePipelineInsertData(p models.PipelineConfig, sou
 		createdAt:            p.CreatedAt,
 		updatedAt:            time.Now().UTC(),
 	}, nil
+}
+
+// uuidsToArrayArg converts a slice of uuid.UUID to a pgtype.Array[pgtype.UUID]
+// so it can be encoded in simple protocol mode (OID-free text encoding).
+// An empty slice produces a NULL array, preserving the original nil semantics.
+func uuidsToArrayArg(ids []uuid.UUID) pgtype.Array[pgtype.UUID] {
+	if len(ids) == 0 {
+		return pgtype.Array[pgtype.UUID]{} // Valid: false → NULL
+	}
+	elements := make([]pgtype.UUID, len(ids))
+	for i, id := range ids {
+		elements[i] = pgtype.UUID{Bytes: id, Valid: true}
+	}
+	return pgtype.Array[pgtype.UUID]{Elements: elements, Valid: true}
 }
 
 // ------------------------------------------------------------------------------------------------

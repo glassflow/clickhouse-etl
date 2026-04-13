@@ -34,7 +34,7 @@ func (s *PostgresStorage) insertConnectionWithConfig(ctx context.Context, tx pgx
 		INSERT INTO connections (type, config)
 		VALUES ($1, $2)
 		RETURNING id
-	`, connType, configToStore).Scan(&connID)
+	`, connType, string(configToStore)).Scan(&connID)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to insert connection",
 			slog.String("connection_type", connType),
@@ -65,7 +65,7 @@ func (s *PostgresStorage) updateConnectionWithConfig(ctx context.Context, tx pgx
 		UPDATE connections
 		SET config = $1, updated_at = NOW()
 		WHERE id = $2
-	`, configToStore, connID)
+	`, string(configToStore), connID)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to update connection",
 			slog.String("connection_id", connID.String()),
