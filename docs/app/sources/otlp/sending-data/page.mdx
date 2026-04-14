@@ -1,0 +1,67 @@
+---
+title: 'Sending Data'
+description: 'Configure OpenTelemetry Collectors and SDKs to send data to the GlassFlow OTLP receiver'
+---
+import { Callout } from 'nextra/components'
+
+# Sending Data
+
+This page covers how to configure OpenTelemetry Collectors and SDKs to send data to the GlassFlow OTLP receiver.
+
+## OpenTelemetry Collector
+
+### HTTP Exporter
+
+```yaml
+exporters:
+  otlphttp:
+    endpoint: http://<glassflow-otlp-receiver>:4318
+    headers:
+      x-glassflow-pipeline-id: "otel-logs-pipeline"
+
+service:
+  pipelines:
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlphttp]
+```
+
+### gRPC Exporter
+
+```yaml
+exporters:
+  otlp:
+    endpoint: <glassflow-otlp-receiver>:4317
+    headers:
+      x-glassflow-pipeline-id: "otel-logs-pipeline"
+    tls:
+      insecure: true  # Set to false and configure certs in production
+
+service:
+  pipelines:
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlp]
+```
+
+<Callout type="info">
+  Replace `logs` with `traces` or `metrics` in the `service.pipelines` section to match the signal type of your pipeline.
+</Callout>
+
+## Direct SDK Instrumentation
+
+For applications instrumented with the OpenTelemetry SDK, configure the OTLP exporter to point at GlassFlow and include the pipeline ID header.
+
+**Python example (traces):**
+
+```python
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+
+exporter = OTLPSpanExporter(
+    endpoint="http://<glassflow-otlp-receiver>:4317",
+    headers={"x-glassflow-pipeline-id": "otel-traces-pipeline"},
+    insecure=True,
+)
+```

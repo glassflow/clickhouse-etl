@@ -181,7 +181,7 @@ The source configuration defines how to connect to and consume from Kafka topics
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `type` | string | Yes | "kafka" is the only supported source |
+| `type` | string | Yes | Source type: `"kafka"` or `"otlp.logs"` / `"otlp.traces"` / `"otlp.metrics"`. See [Sources](/sources) |
 | `provider` | string | No | Kafka provider, e.g. "aiven" |
 | [`topics`](#topic-configuration) | array | Yes | List of Kafka topics to consume from. |
 | [`connection_params`](#kafka-connection-parameters) | object | Yes | Kafka connection parameters. |
@@ -203,7 +203,7 @@ The source configuration defines how to connect to and consume from Kafka topics
 | `skip_tls_verification` | boolean | No | Skip TLS verification. Default is `false`. |
 
 
-> 💡 **Note**: For a full list of supported protocols and mechanisms, see the [Supported Kafka Connections](/configuration/supported-kafka-connections) documentation.
+> 💡 **Note**: For a full list of supported protocols and mechanisms, see the [Supported Kafka Connections](/sources/kafka/connections) documentation.
 
 ### Topic Configuration
 
@@ -292,7 +292,7 @@ Each source in the `sources` array has the following configuration:
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `enabled` | boolean | Yes | Whether filtering is enabled. |
-| `expression` | string | Yes | Filter expression. See [Filters Transformation](/configuration/transformations/filter) documentation. |
+| `expression` | string | Yes | Filter expression. See [Filters Transformation](/transformations/filter) documentation. |
 
 ## Stateless Transformation Configuration
 
@@ -318,7 +318,7 @@ Each entry in the `transform` array defines one derived field computed from the 
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `expression` | string | Yes | Expression evaluated against the input JSON event. See [Stateless Transformations](/configuration/transformations/stateless-transformation) documentation for more details on the supported transformations. |
+| `expression` | string | Yes | Expression evaluated against the input JSON event. See [Stateless Transformations](/transformations/stateless-transformation) documentation for more details on the supported transformations. |
 | `output_name` | string | Yes | Name of the field in the transformed payload that will be produced by this expression. |
 | `output_type` | string | Yes | Expected output type. |
 

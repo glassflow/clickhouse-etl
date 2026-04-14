@@ -1,0 +1,81 @@
+---
+title: 'Schema Reference'
+description: 'Flattened OTLP schema fields for logs, traces, and metrics signal types'
+---
+
+# Schema Reference
+
+Each OTLP signal type exposes a fixed set of fields that you can map to ClickHouse columns in the `schema.fields` array. Set `source_id` to match the signal type (e.g., `"otlp.logs"`).
+
+## OTLP Logs Fields
+
+| Field | Type | Description |
+|---|---|---|
+| `timestamp` | string | Log record timestamp (RFC3339Nano) |
+| `observed_timestamp` | string | When the log was observed (RFC3339Nano) |
+| `severity_number` | uint | Numeric severity (1--24) |
+| `severity_text` | string | Text severity (e.g., "INFO", "ERROR") |
+| `body` | string | Log message body |
+| `trace_id` | string | Associated trace ID (hex) |
+| `span_id` | string | Associated span ID (hex) |
+| `flags` | uint | Log record flags |
+| `dropped_attributes_count` | uint | Number of dropped attributes |
+| `resource_attributes` | map | Resource-level attributes (e.g., service.name) |
+| `scope_name` | string | Instrumentation scope name |
+| `scope_version` | string | Instrumentation scope version |
+| `scope_attributes` | map | Scope-level attributes |
+| `attributes` | map | Log record attributes |
+
+## OTLP Traces Fields
+
+| Field | Type | Description |
+|---|---|---|
+| `trace_id` | string | Trace ID (hex-encoded) |
+| `span_id` | string | Span ID (hex-encoded) |
+| `parent_span_id` | string | Parent span ID (hex-encoded) |
+| `trace_state` | string | W3C trace state |
+| `flags` | uint | Span flags |
+| `name` | string | Span name |
+| `kind` | string | Span kind: INTERNAL, SERVER, CLIENT, PRODUCER, CONSUMER |
+| `start_timestamp` | string | Span start time (RFC3339Nano) |
+| `end_timestamp` | string | Span end time (RFC3339Nano) |
+| `duration_ns` | uint | Duration in nanoseconds |
+| `status_code` | string | Status: OK, ERROR, UNSET |
+| `status_message` | string | Status message (for errors) |
+| `dropped_attributes_count` | uint | Number of dropped attributes |
+| `dropped_events_count` | uint | Number of dropped events |
+| `dropped_links_count` | uint | Number of dropped links |
+| `events` | array | Span events (array of `{timestamp, name, attributes}`) |
+| `links` | array | Span links (array of `{trace_id, span_id, trace_state, attributes}`) |
+| `resource_attributes` | map | Resource-level attributes |
+| `scope_name` | string | Instrumentation scope name |
+| `scope_version` | string | Instrumentation scope version |
+| `scope_attributes` | map | Scope-level attributes |
+| `attributes` | map | Span attributes |
+
+## OTLP Metrics Fields
+
+| Field | Type | Description |
+|---|---|---|
+| `timestamp` | string | Data point timestamp (RFC3339Nano) |
+| `start_timestamp` | string | Measurement start time (RFC3339Nano) |
+| `metric_name` | string | Metric name |
+| `metric_description` | string | Metric description |
+| `metric_unit` | string | Metric unit |
+| `metric_type` | string | Type: gauge, sum, histogram, exponential_histogram, summary |
+| `aggregation_temporality` | string | CUMULATIVE or DELTA (for sum/histogram) |
+| `is_monotonic` | bool | Whether metric is monotonic (for sum) |
+| `flags` | uint | Data point flags |
+| `value_double` | float | Double value (for gauge/sum) |
+| `value_int` | int | Integer value (for gauge/sum) |
+| `count` | uint | Sample count (for histogram/summary) |
+| `sum` | float | Sum of values (for histogram/summary/sum) |
+| `min` | float | Minimum value (for histogram) |
+| `max` | float | Maximum value (for histogram) |
+| `bucket_counts` | array | Histogram bucket counts |
+| `explicit_bounds` | array | Histogram bucket boundaries |
+| `resource` | map | Resource-level attributes |
+| `scope_name` | string | Instrumentation scope name |
+| `scope_version` | string | Instrumentation scope version |
+| `scope_attributes` | map | Scope-level attributes |
+| `attributes` | map | Data point attributes |

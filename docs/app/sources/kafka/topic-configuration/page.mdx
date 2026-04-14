@@ -1,0 +1,69 @@
+---
+title: 'Topic Configuration'
+description: 'Configure Kafka topics, consumer groups, and source-level deduplication for GlassFlow pipelines'
+---
+
+# Topic Configuration
+
+Each entry in the `source.topics` array defines a Kafka topic to consume from. A pipeline can consume from one or two topics (two topics are required for [temporal joins](/transformations/join)).
+
+## Topic Parameters
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `id` | string | Yes | Identifier used as `source_id` in schema field mappings and join configuration |
+| `name` | string | Yes | Kafka topic name |
+| `consumer_group_initial_offset` | string | No | Where to start reading: `earliest` or `latest` (default: `latest`) |
+| `deduplication` | object | Yes | Source-level deduplication settings |
+
+## Consumer Group Offset
+
+The `consumer_group_initial_offset` controls where GlassFlow starts reading when a consumer group is created for the first time:
+
+- **`earliest`** -- start from the beginning of the topic. Use this when you need to process historical data.
+- **`latest`** -- start from the most recent messages. Use this when you only care about new data arriving after the pipeline starts.
+
+After the initial offset is set, GlassFlow tracks consumer group offsets automatically. Stopping and resuming a pipeline continues from where it left off.
+
+## Source-Level Deduplication
+
+Each topic can optionally deduplicate records before they enter the pipeline processing stages.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `deduplication.enabled` | boolean | Yes | Enable or disable deduplication |
+| `deduplication.key` | string | Conditional | Field name to deduplicate on (required when enabled) |
+| `deduplication.time_window` | string | Conditional | Time window for tracking duplicates (required when enabled) |
+
+The deduplication key should reference a field that uniquely identifies each record (e.g., `event_id`, `order_id`). Within the configured time window, only the first occurrence of each unique key value is passed through.
+
+Supported time window formats: `"30s"`, `"1m"`, `"1h"`, `"12h"`, `"24h"`.
+
+For more details on the deduplication mechanism, see [Deduplication](/transformations/deduplication).
+
+## Example: Two Topics for a Join
+
+```json
+"topics": [
+  {
+    "id": "user_logins",
+    "name": "user_logins",
+    "consumer_group_initial_offset": "earliest",
+    "deduplication": {
+      "enabled": true,
+      "key": "session_id",
+      "time_window": "12h"
+    }
+  },
+  {
+    "id": "orders",
+    "name": "orders",
+    "consumer_group_initial_offset": "earliest",
+    "deduplication": {
+      "enabled": true,
+      "key": "order_id",
+      "time_window": "12h"
+    }
+  }
+]
+```

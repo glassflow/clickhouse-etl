@@ -1,0 +1,77 @@
+---
+title: 'Kafka'
+asIndexPage: true
+description: 'Ingest data from Kafka topics into ClickHouse with deduplication, joins, filtering, and transformations'
+---
+
+# Kafka Source
+
+Kafka source pipelines consume messages from one or more Kafka topics, apply optional transformations, and write the results to ClickHouse. This is the default source type and supports the full set of GlassFlow pipeline features including deduplication, temporal joins, filtering, and stateless transformations.
+
+## Configuration
+
+Set `source.type` to `"kafka"` in the pipeline configuration. The source section requires connection parameters and at least one topic:
+
+```json
+"source": {
+  "type": "kafka",
+  "connection_params": {
+    "brokers": ["kafka:9092"],
+    "protocol": "PLAINTEXT",
+    "mechanism": "NO_AUTH"
+  },
+  "topics": [
+    {
+      "id": "events",
+      "name": "events",
+      "consumer_group_initial_offset": "earliest",
+      "deduplication": {
+        "enabled": false
+      }
+    }
+  ]
+}
+```
+
+### Connection Parameters
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `brokers` | array | Yes | Kafka broker addresses (e.g., `["kafka:9092"]`) |
+| `protocol` | string | Yes | Security protocol: `PLAINTEXT`, `SASL_PLAINTEXT`, `SSL`, `SASL_SSL` |
+| `mechanism` | string | Conditional | Auth mechanism: `NO_AUTH`, `PLAIN`, `SCRAM-SHA-256`, `SCRAM-SHA-512`, `GSSAPI` |
+| `username` | string | Conditional | Kafka username (required when auth is enabled) |
+| `password` | string | Conditional | Kafka password (required when auth is enabled) |
+| `root_ca` | string | No | PEM-encoded CA certificate for TLS |
+| `skip_tls_verification` | boolean | No | Skip TLS certificate verification (default: `false`) |
+
+For detailed examples of each protocol and authentication method (including Kerberos), see [Connections](/sources/kafka/connections).
+
+### Topic Parameters
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `id` | string | Yes | Identifier used as `source_id` in schema field mappings |
+| `name` | string | Yes | Kafka topic name |
+| `consumer_group_initial_offset` | string | No | Where to start reading: `earliest` or `latest` (default: `latest`) |
+| `deduplication.enabled` | boolean | Yes | Enable source-level deduplication |
+| `deduplication.key` | string | Conditional | Field to deduplicate on (required when enabled) |
+| `deduplication.time_window` | string | Conditional | Deduplication window (e.g., `"1h"`, `"30s"`) |
+
+For more details, see [Topic Configuration](/sources/kafka/topic-configuration).
+
+## Features
+
+| Feature | Supported | Details |
+|---------|-----------|---------|
+| Deduplication | Yes | [Deduplication](/transformations/deduplication) |
+| Temporal Joins | Yes | [Join](/transformations/join) |
+| Filter | Yes | [Filter](/transformations/filter) |
+| Stateless Transformation | Yes | [Stateless Transformation](/transformations/stateless-transformation) |
+
+## Next Steps
+
+- [Examples](/sources/kafka/examples) -- quick start and full pipeline examples
+- [Connections](/sources/kafka/connections) -- protocol and auth examples
+- [Topic Configuration](/sources/kafka/topic-configuration) -- consumer groups, deduplication at source
+- [Pipeline JSON Reference](/configuration/pipeline-json-reference) -- full configuration reference

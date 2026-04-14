@@ -37,7 +37,7 @@ Enabled horizontal scaling for ingestor, transform, and sink components to suppo
 ### 🔧 Transformations and Validation
 
 - **Expression validation** — Removed empty data validation for transforms to prevent errors with specific expression functions; improved validation for transform expressions with empty JSON and ClickHouse-supported types.
-- **New helper functions** — [`floor`](/configuration/transformations/stateless-transformation#floor), [`ceil`](/configuration/transformations/stateless-transformation#ceil), and [`round`](/configuration/transformations/stateless-transformation#round) added as custom expression functions for numeric rounding.
+- **New helper functions** — [`floor`](/transformations/stateless-transformation#floor), [`ceil`](/transformations/stateless-transformation#ceil), and [`round`](/transformations/stateless-transformation#round) added as custom expression functions for numeric rounding.
 - **Transform `join` bug** — Fixes for transformation `join` where it would return an empty string when concatenated with split function.
 
 ### 📤 Config Upload and Review

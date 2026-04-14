@@ -1,0 +1,129 @@
+---
+title: 'Examples'
+description: 'Quick start and pipeline configuration examples for Kafka source pipelines'
+---
+import { Steps } from 'nextra/components'
+
+# Kafka Source Examples
+
+## Quick Start
+
+<Steps>
+
+### Define the pipeline configuration
+
+Create a pipeline configuration file with your Kafka connection details, topic, sink, and schema:
+
+```json
+{
+  "version": "v3",
+  "pipeline_id": "my-kafka-pipeline",
+  "source": {
+    "type": "kafka",
+    "connection_params": {
+      "brokers": ["kafka:9092"],
+      "protocol": "PLAINTEXT",
+      "mechanism": "NO_AUTH"
+    },
+    "topics": [
+      {
+        "id": "events",
+        "name": "events",
+        "consumer_group_initial_offset": "earliest",
+        "deduplication": {
+          "enabled": false
+        }
+      }
+    ]
+  },
+  "join": {"enabled": false},
+  "sink": {
+    "type": "clickhouse",
+    "host": "clickhouse.example.com",
+    "port": "9000",
+    "database": "default",
+    "username": "default",
+    "password": "mysecret",
+    "secure": false,
+    "table": "events"
+  },
+  "schema": {
+    "fields": [
+      {"source_id": "events", "name": "event_id", "type": "string", "column_name": "event_id", "column_type": "String"},
+      {"source_id": "events", "name": "timestamp", "type": "datetime", "column_name": "timestamp", "column_type": "DateTime"},
+      {"source_id": "events", "name": "payload", "type": "string", "column_name": "payload", "column_type": "String"}
+    ]
+  }
+}
+```
+
+### Create the pipeline
+
+Using the [Python SDK](/usage-guide/python-sdk):
+
+```python
+from glassflow.etl import Client
+
+client = Client(host="http://localhost:30180")
+pipeline = client.create_pipeline(pipeline_config_json_path="pipeline_config.json")
+```
+
+Or use the [Web UI](/usage-guide/web-ui) wizard, which walks you through each step visually.
+
+### Verify data is flowing
+
+Check that records are arriving in your ClickHouse table:
+
+```sql
+SELECT count() FROM events;
+```
+
+</Steps>
+
+## Single Topic with Deduplication
+
+```json
+{
+  "version": "v3",
+  "pipeline_id": "dedup-pipeline",
+  "source": {
+    "type": "kafka",
+    "connection_params": {
+      "brokers": ["kafka:9092"],
+      "protocol": "PLAINTEXT",
+      "mechanism": "NO_AUTH"
+    },
+    "topics": [
+      {
+        "id": "orders",
+        "name": "orders",
+        "consumer_group_initial_offset": "earliest",
+        "deduplication": {
+          "enabled": true,
+          "key": "order_id",
+          "time_window": "1h"
+        }
+      }
+    ]
+  },
+  "join": {"enabled": false},
+  "sink": {
+    "type": "clickhouse",
+    "host": "clickhouse.example.com",
+    "port": "9000",
+    "database": "default",
+    "username": "default",
+    "password": "mysecret",
+    "secure": false,
+    "table": "orders"
+  },
+  "schema": {
+    "fields": [
+      {"source_id": "orders", "name": "order_id", "type": "string", "column_name": "order_id", "column_type": "String"},
+      {"source_id": "orders", "name": "user_id", "type": "string", "column_name": "user_id", "column_type": "String"},
+      {"source_id": "orders", "name": "amount", "type": "float", "column_name": "amount", "column_type": "Float64"},
+      {"source_id": "orders", "name": "timestamp", "type": "datetime", "column_name": "created_at", "column_type": "DateTime"}
+    ]
+  }
+}
+```
