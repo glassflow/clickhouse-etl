@@ -134,8 +134,9 @@ export function getTransformationItems(pipeline: Pipeline): SidebarItem[] {
     })
   }
 
-  // Add Filter section (only if filters feature is enabled)
-  if (isFiltersEnabled()) {
+  // Add Filter section only when the feature is enabled AND the pipeline has a filter configured
+  const hasFilter = pipeline?.filter?.enabled === true
+  if (isFiltersEnabled() && hasFilter) {
     items.push({
       key: 'filter',
       label: 'Filter',
