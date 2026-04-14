@@ -105,14 +105,14 @@ The system will:
 
 This step is optional. Skip it if you do not need to filter records before they reach ClickHouse.
 
-Toggle the filter on to define a condition that identifies records to drop. Records that match the expression are excluded from the pipeline; records that do not match are passed through.
+Toggle the filter on to define a condition that identifies records to keep. Records that match the expression pass through the pipeline; records that do not match are dropped.
 
 **Filter Configuration**
 
-- **Filter Expression**: Enter a JSON-based condition that describes the records you want to drop
-  - Example: `{"status": "aborted"}` drops every record where `status` equals `"cancelled"`
+- **Filter Expression**: Enter a JSON-based condition that describes the records you want to keep
+  - Example: `{"status": "active"}` keeps every record where `status` equals `"active"`
   - Conditions can reference any field present in the topic schema
-  - Only records that match the expression are dropped; all others continue downstream
+  - Only records that match the expression pass through; all others are dropped
 
 ![Filter Configuration](/assets/ui_filter_config.png)
 
