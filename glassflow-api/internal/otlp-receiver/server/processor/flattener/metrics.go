@@ -36,15 +36,15 @@ func flattenMetricDataPoints(
 	scopeAttrs map[string]string,
 ) ([]models.Message, error) {
 	base := models.OTLPMetric{
-		MetricName:        m.GetName(),
-		MetricDescription: m.GetDescription(),
-		MetricUnit:        m.GetUnit(),
-		Resource:          resource,
-		ScopeName:         scopeName,
-		ScopeVersion:      scopeVersion,
-		ScopeAttributes:   scopeAttrs,
-		BucketCounts:      []uint64{},
-		ExplicitBounds:    []float64{},
+		MetricName:         m.GetName(),
+		MetricDescription:  m.GetDescription(),
+		MetricUnit:         m.GetUnit(),
+		ResourceAttributes: resource,
+		ScopeName:          scopeName,
+		ScopeVersion:       scopeVersion,
+		ScopeAttributes:    scopeAttrs,
+		BucketCounts:       []uint64{},
+		ExplicitBounds:     []float64{},
 	}
 
 	switch data := m.GetData().(type) {

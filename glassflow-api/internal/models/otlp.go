@@ -149,7 +149,7 @@ type OTLPMetric struct {
 	Max                    *float64          `json:"max"`
 	BucketCounts           []uint64          `json:"bucket_counts"`
 	ExplicitBounds         []float64         `json:"explicit_bounds"`
-	Resource               map[string]string `json:"resource"`
+	ResourceAttributes     map[string]string `json:"resource_attributes"`
 	ScopeName              string            `json:"scope_name"`
 	ScopeVersion           string            `json:"scope_version,omitempty"`
 	ScopeAttributes        map[string]string `json:"scope_attributes"`
@@ -209,7 +209,7 @@ func otlpMetricsSchemaFields() []Field {
 		{Name: "max", Type: "float"},
 		{Name: "bucket_counts", Type: "array"},
 		{Name: "explicit_bounds", Type: "array"},
-		{Name: "resource", Type: "map"},
+		{Name: "resource_attributes", Type: "map"},
 		{Name: "scope_name", Type: "string"},
 		{Name: "scope_version", Type: "string"},
 		{Name: "scope_attributes", Type: "map"},

@@ -110,7 +110,7 @@ func TestFlattenMetrics_Histogram(t *testing.T) {
 		Max:                    &wantMax,
 		BucketCounts:           []uint64{120, 450, 380, 200, 80, 20},
 		ExplicitBounds:         []float64{0.005, 0.01, 0.025, 0.05, 0.1},
-		Resource:               map[string]string{"service.name": "api-gateway"},
+		ResourceAttributes:     map[string]string{"service.name": "api-gateway"},
 		ScopeName:              "go.opentelemetry.io/contrib/net/http",
 		ScopeVersion:           "0.46.0",
 		ScopeAttributes:        map[string]string{},

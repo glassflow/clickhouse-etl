@@ -115,7 +115,7 @@ func TestProcessMetrics(t *testing.T) {
 		ValueDouble:    &value,
 		BucketCounts:   []uint64{},
 		ExplicitBounds: []float64{},
-		Resource:        map[string]string{"service.name": "test-service"},
+		ResourceAttributes: map[string]string{"service.name": "test-service"},
 		ScopeName:      "test-scope",
 		ScopeAttributes: map[string]string{},
 		Attributes:     map[string]string{},
