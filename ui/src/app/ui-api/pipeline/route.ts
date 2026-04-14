@@ -171,6 +171,39 @@ export async function POST(request: Request) {
       delete config.sink.table_name
     }
 
+    // Fix OTLP payloads that were incorrectly generated via the Kafka code path.
+    // The client-side OTLP detection can fail due to Zustand state resets, producing
+    // source.type='kafka' with OTLP field names in sink.mapping. Detect and correct here.
+    if (config?.source?.type === 'kafka' && Array.isArray(config?.sink?.mapping)) {
+      const fieldNames = new Set(config.sink.mapping.map((m: any) => m.name))
+      let detectedSignal: string | null = null
+      if (fieldNames.has('severity_text') && fieldNames.has('observed_timestamp')) {
+        detectedSignal = 'otlp.logs'
+      } else if (fieldNames.has('duration_ns') && fieldNames.has('parent_span_id')) {
+        detectedSignal = 'otlp.traces'
+      } else if (fieldNames.has('metric_name') && fieldNames.has('metric_type')) {
+        detectedSignal = 'otlp.metrics'
+      }
+
+      if (detectedSignal) {
+        const sourceId = config.source?.id || `${config.pipeline_id}-source`
+        structuredLogger.info('Detected OTLP pipeline sent via Kafka path, correcting source config', {
+          detectedSignal,
+          sourceId,
+          pipelineId: config.pipeline_id,
+        })
+        config.source = {
+          type: detectedSignal,
+          id: sourceId,
+          deduplication: config.source.deduplication ?? { enabled: false },
+        }
+        // Ensure sink.source_id references the OTLP source
+        if (config.sink) {
+          config.sink.source_id = sourceId
+        }
+      }
+    }
+
     const response = await axios.post(`${API_URL}/pipeline`, config)
 
     return NextResponse.json({
