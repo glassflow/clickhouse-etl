@@ -1,0 +1,16 @@
+---
+title: 'Sources'
+asIndexPage: true
+description: 'Choose and configure the data source for your GlassFlow pipelines'
+---
+
+# Sources
+
+GlassFlow supports two types of data sources. Each source type defines how data enters the pipeline before it is processed and written to ClickHouse.
+
+| Source | Description | Best for |
+|--------|-------------|----------|
+| [Kafka](/sources/kafka) | Consume from one or more Kafka topics with support for deduplication, joins, filtering, and transforms | Event streams, CDC, and any workload already backed by Kafka |
+| [OTLP](/sources/otlp) | Receive OpenTelemetry logs, traces, and metrics directly via the OTLP protocol -- no Kafka required | Observability data from OTel-instrumented services |
+
+Both source types write to ClickHouse through the same sink configuration and support the same [transformations](/transformations) (filter, stateless transformation, deduplication). Joins are only available with Kafka sources.
