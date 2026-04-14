@@ -20,36 +20,23 @@ import { createPipeline } from '@/src/api/pipeline-api'
 import { Pipeline } from '@/src/types/pipeline'
 import { isFiltersEnabled, isTransformationsEnabled } from '@/src/config/feature-flags'
 
-// Build OTLP table_mapping with source_id attribution. Mirrors the Kafka behaviour in
-// modules/clickhouse/utils.ts where the dedup key is added as a schema-only entry
-// (empty column_name/column_type) when not already mapped to a ClickHouse column.
-function buildOtlpTableMapping(mappedColumns: any[], otlpStore: any) {
-  const sourceId = otlpStore.sourceId
-  const mappings = mappedColumns.map((col: any) => ({
-    source_id: sourceId,
-    field_name: col.eventField || col.field_name,
+// Build V3 sink.mapping from OTLP mapped columns.
+// V3 format: [{ name, column_name, column_type }] (no source_id per entry).
+function buildOtlpSinkMapping(mappedColumns: any[]) {
+  return mappedColumns.map((col: any) => ({
+    name: col.eventField || col.field_name,
     column_name: col.name || col.column_name,
     column_type: (col.type || col.column_type || '').replace(/Nullable\((.*)\)/, '$1'),
   }))
-
-  // If dedup is enabled, ensure the dedup id_field is present in table_mapping so the
-  // backend knows it's part of the source schema (even if not mapped to ClickHouse).
-  const dedup = otlpStore.deduplication
-  if (dedup?.enabled && dedup?.id_field) {
-    const alreadyMapped = mappings.some((m) => m.field_name === dedup.id_field)
-    if (!alreadyMapped) {
-      mappings.push({
-        source_id: sourceId,
-        field_name: dedup.id_field,
-        column_name: '',
-        column_type: '',
-      })
-    }
-  }
-
-  return mappings
 }
 
+const encodeBase64 = (value: string) => {
+  return value ? Buffer.from(value).toString('base64') : ''
+}
+
+// Generate API config for OTLP pipelines in V3 wire format.
+// The backend expects: sink.connection_params (nested), sink.mapping (V3),
+// sink.source_id, and source.deduplication.key (not id_field).
 function generateOtlpApiConfig(params: {
   pipelineId: string
   pipelineName: string
@@ -62,24 +49,20 @@ function generateOtlpApiConfig(params: {
   version: string | undefined
 }) {
   const { pipelineId, pipelineName, otlpStore, clickhouseConnection, clickhouseDestination, filterStore, transformationStore, pipeline_resources, version } = params
+  const conn = clickhouseConnection?.directConnection
 
   return {
     pipeline_id: pipelineId,
     name: pipelineName,
-    version,
     source: {
       type: otlpStore.signalType || '',
       id: otlpStore.sourceId,
       deduplication: otlpStore.deduplication.enabled ? {
         enabled: true,
-        id_field: otlpStore.deduplication.id_field,
-        id_field_type: otlpStore.deduplication.id_field_type,
+        key: otlpStore.deduplication.id_field,
         time_window: otlpStore.deduplication.time_window,
       } : {
         enabled: false,
-        id_field: '',
-        id_field_type: '',
-        time_window: '',
       },
     },
     join: { type: '', enabled: false, sources: [] },
@@ -93,20 +76,28 @@ function generateOtlpApiConfig(params: {
     } : undefined,
     sink: {
       type: 'clickhouse',
-      host: clickhouseConnection.host,
-      httpPort: clickhouseConnection.httpPort,
-      nativePort: clickhouseConnection.nativePort,
-      database: clickhouseConnection.database,
-      username: clickhouseConnection.username,
-      password: clickhouseConnection.password,
-      table: clickhouseDestination.tableName,
-      secure: clickhouseConnection.secure,
-      // Each mapping entry must reference the OTLP source via source_id so the backend
-      // can attribute columns to the correct source in the pipeline schema.
-      table_mapping: buildOtlpTableMapping(clickhouseDestination.mappedColumns || [], otlpStore),
-      max_batch_size: clickhouseDestination.maxBatchSize || 1000,
-      max_delay_time: clickhouseDestination.maxDelayTime || '5s',
-      skip_certificate_verification: clickhouseConnection.skipCertificateVerification || false,
+      connection_params: {
+        host: conn?.host || '',
+        port: conn?.nativePort?.toString() || '9000',
+        http_port: conn?.httpPort?.toString() || '8123',
+        database: clickhouseDestination?.database || 'default',
+        username: conn?.username || '',
+        password: encodeBase64(conn?.password || ''),
+        secure: conn?.useSSL || false,
+        ...(conn?.skipCertificateVerification && {
+          skip_certificate_verification: true,
+        }),
+      },
+      table: clickhouseDestination?.tableName || clickhouseDestination?.table,
+      max_batch_size: clickhouseDestination?.maxBatchSize || 1000,
+      max_delay_time: (() => {
+        const time = clickhouseDestination?.maxDelayTime || 1
+        const unit = clickhouseDestination?.maxDelayTimeUnit || 'm'
+        const shortUnit = unit === 'seconds' ? 's' : unit === 'minutes' ? 'm' : unit === 'hours' ? 'h' : unit === 'days' ? 'd' : unit
+        return `${time}${shortUnit}`
+      })(),
+      source_id: otlpStore.sourceId,
+      mapping: buildOtlpSinkMapping(clickhouseDestination?.mapping || []),
     },
     pipeline_resources: pipeline_resources ? {
       transform: pipeline_resources.transform,

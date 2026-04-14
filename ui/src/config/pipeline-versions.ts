@@ -8,4 +8,4 @@ export enum PipelineVersion {
 // Actually, looking at the JSON "version": "1.0.0", we should probably use strict strings
 
 export const SUPPORTED_PIPELINE_VERSIONS = [PipelineVersion.V1, PipelineVersion.V2, PipelineVersion.V3]
-export const LATEST_PIPELINE_VERSION = PipelineVersion.V2
+export const LATEST_PIPELINE_VERSION = PipelineVersion.V3
