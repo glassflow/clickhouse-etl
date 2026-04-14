@@ -56,15 +56,18 @@ To enable log export, you need to configure an OTLP exporter endpoint in your He
 
 ### Configure OTLP Exporter
 
-Update your `values.yaml` file to include the OTLP exporter configuration:
+Update your `values.yaml` file to include the OTLP exporter configuration under `global.observability.logs`:
 
 ```yaml
-# OTLP exporter configuration for logs
-otel:
-  exporter:
-    endpoint: your-otel-endpoint.com:4317  # Replace with your OTLP endpoint
-    tls:
-      insecure: true
+global:
+  observability:
+    logs:
+      enabled: true
+      exporter:
+        otlp/my-endpoint:
+          endpoint: your-otel-endpoint.com:4317
+          tls:
+            insecure: true
 ```
 
 <Callout type="info" emoji="💡">
@@ -73,17 +76,8 @@ otel:
 - For **gRPC** (often port 4317): Use `your-endpoint:4317` (no http prefix)
 </Callout>
 
-
-### Supported OTLP Endpoints
-
-GlassFlow supports standard OTLP exporters. You can configure it to send logs to:
-
-- **Jaeger**: `http://jaeger-collector:14250`
-- **Zipkin**: `http://zipkin:9411/api/v2/spans`
-- **Custom OTLP endpoint**: Any endpoint that accepts OTLP format
-
-<Callout type="info" emoji="ℹ️">
-The OTLP exporter configuration follows the standard OpenTelemetry format. Refer to the [OpenTelemetry Collector OTLP Exporter documentation](https://github.com/open-telemetry/opentelemetry-collector/tree/main/exporter/otlpexporter) for detailed configuration options.
+<Callout type="info">
+GlassFlow sends logs to any OTLP-compatible endpoint. The exporter configuration follows the standard OpenTelemetry Collector OTLP exporter format. Refer to the [OpenTelemetry Collector OTLP Exporter documentation](https://github.com/open-telemetry/opentelemetry-collector/tree/main/exporter/otlpexporter) for detailed configuration options.
 </Callout>
 
 For a complete list of available metrics and their labels, see the [Metrics Reference](/configuration/metrics).
