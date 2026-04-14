@@ -9,7 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/src/components/ui/ta
 import yaml from 'js-yaml'
 import { useRouter } from 'next/navigation'
 import { generateApiConfig, getMappingType } from '../clickhouse/utils'
-import { isOtlpSource, getOtlpSignalLabel } from '@/src/config/source-types'
+import { SourceType, isOtlpSource, getOtlpSignalLabel } from '@/src/config/source-types'
+import { OTLP_LOGS_FIELDS, OTLP_TRACES_FIELDS, OTLP_METRICS_FIELDS } from '@/src/modules/otlp/constants'
 import { ReviewConfigurationProps } from './types'
 import { ClickhouseDestinationPreview } from './ClickhouseDestinationPreview'
 import { ClickhouseConnectionPreview } from './ClickhouseConnectionPreview'
@@ -19,6 +20,17 @@ import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 import { createPipeline } from '@/src/api/pipeline-api'
 import { Pipeline } from '@/src/types/pipeline'
 import { isFiltersEnabled, isTransformationsEnabled } from '@/src/config/feature-flags'
+
+// Infer OTLP signal type from schema fields when store values are unreliable.
+function inferOtlpSignalType(schemaFields: { name: string }[]): SourceType | null {
+  if (!schemaFields || schemaFields.length === 0) return null
+  const names = new Set(schemaFields.map((f) => f.name))
+  // Use discriminating fields unique to each signal type
+  if (names.has('severity_text') && names.has('observed_timestamp')) return SourceType.OTLP_LOGS
+  if (names.has('span_id') && names.has('duration_ns')) return SourceType.OTLP_TRACES
+  if (names.has('metric_name') && names.has('metric_type')) return SourceType.OTLP_METRICS
+  return null
+}
 
 // Build V3 sink.mapping from OTLP mapped columns.
 // V3 format: [{ name, column_name, column_type }] (no source_id per entry).
@@ -56,7 +68,7 @@ function generateOtlpApiConfig(params: {
     pipeline_id: pipelineId,
     name: pipelineName,
     source: {
-      type: otlpStore.signalType || sourceTypeFallback || '',
+      type: otlpStore.signalType || sourceTypeFallback || inferOtlpSignalType(otlpStore.schemaFields) || '',
       id: otlpStore.sourceId,
       deduplication: otlpStore.deduplication.enabled ? {
         enabled: true,
@@ -122,17 +134,12 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
     resourcesStore,
     otlpStore,
   } = useStore()
-  // Check both coreStore.sourceType and otlpStore.signalType — the latter is more
-  // reliable because it's set directly by the OtlpSignalTypeStep during the wizard,
-  // while coreStore.sourceType can be reset to 'kafka' by enterCreateMode().
-  const isOtlp = isOtlpSource(coreStore.sourceType) || isOtlpSource(otlpStore.signalType ?? '')
-  // DEBUG: trace OTLP routing decision at render time
-  console.log('[ReviewConfig] OTLP routing debug:', {
-    coreSourceType: coreStore.sourceType,
-    otlpSignalType: otlpStore.signalType,
-    otlpSourceId: otlpStore.sourceId,
-    isOtlp,
-  })
+  // Detect OTLP source using multiple signals — coreStore.sourceType can be unreliable
+  // because enterCreateMode() resets it to 'kafka'. Check otlpStore.signalType (set by
+  // the OtlpSignalTypeStep) and otlpStore.sourceId (set on the home page) as fallbacks.
+  const isOtlp = isOtlpSource(coreStore.sourceType)
+    || isOtlpSource(otlpStore.signalType ?? '')
+    || (otlpStore.sourceId !== '' && otlpStore.schemaFields.length > 0)
   const { apiConfig, pipelineId, setPipelineId, pipelineName, pipelineVersion } = coreStore
   const { clickhouseConnection } = clickhouseConnectionStore
   const { clickhouseDestination } = clickhouseDestinationStore
