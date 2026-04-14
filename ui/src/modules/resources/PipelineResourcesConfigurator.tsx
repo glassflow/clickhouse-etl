@@ -145,8 +145,8 @@ export function PipelineResourcesConfigurator({
                 : { enabled: false },
             },
             join: { type: '', enabled: false, sources: [] },
-            filter: filterStore?.filterConfig?.enabled
-              ? { enabled: true, expression: filterStore.filterConfig.expression }
+            filter: filterStore?.filterConfig?.enabled && filterStore?.expressionString
+              ? { enabled: true, expression: filterStore.expressionString }
               : undefined,
             stateless_transformation: transformationStore?.transformationConfig?.enabled
               ? { enabled: true, config: { transform: transformationStore.transformationConfig.fields } }
