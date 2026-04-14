@@ -39,7 +39,7 @@ func flattenMetricDataPoints(
 		MetricName:        m.GetName(),
 		MetricDescription: m.GetDescription(),
 		MetricUnit:        m.GetUnit(),
-		Resource:          resource,
+		ResourceAttributes: resource,
 		ScopeName:         scopeName,
 		ScopeVersion:      scopeVersion,
 		ScopeAttributes:   scopeAttrs,
