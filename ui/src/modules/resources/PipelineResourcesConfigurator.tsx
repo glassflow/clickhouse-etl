@@ -38,6 +38,7 @@ export function PipelineResourcesConfigurator({
     clickhouseConnectionStore,
     clickhouseDestinationStore,
     kafkaStore,
+    otlpStore,
   } = useStore()
   const [initialized, setInitialized] = useState(false)
   const [initialValues, setInitialValues] = useState(resourcesToFormValues(null))
@@ -127,23 +128,78 @@ export function PipelineResourcesConfigurator({
         const { clickhouseConnection } = clickhouseConnectionStore
         const { clickhouseDestination } = clickhouseDestinationStore
         const selectedTopics = Object.values(topicsStore.topics || {})
+        const conn = clickhouseConnection?.directConnection
 
-        const payload = generateApiConfig({
-          pipelineId,
-          pipelineName: pipelineName || 'Pipeline',
-          setPipelineId,
-          clickhouseConnection,
-          clickhouseDestination,
-          selectedTopics,
-          getMappingType,
-          joinStore,
-          kafkaStore,
-          deduplicationStore,
-          filterStore,
-          transformationStore,
-          pipeline_resources: resourcesStore.pipeline_resources,
-          version: pipelineVersion,
-        })
+        let payload: any
+        if (isOtlp) {
+          // OTLP pipeline: build source from otlpStore, sink in V3 wire format
+          const encodeBase64 = (v: string) => (v ? Buffer.from(v).toString('base64') : '')
+          payload = {
+            pipeline_id: pipelineId,
+            name: pipelineName,
+            source: {
+              type: otlpStore.signalType || coreStore.sourceType || '',
+              id: otlpStore.sourceId,
+              deduplication: otlpStore.deduplication.enabled
+                ? { enabled: true, key: otlpStore.deduplication.id_field, time_window: otlpStore.deduplication.time_window }
+                : { enabled: false },
+            },
+            join: { type: '', enabled: false, sources: [] },
+            filter: filterStore?.filterConfig?.enabled
+              ? { enabled: true, expression: filterStore.filterConfig.expression }
+              : undefined,
+            stateless_transformation: transformationStore?.transformationConfig?.enabled
+              ? { enabled: true, config: { transform: transformationStore.transformationConfig.fields } }
+              : undefined,
+            sink: {
+              type: 'clickhouse',
+              connection_params: {
+                host: conn?.host || '',
+                port: conn?.nativePort?.toString() || '9000',
+                http_port: conn?.httpPort?.toString() || '8123',
+                database: clickhouseDestination?.database || 'default',
+                username: conn?.username || '',
+                password: encodeBase64(conn?.password || ''),
+                secure: conn?.useSSL || false,
+                ...(conn?.skipCertificateVerification && { skip_certificate_verification: true }),
+              },
+              table: clickhouseDestination?.tableName || clickhouseDestination?.table,
+              max_batch_size: clickhouseDestination?.maxBatchSize || 1000,
+              max_delay_time: (() => {
+                const time = clickhouseDestination?.maxDelayTime || 1
+                const unit = clickhouseDestination?.maxDelayTimeUnit || 'm'
+                const shortUnit = unit === 'seconds' ? 's' : unit === 'minutes' ? 'm' : unit === 'hours' ? 'h' : unit === 'days' ? 'd' : unit
+                return `${time}${shortUnit}`
+              })(),
+              source_id: otlpStore.sourceId,
+              mapping: (clickhouseDestination?.mapping || [])
+                .filter((m: any) => m.eventField)
+                .map((col: any) => ({
+                  name: col.eventField || col.field_name,
+                  column_name: col.name || col.column_name,
+                  column_type: (col.type || col.column_type || '').replace(/Nullable\((.*)\)/, '$1'),
+                })),
+            },
+            pipeline_resources: resourcesStore.pipeline_resources,
+          }
+        } else {
+          payload = generateApiConfig({
+            pipelineId,
+            pipelineName: pipelineName || 'Pipeline',
+            setPipelineId,
+            clickhouseConnection,
+            clickhouseDestination,
+            selectedTopics,
+            getMappingType,
+            joinStore,
+            kafkaStore,
+            deduplicationStore,
+            filterStore,
+            transformationStore,
+            pipeline_resources: resourcesStore.pipeline_resources,
+            version: pipelineVersion,
+          })
+        }
 
         if (payload && typeof payload === 'object' && !('error' in payload)) {
           setDeployError(null)
