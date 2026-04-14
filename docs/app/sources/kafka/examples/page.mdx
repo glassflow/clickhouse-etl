@@ -2,7 +2,7 @@
 title: 'Examples'
 description: 'Quick start and pipeline configuration examples for Kafka source pipelines'
 ---
-import { Steps } from 'nextra/components'
+import { Steps, Tabs } from 'nextra/components'
 
 # Kafka Source Examples
 
@@ -12,50 +12,100 @@ import { Steps } from 'nextra/components'
 
 ### Define the pipeline configuration
 
-Create a pipeline configuration file with your Kafka connection details, topic, sink, and schema:
+Create a pipeline configuration file with your Kafka source, ClickHouse sink, and column mapping:
 
-```json
-{
-  "version": "v3",
-  "pipeline_id": "my-kafka-pipeline",
-  "source": {
-    "type": "kafka",
-    "connection_params": {
-      "brokers": ["kafka:9092"],
-      "protocol": "PLAINTEXT",
-      "mechanism": "NO_AUTH"
-    },
-    "topics": [
-      {
-        "id": "events",
-        "name": "events",
-        "consumer_group_initial_offset": "earliest",
-        "deduplication": {
-          "enabled": false
+<Tabs items={['YAML', 'JSON']} storageKey="config_format">
+  <Tabs.Tab>
+    ```yaml
+    version: v3
+    pipeline_id: my-kafka-pipeline
+    sources:
+      - type: kafka
+        source_id: events
+        connection_params:
+          brokers:
+            - "kafka:9092"
+          protocol: PLAINTEXT
+          mechanism: NO_AUTH
+        topic: events
+        consumer_group_initial_offset: earliest
+        schema_fields:
+          - name: event_id
+            type: string
+          - name: timestamp
+            type: datetime
+          - name: payload
+            type: string
+    sink:
+      type: clickhouse
+      connection_params:
+        host: clickhouse.example.com
+        port: "9000"
+        database: default
+        username: default
+        password: mysecret
+        secure: false
+      table: events
+      max_batch_size: 1000
+      max_delay_time: 1s
+      mapping:
+        - name: event_id
+          column_name: event_id
+          column_type: String
+        - name: timestamp
+          column_name: timestamp
+          column_type: DateTime
+        - name: payload
+          column_name: payload
+          column_type: String
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```json
+    {
+      "version": "v3",
+      "pipeline_id": "my-kafka-pipeline",
+      "sources": [
+        {
+          "type": "kafka",
+          "source_id": "events",
+          "connection_params": {
+            "brokers": ["kafka:9092"],
+            "protocol": "PLAINTEXT",
+            "mechanism": "NO_AUTH"
+          },
+          "topic": "events",
+          "consumer_group_initial_offset": "earliest",
+          "schema_fields": [
+            {"name": "event_id", "type": "string"},
+            {"name": "timestamp", "type": "datetime"},
+            {"name": "payload", "type": "string"}
+          ]
         }
+      ],
+      "sink": {
+        "type": "clickhouse",
+        "connection_params": {
+          "host": "clickhouse.example.com",
+          "port": "9000",
+          "database": "default",
+          "username": "default",
+          "password": "mysecret",
+          "secure": false
+        },
+        "table": "events",
+        "max_batch_size": 1000,
+        "max_delay_time": "1s",
+        "mapping": [
+          {"name": "event_id", "column_name": "event_id", "column_type": "String"},
+          {"name": "timestamp", "column_name": "timestamp", "column_type": "DateTime"},
+          {"name": "payload", "column_name": "payload", "column_type": "String"}
+        ]
       }
-    ]
-  },
-  "join": {"enabled": false},
-  "sink": {
-    "type": "clickhouse",
-    "host": "clickhouse.example.com",
-    "port": "9000",
-    "database": "default",
-    "username": "default",
-    "password": "mysecret",
-    "secure": false,
-    "table": "events"
-  },
-  "schema": {
-    "fields": [
-      {"source_id": "events", "name": "event_id", "type": "string", "column_name": "event_id", "column_type": "String"},
-      {"source_id": "events", "name": "timestamp", "type": "datetime", "column_name": "timestamp", "column_type": "DateTime"},
-      {"source_id": "events", "name": "payload", "type": "string", "column_name": "payload", "column_type": "String"}
-    ]
-  }
-}
-```
+    }
+    ```
+  </Tabs.Tab>
+</Tabs>
 
 ### Create the pipeline
 
@@ -82,48 +132,118 @@ SELECT count() FROM events;
 
 ## Single Topic with Deduplication
 
-```json
-{
-  "version": "v3",
-  "pipeline_id": "dedup-pipeline",
-  "source": {
-    "type": "kafka",
-    "connection_params": {
-      "brokers": ["kafka:9092"],
-      "protocol": "PLAINTEXT",
-      "mechanism": "NO_AUTH"
-    },
-    "topics": [
-      {
-        "id": "orders",
-        "name": "orders",
-        "consumer_group_initial_offset": "earliest",
-        "deduplication": {
-          "enabled": true,
-          "key": "order_id",
-          "time_window": "1h"
+<Tabs items={['YAML', 'JSON']} storageKey="config_format">
+  <Tabs.Tab>
+    ```yaml
+    version: v3
+    pipeline_id: dedup-pipeline
+    sources:
+      - type: kafka
+        source_id: orders
+        connection_params:
+          brokers:
+            - "kafka:9092"
+          protocol: PLAINTEXT
+          mechanism: NO_AUTH
+        topic: orders
+        consumer_group_initial_offset: earliest
+        schema_fields:
+          - name: order_id
+            type: string
+          - name: user_id
+            type: string
+          - name: amount
+            type: float
+          - name: timestamp
+            type: datetime
+    transforms:
+      - type: dedup
+        source_id: orders
+        config:
+          key: order_id
+          time_window: 1h
+    sink:
+      type: clickhouse
+      connection_params:
+        host: clickhouse.example.com
+        port: "9000"
+        database: default
+        username: default
+        password: mysecret
+        secure: false
+      table: orders
+      max_batch_size: 1000
+      max_delay_time: 1s
+      mapping:
+        - name: order_id
+          column_name: order_id
+          column_type: String
+        - name: user_id
+          column_name: user_id
+          column_type: String
+        - name: amount
+          column_name: amount
+          column_type: Float64
+        - name: timestamp
+          column_name: created_at
+          column_type: DateTime
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```json
+    {
+      "version": "v3",
+      "pipeline_id": "dedup-pipeline",
+      "sources": [
+        {
+          "type": "kafka",
+          "source_id": "orders",
+          "connection_params": {
+            "brokers": ["kafka:9092"],
+            "protocol": "PLAINTEXT",
+            "mechanism": "NO_AUTH"
+          },
+          "topic": "orders",
+          "consumer_group_initial_offset": "earliest",
+          "schema_fields": [
+            {"name": "order_id", "type": "string"},
+            {"name": "user_id", "type": "string"},
+            {"name": "amount", "type": "float"},
+            {"name": "timestamp", "type": "datetime"}
+          ]
         }
+      ],
+      "transforms": [
+        {
+          "type": "dedup",
+          "source_id": "orders",
+          "config": {
+            "key": "order_id",
+            "time_window": "1h"
+          }
+        }
+      ],
+      "sink": {
+        "type": "clickhouse",
+        "connection_params": {
+          "host": "clickhouse.example.com",
+          "port": "9000",
+          "database": "default",
+          "username": "default",
+          "password": "mysecret",
+          "secure": false
+        },
+        "table": "orders",
+        "max_batch_size": 1000,
+        "max_delay_time": "1s",
+        "mapping": [
+          {"name": "order_id", "column_name": "order_id", "column_type": "String"},
+          {"name": "user_id", "column_name": "user_id", "column_type": "String"},
+          {"name": "amount", "column_name": "amount", "column_type": "Float64"},
+          {"name": "timestamp", "column_name": "created_at", "column_type": "DateTime"}
+        ]
       }
-    ]
-  },
-  "join": {"enabled": false},
-  "sink": {
-    "type": "clickhouse",
-    "host": "clickhouse.example.com",
-    "port": "9000",
-    "database": "default",
-    "username": "default",
-    "password": "mysecret",
-    "secure": false,
-    "table": "orders"
-  },
-  "schema": {
-    "fields": [
-      {"source_id": "orders", "name": "order_id", "type": "string", "column_name": "order_id", "column_type": "String"},
-      {"source_id": "orders", "name": "user_id", "type": "string", "column_name": "user_id", "column_type": "String"},
-      {"source_id": "orders", "name": "amount", "type": "float", "column_name": "amount", "column_type": "Float64"},
-      {"source_id": "orders", "name": "timestamp", "type": "datetime", "column_name": "created_at", "column_type": "DateTime"}
-    ]
-  }
-}
-```
+    }
+    ```
+  </Tabs.Tab>
+</Tabs>

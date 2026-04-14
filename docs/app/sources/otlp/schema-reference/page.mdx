@@ -5,7 +5,7 @@ description: 'Flattened OTLP schema fields for logs, traces, and metrics signal 
 
 # Schema Reference
 
-Each OTLP signal type exposes a fixed set of fields that you can map to ClickHouse columns in the `schema.fields` array. Set `source_id` to match the signal type (e.g., `"otlp.logs"`).
+Each OTLP signal type exposes a fixed set of fields that you can map to ClickHouse columns in the `sink.mapping` array.
 
 ## OTLP Logs Fields
 

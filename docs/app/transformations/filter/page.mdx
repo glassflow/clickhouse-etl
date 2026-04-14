@@ -39,20 +39,35 @@ GlassFlow uses the [expr](https://github.com/expr-lang/expr) expression language
 
 Filter is configured at the pipeline level. The `expression` field defines the **keep condition**: events for which the expression evaluates to `true` pass through, and events for which it evaluates to `false` are discarded.
 
-<Tabs items={['Web UI', 'Pipeline JSON']} defaultIndex="0" storageKey="client_preference">
+<Tabs items={['Web UI', 'YAML', 'JSON']} defaultIndex="0" storageKey="client_preference">
   <Tabs.Tab>
     <img alt="Filter Configuration" src="/assets/ui_filter_configuration.png" />
   </Tabs.Tab>
   <Tabs.Tab>
+    ```yaml
+    transforms:
+      - type: filter
+        source_id: user-events
+        config:
+          expression: "age > 18 and status == 'active'"
+    ```
+    Refer to the [Pipeline Configuration Reference](/configuration/pipeline-config-reference#filter-configuration) for more details.
+  </Tabs.Tab>
+  <Tabs.Tab>
     ```json
     {
-      "filter": {
-        "enabled": true,
-        "expression": "age > 18 and status == 'active'"
-      }
+      "transforms": [
+        {
+          "type": "filter",
+          "source_id": "user-events",
+          "config": {
+            "expression": "age > 18 and status == 'active'"
+          }
+        }
+      ]
     }
     ```
-    Refer to the [Pipeline JSON Reference](/configuration/pipeline-json-reference#filter-configuration) for more details.
+    Refer to the [Pipeline Configuration Reference](/configuration/pipeline-config-reference#filter-configuration) for more details.
   </Tabs.Tab>
 </Tabs>
 
@@ -82,119 +97,217 @@ Filter expressions use field names from your event schema and support the follow
 </Callout>
 
 **Keep only events where `status` equals `'active'` (string comparison):**
-<Tabs items={['Web UI', 'Pipeline JSON']} defaultIndex="0" storageKey="client_preference">
+<Tabs items={['Web UI', 'YAML', 'JSON']} defaultIndex="0" storageKey="client_preference">
   <Tabs.Tab>
     <img alt="String Comparison" src="/assets/ui_filter_string_comparison.png" />
   </Tabs.Tab>
   <Tabs.Tab>
+    ```yaml
+    transforms:
+      - type: filter
+        source_id: user-events
+        config:
+          expression: "status == 'active'"
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
     ```json
     {
-      "filter": {
-        "enabled": true,
-        "expression": "status == 'active'"
-      }
+      "transforms": [
+        {
+          "type": "filter",
+          "source_id": "user-events",
+          "config": {
+            "expression": "status == 'active'"
+          }
+        }
+      ]
     }
     ```
   </Tabs.Tab>
 </Tabs>
 
 **Keep only events where `age` is greater than 18 (numeric comparison):**
-<Tabs items={['Web UI', 'Pipeline JSON']} defaultIndex="0" storageKey="client_preference">
+<Tabs items={['Web UI', 'YAML', 'JSON']} defaultIndex="0" storageKey="client_preference">
   <Tabs.Tab>
     <img alt="Numeric Comparison" src="/assets/ui_filter_numeric_comparison.png" />
   </Tabs.Tab>
   <Tabs.Tab>
+    ```yaml
+    transforms:
+      - type: filter
+        source_id: user-events
+        config:
+          expression: "age > 18"
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
     ```json
     {
-      "filter": {
-        "enabled": true,
-        "expression": "age > 18"
-      }
+      "transforms": [
+        {
+          "type": "filter",
+          "source_id": "user-events",
+          "config": {
+            "expression": "age > 18"
+          }
+        }
+      ]
     }
     ```
   </Tabs.Tab>
 </Tabs>
 
 **Keep only events where `is_premium` is `true` (boolean field):**
-<Tabs items={['Web UI', 'Pipeline JSON']} defaultIndex="0" storageKey="client_preference">
+<Tabs items={['Web UI', 'YAML', 'JSON']} defaultIndex="0" storageKey="client_preference">
   <Tabs.Tab>
     <img alt="Boolean Field" src="/assets/ui_filter_boolean_field.png" />
   </Tabs.Tab>
   <Tabs.Tab>
+    ```yaml
+    transforms:
+      - type: filter
+        source_id: user-events
+        config:
+          expression: "is_premium == true"
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
     ```json
     {
-      "filter": {
-        "enabled": true,
-        "expression": "is_premium == true"
-      }
+      "transforms": [
+        {
+          "type": "filter",
+          "source_id": "user-events",
+          "config": {
+            "expression": "is_premium == true"
+          }
+        }
+      ]
     }
     ```
   </Tabs.Tab>
 </Tabs>
 
 **Keep only events matching multiple conditions with AND:**
-<Tabs items={['Web UI', 'Pipeline JSON']} defaultIndex="0" storageKey="client_preference">
+<Tabs items={['Web UI', 'YAML', 'JSON']} defaultIndex="0" storageKey="client_preference">
   <Tabs.Tab>
     <img alt="Multiple Conditions with AND" src="/assets/ui_filter_multiple_conditions_with_and.png" />
   </Tabs.Tab>
   <Tabs.Tab>
+    ```yaml
+    transforms:
+      - type: filter
+        source_id: user-events
+        config:
+          expression: "age > 18 and status == 'active'"
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
     ```json
     {
-      "filter": {
-        "enabled": true,
-        "expression": "age > 18 and status == 'active'"
-      }
+      "transforms": [
+        {
+          "type": "filter",
+          "source_id": "user-events",
+          "config": {
+            "expression": "age > 18 and status == 'active'"
+          }
+        }
+      ]
     }
     ```
   </Tabs.Tab>
 </Tabs>
 
 **Keep events matching any condition with OR:**
-<Tabs items={['Web UI', 'Pipeline JSON']} defaultIndex="0" storageKey="client_preference">
+<Tabs items={['Web UI', 'YAML', 'JSON']} defaultIndex="0" storageKey="client_preference">
   <Tabs.Tab>
     <img alt="Multiple Conditions with OR" src="/assets/ui_filter_multiple_conditions_with_or.png" />
   </Tabs.Tab>
   <Tabs.Tab>
+    ```yaml
+    transforms:
+      - type: filter
+        source_id: user-events
+        config:
+          expression: "status == 'active' or status == 'pending'"
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
     ```json
     {
-      "filter": {
-        "enabled": true,
-        "expression": "status == 'active' or status == 'pending'"
-      }
+      "transforms": [
+        {
+          "type": "filter",
+          "source_id": "user-events",
+          "config": {
+            "expression": "status == 'active' or status == 'pending'"
+          }
+        }
+      ]
     }
     ```
   </Tabs.Tab>
 </Tabs>
 
 **Keep events matching a complex expression with parentheses:**
-<Tabs items={['Web UI', 'Pipeline JSON']} defaultIndex="0" storageKey="client_preference">
+<Tabs items={['Web UI', 'YAML', 'JSON']} defaultIndex="0" storageKey="client_preference">
   <Tabs.Tab>
     <img alt="Complex Expression with Parentheses" src="/assets/ui_filter_complex_expression_with_parentheses.png" />
   </Tabs.Tab>
   <Tabs.Tab>
+    ```yaml
+    transforms:
+      - type: filter
+        source_id: user-events
+        config:
+          expression: "(age > 18 and age < 65) or is_student == true"
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
     ```json
     {
-      "filter": {
-        "enabled": true,
-        "expression": "(age > 18 and age < 65) or is_student == true"
-      }
+      "transforms": [
+        {
+          "type": "filter",
+          "source_id": "user-events",
+          "config": {
+            "expression": "(age > 18 and age < 65) or is_student == true"
+          }
+        }
+      ]
     }
     ```
   </Tabs.Tab>
 </Tabs>
 
 **Keep only events using nested field access:**
-<Tabs items={['Web UI', 'Pipeline JSON']} defaultIndex="0" storageKey="client_preference">
+<Tabs items={['Web UI', 'YAML', 'JSON']} defaultIndex="0" storageKey="client_preference">
   <Tabs.Tab>
     <img alt="Nested Field Access" src="/assets/ui_filter_nested_field_access.png" />
   </Tabs.Tab>
   <Tabs.Tab>
+    ```yaml
+    transforms:
+      - type: filter
+        source_id: user-events
+        config:
+          expression: "user.age > 18"
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
     ```json
     {
-      "filter": {
-        "enabled": true,
-        "expression": "user.age > 18"
-      }
+      "transforms": [
+        {
+          "type": "filter",
+          "source_id": "user-events",
+          "config": {
+            "expression": "user.age > 18"
+          }
+        }
+      ]
     }
     ```
   </Tabs.Tab>
@@ -226,39 +339,112 @@ Filter expressions use field names from your event schema and support the follow
 
 Here's a complete example of a pipeline with filtering enabled. In this example, only events where `age > 18` **and** `status == 'active'` **pass through** to ClickHouse. Events that do not meet both conditions are dropped.
 
-```json
-{
-  "version": "v2",
-  "pipeline_id": "filtered-pipeline",
-  "name": "Filtered Events Pipeline",
-  "source": {
-    "type": "kafka",
-    "connection_params": {
-      ...
-    },
-    "topics": [
-      {
-        "name": "user-events",
-        "consumer_group_initial_offset": "latest",
-        "replicas": 1
+<Tabs items={['YAML', 'JSON']} storageKey="config_format">
+  <Tabs.Tab>
+    ```yaml
+    version: v3
+    pipeline_id: filtered-pipeline
+    name: Filtered Events Pipeline
+    sources:
+      - type: kafka
+        source_id: user-events
+        connection_params:
+          brokers:
+            - "kafka:9092"
+          protocol: PLAINTEXT
+          mechanism: NO_AUTH
+        topic: user-events
+        consumer_group_initial_offset: latest
+        schema_fields:
+          - name: age
+            type: int
+          - name: status
+            type: string
+    transforms:
+      - type: filter
+        source_id: user-events
+        config:
+          expression: "age > 18 and status == 'active'"
+    sink:
+      type: clickhouse
+      connection_params:
+        host: clickhouse.example.com
+        port: "9000"
+        database: default
+        username: default
+        password: mysecret
+        secure: false
+      table: active_users
+      max_batch_size: 1000
+      max_delay_time: 1s
+      mapping:
+        - name: age
+          column_name: age
+          column_type: Int32
+        - name: status
+          column_name: status
+          column_type: String
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```json
+    {
+      "version": "v3",
+      "pipeline_id": "filtered-pipeline",
+      "name": "Filtered Events Pipeline",
+      "sources": [
+        {
+          "type": "kafka",
+          "source_id": "user-events",
+          "connection_params": {
+            "brokers": ["kafka:9092"],
+            "protocol": "PLAINTEXT",
+            "mechanism": "NO_AUTH"
+          },
+          "topic": "user-events",
+          "consumer_group_initial_offset": "latest",
+          "schema_fields": [
+            {"name": "age", "type": "int"},
+            {"name": "status", "type": "string"}
+          ]
+        }
+      ],
+      "transforms": [
+        {
+          "type": "filter",
+          "source_id": "user-events",
+          "config": {
+            "expression": "age > 18 and status == 'active'"
+          }
+        }
+      ],
+      "sink": {
+        "type": "clickhouse",
+        "connection_params": {
+          "host": "clickhouse.example.com",
+          "port": "9000",
+          "database": "default",
+          "username": "default",
+          "password": "mysecret",
+          "secure": false
+        },
+        "table": "active_users",
+        "max_batch_size": 1000,
+        "max_delay_time": "1s",
+        "mapping": [
+          {"name": "age", "column_name": "age", "column_type": "Int32"},
+          {"name": "status", "column_name": "status", "column_type": "String"}
+        ]
       }
-    ]
-  },
-  "filter": {
-    "enabled": true,
-    "expression": "age > 18 and status == 'active'"
-  },
-  "sink": {
-    "type": "clickhouse",
-    ...
-  }
-}
-```
+    }
+    ```
+  </Tabs.Tab>
+</Tabs>
 
 ## Related Documentation
 
 - [Data Flow - Transform Stage](/architecture/data-flow#stage-3-transformations-optional)
-- [Pipeline JSON Reference - Filter Configuration](/configuration/pipeline-json-reference#filter-configuration)
+- [Pipeline Configuration Reference - Filter Configuration](/configuration/pipeline-config-reference#filter-configuration)
 - [Transformations Overview](/transformations)
 - [expr Language Documentation](https://github.com/expr-lang/expr)
 

@@ -28,15 +28,15 @@ kubectl get pods -n glassflow -l app=glassflow-otlp-receiver
 
 ## Configuration
 
-Set `source.type` to one of the OTLP signal types in the pipeline configuration:
+Each OTLP source is an entry in the `sources` array. OTLP sources do not need `schema_fields` — the schema is predefined per signal type.
 
 ```json
-"source": {
-  "type": "otlp.logs",
-  "deduplication": {
-    "enabled": false
+"sources": [
+  {
+    "type": "otlp.logs",
+    "source_id": "logs"
   }
-}
+]
 ```
 
 ### Signal Types
@@ -80,4 +80,4 @@ x-glassflow-pipeline-id: <your-pipeline-id>
 - [Examples](/sources/otlp/examples) -- ClickStack-compatible tables and full pipeline configs for logs, traces, and metrics
 - [Sending Data](/sources/otlp/sending-data) -- OTel Collector configs, SDK instrumentation
 - [Schema Reference](/sources/otlp/schema-reference) -- field tables for logs, traces, and metrics
-- [Pipeline JSON Reference](/configuration/pipeline-json-reference) -- full configuration reference
+- [Pipeline Configuration Reference](/configuration/pipeline-config-reference) -- full configuration reference
