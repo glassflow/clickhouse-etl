@@ -60,7 +60,7 @@ The **Transformations** stage runs in a single pod and can apply up to three ope
 
 #### Filter
 
-If a **filter** is configured for the pipeline, filter expressions are evaluated on messages read from NATS JetStream. Events that match the filter expression are **dropped** and not forwarded to downstream components. Events that do not match the filter expression continue through deduplication, stateless transformations, join, and sink.
+If a **filter** is configured for the pipeline, filter expressions are evaluated on messages read from NATS JetStream. Events that match the filter expression **pass through** and continue through deduplication, stateless transformations, join, and sink. Events that do not match the filter expression are **dropped** and not forwarded to downstream components.
 
 If the filter expression cannot be evaluated for a message (for example, due to a type error), that message is sent to the DLQ with the error details and then acknowledged so it is not retried endlessly. Other messages in the batch that pass the filter continue through the pipeline.
 
