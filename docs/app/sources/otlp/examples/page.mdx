@@ -1,18 +1,27 @@
 ---
 title: 'Examples'
-description: 'Quick start and pipeline configuration examples for OTLP source pipelines'
+description: 'Complete pipeline examples for OTLP logs, traces, and metrics with ClickStack-compatible ClickHouse tables'
 ---
-import { Steps } from 'nextra/components'
+import { Callout } from 'nextra/components'
 
 # OTLP Source Examples
 
-## Quick Start
+Each example below includes a ClickHouse table and a complete pipeline configuration that maps every flattened OTLP field to the corresponding column.
 
-<Steps>
+The table schemas follow the [ClickStack](https://clickhouse.com/docs/use-cases/observability/clickstack) format. This gives you out-of-the-box compatibility with ClickHouse observability tooling (HyperDX, Grafana ClickHouse plugin, etc.) without having to design your own schema.
 
-### Create the ClickHouse table
+After defining the configuration, create the pipeline with the [Python SDK](/usage-guide/python-sdk) and point your OpenTelemetry Collector or SDK at the GlassFlow receiver (see [Sending Data](/sources/otlp/sending-data)).
 
-Run the following in your ClickHouse client to create a logs table (see [ClickHouse Tables](/sources/otlp/clickhouse-tables) for traces and metrics schemas):
+```python
+from glassflow.etl import Client
+
+client = Client(host="http://localhost:30180")
+pipeline = client.create_pipeline(pipeline_config_json_path="pipeline_config.json")
+```
+
+## Logs
+
+### ClickHouse Table
 
 ```sql
 CREATE TABLE IF NOT EXISTS otel_logs
@@ -46,9 +55,7 @@ PRIMARY KEY (ServiceName, TimestampTime)
 ORDER BY (ServiceName, TimestampTime, Timestamp);
 ```
 
-### Define the pipeline configuration
-
-Create a pipeline configuration file with your OTLP source, ClickHouse sink, and schema mapping:
+### Pipeline Configuration
 
 ```json
 {
@@ -57,9 +64,7 @@ Create a pipeline configuration file with your OTLP source, ClickHouse sink, and
   "source": {
     "type": "otlp.logs",
     "deduplication": {
-      "enabled": true,
-      "key": "trace_id",
-      "time_window": "5m"
+      "enabled": false
     }
   },
   "join": {"enabled": false},
@@ -67,7 +72,7 @@ Create a pipeline configuration file with your OTLP source, ClickHouse sink, and
     "type": "clickhouse",
     "host": "clickhouse.example.com",
     "port": "9000",
-    "database": "otel",
+    "database": "default",
     "username": "default",
     "password": "mysecret",
     "secure": true,
@@ -75,52 +80,195 @@ Create a pipeline configuration file with your OTLP source, ClickHouse sink, and
   },
   "schema": {
     "fields": [
-      {"source_id": "otlp.logs", "name": "timestamp",            "type": "string", "column_name": "Timestamp",          "column_type": "DateTime64(9)"},
-      {"source_id": "otlp.logs", "name": "trace_id",             "type": "string", "column_name": "TraceId",             "column_type": "String"},
-      {"source_id": "otlp.logs", "name": "span_id",              "type": "string", "column_name": "SpanId",              "column_type": "String"},
-      {"source_id": "otlp.logs", "name": "flags",                "type": "uint",   "column_name": "TraceFlags",          "column_type": "UInt8"},
-      {"source_id": "otlp.logs", "name": "severity_text",        "type": "string", "column_name": "SeverityText",        "column_type": "LowCardinality(String)"},
-      {"source_id": "otlp.logs", "name": "severity_number",      "type": "uint",   "column_name": "SeverityNumber",      "column_type": "UInt8"},
-      {"source_id": "otlp.logs", "name": "body",                 "type": "string", "column_name": "Body",                "column_type": "String"},
-      {"source_id": "otlp.logs", "name": "resource_attributes.service.name",  "type": "string", "column_name": "ServiceName",         "column_type": "LowCardinality(String)"},
-      {"source_id": "otlp.logs", "name": "resource_attributes",  "type": "map",    "column_name": "ResourceAttributes",  "column_type": "Map(LowCardinality(String), String)"},
-      {"source_id": "otlp.logs", "name": "scope_name",           "type": "string", "column_name": "ScopeName",           "column_type": "String"},
-      {"source_id": "otlp.logs", "name": "scope_version",        "type": "string", "column_name": "ScopeVersion",        "column_type": "LowCardinality(String)"},
-      {"source_id": "otlp.logs", "name": "scope_attributes",     "type": "map",    "column_name": "ScopeAttributes",     "column_type": "Map(LowCardinality(String), String)"},
-      {"source_id": "otlp.logs", "name": "attributes",           "type": "map",    "column_name": "LogAttributes",       "column_type": "Map(LowCardinality(String), String)"}
+      {"source_id": "otlp.logs", "name": "timestamp",                       "type": "string", "column_name": "Timestamp",          "column_type": "DateTime64(9)"},
+      {"source_id": "otlp.logs", "name": "trace_id",                        "type": "string", "column_name": "TraceId",             "column_type": "String"},
+      {"source_id": "otlp.logs", "name": "span_id",                         "type": "string", "column_name": "SpanId",              "column_type": "String"},
+      {"source_id": "otlp.logs", "name": "flags",                           "type": "uint",   "column_name": "TraceFlags",          "column_type": "UInt8"},
+      {"source_id": "otlp.logs", "name": "severity_text",                   "type": "string", "column_name": "SeverityText",        "column_type": "LowCardinality(String)"},
+      {"source_id": "otlp.logs", "name": "severity_number",                 "type": "uint",   "column_name": "SeverityNumber",      "column_type": "UInt8"},
+      {"source_id": "otlp.logs", "name": "resource_attributes.service.name", "type": "string", "column_name": "ServiceName",        "column_type": "LowCardinality(String)"},
+      {"source_id": "otlp.logs", "name": "body",                            "type": "string", "column_name": "Body",                "column_type": "String"},
+      {"source_id": "otlp.logs", "name": "resource_attributes",             "type": "map",    "column_name": "ResourceAttributes",  "column_type": "Map(LowCardinality(String), String)"},
+      {"source_id": "otlp.logs", "name": "scope_name",                      "type": "string", "column_name": "ScopeName",           "column_type": "String"},
+      {"source_id": "otlp.logs", "name": "scope_version",                   "type": "string", "column_name": "ScopeVersion",        "column_type": "LowCardinality(String)"},
+      {"source_id": "otlp.logs", "name": "scope_attributes",                "type": "map",    "column_name": "ScopeAttributes",     "column_type": "Map(LowCardinality(String), String)"},
+      {"source_id": "otlp.logs", "name": "attributes",                      "type": "map",    "column_name": "LogAttributes",       "column_type": "Map(LowCardinality(String), String)"}
     ]
   }
 }
 ```
 
-### Create the pipeline
+<Callout type="info">
+  `TimestampTime` is a `DEFAULT` column computed automatically by ClickHouse from `Timestamp` — no schema mapping is needed.
+</Callout>
 
-Using the [Python SDK](/usage-guide/python-sdk):
+## Traces
 
-```python
-from glassflow.etl import Client
+### ClickHouse Table
 
-client = Client(host="http://localhost:30180")
-pipeline = client.create_pipeline(pipeline_config_json_path="pipeline_config.json")
+```sql
+CREATE TABLE IF NOT EXISTS otel_traces
+(
+    `Timestamp` DateTime64(9) CODEC(Delta(8), ZSTD(1)),
+    `TraceId` String CODEC(ZSTD(1)),
+    `SpanId` String CODEC(ZSTD(1)),
+    `ParentSpanId` String CODEC(ZSTD(1)),
+    `TraceState` String CODEC(ZSTD(1)),
+    `SpanName` LowCardinality(String) CODEC(ZSTD(1)),
+    `SpanKind` LowCardinality(String) CODEC(ZSTD(1)),
+    `ServiceName` LowCardinality(String) CODEC(ZSTD(1)),
+    `ResourceAttributes` Map(LowCardinality(String), String) CODEC(ZSTD(1)),
+    `ScopeName` String CODEC(ZSTD(1)),
+    `ScopeVersion` String CODEC(ZSTD(1)),
+    `SpanAttributes` Map(LowCardinality(String), String) CODEC(ZSTD(1)),
+    `Duration` UInt64 CODEC(ZSTD(1)),
+    `StatusCode` LowCardinality(String) CODEC(ZSTD(1)),
+    `StatusMessage` String CODEC(ZSTD(1)),
+    `Events.Timestamp` Array(DateTime64(9)) CODEC(ZSTD(1)),
+    `Events.Name` Array(LowCardinality(String)) CODEC(ZSTD(1)),
+    `Events.Attributes` Array(Map(LowCardinality(String), String)) CODEC(ZSTD(1)),
+    `Links.TraceId` Array(String) CODEC(ZSTD(1)),
+    `Links.SpanId` Array(String) CODEC(ZSTD(1)),
+    `Links.TraceState` Array(String) CODEC(ZSTD(1)),
+    `Links.Attributes` Array(Map(LowCardinality(String), String)) CODEC(ZSTD(1)),
+    INDEX idx_trace_id TraceId TYPE bloom_filter(0.001) GRANULARITY 1,
+    INDEX idx_span_id SpanId TYPE bloom_filter(0.001) GRANULARITY 1,
+    INDEX idx_parent_span_id ParentSpanId TYPE bloom_filter(0.001) GRANULARITY 1,
+    INDEX idx_service_name ServiceName TYPE bloom_filter(0.01) GRANULARITY 1,
+    INDEX idx_span_name SpanName TYPE bloom_filter(0.01) GRANULARITY 1,
+    INDEX idx_span_kind SpanKind TYPE bloom_filter(0.01) GRANULARITY 1,
+    INDEX idx_status_code StatusCode TYPE bloom_filter(0.01) GRANULARITY 1,
+    INDEX idx_res_attr_key mapKeys(ResourceAttributes) TYPE bloom_filter(0.01) GRANULARITY 1,
+    INDEX idx_res_attr_value mapValues(ResourceAttributes) TYPE bloom_filter(0.01) GRANULARITY 1,
+    INDEX idx_span_attr_key mapKeys(SpanAttributes) TYPE bloom_filter(0.01) GRANULARITY 1,
+    INDEX idx_span_attr_value mapValues(SpanAttributes) TYPE bloom_filter(0.01) GRANULARITY 1
+)
+ENGINE = MergeTree()
+PARTITION BY toDate(Timestamp)
+ORDER BY (ServiceName, Timestamp, TraceId, SpanId);
 ```
 
-### Send data to the pipeline
+### Pipeline Configuration
 
-Point an OpenTelemetry Collector or SDK exporter at the GlassFlow OTLP receiver. See [Sending Data](/sources/otlp/sending-data) for detailed configuration options. A minimal OTel Collector config:
-
-```yaml
-exporters:
-  otlphttp:
-    endpoint: http://<glassflow-otlp-receiver>:4318
-    headers:
-      x-glassflow-pipeline-id: "otel-logs-pipeline"
-
-service:
-  pipelines:
-    logs:
-      receivers: [otlp]
-      processors: [batch]
-      exporters: [otlphttp]
+```json
+{
+  "version": "v3",
+  "pipeline_id": "otel-traces-pipeline",
+  "source": {
+    "type": "otlp.traces",
+    "deduplication": {
+      "enabled": false
+    }
+  },
+  "join": {"enabled": false},
+  "sink": {
+    "type": "clickhouse",
+    "host": "clickhouse.example.com",
+    "port": "9000",
+    "database": "default",
+    "username": "default",
+    "password": "mysecret",
+    "secure": true,
+    "table": "otel_traces"
+  },
+  "schema": {
+    "fields": [
+      {"source_id": "otlp.traces", "name": "start_timestamp",                      "type": "string", "column_name": "Timestamp",          "column_type": "DateTime64(9)"},
+      {"source_id": "otlp.traces", "name": "trace_id",                             "type": "string", "column_name": "TraceId",             "column_type": "String"},
+      {"source_id": "otlp.traces", "name": "span_id",                              "type": "string", "column_name": "SpanId",              "column_type": "String"},
+      {"source_id": "otlp.traces", "name": "parent_span_id",                       "type": "string", "column_name": "ParentSpanId",        "column_type": "String"},
+      {"source_id": "otlp.traces", "name": "trace_state",                          "type": "string", "column_name": "TraceState",          "column_type": "String"},
+      {"source_id": "otlp.traces", "name": "name",                                 "type": "string", "column_name": "SpanName",            "column_type": "LowCardinality(String)"},
+      {"source_id": "otlp.traces", "name": "kind",                                 "type": "string", "column_name": "SpanKind",            "column_type": "LowCardinality(String)"},
+      {"source_id": "otlp.traces", "name": "resource_attributes.service.name",      "type": "string", "column_name": "ServiceName",        "column_type": "LowCardinality(String)"},
+      {"source_id": "otlp.traces", "name": "resource_attributes",                  "type": "map",    "column_name": "ResourceAttributes",  "column_type": "Map(LowCardinality(String), String)"},
+      {"source_id": "otlp.traces", "name": "scope_name",                           "type": "string", "column_name": "ScopeName",           "column_type": "String"},
+      {"source_id": "otlp.traces", "name": "scope_version",                        "type": "string", "column_name": "ScopeVersion",        "column_type": "String"},
+      {"source_id": "otlp.traces", "name": "attributes",                           "type": "map",    "column_name": "SpanAttributes",      "column_type": "Map(LowCardinality(String), String)"},
+      {"source_id": "otlp.traces", "name": "duration_ns",                          "type": "uint",   "column_name": "Duration",            "column_type": "UInt64"},
+      {"source_id": "otlp.traces", "name": "status_code",                          "type": "string", "column_name": "StatusCode",          "column_type": "LowCardinality(String)"},
+      {"source_id": "otlp.traces", "name": "status_message",                       "type": "string", "column_name": "StatusMessage",       "column_type": "String"},
+      {"source_id": "otlp.traces", "name": "events",                               "type": "array",  "column_name": "Events",              "column_type": "Nested(Timestamp DateTime64(9), Name LowCardinality(String), Attributes Map(LowCardinality(String), String))"},
+      {"source_id": "otlp.traces", "name": "links",                                "type": "array",  "column_name": "Links",               "column_type": "Nested(TraceId String, SpanId String, TraceState String, Attributes Map(LowCardinality(String), String))"}
+    ]
+  }
+}
 ```
 
-</Steps>
+## Metrics (Gauge)
+
+This example uses a gauge metric table. Sum, histogram, and summary tables follow the same pattern with additional type-specific columns.
+
+### ClickHouse Table
+
+```sql
+CREATE TABLE IF NOT EXISTS otel_metrics_gauge
+(
+    `ResourceAttributes` Map(LowCardinality(String), String) CODEC(ZSTD(1)),
+    `ScopeName` String CODEC(ZSTD(1)),
+    `ScopeVersion` String CODEC(ZSTD(1)),
+    `ScopeAttributes` Map(LowCardinality(String), String) CODEC(ZSTD(1)),
+    `ServiceName` LowCardinality(String) CODEC(ZSTD(1)),
+    `MetricName` String CODEC(ZSTD(1)),
+    `MetricDescription` String CODEC(ZSTD(1)),
+    `MetricUnit` String CODEC(ZSTD(1)),
+    `Attributes` Map(LowCardinality(String), String) CODEC(ZSTD(1)),
+    `StartTimeUnix` DateTime64(9) CODEC(Delta, ZSTD(1)),
+    `TimeUnix` DateTime64(9) CODEC(Delta, ZSTD(1)),
+    `Value` Float64 CODEC(ZSTD(1)),
+    `Flags` UInt32 CODEC(ZSTD(1)),
+    INDEX idx_res_attr_key mapKeys(ResourceAttributes) TYPE bloom_filter(0.01) GRANULARITY 1,
+    INDEX idx_res_attr_value mapValues(ResourceAttributes) TYPE bloom_filter(0.01) GRANULARITY 1,
+    INDEX idx_scope_attr_key mapKeys(ScopeAttributes) TYPE bloom_filter(0.01) GRANULARITY 1,
+    INDEX idx_scope_attr_value mapValues(ScopeAttributes) TYPE bloom_filter(0.01) GRANULARITY 1,
+    INDEX idx_attr_key mapKeys(Attributes) TYPE bloom_filter(0.01) GRANULARITY 1,
+    INDEX idx_attr_value mapValues(Attributes) TYPE bloom_filter(0.01) GRANULARITY 1
+)
+ENGINE = MergeTree()
+PARTITION BY toDate(TimeUnix)
+ORDER BY (ServiceName, MetricName, Attributes, toUnixTimestamp64Nano(TimeUnix));
+```
+
+### Pipeline Configuration
+
+```json
+{
+  "version": "v3",
+  "pipeline_id": "otel-metrics-gauge-pipeline",
+  "source": {
+    "type": "otlp.metrics",
+    "deduplication": {
+      "enabled": false
+    }
+  },
+  "join": {"enabled": false},
+  "sink": {
+    "type": "clickhouse",
+    "host": "clickhouse.example.com",
+    "port": "9000",
+    "database": "default",
+    "username": "default",
+    "password": "mysecret",
+    "secure": true,
+    "table": "otel_metrics_gauge"
+  },
+  "schema": {
+    "fields": [
+      {"source_id": "otlp.metrics", "name": "resource_attributes.service.name", "type": "string", "column_name": "ServiceName",        "column_type": "LowCardinality(String)"},
+      {"source_id": "otlp.metrics", "name": "resource_attributes",             "type": "map",    "column_name": "ResourceAttributes",  "column_type": "Map(LowCardinality(String), String)"},
+      {"source_id": "otlp.metrics", "name": "scope_name",             "type": "string", "column_name": "ScopeName",           "column_type": "String"},
+      {"source_id": "otlp.metrics", "name": "scope_version",          "type": "string", "column_name": "ScopeVersion",        "column_type": "String"},
+      {"source_id": "otlp.metrics", "name": "scope_attributes",       "type": "map",    "column_name": "ScopeAttributes",     "column_type": "Map(LowCardinality(String), String)"},
+      {"source_id": "otlp.metrics", "name": "metric_name",            "type": "string", "column_name": "MetricName",          "column_type": "String"},
+      {"source_id": "otlp.metrics", "name": "metric_description",     "type": "string", "column_name": "MetricDescription",   "column_type": "String"},
+      {"source_id": "otlp.metrics", "name": "metric_unit",            "type": "string", "column_name": "MetricUnit",          "column_type": "String"},
+      {"source_id": "otlp.metrics", "name": "attributes",             "type": "map",    "column_name": "Attributes",          "column_type": "Map(LowCardinality(String), String)"},
+      {"source_id": "otlp.metrics", "name": "start_timestamp",        "type": "string", "column_name": "StartTimeUnix",       "column_type": "DateTime64(9)"},
+      {"source_id": "otlp.metrics", "name": "timestamp",              "type": "string", "column_name": "TimeUnix",            "column_type": "DateTime64(9)"},
+      {"source_id": "otlp.metrics", "name": "value_double",           "type": "float",  "column_name": "Value",               "column_type": "Float64"},
+      {"source_id": "otlp.metrics", "name": "flags",                  "type": "uint",   "column_name": "Flags",               "column_type": "UInt32"}
+    ]
+  }
+}
+```
+
