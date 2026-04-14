@@ -47,15 +47,16 @@ function generateOtlpApiConfig(params: {
   transformationStore: any
   pipeline_resources: any
   version: string | undefined
+  sourceTypeFallback?: string
 }) {
-  const { pipelineId, pipelineName, otlpStore, clickhouseConnection, clickhouseDestination, filterStore, transformationStore, pipeline_resources, version } = params
+  const { pipelineId, pipelineName, otlpStore, clickhouseConnection, clickhouseDestination, filterStore, transformationStore, pipeline_resources, version, sourceTypeFallback } = params
   const conn = clickhouseConnection?.directConnection
 
   return {
     pipeline_id: pipelineId,
     name: pipelineName,
     source: {
-      type: otlpStore.signalType || '',
+      type: otlpStore.signalType || sourceTypeFallback || '',
       id: otlpStore.sourceId,
       deduplication: otlpStore.deduplication.enabled ? {
         enabled: true,
@@ -121,7 +122,10 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
     resourcesStore,
     otlpStore,
   } = useStore()
-  const isOtlp = isOtlpSource(coreStore.sourceType)
+  // Check both coreStore.sourceType and otlpStore.signalType — the latter is more
+  // reliable because it's set directly by the OtlpSignalTypeStep during the wizard,
+  // while coreStore.sourceType can be reset to 'kafka' by enterCreateMode().
+  const isOtlp = isOtlpSource(coreStore.sourceType) || isOtlpSource(otlpStore.signalType ?? '')
   const { apiConfig, pipelineId, setPipelineId, pipelineName, pipelineVersion } = coreStore
   const { clickhouseConnection } = clickhouseConnectionStore
   const { clickhouseDestination } = clickhouseDestinationStore
@@ -148,6 +152,7 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
         transformationStore,
         pipeline_resources: resourcesStore.pipeline_resources,
         version: pipelineVersion,
+        sourceTypeFallback: coreStore.sourceType,
       })
     }
     const result = generateApiConfig({
@@ -183,6 +188,7 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
     resourcesStore.pipeline_resources,
     pipelineVersion,
     otlpStore,
+    coreStore.sourceType,
   ])
 
   const configError = effectiveConfig && typeof effectiveConfig === 'object' && 'error' in effectiveConfig
