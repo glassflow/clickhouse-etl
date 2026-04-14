@@ -126,6 +126,13 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
   // reliable because it's set directly by the OtlpSignalTypeStep during the wizard,
   // while coreStore.sourceType can be reset to 'kafka' by enterCreateMode().
   const isOtlp = isOtlpSource(coreStore.sourceType) || isOtlpSource(otlpStore.signalType ?? '')
+  // DEBUG: trace OTLP routing decision at render time
+  console.log('[ReviewConfig] OTLP routing debug:', {
+    coreSourceType: coreStore.sourceType,
+    otlpSignalType: otlpStore.signalType,
+    otlpSourceId: otlpStore.sourceId,
+    isOtlp,
+  })
   const { apiConfig, pipelineId, setPipelineId, pipelineName, pipelineVersion } = coreStore
   const { clickhouseConnection } = clickhouseConnectionStore
   const { clickhouseDestination } = clickhouseDestinationStore
