@@ -104,18 +104,6 @@ export async function POST(request: Request) {
     )
   }
 
-  // DEBUG: Log the source config to diagnose OTLP vs Kafka routing
-  structuredLogger.info('Pipeline POST payload debug', {
-    sourceType: config?.source?.type,
-    sourceId: config?.source?.id,
-    hasTopics: Array.isArray(config?.source?.topics),
-    topicsLength: config?.source?.topics?.length,
-    hasConnectionParams: !!config?.sink?.connection_params,
-    sinkSourceId: config?.sink?.source_id,
-    hasFlatHost: !!config?.sink?.host,
-    version: config?.version,
-  })
-
   try {
     // Create new table flow: create table first, then pipeline
     const createTableParams = isCreateNewTableFlow(config)
