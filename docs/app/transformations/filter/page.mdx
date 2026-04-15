@@ -39,10 +39,7 @@ GlassFlow uses the [expr](https://github.com/expr-lang/expr) expression language
 
 Filter is configured at the pipeline level. The `expression` field defines the **keep condition**: events for which the expression evaluates to `true` pass through, and events for which it evaluates to `false` are discarded.
 
-<Tabs items={['Web UI', 'YAML', 'JSON']} defaultIndex="0" storageKey="client_preference">
-  <Tabs.Tab>
-    <img alt="Filter Configuration" src="/assets/ui_filter_configuration.png" />
-  </Tabs.Tab>
+<Tabs items={['YAML', 'JSON', 'Web UI']} defaultIndex="2" storageKey="config_format">
   <Tabs.Tab>
     ```yaml
     transforms:
@@ -68,6 +65,9 @@ Filter is configured at the pipeline level. The `expression` field defines the *
     }
     ```
     Refer to the [Pipeline Configuration Reference](/configuration/pipeline-config-reference#filter-configuration) for more details.
+  </Tabs.Tab>
+  <Tabs.Tab>
+    <img alt="Filter Configuration" src="/assets/ui_filter_configuration.png" />
   </Tabs.Tab>
 </Tabs>
 
@@ -97,10 +97,7 @@ Filter expressions use field names from your event schema and support the follow
 </Callout>
 
 **Keep only events where `status` equals `'active'` (string comparison):**
-<Tabs items={['Web UI', 'YAML', 'JSON']} defaultIndex="0" storageKey="client_preference">
-  <Tabs.Tab>
-    <img alt="String Comparison" src="/assets/ui_filter_string_comparison.png" />
-  </Tabs.Tab>
+<Tabs items={['YAML', 'JSON', 'Web UI']} defaultIndex="2" storageKey="config_format">
   <Tabs.Tab>
     ```yaml
     transforms:
@@ -125,13 +122,13 @@ Filter expressions use field names from your event schema and support the follow
     }
     ```
   </Tabs.Tab>
+  <Tabs.Tab>
+    <img alt="String Comparison" src="/assets/ui_filter_string_comparison.png" />
+  </Tabs.Tab>
 </Tabs>
 
 **Keep only events where `age` is greater than 18 (numeric comparison):**
-<Tabs items={['Web UI', 'YAML', 'JSON']} defaultIndex="0" storageKey="client_preference">
-  <Tabs.Tab>
-    <img alt="Numeric Comparison" src="/assets/ui_filter_numeric_comparison.png" />
-  </Tabs.Tab>
+<Tabs items={['YAML', 'JSON', 'Web UI']} defaultIndex="2" storageKey="config_format">
   <Tabs.Tab>
     ```yaml
     transforms:
@@ -156,13 +153,13 @@ Filter expressions use field names from your event schema and support the follow
     }
     ```
   </Tabs.Tab>
+  <Tabs.Tab>
+    <img alt="Numeric Comparison" src="/assets/ui_filter_numeric_comparison.png" />
+  </Tabs.Tab>
 </Tabs>
 
 **Keep only events where `is_premium` is `true` (boolean field):**
-<Tabs items={['Web UI', 'YAML', 'JSON']} defaultIndex="0" storageKey="client_preference">
-  <Tabs.Tab>
-    <img alt="Boolean Field" src="/assets/ui_filter_boolean_field.png" />
-  </Tabs.Tab>
+<Tabs items={['YAML', 'JSON', 'Web UI']} defaultIndex="2" storageKey="config_format">
   <Tabs.Tab>
     ```yaml
     transforms:
@@ -187,13 +184,13 @@ Filter expressions use field names from your event schema and support the follow
     }
     ```
   </Tabs.Tab>
+  <Tabs.Tab>
+    <img alt="Boolean Field" src="/assets/ui_filter_boolean_field.png" />
+  </Tabs.Tab>
 </Tabs>
 
 **Keep only events matching multiple conditions with AND:**
-<Tabs items={['Web UI', 'YAML', 'JSON']} defaultIndex="0" storageKey="client_preference">
-  <Tabs.Tab>
-    <img alt="Multiple Conditions with AND" src="/assets/ui_filter_multiple_conditions_with_and.png" />
-  </Tabs.Tab>
+<Tabs items={['YAML', 'JSON', 'Web UI']} defaultIndex="2" storageKey="config_format">
   <Tabs.Tab>
     ```yaml
     transforms:
@@ -218,13 +215,13 @@ Filter expressions use field names from your event schema and support the follow
     }
     ```
   </Tabs.Tab>
+  <Tabs.Tab>
+    <img alt="Multiple Conditions with AND" src="/assets/ui_filter_multiple_conditions_with_and.png" />
+  </Tabs.Tab>
 </Tabs>
 
 **Keep events matching any condition with OR:**
-<Tabs items={['Web UI', 'YAML', 'JSON']} defaultIndex="0" storageKey="client_preference">
-  <Tabs.Tab>
-    <img alt="Multiple Conditions with OR" src="/assets/ui_filter_multiple_conditions_with_or.png" />
-  </Tabs.Tab>
+<Tabs items={['YAML', 'JSON', 'Web UI']} defaultIndex="2" storageKey="config_format">
   <Tabs.Tab>
     ```yaml
     transforms:
@@ -249,13 +246,13 @@ Filter expressions use field names from your event schema and support the follow
     }
     ```
   </Tabs.Tab>
+  <Tabs.Tab>
+    <img alt="Multiple Conditions with OR" src="/assets/ui_filter_multiple_conditions_with_or.png" />
+  </Tabs.Tab>
 </Tabs>
 
 **Keep events matching a complex expression with parentheses:**
-<Tabs items={['Web UI', 'YAML', 'JSON']} defaultIndex="0" storageKey="client_preference">
-  <Tabs.Tab>
-    <img alt="Complex Expression with Parentheses" src="/assets/ui_filter_complex_expression_with_parentheses.png" />
-  </Tabs.Tab>
+<Tabs items={['YAML', 'JSON', 'Web UI']} defaultIndex="2" storageKey="config_format">
   <Tabs.Tab>
     ```yaml
     transforms:
@@ -280,13 +277,13 @@ Filter expressions use field names from your event schema and support the follow
     }
     ```
   </Tabs.Tab>
+  <Tabs.Tab>
+    <img alt="Complex Expression with Parentheses" src="/assets/ui_filter_complex_expression_with_parentheses.png" />
+  </Tabs.Tab>
 </Tabs>
 
 **Keep only events using nested field access:**
-<Tabs items={['Web UI', 'YAML', 'JSON']} defaultIndex="0" storageKey="client_preference">
-  <Tabs.Tab>
-    <img alt="Nested Field Access" src="/assets/ui_filter_nested_field_access.png" />
-  </Tabs.Tab>
+<Tabs items={['YAML', 'JSON', 'Web UI']} defaultIndex="2" storageKey="config_format">
   <Tabs.Tab>
     ```yaml
     transforms:
@@ -310,6 +307,9 @@ Filter expressions use field names from your event schema and support the follow
       ]
     }
     ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    <img alt="Nested Field Access" src="/assets/ui_filter_nested_field_access.png" />
   </Tabs.Tab>
 </Tabs>
 

@@ -54,10 +54,7 @@ For more details on the join algorithm, see the [Data Flow](/architecture/data-f
 
 Join is configured at the pipeline level. Here's the configuration structure:
 
-<Tabs items={['Web UI', 'YAML', 'JSON']} defaultIndex="0" storageKey="client_preference">
-  <Tabs.Tab>
-    <img alt="Join Configuration" src="/assets/ui_join_configuration.png" />
-  </Tabs.Tab>
+<Tabs items={['YAML', 'JSON', 'Web UI']} defaultIndex="2" storageKey="config_format">
   <Tabs.Tab>
     ```yaml
     join:
@@ -94,6 +91,9 @@ Join is configured at the pipeline level. Here's the configuration structure:
     }
     ```
     Refer to the [Pipeline Configuration Reference](/configuration/pipeline-config-reference#join-configuration) for more details.
+  </Tabs.Tab>
+  <Tabs.Tab>
+    <img alt="Join Configuration" src="/assets/ui_join_configuration.png" />
   </Tabs.Tab>
 </Tabs>
 

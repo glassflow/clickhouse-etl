@@ -52,10 +52,7 @@ Client certificate authentication (mTLS) is not supported.
 
 ### PLAINTEXT (no auth)
 
-<Tabs items={['Web UI', 'YAML', 'JSON']} defaultIndex="0" storageKey="client_preference">
-  <Tabs.Tab>
-    <img alt="PLAINTEXT (no auth) example" src="/assets/ui_kafka_connection_plaintext_no_auth.png" />
-  </Tabs.Tab>
+<Tabs items={['YAML', 'JSON', 'Web UI']} defaultIndex="2" storageKey="config_format">
   <Tabs.Tab>
     ```yaml
     connection_params:
@@ -74,14 +71,14 @@ Client certificate authentication (mTLS) is not supported.
     }
     ```
   </Tabs.Tab>
+  <Tabs.Tab>
+    <img alt="PLAINTEXT (no auth) example" src="/assets/ui_kafka_connection_plaintext_no_auth.png" />
+  </Tabs.Tab>
 </Tabs>
 
 ### SASL/PLAIN over TLS
 
-<Tabs items={['Web UI', 'YAML', 'JSON']} defaultIndex="0" storageKey="client_preference">
-  <Tabs.Tab>
-    <img alt="SASL/PLAIN over TLS example" src="/assets/ui_kafka_connection_sasl_plain_over_tls.png" />
-  </Tabs.Tab>
+<Tabs items={['YAML', 'JSON', 'Web UI']} defaultIndex="2" storageKey="config_format">
   <Tabs.Tab>
     ```yaml
     connection_params:
@@ -106,14 +103,14 @@ Client certificate authentication (mTLS) is not supported.
     }
     ```
   </Tabs.Tab>
+  <Tabs.Tab>
+    <img alt="SASL/PLAIN over TLS example" src="/assets/ui_kafka_connection_sasl_plain_over_tls.png" />
+  </Tabs.Tab>
 </Tabs>
 
 ### SASL/SCRAM-SHA-256
 
-<Tabs items={['Web UI', 'YAML', 'JSON']} defaultIndex="0" storageKey="client_preference">
-  <Tabs.Tab>
-    <img alt="SASL/SCRAM-SHA-256 example" src="/assets/ui_kafka_connection_sasl_scram_256.png" />
-  </Tabs.Tab>
+<Tabs items={['YAML', 'JSON', 'Web UI']} defaultIndex="2" storageKey="config_format">
   <Tabs.Tab>
     ```yaml
     connection_params:
@@ -136,6 +133,9 @@ Client certificate authentication (mTLS) is not supported.
     }
     ```
   </Tabs.Tab>
+  <Tabs.Tab>
+    <img alt="SASL/SCRAM-SHA-256 example" src="/assets/ui_kafka_connection_sasl_scram_256.png" />
+  </Tabs.Tab>
 </Tabs>
 
 ### SASL/GSSAPI (Kerberos)
@@ -153,10 +153,7 @@ GlassFlow supports Kerberos authentication (GSSAPI) for connecting to Kafka clus
 **Optional fields:**
   - `password`: Required only if using password-based authentication instead of keytab
 
-<Tabs items={['Web UI', 'YAML', 'JSON']} defaultIndex="0" storageKey="client_preference">
-  <Tabs.Tab>
-    <img alt="SASL/GSSAPI (Kerberos) example" src="/assets/ui_kafka_connection_sasl_gssapi.png" />
-  </Tabs.Tab>
+<Tabs items={['YAML', 'JSON', 'Web UI']} defaultIndex="2" storageKey="config_format">
   <Tabs.Tab>
     ```yaml
     connection_params:
@@ -187,6 +184,9 @@ GlassFlow supports Kerberos authentication (GSSAPI) for connecting to Kafka clus
     }
     ```
   </Tabs.Tab>
+  <Tabs.Tab>
+    <img alt="SASL/GSSAPI (Kerberos) example" src="/assets/ui_kafka_connection_sasl_gssapi.png" />
+  </Tabs.Tab>
 </Tabs>
 
 <Callout type="info" emoji="ℹ️">
@@ -195,10 +195,7 @@ The `kerberos_keytab` field should contain the base64-encoded content of your ke
 
 ### SSL (skip TLS verification)
 
-<Tabs items={['Web UI', 'YAML', 'JSON']} defaultIndex="0" storageKey="client_preference">
-  <Tabs.Tab>
-    <img alt="SSL (skip TLS verification) example" src="/assets/ui_kafka_connection_ssl_skip_tls_verification.png" />
-  </Tabs.Tab>
+<Tabs items={['YAML', 'JSON', 'Web UI']} defaultIndex="2" storageKey="config_format">
   <Tabs.Tab>
     ```yaml
     connection_params:
@@ -218,5 +215,8 @@ The `kerberos_keytab` field should contain the base64-encoded content of your ke
       "skip_tls_verification": true
     }
     ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    <img alt="SSL (skip TLS verification) example" src="/assets/ui_kafka_connection_ssl_skip_tls_verification.png" />
   </Tabs.Tab>
 </Tabs>

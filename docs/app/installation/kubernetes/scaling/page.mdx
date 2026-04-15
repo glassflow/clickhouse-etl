@@ -75,10 +75,7 @@ When targeting higher throughput:
 
 The following example sets 2 replicas on every component with explicit CPU and memory bounds, and configures the NATS stream to retain up to 25 GB or 24 hours of data:
 
-<Tabs items={['Web UI', 'YAML', 'JSON']} defaultIndex="0" storageKey="client_preference">
-    <Tabs.Tab>
-        <img alt="Pipeline Resources Configuration" src="/assets/ui_pipeline_resources.png" />
-    </Tabs.Tab>
+<Tabs items={['YAML', 'JSON', 'Web UI']} defaultIndex="2" storageKey="config_format">
     <Tabs.Tab>
     Replicas and resource requests/limits for each component are set under `resources` in the pipeline configuration. See the [Pipeline Configuration Reference](/configuration/pipeline-config-reference#resources-configuration) for the full schema.
 
@@ -156,6 +153,9 @@ The following example sets 2 replicas on every component with explicit CPU and m
     ```
 
     For join pipelines, add a resource entry per source in the `sources` array.
+    </Tabs.Tab>
+    <Tabs.Tab>
+        <img alt="Pipeline Resources Configuration" src="/assets/ui_pipeline_resources.png" />
     </Tabs.Tab>
 </Tabs>
 
