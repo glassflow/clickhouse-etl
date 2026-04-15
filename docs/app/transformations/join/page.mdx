@@ -6,7 +6,11 @@ import { Callout, Tabs } from 'nextra/components'
 
 # Join
 
-The **Join** transformation combines data from multiple Kafka topics based on join keys and time windows. This enables you to enrich your data by merging related events from different sources using a temporal join algorithm.
+The **Join** transformation combines data from multiple Kafka sources based on join keys and time windows. This enables you to enrich your data by merging related events from different sources using a temporal join algorithm.
+
+<Callout type="info">
+  Join is currently supported for Kafka sources only.
+</Callout>
 
 ## How It Works
 

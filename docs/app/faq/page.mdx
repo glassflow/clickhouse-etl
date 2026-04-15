@@ -13,9 +13,9 @@ description: 'Frequently asked questions about GlassFlow'
 
 GlassFlow uses BadgerDB for deduplication in disk and memory. For more details, see [Deduplication](/transformations/deduplication).
 
-## Q: Why do duplicates happen in Kafka pipelines at all?
+## Q: Why do duplicates happen in data pipelines at all?
 
-Duplicate events in Kafka can occur for several reasons, including **producer retries**, **network issues**, or **consumer reprocessing** after failures. For example, if a producer doesn't receive an acknowledgment, it may retry sending the same event—even if Kafka already received and stored it. Similarly, consumers might reprocess events after a crash or restart if offsets weren't committed properly.
+Duplicate events can occur for several reasons depending on the source. In **Kafka**, common causes include **producer retries**, **network issues**, or **consumer reprocessing** after failures. For example, if a producer doesn't receive an acknowledgment, it may retry sending the same event—even if Kafka already received and stored it. Similarly, consumers might reprocess events after a crash or restart if offsets weren't committed properly. In **OTLP** pipelines, duplicates can arise from collector retries or overlapping export intervals.
 
 These duplicates become a problem when writing to systems like ClickHouse, which are optimized for fast analytical queries but don't handle event deduplication natively. Without a deduplication layer, the same event could be stored multiple times, inflating metrics, skewing analysis, and consuming unnecessary storage.
 
@@ -23,8 +23,3 @@ These duplicates become a problem when writing to systems like ClickHouse, which
 
 GlassFlow uses NATS JetStream as a buffer. Kafka offsets are only committed after successful ingestion into NATS, and then data is deduplicated and written to ClickHouse. We batch inserts using the ClickHouse native protocol. If the system crashes after acknowledging Kafka but before inserting into ClickHouse, that batch is lost. We're actively improving recovery guarantees to address this gap.
 
-## Q: Why does GlassFlow only support Kafka and ClickHouse?
-
-GlassFlow focuses on Kafka and ClickHouse because that's the stack our early users were already using and where we saw the most urgent need for reliable, high-throughput deduplication. By narrowing our scope, we've been able to build a fast, robust tool tailored to real-world production pipelines.
-
-That said, GlassFlow is designed with extensibility in mind. Its architecture makes it straightforward to add support for other sources and sinks in the future, and we're actively considering community feedback to guide what integrations come next.

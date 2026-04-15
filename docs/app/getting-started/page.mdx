@@ -6,13 +6,13 @@ asIndexPage: true
 
 # Getting Started
 
-GlassFlow pipelines are the core of the platform, enabling real-time data processing from Kafka to ClickHouse.
+GlassFlow pipelines are the core of the platform, enabling real-time data processing from multiple sources to ClickHouse.
 
 ## What is a Pipeline?
 
 A pipeline in GlassFlow is a configuration that defines:
 
-- **Source**: Kafka topics to consume from
+- **Source**: Data sources to consume from (e.g., [Kafka topics](/sources/kafka), [OTLP receivers](/sources/otlp))
 - **Transformations**: Data processing steps (deduplication, joins, etc.)
 - **Sink**: ClickHouse tables to write to
 - **Monitoring**: Health checks and metrics

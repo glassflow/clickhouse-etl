@@ -16,7 +16,7 @@ export function SlackIcon() {
 # GlassFlow for ClickHouse ETL Documentation
 
 
-GlassFlow is an open-source streaming ETL for Kafka to Clickhouse streams. It has built-in deduplication, temporal joins, handles late-arriving events with exactly-once guarantees, and scales for high-throughput low-latency workloads on ClickHouse. It reduces the need to use ReplacingMergeTree, FINAL and Joins on ClickHouse.
+GlassFlow is an open-source streaming ETL for multiple data sources to ClickHouse. It has built-in deduplication, temporal joins, handles late-arriving events with exactly-once guarantees, and scales for high-throughput low-latency workloads on ClickHouse. It reduces the need to use ReplacingMergeTree, FINAL and Joins on ClickHouse.
 <br />
 <img src="/assets/clickhouse-etl-introduction.jpg" alt="GlassFlow ClickHouse ETL Introduction" width="800"/>
 
@@ -32,7 +32,7 @@ GlassFlow is an open-source streaming ETL for Kafka to Clickhouse streams. It ha
 <div className="flex flex-col gap-4">
 
 ### Streaming Deduplication
-- Real-time deduplication of Kafka streams before ingestion into ClickHouse ([Deduplication](/transformations/deduplication))
+- Data deduplication from different sources (i.e. Apache Kafka data streams, OTel traces, logs, metrics, etc.) before ingestion into ClickHouse ([Deduplication](/transformations/deduplication))
 - Configurable time windows up to 7 days for deduplication
 - Simple configuration of deduplication keys and time windows
 - Prevents duplicate data from reaching ClickHouse
@@ -60,12 +60,18 @@ GlassFlow is an open-source streaming ETL for Kafka to Clickhouse streams. It ha
 - Custom Kubernetes controller for managing pipelines
 - Horizontal scalability
 
-### Built-in Kafka Connector
-- Automatic data extraction from Kafka topics ([Supported Kafka connections](/sources/kafka/connections))
-- Seamless integration with Kafka clusters
-- No manual data pulling required
-- Supports multiple Kafka topics and partitions
-- Native support for JSON data types including nested JSON and arrays
+### Sources
+- [Kafka Connector](/sources/kafka)
+    - Automatic data extraction from Kafka topics ([Supported Kafka connections](/sources/kafka/connections))
+    - Seamless integration with Kafka clusters
+    - No manual data pulling required
+    - Supports multiple Kafka topics and partitions
+    - Native support for JSON data types including nested JSON and arrays
+- [OTLP Receiver](/sources/otlp)
+    - Direct ingestion of OpenTelemetry logs, traces, and metrics
+    - Supports gRPC and HTTP protocols
+    - Built-in flattening of OTLP protobuf to JSON
+    - Compatible with any OpenTelemetry SDK or Collector
 
 ### Optimized ClickHouse Sink
 - Native ClickHouse connection for maximum performance

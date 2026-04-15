@@ -5,11 +5,11 @@ description: 'Learn about supported data formats and nested JSON handling in Gla
 
 # Supported Data Formats
 
-GlassFlow currently supports **JSON** as the primary data format for Kafka topics.
+GlassFlow currently supports **JSON** as the primary data format for all sources.
 
 ## JSON Format
 
-GlassFlow exclusively supports JSON data format for Kafka topics. This means all messages consumed from Kafka topics must be valid JSON objects.
+GlassFlow exclusively supports JSON data format. All messages consumed from sources must be valid JSON objects. For Kafka sources, messages in topics must be JSON. For OTLP sources, the OTLP protobuf payload is automatically flattened to JSON by GlassFlow.
 
 **Example JSON Message:**
 ```json
