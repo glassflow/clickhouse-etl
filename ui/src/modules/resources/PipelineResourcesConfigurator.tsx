@@ -164,6 +164,8 @@ export function PipelineResourcesConfigurator({
                 ...(conn?.skipCertificateVerification && { skip_certificate_verification: true }),
               },
               table: clickhouseDestination?.tableName || clickhouseDestination?.table,
+              ...(clickhouseDestination?.engine ? { engine: clickhouseDestination.engine } : {}),
+              ...(clickhouseDestination?.orderBy ? { order_by: clickhouseDestination.orderBy } : {}),
               max_batch_size: clickhouseDestination?.maxBatchSize || 1000,
               max_delay_time: (() => {
                 const time = clickhouseDestination?.maxDelayTime || 1

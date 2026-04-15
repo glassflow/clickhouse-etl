@@ -12,18 +12,32 @@ const API_URL = runtimeConfig.apiUrl
  * Get table mapping for create-table flow.
  * V1/Internal: sink.table_mapping (array with column_name, column_type)
  * V2: sink.table_mapping is deleted; mapping is in schema.fields (each field has column_name, column_type when mapped)
+ * V3/OTLP: sink.mapping (array with name=eventField, column_name, column_type)
  */
 function getMappedColumns(config: {
   sink?: Record<string, unknown>
   schema?: { fields?: Array<{ column_name?: string; column_type?: string }> }
 }): Array<{ name: string; type: string }> {
   const sink = config?.sink as Record<string, unknown> | undefined
-  const mapping = (sink?.table_mapping ?? []) as Array<{ column_name?: string; column_type?: string }>
-  if (Array.isArray(mapping) && mapping.length > 0) {
-    return mapping
+
+  // V1 format: sink.table_mapping
+  const tableMapping = (sink?.table_mapping ?? []) as Array<{ column_name?: string; column_type?: string }>
+  if (Array.isArray(tableMapping) && tableMapping.length > 0) {
+    const cols = tableMapping
       .filter((m) => m?.column_name && m?.column_type)
       .map((m) => ({ name: String(m.column_name), type: String(m.column_type) }))
+    if (cols.length > 0) return cols
   }
+
+  // V3/OTLP format: sink.mapping (column_name is the ClickHouse column name)
+  const v3Mapping = (sink?.mapping ?? []) as Array<{ column_name?: string; column_type?: string }>
+  if (Array.isArray(v3Mapping) && v3Mapping.length > 0) {
+    const cols = v3Mapping
+      .filter((m) => m?.column_name && m?.column_type)
+      .map((m) => ({ name: String(m.column_name), type: String(m.column_type) }))
+    if (cols.length > 0) return cols
+  }
+
   // V2 format: schema.fields with column_name/column_type
   const fields = (config?.schema?.fields ?? []) as Array<{ column_name?: string; column_type?: string }>
   return fields
@@ -41,7 +55,10 @@ function isCreateNewTableFlow(config: {
   if (!sink.engine || !sink.order_by) return false
   const columns = getMappedColumns(config)
   if (columns.length === 0) return false
-  return !!sink.database && !!sink.table
+  // V3/OTLP format puts database inside connection_params; flat formats put it on sink directly
+  const cp = (sink.connection_params as Record<string, unknown> | undefined) ?? {}
+  const database = sink.database ?? cp.database
+  return !!database && !!sink.table
 }
 
 /** Build ClickHouse config and create-table params from pipeline config */
