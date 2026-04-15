@@ -61,12 +61,21 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       )
     }
 
+    // v3-format pipelines from the backend store connection details inside
+    // sink.connection_params rather than as flat fields.  getPipeline() returns
+    // the raw API response (no adapter runs), so we must handle both layouts.
+    const cp = sink.connection_params || {}
+    const host = sink.host ?? cp.host
+    const database = sink.database ?? cp.database
+    const username = sink.username ?? cp.username
+    const rawPassword = sink.password ?? cp.password
+
     // Extract ClickHouse connection parameters
     // Decode base64 password if it's encoded
-    let decodedPassword = sink.password || ''
+    let decodedPassword = rawPassword || ''
     try {
-      if (sink.password && typeof sink.password === 'string') {
-        const decoded = atob(sink.password)
+      if (rawPassword && typeof rawPassword === 'string') {
+        const decoded = atob(rawPassword)
         // If decoding succeeds and doesn't contain control characters, use decoded version
         if (decoded && !/[\x00-\x1F\x7F]/.test(decoded)) {
           decodedPassword = decoded
@@ -74,30 +83,30 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       }
     } catch (error) {
       // If decoding fails, use original password (might not be base64 encoded)
-      decodedPassword = sink.password || ''
+      decodedPassword = rawPassword || ''
     }
 
     // Prefer http_port for HTTP connection; backend stores port (native) and http_port separately
     const httpPort = parseInt(
-      sink.http_port ?? sink.port ?? 8123,
+      sink.http_port ?? cp.http_port ?? sink.port ?? cp.port ?? 8123,
       10
     )
     const clickhouseConfig = {
-      host: sink.host,
+      host,
       httpPort: Number.isNaN(httpPort) ? 8123 : httpPort,
-      nativePort: sink.native_port ? parseInt(sink.native_port) : undefined,
-      username: sink.username,
+      nativePort: (sink.native_port ?? cp.native_port) ? parseInt(sink.native_port ?? cp.native_port) : undefined,
+      username,
       password: decodedPassword,
-      database: sink.database,
-      useSSL: sink.secure || false,
-      skipCertificateVerification: sink.skip_certificate_verification || false,
+      database,
+      useSSL: sink.secure ?? cp.secure ?? false,
+      skipCertificateVerification: sink.skip_certificate_verification ?? cp.skip_certificate_verification ?? false,
     }
 
     // Connect to ClickHouse and fetch metrics
     const connection = await createClickHouseConnection(clickhouseConfig)
 
     try {
-      const metrics = await fetchClickHouseTableMetrics(connection, sink.database, sink.table)
+      const metrics = await fetchClickHouseTableMetrics(connection, database, sink.table)
       await closeConnection(connection)
 
       return NextResponse.json({
