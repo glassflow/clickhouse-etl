@@ -8,24 +8,14 @@ function mapBackendClickhouseConfigToStore(sink: any): any {
   const httpPort = sink.http_port ?? cp.http_port ?? ''
   const nativePort = sink.port ?? cp.port ?? ''
   const username = sink.username ?? cp.username ?? ''
-  const rawPassword = sink.password ?? cp.password ?? ''
   const secure = sink.secure ?? cp.secure ?? true
   const skipCertVerification = sink.skip_certificate_verification ?? cp.skip_certificate_verification ?? false
 
-  // Decode base64 password if it's encoded
-  let decodedPassword = rawPassword
-  try {
-    if (rawPassword && typeof rawPassword === 'string') {
-      const decoded = atob(rawPassword)
-      // If decoding succeeds and doesn't contain control characters, use decoded version
-      if (decoded && !/[\x00-\x1F\x7F]/.test(decoded)) {
-        decodedPassword = decoded
-      }
-    }
-  } catch (error) {
-    // If decoding fails, use original password (might not be base64 encoded)
-    decodedPassword = rawPassword
-  }
+  // The backend stores passwords as AES-encrypted+base64 and the API returns that same
+  // encrypted value — the real plaintext is never exposed to the frontend. Attempting to
+  // decode it would put the AES ciphertext into the form, which then gets re-submitted and
+  // double-encrypted, corrupting the credential. Leave the password blank so the user is
+  // prompted to re-enter it on edit.
 
   return {
     connectionType: 'direct',
@@ -34,7 +24,7 @@ function mapBackendClickhouseConfigToStore(sink: any): any {
       // Backend returns native port as sink.port; UI uses HTTP port for browsing
       httpPort,
       username,
-      password: decodedPassword,
+      password: '',
       nativePort,
       useSSL: secure,
       skipCertificateVerification: skipCertVerification,
