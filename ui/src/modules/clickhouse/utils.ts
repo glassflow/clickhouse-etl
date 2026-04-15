@@ -780,6 +780,9 @@ export const TYPE_COMPATIBILITY_MAP: Record<string, string[]> = {
   float: ['Float32', 'Float64', 'Decimal', 'DateTime', 'DateTime64'],
   bytes: ['String'],
   array: ['Array', 'String'],
+  // map type: primary target is Map(String, String) for create-table path;
+  // String is allowed as a fallback for JSON-serialised storage
+  map: ['Map(String, String)', 'String'],
 
   // Backward compatibility: legacy precision types map to same ClickHouse types
   int8: ['Int8', 'Int16', 'Int32', 'Int64'],
@@ -825,6 +828,19 @@ export function isTypeCompatible(sourceType: string | undefined, clickhouseType:
   if (clickhouseType.startsWith('Array(')) {
     const innerType = clickhouseType.substring(6, clickhouseType.length - 1)
     return sourceType === 'array' || isTypeCompatible(sourceType, innerType)
+  }
+
+  // Handle Map types in ClickHouse (e.g. Map(String, String), Map(LowCardinality(String), String))
+  // Must be handled explicitly: the generic substring check below would wrongly match 'String'
+  // inside a Map type's parameter list against non-map source types.
+  if (clickhouseType.startsWith('Map(')) {
+    return sourceType === 'map'
+  }
+
+  // Handle LowCardinality wrapper — strip it and recurse so LowCardinality(String) matches 'string'
+  if (clickhouseType.startsWith('LowCardinality(')) {
+    const innerType = clickhouseType.substring(15, clickhouseType.length - 1)
+    return isTypeCompatible(sourceType, innerType)
   }
 
   // Check the compatibility map
