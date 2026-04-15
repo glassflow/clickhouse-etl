@@ -150,21 +150,12 @@ export async function hydrateClickhouseDestination(pipelineConfig: any) {
     }))
   }
 
-  // Decode base64 password if it's encoded
-  let decodedPassword = sink.password || ''
-  try {
-    // Check if password is base64 encoded by trying to decode it
-    if (sink.password && typeof sink.password === 'string') {
-      const decoded = atob(sink.password)
-      // If decoding succeeds and doesn't contain control characters, use decoded version
-      if (decoded && !/[\x00-\x1F\x7F]/.test(decoded)) {
-        decodedPassword = decoded
-      }
-    }
-  } catch (error) {
-    // If decoding fails, use original password (might not be base64 encoded)
-    decodedPassword = sink.password || ''
-  }
+  // The backend stores passwords AES-encrypted; the API returns that same encrypted value.
+  // We cannot decode it client-side — passing the ciphertext to ClickHouse would fail auth.
+  // Schema/table fetches during hydration require the real password, which is only available
+  // server-side. These fetches will fail gracefully (with early return below) for v3 pipelines
+  // until the backend exposes a proxy endpoint. Leave as empty string.
+  const decodedPassword = ''
 
   // 1. Set the basic destination config (pass schema.fields for V2 format support).
   // For deployed pipelines (pipeline_id present), treat as "existing table" only.
