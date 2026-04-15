@@ -121,7 +121,7 @@ function mapClickHouseTypeToJsonType(clickhouseType: string): string {
   if (unwrapped.startsWith('float') || unwrapped.startsWith('decimal')) return 'float'
   if (unwrapped.startsWith('date') || unwrapped.startsWith('datetime')) return 'string'
   if (unwrapped.startsWith('array')) return 'array'
-  if (unwrapped.startsWith('map')) return 'bytes'
+  if (unwrapped.startsWith('map')) return 'map'
 
   return 'string'
 }
