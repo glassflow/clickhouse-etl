@@ -250,6 +250,8 @@ export class V3PipelineAdapter implements PipelineAdapter {
     const hasTransform =
       Boolean(transformation?.enabled && transformation?.fields?.length)
     const hasJoin = Boolean(join?.enabled && join?.sources?.length)
+    // For OTLP sources there are no Kafka topics; use source.id as the upstream reference
+    const isOtlpSource = (internalConfig.source?.type || '').startsWith('otlp.')
 
     let sinkSourceId: string
     if (hasTransform) {
@@ -262,7 +264,7 @@ export class V3PipelineAdapter implements PipelineAdapter {
       const joinId = (join as { id?: string }).id
       sinkSourceId = joinId ?? topics[0]?.id ?? topics[0]?.name ?? 'source'
     } else {
-      sinkSourceId = topics[0]?.id ?? topics[0]?.name ?? 'source'
+      sinkSourceId = topics[0]?.id ?? topics[0]?.name ?? (isOtlpSource ? (internalConfig.source?.id ?? 'source') : 'source')
     }
 
     if (apiConfig.sink) {

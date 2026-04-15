@@ -5,6 +5,7 @@ import { structuredLogger } from '@/src/observability'
 import { InternalPipelineConfig } from '@/src/types/pipeline'
 import { getPipelineAdapter } from '@/src/modules/pipeline-adapters/factory'
 import { LATEST_PIPELINE_VERSION } from '@/src/config/pipeline-versions'
+import { isOtlpSource } from '@/src/config/source-types'
 
 const encodeBase64 = (password: string) => {
   return password ? Buffer.from(password).toString('base64') : undefined
@@ -100,6 +101,8 @@ export const buildInternalPipelineConfig = ({
   deduplicationStore,
   filterStore,
   transformationStore,
+  coreStore,
+  otlpStore,
 }: {
   pipelineId: string
   pipelineName: string
@@ -113,6 +116,8 @@ export const buildInternalPipelineConfig = ({
   deduplicationStore: any
   filterStore?: any
   transformationStore?: any
+  coreStore?: any
+  otlpStore?: any
 }): InternalPipelineConfig => {
   // Generate a new pipeline ID if one doesn't exist
   let finalPipelineId = pipelineId
@@ -120,6 +125,9 @@ export const buildInternalPipelineConfig = ({
     finalPipelineId = uuidv4()
     setPipelineId(finalPipelineId)
   }
+
+  // Detect OTLP source — no Kafka topics, different source structure
+  const isOtlp = !!(coreStore?.sourceType && isOtlpSource(coreStore.sourceType))
 
   const mapping = clickhouseDestination?.mapping || []
 
@@ -235,6 +243,11 @@ export const buildInternalPipelineConfig = ({
               const baseName = (pipelineName || 'transform').toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-transform$/, '')
               sourceId = `${baseName}-transform`
             }
+          }
+
+          // For OTLP: no Kafka topics so selectedTopics[0] is undefined; fall back to the OTLP source id
+          if (isOtlp && !sourceId) {
+            sourceId = otlpStore?.sourceId || 'source'
           }
 
           return {
@@ -432,49 +445,53 @@ export const buildInternalPipelineConfig = ({
   const config: InternalPipelineConfig = {
     pipeline_id: finalPipelineId,
     name: pipelineName,
-    source: {
-      type: 'kafka',
-      provider: 'custom', // Or determine from connection details
-      connection_params: connectionParams as KafkaConnectionParams,
-      topics: topicsConfig,
-    },
-    // Include join configuration if multiple topics
-    ...(topicsConfig.length > 1
+    source: isOtlp
       ? {
-          join: {
-            enabled: joinStore.enabled,
-            type: joinStore.type || 'temporal',
-            sources:
-              joinStore.streams.length > 0
-                ? joinStore.streams.map((stream: any) => ({
-                    // source_id: stream.streamId,
-                    source_id: stream.topicName,
-                    join_key: stream.joinKey,
-                    time_window: `${stream.joinTimeWindowValue}${stream.joinTimeWindowUnit.charAt(0)}`,
-                    orientation: stream.orientation,
-                  }))
-                : topicsConfig.map((topic: any, index: number) => {
-                    // Get deduplication config for join key
-                    const deduplicationConfig = deduplicationStore?.getDeduplication?.(index) || null
-                    const joinKey = deduplicationConfig?.key || ''
-
-                    return {
-                      source_id: topic.name,
-                      join_key: joinKey,
-                      time_window: '1h',
-                      orientation: index === 0 ? 'left' : 'right',
-                    }
-                  }),
-          },
+          // OTLP source: no Kafka topics or connection params
+          type: otlpStore?.signalType || coreStore?.sourceType || 'otlp',
+          id: otlpStore?.sourceId || '',
+          ...(otlpStore?.deduplication
+            ? {
+                deduplication: {
+                  enabled: otlpStore.deduplication.enabled,
+                  id_field: otlpStore.deduplication.id_field,
+                  id_field_type: otlpStore.deduplication.id_field_type,
+                  time_window: otlpStore.deduplication.time_window,
+                },
+              }
+            : {}),
         }
       : {
-          // Add default empty join object to satisfy type
-          join: {
-            type: '',
-            enabled: false,
-            sources: [],
-          },
-        }),
+          type: 'kafka',
+          provider: 'custom', // Or determine from connection details
+          connection_params: connectionParams as KafkaConnectionParams,
+          topics: topicsConfig,
+        },
+    // Include join configuration for Kafka multi-topic pipelines; disabled join for all others
+    join: isOtlp || topicsConfig.length <= 1
+      ? { type: '', enabled: false, sources: [] }
+      : {
+          enabled: joinStore.enabled,
+          type: joinStore.type || 'temporal',
+          sources:
+            joinStore.streams.length > 0
+              ? joinStore.streams.map((stream: any) => ({
+                  source_id: stream.topicName,
+                  join_key: stream.joinKey,
+                  time_window: `${stream.joinTimeWindowValue}${stream.joinTimeWindowUnit.charAt(0)}`,
+                  orientation: stream.orientation,
+                }))
+              : topicsConfig.map((topic: any, index: number) => {
+                  const deduplicationConfig = deduplicationStore?.getDeduplication?.(index) || null
+                  const joinKey = deduplicationConfig?.key || ''
+                  return {
+                    source_id: topic.name,
+                    join_key: joinKey,
+                    time_window: '1h',
+                    orientation: index === 0 ? 'left' : 'right',
+                  }
+                }),
+        },
     sink: {
       type: 'clickhouse',
       provider: 'custom', // Or determine from connection details
@@ -524,9 +541,9 @@ export const buildInternalPipelineConfig = ({
           }
         : {}),
     } as any, // Type assertion to bypass strict checks on conditional properties for now
-    // Include filter configuration only for single-topic pipelines
-    // Filter is not available for multi-topic journeys
-    ...(topicsConfig.length === 1
+    // Include filter configuration for single-topic and OTLP pipelines
+    // Filter is not available for multi-topic (join) journeys
+    ...(topicsConfig.length === 1 || isOtlp
       ? filterStore?.filterConfig?.enabled && filterStore?.expressionString
         ? {
             filter: {
@@ -541,9 +558,9 @@ export const buildInternalPipelineConfig = ({
             },
           }
       : {}),
-    // Include transformation configuration only for single-topic pipelines
-    // Transformation is not available for multi-topic journeys
-    ...(topicsConfig.length === 1
+    // Include transformation configuration for single-topic and OTLP pipelines
+    // Transformation is not available for multi-topic (join) journeys
+    ...(topicsConfig.length === 1 || isOtlp
       ? transformationStore?.transformationConfig?.enabled &&
         transformationStore?.transformationConfig?.fields?.length > 0
         ? {
@@ -601,6 +618,8 @@ export const generateApiConfig = ({
   transformationStore,
   pipeline_resources,
   version, // New optional parameter
+  coreStore,
+  otlpStore,
 }: {
   pipelineId: string
   pipelineName: string
@@ -616,6 +635,8 @@ export const generateApiConfig = ({
   transformationStore?: any
   pipeline_resources?: import('@/src/types/pipeline').PipelineResources | null
   version?: string
+  coreStore?: any
+  otlpStore?: any
 }) => {
   try {
     // 1. Build the internal configuration structure
@@ -632,6 +653,8 @@ export const generateApiConfig = ({
       deduplicationStore,
       filterStore,
       transformationStore,
+      coreStore,
+      otlpStore,
     })
 
     // 2. Get the appropriate adapter

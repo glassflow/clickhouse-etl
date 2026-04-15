@@ -104,6 +104,7 @@ export function useResumeWithPendingEdit(
       filterStore,
       transformationStore,
       resourcesStore,
+      otlpStore,
     } = useStore.getState()
 
     const clickhouseDestination = clickhouseDestinationStore.clickhouseDestination
@@ -178,6 +179,8 @@ export function useResumeWithPendingEdit(
       transformationStore,
       pipeline_resources,
       version: coreStore.pipelineVersion, // Respect the original pipeline version
+      coreStore,
+      otlpStore,
     })
 
     // Send edit request to backend (backend will automatically resume after edit)

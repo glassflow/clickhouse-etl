@@ -2,12 +2,21 @@ import { useStore } from '../index'
 
 // Map backend pipeline config to ClickhouseConnectionFormType (store shape)
 function mapBackendClickhouseConfigToStore(sink: any): any {
+  // v3 format stores connection details nested under connection_params; v1/v2 use flat fields.
+  const cp = sink.connection_params || {}
+  const host = sink.host ?? cp.host ?? ''
+  const httpPort = sink.http_port ?? cp.http_port ?? ''
+  const nativePort = sink.port ?? cp.port ?? ''
+  const username = sink.username ?? cp.username ?? ''
+  const rawPassword = sink.password ?? cp.password ?? ''
+  const secure = sink.secure ?? cp.secure ?? true
+  const skipCertVerification = sink.skip_certificate_verification ?? cp.skip_certificate_verification ?? false
+
   // Decode base64 password if it's encoded
-  let decodedPassword = sink.password || ''
+  let decodedPassword = rawPassword
   try {
-    // Check if password is base64 encoded by trying to decode it
-    if (sink.password && typeof sink.password === 'string') {
-      const decoded = atob(sink.password)
+    if (rawPassword && typeof rawPassword === 'string') {
+      const decoded = atob(rawPassword)
       // If decoding succeeds and doesn't contain control characters, use decoded version
       if (decoded && !/[\x00-\x1F\x7F]/.test(decoded)) {
         decodedPassword = decoded
@@ -15,20 +24,20 @@ function mapBackendClickhouseConfigToStore(sink: any): any {
     }
   } catch (error) {
     // If decoding fails, use original password (might not be base64 encoded)
-    decodedPassword = sink.password || ''
+    decodedPassword = rawPassword
   }
 
   return {
     connectionType: 'direct',
     directConnection: {
-      host: sink.host || '',
+      host,
       // Backend returns native port as sink.port; UI uses HTTP port for browsing
-      httpPort: sink.http_port || '',
-      username: sink.username || '',
+      httpPort,
+      username,
       password: decodedPassword,
-      nativePort: sink.port || '',
-      useSSL: sink.secure ?? true,
-      skipCertificateVerification: sink.skip_certificate_verification || false,
+      nativePort,
+      useSSL: secure,
+      skipCertificateVerification: skipCertVerification,
     },
     connectionStatus: 'idle',
     connectionError: null,
