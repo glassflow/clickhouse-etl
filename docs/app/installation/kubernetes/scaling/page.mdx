@@ -75,28 +75,71 @@ When targeting higher throughput:
 
 The following example sets 2 replicas on every component with explicit CPU and memory bounds, and configures the NATS stream to retain up to 25 GB or 24 hours of data:
 
-<Tabs items={['Web UI', 'Pipeline JSON']} defaultIndex="0" storageKey="client_preference">
+<Tabs items={['Web UI', 'YAML', 'JSON']} defaultIndex="0" storageKey="client_preference">
     <Tabs.Tab>
         <img alt="Pipeline Resources Configuration" src="/assets/ui_pipeline_resources.png" />
     </Tabs.Tab>
     <Tabs.Tab>
-    Replicas and resource requests/limits for each component are set under `pipeline_resources` in the pipeline JSON. See the [Pipeline JSON Reference](/configuration/pipeline-json-reference#pipeline-resources-configuration) for the full schema.
+    Replicas and resource requests/limits for each component are set under `resources` in the pipeline configuration. See the [Pipeline Configuration Reference](/configuration/pipeline-config-reference#resources-configuration) for the full schema.
+
+    ```yaml
+    resources:
+      sources:
+        - source_id: my-source
+          replicas: 2
+          requests:
+            cpu: 1000m
+            memory: 1Gi
+          limits:
+            cpu: 1500m
+            memory: 1.5Gi
+      transform:
+        - source_id: my-source
+          replicas: 2
+          requests:
+            cpu: 1000m
+            memory: 1Gi
+          limits:
+            cpu: 1500m
+            memory: 2Gi
+      sink:
+        replicas: 2
+        requests:
+          cpu: 1000m
+          memory: 1Gi
+        limits:
+          cpu: 1500m
+          memory: 1.5Gi
+      nats:
+        stream:
+          max_age: 24h
+          max_bytes: 25GB
+    ```
+
+    For join pipelines, add a resource entry per source in the `sources` array.
+    </Tabs.Tab>
+    <Tabs.Tab>
+    Replicas and resource requests/limits for each component are set under `resources` in the pipeline configuration. See the [Pipeline Configuration Reference](/configuration/pipeline-config-reference#resources-configuration) for the full schema.
 
     ```json
     {
-      "pipeline_resources": {
-        "ingestor": {
-          "base": {
+      "resources": {
+        "sources": [
+          {
+            "source_id": "my-source",
             "replicas": 2,
             "requests": { "cpu": "1000m", "memory": "1Gi" },
             "limits":   { "cpu": "1500m", "memory": "1.5Gi" }
           }
-        },
-        "transform": {
-          "replicas": 2,
-          "requests": { "cpu": "1000m", "memory": "1Gi" },
-          "limits":   { "cpu": "1500m", "memory": "2Gi" }
-        },
+        ],
+        "transform": [
+          {
+            "source_id": "my-source",
+            "replicas": 2,
+            "requests": { "cpu": "1000m", "memory": "1Gi" },
+            "limits":   { "cpu": "1500m", "memory": "2Gi" }
+          }
+        ],
         "sink": {
           "replicas": 2,
           "requests": { "cpu": "1000m", "memory": "1Gi" },
@@ -104,15 +147,15 @@ The following example sets 2 replicas on every component with explicit CPU and m
         },
         "nats": {
           "stream": {
-            "maxAge": "24h",
-            "maxBytes": "25GB"
+            "max_age": "24h",
+            "max_bytes": "25GB"
           }
         }
       }
     }
     ```
 
-    For join pipelines, replace `ingestor.base` with `ingestor.left` and `ingestor.right`. The join stage always runs with 1 replica and has no replica setting.
+    For join pipelines, add a resource entry per source in the `sources` array.
     </Tabs.Tab>
 </Tabs>
 

@@ -1,168 +1,92 @@
 {
-    "pipeline_id": "join-demo-pipeline",
-    "source": {
+  "version": "v3",
+  "pipeline_id": "join-demo-pipeline",
+  "sources": [
+    {
       "type": "kafka",
-      "provider": "confluent",
+      "source_id": "user_events",
       "connection_params": {
-        "brokers": [
-          "kafka:9093"
-        ],
+        "brokers": ["kafka:9093"],
         "protocol": "PLAINTEXT",
         "mechanism": "NO_AUTH"
       },
-      "topics": [
-        {
-          "consumer_group_initial_offset": "latest",
-          "name": "user_events",
-          "schema": {
-            "type": "json",
-            "fields": [
-              {
-                "name": "event_id",
-                "type": "string"
-              },
-              {
-                "name": "user.id",
-                "type": "string"
-              },
-              {
-                "name": "user.name",
-                "type": "string"
-              },
-              {
-                "name": "user.email",
-                "type": "string"
-              },
-              {
-                "name": "created_at",
-                "type": "string"
-              },
-              {
-                "name": "tags",
-                "type": "array"
-              }
-            ]
-          },
-          "deduplication": {
-            "enabled": false
-          }
-        },
-        {
-          "consumer_group_initial_offset": "latest",
-          "name": "orders",
-          "schema": {
-            "type": "json",
-            "fields": [
-              {
-                "name": "order_id",
-                "type": "string"
-              },
-              {
-                "name": "user_id",
-                "type": "string"
-              },
-              {
-                "name": "amount",
-                "type": "int32"
-              },
-              {
-                "name": "price",
-                "type": "float32"
-              },
-              {
-                "name": "created_at",
-                "type": "string"
-              }
-            ]
-          },
-          "deduplication": {
-            "enabled": false
-          }
-        }
+      "topic": "user_events",
+      "consumer_group_initial_offset": "latest",
+      "schema_fields": [
+        {"name": "event_id", "type": "string"},
+        {"name": "user.id", "type": "string"},
+        {"name": "user.name", "type": "string"},
+        {"name": "user.email", "type": "string"},
+        {"name": "created_at", "type": "string"},
+        {"name": "tags", "type": "array"}
       ]
     },
-    "join": {
-      "enabled": true,
-      "type": "temporal",
-      "sources": [
-        {
-          "source_id": "user_events",
-          "join_key": "user.id",
-          "join_key_type": "string",
-          "time_window": "1h",
-          "orientation": "right"
-        },
-        {
-          "source_id": "orders",
-          "join_key": "user_id",
-          "join_key_type": "string",
-          "time_window": "1h",
-          "orientation": "left"
-        }
+    {
+      "type": "kafka",
+      "source_id": "orders",
+      "connection_params": {
+        "brokers": ["kafka:9093"],
+        "protocol": "PLAINTEXT",
+        "mechanism": "NO_AUTH"
+      },
+      "topic": "orders",
+      "consumer_group_initial_offset": "latest",
+      "schema_fields": [
+        {"name": "order_id", "type": "string"},
+        {"name": "user_id", "type": "string"},
+        {"name": "amount", "type": "int32"},
+        {"name": "price", "type": "float32"},
+        {"name": "created_at", "type": "string"}
       ]
+    }
+  ],
+  "join": {
+    "enabled": true,
+    "type": "temporal",
+    "left_source": {
+      "source_id": "orders",
+      "key": "user_id",
+      "time_window": "1h"
     },
-    "sink": {
-      "type": "clickhouse",
-      "provider": "localhost",
+    "right_source": {
+      "source_id": "user_events",
+      "key": "user.id",
+      "time_window": "1h"
+    },
+    "output_fields": [
+      {"source_id": "orders", "name": "order_id"},
+      {"source_id": "orders", "name": "user_id"},
+      {"source_id": "user_events", "name": "user.name"},
+      {"source_id": "user_events", "name": "user.email"},
+      {"source_id": "orders", "name": "amount"},
+      {"source_id": "orders", "name": "price"},
+      {"source_id": "orders", "name": "created_at"},
+      {"source_id": "user_events", "name": "tags"}
+    ]
+  },
+  "sink": {
+    "type": "clickhouse",
+    "connection_params": {
       "host": "clickhouse",
       "port": "9000",
       "http_port": "8123",
       "database": "default",
       "username": "default",
-      "password": "c2VjcmV0",
-      "secure": false,
-      "max_batch_size": 1000,
-      "max_delay_time": "10s",
-      "table": "orders_with_user_data",
-      "table_mapping": [
-        {
-          "source_id": "orders",
-          "field_name": "order_id",
-          "column_name": "order_id",
-          "column_type": "UUID"
-        },
-        {
-          "source_id": "orders",
-          "field_name": "user_id",
-          "column_name": "user_id",
-          "column_type": "UUID"
-        },
-        {
-          "source_id": "user_events",
-          "field_name": "user.name",
-          "column_name": "name",
-          "column_type": "String"
-        },
-        {
-          "source_id": "user_events",
-          "field_name": "user.email",
-          "column_name": "email",
-          "column_type": "String"
-        },
-        {
-          "source_id": "orders",
-          "field_name": "amount",
-          "column_name": "amount",
-          "column_type": "Int32"
-        },
-        {
-          "source_id": "orders",
-          "field_name": "price",
-          "column_name": "price",
-          "column_type": "Float32"
-        },
-        {
-          "source_id": "orders",
-          "field_name": "created_at",
-          "column_name": "created_at",
-          "column_type": "DateTime"
-        },
-        {
-          "source_id": "user_events",
-          "field_name": "tags",
-          "column_name": "tags",
-          "column_type": "Array(String)"
-        }
-      ]
-    }
+      "password": "secret",
+      "secure": false
+    },
+    "table": "orders_with_user_data",
+    "max_batch_size": 1000,
+    "max_delay_time": "10s",
+    "mapping": [
+      {"name": "order_id", "column_name": "order_id", "column_type": "UUID"},
+      {"name": "user_id", "column_name": "user_id", "column_type": "UUID"},
+      {"name": "user.name", "column_name": "name", "column_type": "String"},
+      {"name": "user.email", "column_name": "email", "column_type": "String"},
+      {"name": "amount", "column_name": "amount", "column_type": "Int32"},
+      {"name": "price", "column_name": "price", "column_type": "Float32"},
+      {"name": "created_at", "column_name": "created_at", "column_type": "DateTime"},
+      {"name": "tags", "column_name": "tags", "column_type": "Array(String)"}
+    ]
   }
+}

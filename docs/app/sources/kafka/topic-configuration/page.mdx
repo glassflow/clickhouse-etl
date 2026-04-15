@@ -1,20 +1,22 @@
 ---
 title: 'Topic Configuration'
-description: 'Configure Kafka topics, consumer groups, and source-level deduplication for GlassFlow pipelines'
+description: 'Configure Kafka sources, consumer groups, and schema fields for GlassFlow pipelines'
 ---
 
 # Topic Configuration
 
-Each entry in the `source.topics` array defines a Kafka topic to consume from. A pipeline can consume from one or two topics (two topics are required for [temporal joins](/transformations/join)).
+Each Kafka source in the `sources` array defines a single topic to consume from. A pipeline can have multiple Kafka sources (e.g., two sources are required for [temporal joins](/transformations/join)).
 
-## Topic Parameters
+## Source Parameters
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `id` | string | Yes | Identifier used as `source_id` in schema field mappings and join configuration |
-| `name` | string | Yes | Kafka topic name |
+| `type` | string | Yes | Must be `"kafka"` |
+| `source_id` | string | Yes | Unique identifier, referenced by transforms, join, and sink mapping |
+| `connection_params` | object | Yes | Kafka connection parameters. See [Connections](/sources/kafka/connections). |
+| `topic` | string | Yes | Kafka topic name |
 | `consumer_group_initial_offset` | string | No | Where to start reading: `earliest` or `latest` (default: `latest`) |
-| `deduplication` | object | Yes | Source-level deduplication settings |
+| `schema_fields` | array | Yes | Field definitions for this source |
 
 ## Consumer Group Offset
 
@@ -25,45 +27,67 @@ The `consumer_group_initial_offset` controls where GlassFlow starts reading when
 
 After the initial offset is set, GlassFlow tracks consumer group offsets automatically. Stopping and resuming a pipeline continues from where it left off.
 
-## Source-Level Deduplication
+## Schema Fields
 
-Each topic can optionally deduplicate records before they enter the pipeline processing stages.
+Each entry in `schema_fields` declares a field from the source data:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `deduplication.enabled` | boolean | Yes | Enable or disable deduplication |
-| `deduplication.key` | string | Conditional | Field name to deduplicate on (required when enabled) |
-| `deduplication.time_window` | string | Conditional | Time window for tracking duplicates (required when enabled) |
+| `name` | string | Yes | Field name. Dot notation supported for nested fields (e.g., `data.user_id`). |
+| `type` | string | Yes | Field type. See [Supported Data Formats](/configuration/data-format). |
 
-The deduplication key should reference a field that uniquely identifies each record (e.g., `event_id`, `order_id`). Within the configured time window, only the first occurrence of each unique key value is passed through.
+## Deduplication
 
-Supported time window formats: `"30s"`, `"1m"`, `"1h"`, `"12h"`, `"24h"`.
-
-For more details on the deduplication mechanism, see [Deduplication](/transformations/deduplication).
-
-## Example: Two Topics for a Join
+Deduplication is configured as a transform step in the `transforms` array, not inside the source. See [Deduplication](/transformations/deduplication) for details.
 
 ```json
-"topics": [
+"transforms": [
   {
-    "id": "user_logins",
-    "name": "user_logins",
-    "consumer_group_initial_offset": "earliest",
-    "deduplication": {
-      "enabled": true,
-      "key": "session_id",
-      "time_window": "12h"
+    "type": "dedup",
+    "source_id": "orders",
+    "config": {
+      "key": "order_id",
+      "time_window": "1h"
     }
+  }
+]
+```
+
+## Example: Two Sources for a Join
+
+```json
+"sources": [
+  {
+    "type": "kafka",
+    "source_id": "user_logins",
+    "connection_params": {
+      "brokers": ["kafka:9092"],
+      "protocol": "PLAINTEXT",
+      "mechanism": "NO_AUTH"
+    },
+    "topic": "user_logins",
+    "consumer_group_initial_offset": "earliest",
+    "schema_fields": [
+      {"name": "session_id", "type": "string"},
+      {"name": "user_id", "type": "string"},
+      {"name": "timestamp", "type": "datetime"}
+    ]
   },
   {
-    "id": "orders",
-    "name": "orders",
+    "type": "kafka",
+    "source_id": "orders",
+    "connection_params": {
+      "brokers": ["kafka:9092"],
+      "protocol": "PLAINTEXT",
+      "mechanism": "NO_AUTH"
+    },
+    "topic": "orders",
     "consumer_group_initial_offset": "earliest",
-    "deduplication": {
-      "enabled": true,
-      "key": "order_id",
-      "time_window": "12h"
-    }
+    "schema_fields": [
+      {"name": "order_id", "type": "string"},
+      {"name": "user_id", "type": "string"},
+      {"name": "amount", "type": "float"}
+    ]
   }
 ]
 ```

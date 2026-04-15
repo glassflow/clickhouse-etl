@@ -1,5 +1,5 @@
 export default {
-    'pipeline-json-reference': '',
+    'pipeline-config-reference': '',
     'data-format': '',
     'metrics': '',
 }

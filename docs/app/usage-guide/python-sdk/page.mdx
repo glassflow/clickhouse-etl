@@ -235,40 +235,46 @@ pipeline.to_yaml(yaml_path="<my-pipeline-config.yaml>")
 
 ## OTLP Source Pipelines
 
-GlassFlow can ingest OpenTelemetry signals directly without a Kafka cluster. Set `source.type` to `otlp.logs`, `otlp.metrics`, or `otlp.traces`. GlassFlow manages the OTLP receiver endpoint — you configure only the sink and schema.
+GlassFlow can ingest OpenTelemetry signals directly without a Kafka cluster. Add an OTLP source to the `sources` array — no `schema_fields` or `connection_params` needed. GlassFlow manages the OTLP receiver endpoint.
 
-Deduplication is supported at the source level. Join is not supported for OTLP source pipelines.
+Join is not supported for OTLP source pipelines. Deduplication, filter, and stateless transforms are configured through the `transforms` array.
 
 ```python
 pipeline_config = {
     "version": "v3",
     "pipeline_id": "otel-logs-pipeline",
-    "source": {
-        "type": "otlp.logs",
-        "deduplication": {
-            "enabled": True,
-            "key": "trace_id",
-            "time_window": "5m"
+    "sources": [
+        {
+            "type": "otlp.logs",
+            "source_id": "logs"
         }
-    },
-    "join": {"enabled": False},
+    ],
+    "transforms": [
+        {
+            "type": "dedup",
+            "source_id": "logs",
+            "config": {
+                "key": "trace_id",
+                "time_window": "5m"
+            }
+        }
+    ],
     "sink": {
         "type": "clickhouse",
-        "host": "clickhouse.example.com",
-        "port": "9000",
-        "database": "otel",
-        "username": "default",
-        "password": "mysecret",
-        "secure": True,
-        "table": "otel_logs"
-    },
-    "schema": {
-        "fields": [
-            {"source_id": "otlp.logs", "name": "timestamp",     "type": "string", "column_name": "timestamp",     "column_type": "DateTime64(9)"},
-            {"source_id": "otlp.logs", "name": "severity_text", "type": "string", "column_name": "severity_text", "column_type": "LowCardinality(String)"},
-            {"source_id": "otlp.logs", "name": "body",          "type": "string", "column_name": "body",          "column_type": "String"},
-            {"source_id": "otlp.logs", "name": "trace_id",      "type": "string", "column_name": "trace_id",      "column_type": "String"},
-            {"source_id": "otlp.logs", "name": "service_name",  "type": "string", "column_name": "service_name",  "column_type": "LowCardinality(String)"}
+        "connection_params": {
+            "host": "clickhouse.example.com",
+            "port": "9000",
+            "database": "otel",
+            "username": "default",
+            "password": "mysecret",
+            "secure": True
+        },
+        "table": "otel_logs",
+        "mapping": [
+            {"name": "timestamp",     "column_name": "Timestamp",     "column_type": "DateTime64(9)"},
+            {"name": "severity_text", "column_name": "SeverityText", "column_type": "LowCardinality(String)"},
+            {"name": "body",          "column_name": "Body",          "column_type": "String"},
+            {"name": "trace_id",      "column_name": "TraceId",      "column_type": "String"}
         ]
     }
 }
@@ -276,39 +282,35 @@ pipeline_config = {
 pipeline = client.create_pipeline(pipeline_config)
 ```
 
-Available signal types and their common fields:
-
-| `source_type`   | Key fields available for filter/transform/mapping |
-|-----------------|--------------------------------------------------|
-| `otlp.logs`     | `timestamp`, `severity_text`, `severity_number`, `body`, `trace_id`, `span_id`, `service_name`, `attributes.*` |
-| `otlp.metrics`  | `name`, `description`, `unit`, `timestamp`, `data_point_value`, `attributes.*` |
-| `otlp.traces`   | `trace_id`, `span_id`, `parent_span_id`, `name`, `start_time`, `end_time`, `status_code`, `attributes.*` |
+For complete examples with full column mappings for logs, traces, and metrics, see [OTLP Source Examples](/sources/otlp/examples).
 
 ## Pipeline Resources
 
-Use `pipeline_resources` to set CPU, memory, replica counts, and storage limits per component. This is optional — omit it to use GlassFlow's defaults.
+Use `resources` to set CPU, memory, replica counts, and storage limits per component. This is optional — omit it to use GlassFlow's defaults.
 
 ```python
 pipeline_config = {
     "version": "v3",
     "pipeline_id": "my-pipeline-id",
-    # ... source, join, sink, schema ...
-    "pipeline_resources": {
-        "ingestor": {
-            # Single-source pipeline: use "base"
-            "base": {
+    # ... sources, transforms, sink ...
+    "resources": {
+        "sources": [
+            {
+                "source_id": "orders",
                 "replicas": 2,
                 "requests": {"cpu": "250m", "memory": "256Mi"},
                 "limits":   {"cpu": "500m", "memory": "512Mi"}
             }
-            # Join pipeline: use "left" and "right" instead of "base"
-        },
-        "transform": {
-            "replicas": 1,
-            "requests": {"cpu": "500m", "memory": "512Mi"},
-            "limits":   {"cpu": "1000m", "memory": "1Gi"},
-            "storage":  {"size": "10Gi"}
-        },
+        ],
+        "transform": [
+            {
+                "source_id": "orders",
+                "replicas": 1,
+                "storage":  {"size": "10Gi"},
+                "requests": {"cpu": "500m", "memory": "512Mi"},
+                "limits":   {"cpu": "1000m", "memory": "1Gi"}
+            }
+        ],
         "sink": {
             "replicas": 1,
             "requests": {"cpu": "250m", "memory": "256Mi"},
@@ -316,8 +318,8 @@ pipeline_config = {
         },
         "nats": {
             "stream": {
-                "maxAge":   "24h",
-                "maxBytes": "10Gi"
+                "max_age":   "24h",
+                "max_bytes": "10Gi"
             }
         }
     }
@@ -328,75 +330,28 @@ The following resource fields are **immutable** — they must be set at creation
 
 | Field | Reason |
 |-------|--------|
-| `transform.storage.size` | Underlying volume cannot be resized |
-| `join.replicas` | Join topology is fixed after creation |
-| `nats.stream.maxAge` | JetStream stream config is immutable |
-| `nats.stream.maxBytes` | JetStream stream config is immutable |
+| `transform[].storage.size` | Underlying volume cannot be resized |
+| `nats.stream.max_age` | JetStream stream config is immutable |
+| `nats.stream.max_bytes` | JetStream stream config is immutable |
 
 ## Migrating from V2 to V3
 
-Pipeline version `v2` is deprecated. Update your configuration dictionary as follows before passing it to `client.create_pipeline()`.
+Pipeline version `v2` is deprecated. See the [Pipeline Configuration Reference](/configuration/pipeline-config-reference#v2-reference-deprecated) for the full V2 → V3 migration table.
 
-| Area | V2 field | V3 field | Notes |
-|------|----------|----------|-------|
-| `version` | `"v2"` | `"v3"` | Required change |
-| Topics | _(no `id`)_ | `"id": "<topic-name>"` | Each topic now requires an explicit `id` |
-| Deduplication | `"id_field": "field_name"` | `"key": "field_name"` | `id_field` is removed in V3 |
-| Deduplication | `"id_field_type": "string"` | _(removed)_ | Type is inferred from the schema |
-| Join sources | `"join_key": "field_name"` | `"key": "field_name"` | `join_key` is removed in V3 |
-| Join sources | _(no `fields`)_ | `"fields": ["f1", "f2"]` | Optional — selects output fields |
-| Sink password | base64-encoded string | plain text string | Passwords are no longer base64-encoded |
-| Sink | _(no `http_port`)_ | `"http_port": "8123"` | Optional HTTP port for ClickHouse |
+Key structural changes:
 
-**Before (V2):**
-
-```python
-{
-    "version": "v2",
-    "source": {
-        "topics": [{
-            "name": "users",
-            "deduplication": {
-                "enabled": True,
-                "id_field": "event_id",
-                "id_field_type": "string",
-                "time_window": "1h"
-            }
-        }]
-    },
-    "join": {
-        "enabled": True,
-        "sources": [{"source_id": "users", "join_key": "user_id", "time_window": "10m", "orientation": "left"}]
-    },
-    "sink": {"password": "c2VjcmV0", ...}
-}
-```
-
-**After (V3):**
-
-```python
-{
-    "version": "v3",
-    "source": {
-        "topics": [{
-            "id": "users",
-            "name": "users",
-            "deduplication": {
-                "enabled": True,
-                "key": "event_id",
-                "time_window": "1h"
-            }
-        }]
-    },
-    "join": {
-        "enabled": True,
-        "sources": [{"source_id": "users", "key": "user_id", "time_window": "10m", "orientation": "left", "fields": ["user_id", "event_id"]}]
-    },
-    "sink": {"password": "mysecret", ...}
-}
-```
+| V2 | V3 |
+|----|-----|
+| `source` (singular) with `topics[]` | `sources[]` array, one entry per topic |
+| Dedup nested in topic | `transforms[]` with `type: "dedup"` |
+| Top-level `filter`, `stateless_transformation` | `transforms[]` with `type: "filter"` / `"stateless"` |
+| `join.sources[]` with `orientation` | `join.left_source` / `join.right_source` |
+| `schema.fields[]` | `sink.mapping[]` |
+| `pipeline_resources` | `resources` with per-source entries |
+| Flat sink fields (host, port, ...) | `sink.connection_params` nested object |
+| Sink password base64-encoded | Sink password plain text |
 
 ## Next Steps
 
-- Explore the [Pipeline JSON Reference](/configuration/pipeline-json-reference) documentation for detailed configuration options
+- Explore the [Pipeline Configuration Reference](/configuration/pipeline-config-reference) documentation for detailed configuration options
 - Learn about [monitoring and observability](/usage-guide#verifying-data-flow) for your pipelines

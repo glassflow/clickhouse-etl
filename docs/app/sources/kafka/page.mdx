@@ -10,28 +10,36 @@ Kafka source pipelines consume messages from one or more Kafka topics, apply opt
 
 ## Configuration
 
-Set `source.type` to `"kafka"` in the pipeline configuration. The source section requires connection parameters and at least one topic:
+Each Kafka source is an entry in the `sources` array with `type` set to `"kafka"`:
 
 ```json
-"source": {
+{
   "type": "kafka",
+  "source_id": "events",
   "connection_params": {
     "brokers": ["kafka:9092"],
     "protocol": "PLAINTEXT",
     "mechanism": "NO_AUTH"
   },
-  "topics": [
-    {
-      "id": "events",
-      "name": "events",
-      "consumer_group_initial_offset": "earliest",
-      "deduplication": {
-        "enabled": false
-      }
-    }
+  "topic": "events",
+  "consumer_group_initial_offset": "earliest",
+  "schema_fields": [
+    {"name": "event_id", "type": "string"},
+    {"name": "timestamp", "type": "datetime"}
   ]
 }
 ```
+
+### Source Parameters
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `type` | string | Yes | Must be `"kafka"` |
+| `source_id` | string | Yes | Unique identifier, referenced by transforms, join, and sink mapping |
+| `connection_params` | object | Yes | Kafka connection parameters |
+| `topic` | string | Yes | Kafka topic name |
+| `consumer_group_initial_offset` | string | No | Where to start reading: `earliest` or `latest` (default: `latest`) |
+| `schema_fields` | array | Yes | Field definitions for this source. Each entry: `{"name": "...", "type": "..."}` |
 
 ### Connection Parameters
 
@@ -47,19 +55,6 @@ Set `source.type` to `"kafka"` in the pipeline configuration. The source section
 
 For detailed examples of each protocol and authentication method (including Kerberos), see [Connections](/sources/kafka/connections).
 
-### Topic Parameters
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `id` | string | Yes | Identifier used as `source_id` in schema field mappings |
-| `name` | string | Yes | Kafka topic name |
-| `consumer_group_initial_offset` | string | No | Where to start reading: `earliest` or `latest` (default: `latest`) |
-| `deduplication.enabled` | boolean | Yes | Enable source-level deduplication |
-| `deduplication.key` | string | Conditional | Field to deduplicate on (required when enabled) |
-| `deduplication.time_window` | string | Conditional | Deduplication window (e.g., `"1h"`, `"30s"`) |
-
-For more details, see [Topic Configuration](/sources/kafka/topic-configuration).
-
 ## Features
 
 | Feature | Supported | Details |
@@ -73,5 +68,4 @@ For more details, see [Topic Configuration](/sources/kafka/topic-configuration).
 
 - [Examples](/sources/kafka/examples) -- quick start and full pipeline examples
 - [Connections](/sources/kafka/connections) -- protocol and auth examples
-- [Topic Configuration](/sources/kafka/topic-configuration) -- consumer groups, deduplication at source
-- [Pipeline JSON Reference](/configuration/pipeline-json-reference) -- full configuration reference
+- [Pipeline Configuration Reference](/configuration/pipeline-config-reference) -- full configuration reference
