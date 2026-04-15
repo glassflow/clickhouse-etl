@@ -9,6 +9,7 @@ import { BatchDelaySelector } from './components/BatchDelaySelector'
 import FormActions from '@/src/components/shared/FormActions'
 import { DestinationErrorBlock } from './components/DestinationErrorBlock'
 import { StepKeys } from '@/src/config/constants'
+import { isOtlpSource } from '@/src/config/source-types'
 
 import { useStore } from '@/src/store'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
@@ -53,7 +54,9 @@ export function ClickhouseMapper({
     topicsStore,
     coreStore,
     transformationStore,
+    otlpStore,
   } = useStore()
+  const isOtlp = isOtlpSource(coreStore.sourceType)
   const analytics = useJourneyAnalytics()
   const { clickhouseDestination, setClickhouseDestination, updateClickhouseDestinationDraft } =
     clickhouseDestinationStore
@@ -152,6 +155,9 @@ export function ClickhouseMapper({
       return
     }
     const getJsonType = (field: string) => {
+      if (isOtlp) {
+        return otlpStore.schemaFields.find((f) => f.name === field)?.type
+      }
       if (mode === 'single') return getVerifiedTypeFromTopic(selectedTopic, field)
       const primary = primaryTopic ? getVerifiedTypeFromTopic(primaryTopic, field) : undefined
       if (primary) return primary
@@ -165,6 +171,8 @@ export function ClickhouseMapper({
     tableName,
     selectedDatabase,
     orderByOptions,
+    isOtlp,
+    otlpStore.schemaFields,
     mode,
     selectedTopic,
     primaryTopic,
