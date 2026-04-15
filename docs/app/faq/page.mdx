@@ -21,5 +21,5 @@ These duplicates become a problem when writing to systems like ClickHouse, which
 
 ## Q: What happens during failures? Can you lose or duplicate data?
 
-GlassFlow uses NATS JetStream as a buffer. Kafka offsets are only committed after successful ingestion into NATS, and then data is deduplicated and written to ClickHouse. We batch inserts using the ClickHouse native protocol. If the system crashes after acknowledging Kafka but before inserting into ClickHouse, that batch is lost. We're actively improving recovery guarantees to address this gap.
+GlassFlow uses NATS JetStream as an internal buffer between pipeline stages. The source is only acknowledged after messages are successfully published to NATS — for Kafka this means committing offsets, for OTLP this means returning a success response to the sender. Data then flows through optional transformations (filter, deduplication, joins) and is batch-inserted into ClickHouse using the native protocol. If the system crashes after acknowledging the source but before inserting into ClickHouse, that batch is lost. We're actively improving recovery guarantees to address this gap. For a detailed breakdown, see the [Data Flow](/architecture/data-flow) documentation.
 
