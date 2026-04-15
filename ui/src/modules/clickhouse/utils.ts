@@ -450,10 +450,10 @@ export const buildInternalPipelineConfig = ({
           // OTLP source: no Kafka topics or connection params
           type: otlpStore?.signalType || coreStore?.sourceType || 'otlp',
           id: otlpStore?.sourceId || '',
-          ...(otlpStore?.deduplication
+          ...(otlpStore?.deduplication?.enabled
             ? {
                 deduplication: {
-                  enabled: otlpStore.deduplication.enabled,
+                  enabled: true,
                   id_field: otlpStore.deduplication.id_field,
                   id_field_type: otlpStore.deduplication.id_field_type,
                   time_window: otlpStore.deduplication.time_window,
