@@ -31,13 +31,13 @@ GlassFlow is an open-source streaming ETL for multiple data sources to ClickHous
 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 <div className="flex flex-col gap-4">
 
-### Streaming Deduplication
+### Deduplication
 - Data deduplication from different sources (i.e. Apache Kafka data streams, OTel traces, logs, metrics, etc.) before ingestion into ClickHouse ([Deduplication](/transformations/deduplication))
 - Configurable time windows up to 7 days for deduplication
 - Simple configuration of deduplication keys and time windows
 - Prevents duplicate data from reaching ClickHouse
 
-### Temporal Stream Joins
+### Temporal Joins
 - Join two Kafka streams in real-time ([Join](/transformations/join))
 - Configurable time windows up to 7 days for stream joins
 - Configure join keys and time windows through the UI
