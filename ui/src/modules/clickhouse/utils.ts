@@ -504,7 +504,7 @@ export const buildInternalPipelineConfig = ({
             http_port: clickhouseConnection.directConnection?.httpPort?.toString() || undefined,
             database: clickhouseDestination?.database,
             username: clickhouseConnection.directConnection?.username,
-            password: encodeBase64(clickhouseConnection.directConnection?.password),
+            password: clickhouseConnection.directConnection?.password,
             secure: clickhouseConnection.directConnection?.useSSL || false,
             skip_certificate_verification: clickhouseConnection.directConnection?.skipCertificateVerification || false,
             max_batch_size: clickhouseDestination?.maxBatchSize || 1000,

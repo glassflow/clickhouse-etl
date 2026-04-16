@@ -133,7 +133,6 @@ export function PipelineResourcesConfigurator({
         let payload: any
         if (isOtlp) {
           // OTLP pipeline: build source from otlpStore, sink in V3 wire format
-          const encodeBase64 = (v: string) => (v ? Buffer.from(v).toString('base64') : '')
           payload = {
             pipeline_id: pipelineId,
             name: pipelineName,
@@ -159,7 +158,7 @@ export function PipelineResourcesConfigurator({
                 http_port: conn?.httpPort?.toString() || '8123',
                 database: clickhouseDestination?.database || 'default',
                 username: conn?.username || '',
-                password: encodeBase64(conn?.password || ''),
+                password: conn?.password || '',
                 secure: conn?.useSSL || false,
                 ...(conn?.skipCertificateVerification && { skip_certificate_verification: true }),
               },

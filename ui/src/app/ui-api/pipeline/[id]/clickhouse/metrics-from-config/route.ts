@@ -68,23 +68,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const host = sink.host ?? cp.host
     const database = sink.database ?? cp.database
     const username = sink.username ?? cp.username
-    const rawPassword = sink.password ?? cp.password
-
-    // Extract ClickHouse connection parameters
-    // Decode base64 password if it's encoded
-    let decodedPassword = rawPassword || ''
-    try {
-      if (rawPassword && typeof rawPassword === 'string') {
-        const decoded = atob(rawPassword)
-        // If decoding succeeds and doesn't contain control characters, use decoded version
-        if (decoded && !/[\x00-\x1F\x7F]/.test(decoded)) {
-          decodedPassword = decoded
-        }
-      }
-    } catch (error) {
-      // If decoding fails, use original password (might not be base64 encoded)
-      decodedPassword = rawPassword || ''
-    }
+    const password = sink.password ?? cp.password ?? ''
 
     // Prefer http_port for HTTP connection; backend stores port (native) and http_port separately
     const httpPort = parseInt(
@@ -96,7 +80,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       httpPort: Number.isNaN(httpPort) ? 8123 : httpPort,
       nativePort: (sink.native_port ?? cp.native_port) ? parseInt(sink.native_port ?? cp.native_port) : undefined,
       username,
-      password: decodedPassword,
+      password,
       database,
       useSSL: sink.secure ?? cp.secure ?? false,
       skipCertificateVerification: sink.skip_certificate_verification ?? cp.skip_certificate_verification ?? false,
