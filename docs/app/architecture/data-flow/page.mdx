@@ -60,7 +60,7 @@ The **Ingestor** component consumes messages from the configured source and publ
 
 **Stopped Pipeline Behaviour**
 
-The OTLP receiver is a shared component that does not check pipeline status. When an OTLP pipeline is **stopped**, the receiver continues accepting incoming data and publishing it to NATS JetStream. Messages accumulate in the stream until the pipeline is resumed, subject to the stream's `max_bytes` and `max_age` limits. When the pipeline is **terminated**, the streams are deleted and any buffered data is lost. See [OTLP Source — Pipeline Stop and Terminate Behaviour](/sources/otlp#pipeline-stop-and-terminate-behaviour) for details.
+The OTLP receiver is a shared component that does not check pipeline status. When an OTLP pipeline is **stopped or terminated**, the receiver continues accepting incoming data and publishing it to NATS JetStream. Streams are preserved in both cases — messages accumulate until the pipeline is resumed, subject to the stream's `max_bytes` and `max_age` limits. Streams are only deleted when the pipeline itself is deleted. See [OTLP Source — Pipeline Stop and Terminate Behaviour](/sources/otlp#pipeline-stop-and-terminate-behaviour) for details.
 
 ### Stage 2: NATS JetStream Processing
 

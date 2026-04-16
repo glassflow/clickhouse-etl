@@ -79,15 +79,11 @@ x-glassflow-pipeline-id: <your-pipeline-id>
 
 Because the OTLP receiver is a shared component that stays running across all pipelines, it is important to understand what happens to in-flight data when you stop or terminate an OTLP pipeline.
 
-- **Stop** (graceful): Pipeline components drain their queues and scale to zero. NATS JetStream streams are **preserved**. Any data already ingested but not yet written to ClickHouse remains in the streams and will be processed when the pipeline is resumed. Because the OTLP receiver is a shared component, it **continues accepting incoming data** for the stopped pipeline — new events are published to NATS JetStream and buffered until the pipeline is resumed. Data will accumulate in the stream subject to the configured `max_bytes` and `max_age` limits (see [Scaling Guide](/installation/kubernetes/scaling)).
-- **Terminate** (hard): Pipeline components are immediately scaled to zero and NATS JetStream streams are **deleted**. Any unprocessed messages in the streams are lost. The OTLP receiver continues running for other pipelines.
-
-<Callout type="warning">
-  If you need to preserve in-flight data, always use **Stop** instead of **Terminate**. Terminate deletes all internal streams and any unprocessed data is permanently lost.
-</Callout>
+- **Stop and Terminate**: In both cases, pipeline components scale to zero but NATS JetStream streams are **preserved**. Any data already ingested but not yet written to ClickHouse remains in the streams and will be processed when the pipeline is resumed. Because the OTLP receiver is a shared component, it **continues accepting incoming data** for the stopped/terminated pipeline — new events are published to NATS JetStream and buffered until the pipeline is resumed. The difference between stop and terminate is that stop drains in-flight messages before scaling down, while terminate scales down immediately.
+- **Delete**: NATS JetStream streams are only **deleted** when the pipeline itself is deleted. This is the only operation that permanently removes buffered data.
 
 <Callout type="info">
-  During a stopped state, the OTLP receiver keeps buffering incoming data into NATS JetStream. If the pipeline stays stopped for an extended period, monitor the stream size against your `max_bytes` and `max_age` limits to avoid data eviction.
+  While a pipeline is stopped or terminated, the OTLP receiver keeps buffering incoming data into NATS JetStream. If the pipeline stays in this state for an extended period, monitor the stream size against your `max_bytes` and `max_age` limits to avoid data eviction (see [Scaling Guide](/installation/kubernetes/scaling)).
 </Callout>
 
 ## Next Steps
