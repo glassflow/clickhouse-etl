@@ -3,19 +3,16 @@ import { useStore } from '../index'
 // Map backend pipeline config to ClickhouseConnectionFormType (store shape)
 function mapBackendClickhouseConfigToStore(sink: any): any {
   // v3 format stores connection details nested under connection_params; v1/v2 use flat fields.
+  // The V3 pipeline adapter (v3.ts) flattens connection_params into the sink before calling
+  // hydration, so sink.password already holds the plaintext value decrypted by the backend.
   const cp = sink.connection_params || {}
   const host = sink.host ?? cp.host ?? ''
   const httpPort = sink.http_port ?? cp.http_port ?? ''
   const nativePort = sink.port ?? cp.port ?? ''
   const username = sink.username ?? cp.username ?? ''
+  const password = sink.password ?? cp.password ?? ''
   const secure = sink.secure ?? cp.secure ?? true
   const skipCertVerification = sink.skip_certificate_verification ?? cp.skip_certificate_verification ?? false
-
-  // The backend stores passwords as AES-encrypted+base64 and the API returns that same
-  // encrypted value — the real plaintext is never exposed to the frontend. Attempting to
-  // decode it would put the AES ciphertext into the form, which then gets re-submitted and
-  // double-encrypted, corrupting the credential. Leave the password blank so the user is
-  // prompted to re-enter it on edit.
 
   return {
     connectionType: 'direct',
@@ -24,7 +21,7 @@ function mapBackendClickhouseConfigToStore(sink: any): any {
       // Backend returns native port as sink.port; UI uses HTTP port for browsing
       httpPort,
       username,
-      password: '',
+      password,
       nativePort,
       useSSL: secure,
       skipCertificateVerification: skipCertVerification,
