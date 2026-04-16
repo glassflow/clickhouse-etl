@@ -42,9 +42,6 @@ function buildOtlpSinkMapping(mappedColumns: any[]) {
   }))
 }
 
-const encodeBase64 = (value: string) => {
-  return value ? Buffer.from(value).toString('base64') : ''
-}
 
 // Generate API config for OTLP pipelines in V3 wire format.
 // The backend expects: sink.connection_params (nested), sink.mapping (V3),
@@ -95,7 +92,7 @@ function generateOtlpApiConfig(params: {
         http_port: conn?.httpPort?.toString() || '8123',
         database: clickhouseDestination?.database || 'default',
         username: conn?.username || '',
-        password: encodeBase64(conn?.password || ''),
+        password: conn?.password || '',
         secure: conn?.useSSL || false,
         ...(conn?.skipCertificateVerification && {
           skip_certificate_verification: true,

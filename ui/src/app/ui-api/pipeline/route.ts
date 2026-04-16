@@ -79,21 +79,12 @@ function buildCreateTableParams(config: {
   const httpPort = Number(sink.http_port ?? sink.port ?? cp.http_port ?? cp.port ?? 8123)
   const database = String(sink.database ?? cp.database ?? '')
   const username = String(sink.username ?? cp.username ?? '')
-  let rawPassword = sink.password ?? cp.password ?? ''
-  let decodedPassword = String(rawPassword)
-  try {
-    if (rawPassword && typeof rawPassword === 'string') {
-      const d = atob(rawPassword)
-      if (d && !/[\x00-\x1F\x7F]/.test(d)) decodedPassword = d
-    }
-  } catch {
-    decodedPassword = String(rawPassword)
-  }
+  const password = String(sink.password ?? cp.password ?? '')
   const chConfig: ClickHouseConfig = {
     host,
     httpPort,
     username,
-    password: decodedPassword,
+    password,
     database,
     useSSL: Boolean(sink.secure ?? cp.secure ?? true),
     skipCertificateVerification: Boolean(sink.skip_certificate_verification ?? cp.skip_certificate_verification ?? false),
