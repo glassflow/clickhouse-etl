@@ -11,10 +11,12 @@ import { StepKeys } from '@/src/config/constants'
 import { notify } from '@/src/notifications'
 import { isPreviewModeEnabled } from '@/src/config/feature-flags'
 import { generateApiConfig, getMappingType } from '@/src/modules/clickhouse/utils'
+import { toTransformArray } from '@/src/modules/transformation/utils'
 import { structuredLogger } from '@/src/observability'
 import { LATEST_PIPELINE_VERSION } from '@/src/config/pipeline-versions'
 import type { StepBaseProps } from '@/src/modules/pipelines/[id]/step-renderer/stepProps'
 import { DestinationErrorBlock } from '@/src/modules/clickhouse/components/DestinationErrorBlock'
+import { isOtlpSource } from '@/src/config/source-types'
 
 export function PipelineResourcesConfigurator({
   onCompleteStep,
@@ -37,12 +39,14 @@ export function PipelineResourcesConfigurator({
     clickhouseConnectionStore,
     clickhouseDestinationStore,
     kafkaStore,
+    otlpStore,
   } = useStore()
   const [initialized, setInitialized] = useState(false)
   const [initialValues, setInitialValues] = useState(resourcesToFormValues(null))
   const [deployError, setDeployError] = useState<string | null>(null)
   const [failedDeploymentConfig, setFailedDeploymentConfig] = useState<any>(null)
 
+  const isOtlp = isOtlpSource(coreStore?.sourceType || 'kafka')
   const hasJoin = joinStore?.enabled === true
   const topics = topicsStore?.topics ? Object.values(topicsStore.topics) : []
   const hasTopicDedup = topics.some(
@@ -56,7 +60,7 @@ export function PipelineResourcesConfigurator({
     transformationStore?.transformationConfig?.enabled === true ||
     (transformationStore?.transformationConfig?.fields?.length ?? 0) > 0
 
-  const pipelineShape = { hasJoin, hasTransform, hasDedup }
+  const pipelineShape = { hasJoin, hasTransform, hasDedup, isOtlp }
   const immutablePaths = resourcesStore.fields_policy?.immutable ?? []
 
   useEffect(() => {
@@ -125,23 +129,90 @@ export function PipelineResourcesConfigurator({
         const { clickhouseConnection } = clickhouseConnectionStore
         const { clickhouseDestination } = clickhouseDestinationStore
         const selectedTopics = Object.values(topicsStore.topics || {})
+        const conn = clickhouseConnection?.directConnection
 
-        const payload = generateApiConfig({
-          pipelineId,
-          pipelineName: pipelineName || 'Pipeline',
-          setPipelineId,
-          clickhouseConnection,
-          clickhouseDestination,
-          selectedTopics,
-          getMappingType,
-          joinStore,
-          kafkaStore,
-          deduplicationStore,
-          filterStore,
-          transformationStore,
-          pipeline_resources: resourcesStore.pipeline_resources,
-          version: pipelineVersion,
-        })
+        let payload: any
+        if (isOtlp) {
+          // OTLP pipeline: build source from otlpStore, sink in V3 wire format
+          payload = {
+            pipeline_id: pipelineId,
+            name: pipelineName,
+            source: {
+              type: otlpStore.signalType || coreStore.sourceType || '',
+              id: otlpStore.sourceId,
+              deduplication: otlpStore.deduplication.enabled
+                ? { enabled: true, key: otlpStore.deduplication.key, time_window: otlpStore.deduplication.time_window }
+                : { enabled: false },
+            },
+            join: { type: '', enabled: false, sources: [] },
+            filter: filterStore?.filterConfig?.enabled && filterStore?.expressionString
+              ? { enabled: true, expression: filterStore.expressionString }
+              : { enabled: false, expression: '' },
+            stateless_transformation: (() => {
+              const baseName = (pipelineName || 'pipeline').toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-transform$/, '')
+              const transformId = `${baseName}-transform`
+              if (transformationStore?.transformationConfig?.enabled) {
+                return {
+                  id: transformId,
+                  type: 'expr_lang_transform',
+                  enabled: true,
+                  source_id: otlpStore.sourceId,
+                  config: { transform: toTransformArray(transformationStore.transformationConfig) },
+                }
+              }
+              return { id: transformId, type: 'expr_lang_transform', enabled: false }
+            })(),
+            sink: {
+              type: 'clickhouse',
+              connection_params: {
+                host: conn?.host || '',
+                port: conn?.nativePort?.toString() || '9000',
+                http_port: conn?.httpPort?.toString() || '8123',
+                database: clickhouseDestination?.database || 'default',
+                username: conn?.username || '',
+                password: conn?.password || '',
+                secure: conn?.useSSL || false,
+                ...(conn?.skipCertificateVerification && { skip_certificate_verification: true }),
+              },
+              table: clickhouseDestination?.tableName || clickhouseDestination?.table,
+              ...(clickhouseDestination?.engine ? { engine: clickhouseDestination.engine } : {}),
+              ...(clickhouseDestination?.orderBy ? { order_by: clickhouseDestination.orderBy } : {}),
+              max_batch_size: clickhouseDestination?.maxBatchSize || 1000,
+              max_delay_time: (() => {
+                const time = clickhouseDestination?.maxDelayTime || 1
+                const unit = clickhouseDestination?.maxDelayTimeUnit || 'm'
+                const shortUnit = unit === 'seconds' ? 's' : unit === 'minutes' ? 'm' : unit === 'hours' ? 'h' : unit === 'days' ? 'd' : unit
+                return `${time}${shortUnit}`
+              })(),
+              source_id: otlpStore.sourceId,
+              mapping: (clickhouseDestination?.mapping || [])
+                .filter((m: any) => m.eventField)
+                .map((col: any) => ({
+                  name: col.eventField || col.field_name,
+                  column_name: col.name || col.column_name,
+                  column_type: (col.type || col.column_type || '').replace(/Nullable\((.*)\)/, '$1'),
+                })),
+            },
+            pipeline_resources: resourcesStore.pipeline_resources,
+          }
+        } else {
+          payload = generateApiConfig({
+            pipelineId,
+            pipelineName: pipelineName || 'Pipeline',
+            setPipelineId,
+            clickhouseConnection,
+            clickhouseDestination,
+            selectedTopics,
+            getMappingType,
+            joinStore,
+            kafkaStore,
+            deduplicationStore,
+            filterStore,
+            transformationStore,
+            pipeline_resources: resourcesStore.pipeline_resources,
+            version: pipelineVersion,
+          })
+        }
 
         if (payload && typeof payload === 'object' && !('error' in payload)) {
           setDeployError(null)

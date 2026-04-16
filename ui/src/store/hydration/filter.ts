@@ -10,17 +10,20 @@ export function hydrateFilter(pipelineConfig: any) {
   const filter = pipelineConfig?.filter
   const filterStore = useStore.getState().filterStore
 
-  if (!filter) {
-    // No filter config - reset to initial state
+  // Reset to initial state when filter is absent or explicitly disabled.
+  // Using resetFilterStore() (rather than individual setters) is important: it clears the
+  // entire filterConfig including the root group tree, preventing stale rules from a previous
+  // pipeline creation or edit session from showing up in read-only view.
+  if (!filter || !filter.enabled) {
     filterStore.resetFilterStore()
     return
   }
 
-  // Set filter enabled state
-  filterStore.setFilterEnabled(!!filter.enabled)
+  // filter.enabled is truthy — restore the active filter state
+  filterStore.setFilterEnabled(true)
 
-  // Set the expression string if filter is enabled and has an expression
-  if (filter.enabled && filter.expression) {
+  // Set the expression string if filter has an expression
+  if (filter.expression) {
     filterStore.setExpressionString(filter.expression)
     // Mark backend validation as valid since this is a saved/validated expression
     filterStore.setBackendValidation({ status: 'valid' })

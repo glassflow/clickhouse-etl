@@ -1,0 +1,4 @@
+{"type":"server-started","port":61914,"host":"127.0.0.1","url_host":"localhost","url":"http://localhost:61914","screen_dir":"/Users/vladimir.cutkovic/Documents/code/glassflow/clickhouse-etl/ui/.superpowers/brainstorm/74401-1775831465/content","state_dir":"/Users/vladimir.cutkovic/Documents/code/glassflow/clickhouse-etl/ui/.superpowers/brainstorm/74401-1775831465/state"}
+{"type":"screen-added","file":"/Users/vladimir.cutkovic/Documents/code/glassflow/clickhouse-etl/ui/.superpowers/brainstorm/74401-1775831465/content/approaches.html"}
+{"type":"screen-added","file":"/Users/vladimir.cutkovic/Documents/code/glassflow/clickhouse-etl/ui/.superpowers/brainstorm/74401-1775831465/content/waiting.html"}
+{"type":"server-stopped","reason":"idle timeout"}

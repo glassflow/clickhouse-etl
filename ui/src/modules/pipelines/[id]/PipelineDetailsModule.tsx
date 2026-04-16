@@ -17,7 +17,9 @@ import { usePipelineActions } from '@/src/hooks/usePipelineActions'
 import { getPipeline, updatePipelineMetadata } from '@/src/api/pipeline-api'
 import { cn, isDemoMode } from '@/src/utils/common.client'
 import { KafkaConnectionSection } from './sections/KafkaConnectionSection'
+import { OtlpSourceSection } from './sections/OtlpSourceSection'
 import { ClickhouseConnectionSection } from './sections/ClickhouseConnectionSection'
+import { isOtlpSource } from '@/src/config/source-types'
 import PipelineTagsModal from '@/src/modules/pipelines/components/PipelineTagsModal'
 import { handleApiError } from '@/src/notifications/api-error-handler'
 import { notify } from '@/src/notifications'
@@ -292,8 +294,11 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
     }
   }
 
+  // Determine source type from pipeline API response (available before hydration)
+  const isOtlp = isOtlpSource(pipeline.source?.type || '')
+
   // Section selection highlighting - determine which overview card should be highlighted
-  const isSourceSelected = isSourceStep(activeStep)
+  const isSourceSelected = isOtlp ? activeSection === 'otlp-source' : isSourceStep(activeStep)
   const isSinkSelected = isSinkStep(activeStep)
   const isResourcesSelected = isResourcesStep(activeStep)
 
@@ -329,8 +334,8 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
 
           {/* Main Content Area */}
           <div className="grow">
-            {/* Show Status Overview when 'monitor' is selected and no step is active */}
-            {activeSection === 'monitor' && !activeStep && (
+            {/* Show Status Overview when 'monitor' is selected (or 'otlp-source') and no step is active */}
+            {(activeSection === 'monitor' || activeSection === 'otlp-source') && !activeStep && (
               <>
                 <PipelineStatusOverviewSection
                   pipeline={pipeline}
@@ -345,11 +350,18 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
                     showConfigurationSection ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4',
                   )}
                 >
-                  <KafkaConnectionSection
-                    disabled={isEditingDisabled && !demoMode}
-                    selected={isSourceSelected}
-                    onStepClick={handleStepClick}
-                  />
+                  {isOtlp ? (
+                    <OtlpSourceSection
+                      disabled={isEditingDisabled && !demoMode}
+                      selected={isSourceSelected}
+                    />
+                  ) : (
+                    <KafkaConnectionSection
+                      disabled={isEditingDisabled && !demoMode}
+                      selected={isSourceSelected}
+                      onStepClick={handleStepClick}
+                    />
+                  )}
                   <TransformationSection
                     pipeline={pipeline}
                     onStepClick={handleStepClick}

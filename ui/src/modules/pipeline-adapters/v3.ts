@@ -250,6 +250,8 @@ export class V3PipelineAdapter implements PipelineAdapter {
     const hasTransform =
       Boolean(transformation?.enabled && transformation?.fields?.length)
     const hasJoin = Boolean(join?.enabled && join?.sources?.length)
+    // For OTLP sources there are no Kafka topics; use source.id as the upstream reference
+    const isOtlpSource = (internalConfig.source?.type || '').startsWith('otlp.')
 
     let sinkSourceId: string
     if (hasTransform) {
@@ -262,7 +264,7 @@ export class V3PipelineAdapter implements PipelineAdapter {
       const joinId = (join as { id?: string }).id
       sinkSourceId = joinId ?? topics[0]?.id ?? topics[0]?.name ?? 'source'
     } else {
-      sinkSourceId = topics[0]?.id ?? topics[0]?.name ?? 'source'
+      sinkSourceId = topics[0]?.id ?? topics[0]?.name ?? (isOtlpSource ? (internalConfig.source?.id ?? 'source') : 'source')
     }
 
     if (apiConfig.sink) {
@@ -282,6 +284,10 @@ export class V3PipelineAdapter implements PipelineAdapter {
           }),
         },
         table: s.table,
+        // Preserve create-table fields so the UI API route can detect and execute the
+        // create-table flow before stripping them before forwarding to the backend.
+        ...(s.engine ? { engine: s.engine } : {}),
+        ...(s.order_by ? { order_by: s.order_by } : {}),
         max_batch_size: s.max_batch_size ?? 1000,
         max_delay_time: s.max_delay_time ?? '1s',
         source_id: s.source_id ?? sinkSourceId,
