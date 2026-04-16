@@ -284,6 +284,10 @@ export class V3PipelineAdapter implements PipelineAdapter {
           }),
         },
         table: s.table,
+        // Preserve create-table fields so the UI API route can detect and execute the
+        // create-table flow before stripping them before forwarding to the backend.
+        ...(s.engine ? { engine: s.engine } : {}),
+        ...(s.order_by ? { order_by: s.order_by } : {}),
         max_batch_size: s.max_batch_size ?? 1000,
         max_delay_time: s.max_delay_time ?? '1s',
         source_id: s.source_id ?? sinkSourceId,
