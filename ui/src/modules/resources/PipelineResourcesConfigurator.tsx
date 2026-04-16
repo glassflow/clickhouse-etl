@@ -11,6 +11,7 @@ import { StepKeys } from '@/src/config/constants'
 import { notify } from '@/src/notifications'
 import { isPreviewModeEnabled } from '@/src/config/feature-flags'
 import { generateApiConfig, getMappingType } from '@/src/modules/clickhouse/utils'
+import { toTransformArray } from '@/src/modules/transformation/utils'
 import { structuredLogger } from '@/src/observability'
 import { LATEST_PIPELINE_VERSION } from '@/src/config/pipeline-versions'
 import type { StepBaseProps } from '@/src/modules/pipelines/[id]/step-renderer/stepProps'
@@ -147,9 +148,20 @@ export function PipelineResourcesConfigurator({
             filter: filterStore?.filterConfig?.enabled && filterStore?.expressionString
               ? { enabled: true, expression: filterStore.expressionString }
               : { enabled: false, expression: '' },
-            stateless_transformation: transformationStore?.transformationConfig?.enabled
-              ? { enabled: true, config: { transform: transformationStore.transformationConfig.fields } }
-              : undefined,
+            stateless_transformation: (() => {
+              const baseName = (pipelineName || 'pipeline').toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-transform$/, '')
+              const transformId = `${baseName}-transform`
+              if (transformationStore?.transformationConfig?.enabled) {
+                return {
+                  id: transformId,
+                  type: 'expr_lang_transform',
+                  enabled: true,
+                  source_id: otlpStore.sourceId,
+                  config: { transform: toTransformArray(transformationStore.transformationConfig) },
+                }
+              }
+              return { id: transformId, type: 'expr_lang_transform', enabled: false }
+            })(),
             sink: {
               type: 'clickhouse',
               connection_params: {
