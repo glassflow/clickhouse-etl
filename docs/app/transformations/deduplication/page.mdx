@@ -37,7 +37,7 @@ Deduplication uses atomic transactions to ensure data consistency:
 - This prevents duplicate events from being produced even during processing failures
 - Messages are only acknowledged after successful deduplication and forwarding
 
-For more details on how deduplication handles failures, see the [Data Flow](/architecture/data-flow#stage-3-deduplication-optional) documentation.
+For more details on how deduplication handles failures, see the [Data Flow](/architecture/data-flow#stage-3-transformations-optional) documentation.
 
 ## Configuration
 
@@ -218,7 +218,7 @@ Here's a complete example of a pipeline with deduplication enabled:
 
 ## Related Documentation
 
-- [Data Flow - Deduplication Stage](/architecture/data-flow#stage-3-deduplication-optional)
+- [Data Flow - Deduplication Stage](/architecture/data-flow#stage-3-transformations-optional)
 - [Pipeline Configuration Reference - Deduplication Configuration](/configuration/pipeline-config-reference#deduplication-configuration)
 - [Transformations Overview](/transformations)
 

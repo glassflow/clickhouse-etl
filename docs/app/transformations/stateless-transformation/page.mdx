@@ -27,7 +27,7 @@ Each transformation defines:
 
 ### Internal Process
 
-1. **Input Parsing**: The original Kafka event is parsed as a JSON object (`map[string]any`).
+1. **Input Parsing**: The original source event is parsed as a JSON object (`map[string]any`).
 2. **Expression Evaluation**:  
    For each configured transformation, GlassFlow evaluates the `expression` against the input object.
 3. **Type Conversion**:  

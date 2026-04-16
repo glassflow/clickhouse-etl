@@ -195,7 +195,7 @@ Kafka topic partition count: 50 (at least equal to the ingestor replica count).
 
 NATS fileStore PVC: 100 Gi per node.
 
-**Why sink CPU is higher than ingestor:** each sink replica runs an internal worker pool sized to `GOMAXPROCS - 2`. At 5 CPUs, each replica runs 3 parallel workers processing JSON parsing and schema mapping. This is the primary CPU consumer in the sink; reducing CPU below 3 will drop the worker count to 1 and significantly reduce per-replica throughput. See [Sink horizontal scaling](#sink-horizontal-scaling) for details.
+**Why sink CPU is higher than ingestor:** each sink replica runs an internal worker pool sized to `GOMAXPROCS - 2`. At 5 CPUs, each replica runs 3 parallel workers processing JSON parsing and schema mapping. This is the primary CPU consumer in the sink; reducing CPU below 3 will drop the worker count to 1 and significantly reduce per-replica throughput. See [Sink horizontal scaling](#sink-intra-replica-worker-pool) for details.
 
 ## Constraints
 

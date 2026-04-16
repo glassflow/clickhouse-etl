@@ -770,7 +770,7 @@ The sink configuration defines the ClickHouse destination, including connection 
 | [`connection_params`](#sink-connection-parameters) | object | Yes | ClickHouse connection parameters. |
 | `table` | string | Yes | Target table name in ClickHouse. |
 | `max_batch_size` | integer | No | Maximum number of records per batch. Default: `1000`. |
-| `max_delay_time` | string | No | Maximum delay before flushing a batch. Default: `"10m"`. |
+| `max_delay_time` | string | No | Maximum delay before flushing a batch. Default: `"60s"`. |
 | [`mapping`](#sink-column-mapping) | array | Yes | Column mappings from source fields to ClickHouse columns. |
 
 ### Sink Connection Parameters
