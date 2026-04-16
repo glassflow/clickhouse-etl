@@ -65,7 +65,7 @@ export const OTLP_METRICS_FIELDS: OtlpSchemaField[] = [
   { name: 'max', type: 'float' },
   { name: 'bucket_counts', type: 'array' },
   { name: 'explicit_bounds', type: 'array' },
-  { name: 'resource', type: 'map' },
+  { name: 'resource_attributes', type: 'map' },
   { name: 'scope_name', type: 'string' },
   { name: 'scope_version', type: 'string' },
   { name: 'scope_attributes', type: 'map' },

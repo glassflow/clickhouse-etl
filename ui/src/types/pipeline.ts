@@ -200,8 +200,7 @@ export interface Pipeline {
     }>
     deduplication?: {
       enabled: boolean
-      id_field: string
-      id_field_type: string
+      key: string
       time_window: string
     }
   }

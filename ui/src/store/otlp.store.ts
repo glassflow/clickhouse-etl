@@ -11,8 +11,7 @@ import {
 
 export interface OtlpDeduplicationConfig {
   enabled: boolean
-  id_field: string
-  id_field_type: string
+  key: string
   time_window: string
 }
 
@@ -38,8 +37,7 @@ export interface OtlpSlice {
 
 const initialDeduplication: OtlpDeduplicationConfig = {
   enabled: false,
-  id_field: '',
-  id_field_type: 'string',
+  key: '',
   time_window: '5m',
 }
 

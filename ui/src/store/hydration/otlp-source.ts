@@ -16,13 +16,13 @@ export function hydrateOtlpSource(config: PipelineConfigForHydration) {
   state.otlpStore.setSignalType(sourceType as SourceType)
   state.otlpStore.setSourceId(config.source?.id || '')
 
-  // Set deduplication if present
+  // Set deduplication if present.
+  // Backend V3 wire format uses `key`; fall back to `id_field` for any legacy configs.
   const dedup = config.source?.deduplication
   if (dedup) {
     state.otlpStore.setDeduplication({
       enabled: dedup.enabled || false,
-      id_field: dedup.id_field || '',
-      id_field_type: dedup.id_field_type || 'string',
+      key: (dedup as any).key || (dedup as any).id_field || '',
       time_window: dedup.time_window || '5m',
     })
   }

@@ -141,7 +141,7 @@ export function PipelineResourcesConfigurator({
               type: otlpStore.signalType || coreStore.sourceType || '',
               id: otlpStore.sourceId,
               deduplication: otlpStore.deduplication.enabled
-                ? { enabled: true, key: otlpStore.deduplication.id_field, time_window: otlpStore.deduplication.time_window }
+                ? { enabled: true, key: otlpStore.deduplication.key, time_window: otlpStore.deduplication.time_window }
                 : { enabled: false },
             },
             join: { type: '', enabled: false, sources: [] },

@@ -69,7 +69,7 @@ function generateOtlpApiConfig(params: {
       id: otlpStore.sourceId,
       deduplication: otlpStore.deduplication.enabled ? {
         enabled: true,
-        key: otlpStore.deduplication.id_field,
+        key: otlpStore.deduplication.key,
         time_window: otlpStore.deduplication.time_window,
       } : {
         enabled: false,
@@ -109,11 +109,9 @@ function generateOtlpApiConfig(params: {
       source_id: otlpStore.sourceId,
       mapping: buildOtlpSinkMapping(clickhouseDestination?.mapping || []),
     },
-    pipeline_resources: pipeline_resources ? {
-      transform: pipeline_resources.transform,
-      sink: pipeline_resources.sink,
-      nats: pipeline_resources.nats,
-    } : undefined,
+    pipeline_resources: (pipeline_resources && Object.keys(pipeline_resources).length > 0)
+      ? pipeline_resources
+      : undefined,
   }
 }
 
@@ -318,7 +316,7 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
                 </p>
                 {otlpStore.deduplication.enabled && (
                   <p className="text-sm text-[var(--color-foreground-neutral-faded)]">
-                    Deduplication: {otlpStore.deduplication.id_field} (window: {otlpStore.deduplication.time_window})
+                    Deduplication: {otlpStore.deduplication.key} (window: {otlpStore.deduplication.time_window})
                   </p>
                 )}
               </div>

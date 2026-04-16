@@ -313,8 +313,9 @@ export const buildInternalPipelineConfig = ({
   // but the backend needs to know they're part of the Kafka schema
   if (filterStore?.filterConfig?.enabled && filterStore?.filterConfig?.root) {
     const filterFields = extractFilterFields(filterStore.filterConfig.root)
-    // For single-topic pipelines, use the first topic as the source
-    const topicName = selectedTopics[0]?.name
+    // For OTLP there are no Kafka topics; use the OTLP source id instead.
+    // For single-topic Kafka pipelines, use the first topic name.
+    const topicName = isOtlp ? (otlpStore?.sourceId || 'source') : selectedTopics[0]?.name
 
     filterFields.forEach((fieldName: string) => {
       const fieldKey = `${topicName}:${fieldName}`
@@ -454,8 +455,7 @@ export const buildInternalPipelineConfig = ({
             ? {
                 deduplication: {
                   enabled: true,
-                  id_field: otlpStore.deduplication.id_field,
-                  id_field_type: otlpStore.deduplication.id_field_type,
+                  key: otlpStore.deduplication.key,
                   time_window: otlpStore.deduplication.time_window,
                 },
               }

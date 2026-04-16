@@ -35,12 +35,18 @@ export function OtlpSignalTypeStep({
 
   const [dedupEnabled, setDedupEnabled] = useState(deduplication.enabled)
 
-  // Initialize signal type from coreStore.sourceType if not yet set in otlpStore
+  // Keep coreStore.sourceType and otlpStore.signalType in sync.
+  // enterCreateMode() resets coreStore to 'kafka', so if we navigate back into the OTLP
+  // wizard while signalType is still set, we re-sync coreStore to avoid stale 'kafka' state.
   useEffect(() => {
     if (!signalType && sourceType && sourceType !== 'kafka') {
+      // Hydrating from an existing config: sourceType arrived before signalType
       setSignalType(sourceType as SourceType)
+    } else if (signalType && (sourceType === 'kafka' || !sourceType)) {
+      // coreStore was reset (e.g. enterCreateMode) but otlpStore still holds the signal type
+      coreStore.setSourceType(signalType)
     }
-  }, [signalType, sourceType, setSignalType])
+  }, [signalType, sourceType, setSignalType, coreStore])
 
   const currentFields = useMemo(() => {
     return signalType ? getOtlpFieldsForSignalType(signalType) : []
@@ -72,13 +78,11 @@ export function OtlpSignalTypeStep({
   }, [dedupEnabled, setDeduplication, skipDeduplication])
 
   const handleDedupFieldChange = useCallback((fieldName: string) => {
-    const field = currentFields.find((f) => f.name === fieldName)
     setDeduplication({
       enabled: true,
-      id_field: fieldName,
-      id_field_type: field?.type || 'string',
+      key: fieldName,
     })
-  }, [currentFields, setDeduplication])
+  }, [setDeduplication])
 
   const handleDedupTimeWindowChange = useCallback((timeWindow: string) => {
     setDeduplication({ time_window: timeWindow })
@@ -159,7 +163,7 @@ export function OtlpSignalTypeStep({
                 </label>
                 <select
                   className="w-full rounded-md border border-[var(--control-border)] bg-[var(--control-bg)] px-3 py-2 text-sm text-[var(--color-foreground-neutral)] focus:border-[var(--control-border-focus)] focus:shadow-[var(--control-shadow-focus)]"
-                  value={deduplication.id_field}
+                  value={deduplication.key}
                   onChange={(e) => handleDedupFieldChange(e.target.value)}
                 >
                   <option value="">Select a field...</option>
