@@ -150,12 +150,10 @@ export async function hydrateClickhouseDestination(pipelineConfig: any) {
     }))
   }
 
-  // The backend stores passwords AES-encrypted; the API returns that same encrypted value.
-  // We cannot decode it client-side — passing the ciphertext to ClickHouse would fail auth.
-  // Schema/table fetches during hydration require the real password, which is only available
-  // server-side. These fetches will fail gracefully (with early return below) for v3 pipelines
-  // until the backend exposes a proxy endpoint. Leave as empty string.
-  const decodedPassword = ''
+  // The backend decrypts the password before serialising the API response, so sink.password
+  // (set by the V3 adapter from connection_params.password) is already plaintext and can be
+  // used directly for ClickHouse metadata calls.
+  const decodedPassword = sink.password ?? sink.connection_params?.password ?? ''
 
   // 1. Set the basic destination config (pass schema.fields for V2 format support).
   // For deployed pipelines (pipeline_id present), treat as "existing table" only.
