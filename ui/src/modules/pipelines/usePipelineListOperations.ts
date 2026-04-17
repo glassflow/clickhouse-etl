@@ -14,7 +14,7 @@ import {
   deletePipeline,
   updatePipelineMetadata,
 } from '@/src/api/pipeline-api'
-import { downloadPipelineConfig } from '@/src/utils/pipeline-download'
+import { downloadPipelineConfigInFormat } from '@/src/utils/pipeline-download'
 
 type PipelineOperation = 'stop' | 'resume' | 'terminate' | 'delete' | 'rename' | 'edit' | 'tags'
 
@@ -174,15 +174,15 @@ export function usePipelineListOperations(props: UsePipelineListOperationsProps)
     [analytics, operations, onRemovePipeline, onRefresh, setPipelineLoading, clearPipelineLoading],
   )
 
-  const handleDownload = useCallback(async (pipeline: ListPipelineConfig) => {
+  const handleDownload = useCallback(async (pipeline: ListPipelineConfig, format: 'json' | 'yaml' = 'yaml') => {
     try {
-      await downloadPipelineConfig(pipeline)
+      await downloadPipelineConfigInFormat(pipeline, format)
     } catch (error) {
       notify({
         variant: 'error',
         title: 'Failed to download pipeline configuration.',
         description: 'The configuration file could not be downloaded.',
-        action: { label: 'Try again', onClick: () => handleDownload(pipeline) },
+        action: { label: 'Try again', onClick: () => handleDownload(pipeline, format) },
         reportLink: 'https://github.com/glassflow/clickhouse-etl/issues',
         channel: 'toast',
       })

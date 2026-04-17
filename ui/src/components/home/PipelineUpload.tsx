@@ -6,10 +6,11 @@ import { cn } from '@/src/utils/common.client'
 import { Button } from '@/src/components/ui/button'
 import { Textarea } from '@/src/components/ui/textarea'
 import {
-  parsePipelineConfigJson,
+  parsePipelineConfigContent,
   validateFileSize,
   readFileAsText,
   type ImportValidationResult,
+  type ConfigFormat,
 } from '@/src/utils/pipeline-import'
 
 export interface PipelineUploadProps {
@@ -27,21 +28,24 @@ export function PipelineUpload({ onValidConfig, onError, disabled = false }: Pip
   const [fileName, setFileName] = useState<string | null>(null)
   const [pasteContent, setPasteContent] = useState('')
   const [localErrors, setLocalErrors] = useState<string[]>([])
+  const [detectedFormat, setDetectedFormat] = useState<ConfigFormat | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const resetState = useCallback(() => {
     setFileName(null)
     setPasteContent('')
     setLocalErrors([])
+    setDetectedFormat(null)
   }, [])
 
-  const processJsonContent = useCallback(
-    async (content: string, sourceName: string) => {
+  const processContent = useCallback(
+    async (content: string, filename?: string) => {
       setIsProcessing(true)
       setLocalErrors([])
 
       try {
-        const result = parsePipelineConfigJson(content)
+        const result = parsePipelineConfigContent(content, filename)
+        setDetectedFormat(result.detectedFormat ?? null)
 
         if (result.valid && result.config) {
           onValidConfig(result, content)
@@ -66,8 +70,9 @@ export function PipelineUpload({ onValidConfig, onError, disabled = false }: Pip
       setFileName(file.name)
 
       // Validate file type
-      if (!file.name.endsWith('.json')) {
-        const error = 'Please select a JSON file (.json)'
+      const ext = file.name.split('.').pop()?.toLowerCase()
+      if (ext !== 'json' && ext !== 'yaml' && ext !== 'yml') {
+        const error = 'Please select a JSON or YAML file (.json, .yaml, .yml)'
         setLocalErrors([error])
         onError([error])
         return
@@ -83,14 +88,14 @@ export function PipelineUpload({ onValidConfig, onError, disabled = false }: Pip
 
       try {
         const content = await readFileAsText(file)
-        await processJsonContent(content, file.name)
+        await processContent(content, file.name)
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : 'Failed to read file'
         setLocalErrors([errorMsg])
         onError([errorMsg])
       }
     },
-    [resetState, processJsonContent, onError],
+    [resetState, processContent, onError],
   )
 
   const handleDragOver = useCallback(
@@ -151,8 +156,8 @@ export function PipelineUpload({ onValidConfig, onError, disabled = false }: Pip
       onError([error])
       return
     }
-    processJsonContent(pasteContent, 'pasted content')
-  }, [pasteContent, processJsonContent, onError])
+    processContent(pasteContent)
+  }, [pasteContent, processContent, onError])
 
   const handleClearFile = useCallback(() => {
     resetState()
@@ -199,7 +204,7 @@ export function PipelineUpload({ onValidConfig, onError, disabled = false }: Pip
           )}
         >
           <DocumentTextIcon className="w-4 h-4 inline-block mr-2" />
-          Paste JSON
+          Paste Config
         </button>
       </div>
 
@@ -210,7 +215,7 @@ export function PipelineUpload({ onValidConfig, onError, disabled = false }: Pip
           <input
             ref={fileInputRef}
             type="file"
-            accept=".json"
+            accept=".json,.yaml,.yml"
             onChange={handleFileInputChange}
             className="hidden"
             disabled={disabled}
@@ -240,6 +245,11 @@ export function PipelineUpload({ onValidConfig, onError, disabled = false }: Pip
               <div className="flex flex-col items-center gap-2">
                 <DocumentTextIcon className="w-10 h-10 text-[var(--color-foreground-primary)]" />
                 <span className="text-sm text-[var(--text-primary)] font-medium">{fileName}</span>
+                {detectedFormat && (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--color-background-primary)] text-[var(--color-on-background-primary)] font-mono">
+                    {detectedFormat.toUpperCase()}
+                  </span>
+                )}
                 <button
                   type="button"
                   onClick={(e) => {
@@ -262,14 +272,14 @@ export function PipelineUpload({ onValidConfig, onError, disabled = false }: Pip
                   <br />
                   <span className="text-xs text-[var(--text-secondary)]">or click to browse</span>
                 </div>
-                <span className="text-xs text-[var(--text-secondary)]">Accepts .json files up to 1MB</span>
+                <span className="text-xs text-[var(--text-secondary)]">Accepts .json, .yaml, .yml files up to 1MB</span>
               </>
             )}
           </div>
         </div>
       )}
 
-      {/* Paste JSON Mode */}
+      {/* Paste Config Mode */}
       {inputMode === 'paste' && (
         <div className="flex flex-col gap-3">
           <Textarea
@@ -277,14 +287,22 @@ export function PipelineUpload({ onValidConfig, onError, disabled = false }: Pip
             onChange={(e) => {
               setPasteContent(e.target.value)
               setLocalErrors([])
+              setDetectedFormat(null)
             }}
-            placeholder='Paste your pipeline configuration JSON here...\n\n{\n  "name": "my-pipeline",\n  "source": { ... },\n  "sink": { ... }\n}'
+            placeholder={'Paste your pipeline configuration here (JSON or YAML)...\n\n# YAML example:\nname: my-pipeline\nsource:\n  type: kafka\n\n# or JSON:\n# { "name": "my-pipeline", ... }'}
             disabled={disabled || isProcessing}
             className="min-h-[200px] font-mono text-sm"
           />
-          <Button variant="primary" onClick={handlePasteValidate} disabled={disabled || isProcessing || !pasteContent.trim()} size="sm">
-            {isProcessing ? 'Validating...' : 'Validate & Import'}
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button variant="primary" onClick={handlePasteValidate} disabled={disabled || isProcessing || !pasteContent.trim()} size="sm">
+              {isProcessing ? 'Validating...' : 'Validate & Import'}
+            </Button>
+            {detectedFormat && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--color-background-primary)] text-[var(--color-on-background-primary)] font-mono">
+                {detectedFormat.toUpperCase()} detected
+              </span>
+            )}
+          </div>
         </div>
       )}
 
