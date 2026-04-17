@@ -351,10 +351,11 @@ export function Header() {
               {/* Sliding indicator */}
               {currentHoveredIndex >= 0 && (
                 <div
-                  className="absolute bottom-0 h-0.5 bg-gradient-to-r from-orange-300/30 via-orange-400 to-orange-300/30 rounded-full transition-all duration-300 ease-in-out"
+                  className="absolute bottom-0 h-0.5 rounded-full transition-all duration-300 ease-in-out"
                   style={{
                     left: `${indicatorStyle.left}px`,
                     width: `${indicatorStyle.width}px`,
+                    background: 'linear-gradient(to right, var(--color-orange-alpha-10), var(--color-orange-300) 50.5%, var(--color-orange-alpha-10))',
                   }}
                 />
               )}

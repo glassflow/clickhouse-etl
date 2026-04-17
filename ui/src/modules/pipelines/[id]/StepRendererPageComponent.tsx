@@ -38,7 +38,7 @@ function StepRendererPageComponent({
           {isLoading && (
             <div className="flex items-center gap-2">
               <Image src={Loader} alt="Loading" width={16} height={16} className="animate-spin" />
-              <span className="text-sm text-blue-600">{loadingText}</span>
+              <span className="body-3 text-[var(--color-foreground-primary)]">{loadingText}</span>
             </div>
           )}
         </div>

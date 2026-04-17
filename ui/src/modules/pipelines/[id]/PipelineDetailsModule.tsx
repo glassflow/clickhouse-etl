@@ -305,12 +305,7 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
   return (
     <div className="container mx-auto px-4 sm:px-0">
       {/* Two-column layout: Sidebar extends to top + Content (Header + Main) */}
-      <div
-        className={cn(
-          'flex flex-row gap-6 sm:gap-8 w-full py-4 transition-all duration-750 ease-out',
-          showConfigurationSection ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4',
-        )}
-      >
+      <div className="flex flex-row gap-6 sm:gap-8 w-full py-4 animate-section-enter">
         {/* Left Sidebar - extends from top */}
         <PipelineDetailsSidebar
           pipeline={pipeline}
@@ -336,7 +331,7 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
           <div className="grow">
             {/* Show Status Overview when 'monitor' is selected (or 'otlp-source') and no step is active */}
             {(activeSection === 'monitor' || activeSection === 'otlp-source') && !activeStep && (
-              <>
+              <div className="animate-section-enter">
                 <PipelineStatusOverviewSection
                   pipeline={pipeline}
                   showStatusOverview={showStatusOverview}
@@ -346,7 +341,7 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
                 {/* Pipeline Configuration Overview - shows the visual representation of the pipeline */}
                 <div
                   className={cn(
-                    'flex flex-row gap-4 items-stretch transition-all duration-750 ease-out mt-6',
+                    'flex flex-row gap-4 items-stretch transition-all duration-500 ease-out mt-6',
                     showConfigurationSection ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4',
                   )}
                 >
@@ -383,12 +378,15 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
                     onStepClick={handleStepClick}
                   />
                 </div>
-              </>
+              </div>
             )}
 
-            {/* Render the standalone step renderer when a step is active */}
+            {/* Render the standalone step renderer when a step is active.
+                key={activeStep} forces remount on step change, resetting state
+                and retriggering the card entrance animation. */}
             {activeStep && (
               <StandaloneStepRenderer
+                key={activeStep}
                 stepKey={activeStep}
                 onClose={handleCloseStep}
                 onCloseAfterSave={closeStep}
