@@ -1,12 +1,15 @@
 /**
  * Pipeline Import Utilities
  *
- * Handles validation and import of pipeline configuration JSON files.
+ * Handles validation and import of pipeline configuration files (JSON and YAML).
  * Used by the upload pipeline feature on the create screen.
  */
 
 import type { Pipeline } from '@/src/types/pipeline'
 import { isOtlpSource } from '@/src/config/source-types'
+import yaml from 'js-yaml'
+
+export type ConfigFormat = 'json' | 'yaml'
 
 export interface ImportValidationResult {
   valid: boolean
@@ -15,6 +18,7 @@ export interface ImportValidationResult {
   config?: Pipeline
   topicCount: number
   pipelineName: string
+  detectedFormat?: ConfigFormat
 }
 
 /**
@@ -157,7 +161,7 @@ export function validatePipelineConfig(json: unknown): ImportValidationResult {
 export function parsePipelineConfigJson(jsonString: string): ImportValidationResult {
   try {
     const parsed = JSON.parse(jsonString)
-    return validatePipelineConfig(parsed)
+    return { ...validatePipelineConfig(parsed), detectedFormat: 'json' }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown parsing error'
     return {
@@ -166,8 +170,48 @@ export function parsePipelineConfigJson(jsonString: string): ImportValidationRes
       warnings: [],
       topicCount: 0,
       pipelineName: '',
+      detectedFormat: 'json',
     }
   }
+}
+
+/**
+ * Parses a YAML string and validates it as a pipeline configuration.
+ */
+export function parsePipelineConfigYaml(yamlString: string): ImportValidationResult {
+  try {
+    const parsed = yaml.load(yamlString)
+    return { ...validatePipelineConfig(parsed), detectedFormat: 'yaml' }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown parsing error'
+    return {
+      valid: false,
+      errors: [`Invalid YAML syntax: ${message}`],
+      warnings: [],
+      topicCount: 0,
+      pipelineName: '',
+      detectedFormat: 'yaml',
+    }
+  }
+}
+
+/**
+ * Auto-detects format from file extension or content heuristic, then parses and validates.
+ */
+export function parsePipelineConfigContent(content: string, filename?: string): ImportValidationResult {
+  const ext = filename?.split('.').pop()?.toLowerCase()
+  let format: ConfigFormat
+
+  if (ext === 'yaml' || ext === 'yml') {
+    format = 'yaml'
+  } else if (ext === 'json') {
+    format = 'json'
+  } else {
+    // Detect by content: JSON always starts with { or [
+    format = content.trimStart().startsWith('{') || content.trimStart().startsWith('[') ? 'json' : 'yaml'
+  }
+
+  return format === 'yaml' ? parsePipelineConfigYaml(content) : parsePipelineConfigJson(content)
 }
 
 /**

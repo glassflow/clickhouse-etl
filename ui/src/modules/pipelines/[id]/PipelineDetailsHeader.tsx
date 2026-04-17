@@ -11,7 +11,7 @@ import TerminatePipelineModal from '@/src/modules/pipelines/components/Terminate
 import DeletePipelineModal from '@/src/modules/pipelines/components/DeletePipelineModal'
 import RenamePipelineModal from '@/src/modules/pipelines/components/RenamePipelineModal'
 import StopPipelineModal from '@/src/modules/pipelines/components/StopPipelineModal'
-import UnsavedChangesDownloadModal from '@/src/modules/pipelines/components/UnsavedChangesDownloadModal'
+import { DownloadFormatModal, type DownloadFormat } from '@/src/components/common/DownloadFormatModal'
 import FlushDLQModal from '@/src/modules/pipelines/components/FlushDLQModal'
 import { Pipeline } from '@/src/types/pipeline'
 import { usePipelineActions } from '@/src/hooks/usePipelineActions'
@@ -29,7 +29,7 @@ import StopWhiteIcon from '@/src/images/stop-white.svg'
 import MenuWhiteIcon from '@/src/images/menu-white.svg'
 import { PipelineStatus } from '@/src/types/pipeline'
 import { usePipelineState, usePipelineOperations, usePipelineMonitoring } from '@/src/hooks/usePipelineStateAdapter'
-import { downloadPipelineConfig } from '@/src/utils/pipeline-download'
+import { downloadPipelineConfigInFormat } from '@/src/utils/pipeline-download'
 import { isDemoMode, getDashboardUrl, isDashboardAvailable } from '@/src/utils/common.client'
 import { cn } from '@/src/utils/common.client'
 import { purgePipelineDLQ } from '@/src/api/pipeline-api'
@@ -61,7 +61,7 @@ function PipelineDetailsHeader({
 }: PipelineDetailsHeaderProps) {
   const [activeModal, setActiveModal] = useState<PipelineAction | null>(null)
   const [copied, setCopied] = useState(false)
-  const [showDownloadWarningModal, setShowDownloadWarningModal] = useState(false)
+  const [showDownloadFormatModal, setShowDownloadFormatModal] = useState(false)
   const [showFlushDLQModal, setShowFlushDLQModal] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0 })
@@ -188,16 +188,8 @@ function PipelineDetailsHeader({
     }
   }
 
-  const handleDownloadClick = async () => {
-    // Check for unsaved changes
-    if (coreStore.isDirty) {
-      // Show warning modal if there are unsaved changes
-      setShowDownloadWarningModal(true)
-      return
-    }
-
-    // No unsaved changes, proceed with download
-    await proceedWithDownload()
+  const handleDownloadClick = () => {
+    setShowDownloadFormatModal(true)
   }
 
   const handleFlushDataClick = () => {
@@ -229,24 +221,20 @@ function PipelineDetailsHeader({
     }
   }
 
-  const proceedWithDownload = async () => {
+  const handleDownloadWithFormat = async (format: DownloadFormat) => {
+    setShowDownloadFormatModal(false)
     try {
-      await downloadPipelineConfig(pipeline)
-      setShowDownloadWarningModal(false) // Close modal if it was open
+      await downloadPipelineConfigInFormat(pipeline, format)
     } catch (error) {
       notify({
         variant: 'error',
         title: 'Failed to download pipeline configuration.',
         description: 'The configuration file could not be downloaded.',
-        action: { label: 'Try again', onClick: proceedWithDownload },
+        action: { label: 'Try again', onClick: () => handleDownloadWithFormat(format) },
         reportLink: 'https://github.com/glassflow/clickhouse-etl/issues',
         channel: 'toast',
       })
     }
-  }
-
-  const handleDownloadWarningCancel = () => {
-    setShowDownloadWarningModal(false)
   }
 
   const handleModalConfirm = async (action: PipelineAction, payload?: any) => {
@@ -780,11 +768,12 @@ function PipelineDetailsHeader({
         onCancel={handleModalCancel}
       />
 
-      {/* Unsaved Changes Download Warning Modal */}
-      <UnsavedChangesDownloadModal
-        visible={showDownloadWarningModal}
-        onOk={proceedWithDownload}
-        onCancel={handleDownloadWarningCancel}
+      {/* Download Format Selection Modal */}
+      <DownloadFormatModal
+        visible={showDownloadFormatModal}
+        onDownload={handleDownloadWithFormat}
+        onCancel={() => setShowDownloadFormatModal(false)}
+        hasUnsavedChanges={coreStore.isDirty}
       />
 
       {/* TEMPORARILY COMMENTED OUT - EDIT FUNCTIONALITY DISABLED FOR DEMO */}
