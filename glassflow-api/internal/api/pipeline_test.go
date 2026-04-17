@@ -43,6 +43,9 @@ func TestEditPipeline_Success(t *testing.T) {
 					"protocol":  "SASL_PLAINTEXT",
 				},
 				"topic": "test-topic",
+				"schema_fields": []map[string]interface{}{
+					{"name": "id", "type": "string"},
+				},
 			},
 		},
 		"sink": map[string]interface{}{
@@ -112,6 +115,9 @@ func TestEditPipeline_PipelineNotFound(t *testing.T) {
 					"protocol":  "SASL_PLAINTEXT",
 				},
 				"topic": "test-topic",
+				"schema_fields": []map[string]interface{}{
+					{"name": "id", "type": "string"},
+				},
 			},
 		},
 		"sink": map[string]interface{}{

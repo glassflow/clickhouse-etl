@@ -30,7 +30,7 @@ Feature: Ingestor supports schema registry with multiple schemas
                     "kafka_topics": [
                         {
                             "name": "test_topic",
-                            "id": "topic_topic",
+                            "id": "test_topic_id",
                             "consumer_group_name": "glassflow-consumer-group-pipeline-123",
                             "partitions": 1,
                             "deduplication": {
@@ -44,11 +44,11 @@ Feature: Ingestor supports schema registry with multiple schemas
                 },
                 "sink": {
                     "type": "clickhouse",
-                    "source_id": "test_topic"
+                    "source_id": "test_topic_id"
                 },
                 "schema_versions": {
-                    "test_topic": {
-                        "source_id": "test_topic",
+                    "test_topic_id": {
+                        "source_id": "test_topic_id",
                         "version_id": "1101",
                         "data_type": "json",
                         "fields": [
@@ -110,7 +110,7 @@ Feature: Ingestor supports schema registry with multiple schemas
                     "kafka_topics": [
                         {
                             "name": "test_topic",
-                            "id": "topic_topic",
+                            "id": "test_topic_id",
                             "consumer_group_name": "glassflow-consumer-group-pipeline-123",
                             "partitions": 1,
                             "deduplication": {
@@ -127,11 +127,11 @@ Feature: Ingestor supports schema registry with multiple schemas
                 },
                 "sink": {
                     "type": "clickhouse",
-                    "source_id": "test_topic"
+                    "source_id": "test_topic_id"
                 },
                 "schema_versions": {
-                    "test_topic": {
-                        "source_id": "test_topic",
+                    "test_topic_id": {
+                        "source_id": "test_topic_id",
                         "version_id": "1101",
                         "data_type": "json",
                         "fields": [
@@ -192,7 +192,7 @@ Feature: Ingestor supports schema registry with multiple schemas
                     "kafka_topics": [
                         {
                             "name": "test_topic",
-                            "id": "topic_topic",
+                            "id": "test_topic_id",
                             "consumer_group_name": "glassflow-consumer-group-pipeline-123",
                             "partitions": 1,
                             "deduplication": {
@@ -206,11 +206,11 @@ Feature: Ingestor supports schema registry with multiple schemas
                 },
                 "sink": {
                     "type": "clickhouse",
-                    "source_id": "test_topic"
+                    "source_id": "test_topic_id"
                 },
                 "schema_versions": {
-                    "test_topic": {
-                        "source_id": "test_topic",
+                    "test_topic_id": {
+                        "source_id": "test_topic_id",
                         "version_id": "1101",
                         "data_type": "json",
                         "fields": [

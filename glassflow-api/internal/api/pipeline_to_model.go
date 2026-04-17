@@ -126,6 +126,9 @@ func (p pipelineJSON) validateSources() error {
 			if strings.TrimSpace(s.Topic) == "" {
 				return fmt.Errorf("source %q: kafka source must declare topic", id)
 			}
+			if len(s.SchemaFields) == 0 {
+				return fmt.Errorf("source %q: kafka source must declare schema_fields", id)
+			}
 		case st.IsOTLP():
 			otlpCount++
 			if s.ConnectionParams != nil {

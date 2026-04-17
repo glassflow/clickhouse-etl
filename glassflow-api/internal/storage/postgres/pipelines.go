@@ -674,7 +674,7 @@ func (s *PostgresStorage) DeletePipeline(ctx context.Context, id string) error {
 	if len(transformationIDs) > 0 {
 		_, err = tx.Exec(ctx, `
 			DELETE FROM transformations WHERE id = ANY($1)
-		`, transformationIDs)
+		`, uuidsToArrayArg(transformationIDs))
 		if err != nil {
 			return fmt.Errorf("delete transformations: %w", err)
 		}
@@ -827,7 +827,7 @@ func (s *PostgresStorage) upsertPipelineSourceSchemaVersions(ctx context.Context
 
 	if p.SourceType.IsKafka() {
 		for _, topic := range p.Ingestor.KafkaTopics {
-			if err := s.upsertSourceSchemaVersion(ctx, tx, pipelineID, p, topic.Name); err != nil {
+			if err := s.upsertSourceSchemaVersion(ctx, tx, pipelineID, p, topic.ID); err != nil {
 				return err
 			}
 		}
@@ -1015,7 +1015,11 @@ func uuidsToArrayArg(ids []uuid.UUID) pgtype.Array[pgtype.UUID] {
 	for i, id := range ids {
 		elements[i] = pgtype.UUID{Bytes: id, Valid: true}
 	}
-	return pgtype.Array[pgtype.UUID]{Elements: elements, Valid: true}
+	return pgtype.Array[pgtype.UUID]{
+		Elements: elements,
+		Dims:     []pgtype.ArrayDimension{{Length: int32(len(elements)), LowerBound: 1}},
+		Valid:    true,
+	}
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -1176,21 +1180,21 @@ func (s *PostgresStorage) loadConfigsAndSchemaVersionsWithSelection(
 	for _, topic := range pipelineCfg.Ingestor.KafkaTopics {
 		var schemaVersion models.SchemaVersion
 
-		requestedVersionID, hasRequestedVersion := sourceSchemaVersions[topic.Name]
+		requestedVersionID, hasRequestedVersion := sourceSchemaVersions[topic.ID]
 		if hasRequestedVersion {
-			schemaVersion, err = s.getSchemaVersion(ctx, tx, pipelineCfg.ID, topic.Name, requestedVersionID)
-			delete(notFoundSchemas, topic.Name)
+			schemaVersion, err = s.getSchemaVersion(ctx, tx, pipelineCfg.ID, topic.ID, requestedVersionID)
+			delete(notFoundSchemas, topic.ID)
 		} else {
-			schemaVersion, err = s.getLatestSchemaVersion(ctx, tx, pipelineCfg.ID, topic.Name)
+			schemaVersion, err = s.getLatestSchemaVersion(ctx, tx, pipelineCfg.ID, topic.ID)
 		}
 		if err != nil {
-			return fmt.Errorf("get schema version for topic '%s': %w", topic.Name, err)
+			return fmt.Errorf("get schema version for source '%s': %w", topic.ID, err)
 		}
 
 		if pipelineCfg.SchemaVersions == nil {
 			pipelineCfg.SchemaVersions = make(map[string]models.SchemaVersion)
 		}
-		pipelineCfg.SchemaVersions[topic.Name] = schemaVersion
+		pipelineCfg.SchemaVersions[topic.ID] = schemaVersion
 	}
 
 	if pipelineCfg.SourceType.IsOTLP() {
