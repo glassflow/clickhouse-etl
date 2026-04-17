@@ -27,6 +27,7 @@ import { usePlatformDetection } from '@/src/hooks/usePlatformDetection'
 import { useMultiplePipelineState, usePipelineOperations, usePipelineMonitoring } from '@/src/hooks/usePipelineStateAdapter'
 import { getPipelineListColumns } from './columns/pipelineListColumns'
 import { usePipelineListOperations } from './usePipelineListOperations'
+import { DownloadFormatModal, type DownloadFormat } from '@/src/components/common/DownloadFormatModal'
 
 type PipelinesListProps = {
   pipelines: ListPipelineConfig[]
@@ -82,6 +83,7 @@ export function PipelinesList({
   const [isSavingTags, setIsSavingTags] = useState(false)
   const [deleteConfirmPipeline, setDeleteConfirmPipeline] = useState<ListPipelineConfig | null>(null)
   const [isDeleteConfirmVisible, setIsDeleteConfirmVisible] = useState(false)
+  const [downloadModalPipeline, setDownloadModalPipeline] = useState<ListPipelineConfig | null>(null)
 
   const router = useRouter()
   const pipelineIds = useMemo(() => pipelines.map((p) => p.pipeline_id), [pipelines])
@@ -150,6 +152,19 @@ export function PipelinesList({
     closeDeleteConfirmModal()
     await handleDelete(deleteConfirmPipeline)
   }, [deleteConfirmPipeline, closeDeleteConfirmModal, handleDelete])
+
+  const handleOpenDownloadModal = useCallback((pipeline: ListPipelineConfig) => {
+    setDownloadModalPipeline(pipeline)
+  }, [])
+
+  const handleDownloadWithFormat = useCallback(
+    async (format: DownloadFormat) => {
+      if (!downloadModalPipeline) return
+      setDownloadModalPipeline(null)
+      await handleDownload(downloadModalPipeline, format)
+    },
+    [downloadModalPipeline, handleDownload],
+  )
 
   const availableTags = useMemo(() => {
     const tagSet = new Set<string>()
@@ -231,7 +246,7 @@ export function PipelinesList({
         onRename: handleRename,
         onTerminate: handleTerminate,
         onDelete: openDeleteConfirmModal,
-        onDownload: handleDownload,
+        onDownload: handleOpenDownloadModal,
         onManageTags: handleManageTags,
       }),
     [
@@ -244,7 +259,7 @@ export function PipelinesList({
       handleRename,
       handleTerminate,
       openDeleteConfirmModal,
-      handleDownload,
+      handleOpenDownloadModal,
       handleManageTags,
     ],
   )
@@ -473,6 +488,12 @@ export function PipelinesList({
         pipelineName={deleteConfirmPipeline?.name}
         onOk={handleDeleteConfirm}
         onCancel={closeDeleteConfirmModal}
+      />
+
+      <DownloadFormatModal
+        visible={!!downloadModalPipeline}
+        onDownload={handleDownloadWithFormat}
+        onCancel={() => setDownloadModalPipeline(null)}
       />
 
       <InfoModal
