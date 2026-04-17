@@ -268,22 +268,19 @@ export default function HomePageClient() {
   }
 
   return (
-    <div className="grow flex-col items-start gap-6 sm:gap-8 container mx-auto px-4 sm:px-0 py-20">
-      <div className="flex flex-col items-start gap-3 sm:gap-3 w-full px-4 sm:px-0 py-16 sm:py-20">
-        <h1 className="title-1 sm:text-3xl lg:text-4xl text-brand-gradient text-start">Create Pipeline</h1>
+    <div className="grow flex-col items-start gap-6 sm:gap-8 container mx-auto px-4 sm:px-0 py-8 sm:py-12">
+      <div className="flex flex-col items-start gap-3 sm:gap-3 w-full px-4 sm:px-0 pt-6 pb-4">
+        <h1 className="title-1 text-start">Create Pipeline</h1>
         <h2 className="w-full text-start subtitle muted-foreground text-xs sm:text-sm">
           Create a new pipeline or import a prepared configuration
         </h2>
       </div>
-      <div className="flex flex-col gap-8 sm:gap-10 mt-8 sm:mt-12 w-full max-w-[960px]">
+      <div className="flex flex-col gap-8 sm:gap-10 mt-4 sm:mt-6 w-full max-w-[960px]">
         {/* Section 1: Choose your data source */}
         <section className="flex flex-col gap-3 sm:gap-4 w-full" aria-labelledby="section-source-heading">
           <h2 id="section-source-heading" className="subtitle-2 text-content text-xs sm:text-sm font-medium mb-3">
             Choose your data source
           </h2>
-          <p className="subtitle-3 text-xs sm:text-sm -mt-1">
-            Select the type of data source for your pipeline
-          </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 w-full">
             <Card variant="selectable" className={cn(selectedSource === 'kafka' && 'active', 'h-16 sm:h-20 lg:h-24 w-full')}>
               <button
@@ -326,7 +323,7 @@ export default function HomePageClient() {
                   onClick={() => handleTopicCountClick(1)}
                 >
                   <Image src={IngestOnly} alt="Ingest Only" width={24} height={24} className="sm:w-9 sm:h-9" />
-                  <span className="ml-3 sm:ml-4 text-sm sm:text-lg font-medium text-muted-foreground">
+                  <span className="ml-3 sm:ml-4 text-sm sm:text-lg font-medium text-[var(--color-foreground-neutral)]">
                     Single-Topic Pipeline
                   </span>
                 </button>
@@ -337,7 +334,7 @@ export default function HomePageClient() {
                   onClick={() => handleTopicCountClick(2)}
                 >
                   <Image src={Join} alt="Join" width={24} height={24} className="sm:w-9 sm:h-9" />
-                  <span className="ml-3 sm:ml-4 text-sm sm:text-lg font-medium text-muted-foreground">
+                  <span className="ml-3 sm:ml-4 text-sm sm:text-lg font-medium text-[var(--color-foreground-neutral)]">
                     Multi-Topic Pipeline
                   </span>
                 </button>
@@ -352,9 +349,6 @@ export default function HomePageClient() {
             <h2 id="section-signal-heading" className="subtitle-2 text-content text-xs sm:text-sm font-medium mb-3">
               Select signal type
             </h2>
-            <p className="subtitle-3 text-xs sm:text-sm -mt-1">
-              Choose the OpenTelemetry signal type for your pipeline
-            </p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 w-full">
               <Card variant="selectable" className={cn(selectedOtlpSignal === SourceType.OTLP_LOGS && 'active', 'h-16 sm:h-20 lg:h-24 w-full')}>
                 <button
@@ -362,7 +356,7 @@ export default function HomePageClient() {
                   onClick={() => handleOtlpSignalClick(SourceType.OTLP_LOGS)}
                 >
                   <DocumentTextIcon className="w-6 h-6 sm:w-9 sm:h-9 text-[var(--color-foreground-neutral-faded)]" />
-                  <span className="ml-3 sm:ml-4 text-sm sm:text-lg font-medium text-muted-foreground">
+                  <span className="ml-3 sm:ml-4 text-sm sm:text-lg font-medium text-[var(--color-foreground-neutral)]">
                     Logs
                   </span>
                 </button>
@@ -373,7 +367,7 @@ export default function HomePageClient() {
                   onClick={() => handleOtlpSignalClick(SourceType.OTLP_TRACES)}
                 >
                   <MapIcon className="w-6 h-6 sm:w-9 sm:h-9 text-[var(--color-foreground-neutral-faded)]" />
-                  <span className="ml-3 sm:ml-4 text-sm sm:text-lg font-medium text-muted-foreground">
+                  <span className="ml-3 sm:ml-4 text-sm sm:text-lg font-medium text-[var(--color-foreground-neutral)]">
                     Traces
                   </span>
                 </button>
@@ -384,7 +378,7 @@ export default function HomePageClient() {
                   onClick={() => handleOtlpSignalClick(SourceType.OTLP_METRICS)}
                 >
                   <ChartBarIcon className="w-6 h-6 sm:w-9 sm:h-9 text-[var(--color-foreground-neutral-faded)]" />
-                  <span className="ml-3 sm:ml-4 text-sm sm:text-lg font-medium text-muted-foreground">
+                  <span className="ml-3 sm:ml-4 text-sm sm:text-lg font-medium text-[var(--color-foreground-neutral)]">
                     Metrics
                   </span>
                 </button>

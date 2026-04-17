@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from '@/src/components/ui/select'
 import { ChevronDownIcon, ChevronUpIcon, PlayIcon, ArrowLeftIcon } from '@heroicons/react/24/outline'
+import { Loader2 } from 'lucide-react'
 import { TRANSFORMATION_FUNCTIONS, getCategoryLabel, getCategories } from '../functions'
 import { fieldToExpr } from '../utils'
 import { evaluateExpression } from '@/src/api/pipeline-api'
@@ -247,7 +248,7 @@ export function ExpressionPlayground(props: ExpressionPlaygroundProps) {
         >
           {status === 'evaluating' ? (
             <>
-              <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+              <Loader2 className="h-4 w-4 animate-spin shrink-0" />
               Run
             </>
           ) : (
