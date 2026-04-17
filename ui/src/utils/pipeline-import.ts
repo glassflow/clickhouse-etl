@@ -108,12 +108,15 @@ export function validatePipelineConfig(json: unknown): ImportValidationResult {
     errors.push('Missing required field: sink')
   } else {
     const sink = config.sink as Record<string, unknown>
+    const cp = (sink.connection_params as Record<string, unknown>) || {}
 
-    if (!sink.host || typeof sink.host !== 'string') {
+    const host = sink.host ?? cp.host
+    if (!host || typeof host !== 'string') {
       errors.push('Missing required field: sink.host')
     }
 
-    if (!sink.database || typeof sink.database !== 'string') {
+    const database = sink.database ?? cp.database
+    if (!database || typeof database !== 'string') {
       errors.push('Missing required field: sink.database')
     }
 
