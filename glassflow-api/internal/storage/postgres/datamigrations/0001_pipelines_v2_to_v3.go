@@ -52,9 +52,9 @@ type v2JoinSource struct {
 }
 
 type v2JoinConfig struct {
-	ID      string         `json:"id"`
-	Enabled bool           `json:"enabled"`
-	Sources []v2JoinSource `json:"sources"`
+	ID      string            `json:"id"`
+	Enabled bool              `json:"enabled"`
+	Sources []v2JoinSource    `json:"sources"`
 	Config  []models.JoinRule `json:"config"`
 }
 
