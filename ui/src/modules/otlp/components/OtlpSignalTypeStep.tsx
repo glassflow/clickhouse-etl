@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useStore } from '@/src/store'
 import { SourceType, getOtlpSignalLabel } from '@/src/config/source-types'
 import { getOtlpFieldsForSignalType } from '@/src/modules/otlp/constants'
@@ -9,6 +9,7 @@ import { StepKeys } from '@/src/config/constants'
 import { Card } from '@/src/components/ui/card'
 import { cn } from '@/src/utils/common.client'
 import FormActions from '@/src/components/shared/FormActions'
+import { TimeWindowConfigurator } from '@/src/modules/deduplication/components/TimeWindowConfigurator'
 
 const SIGNAL_OPTIONS = [
   { type: SourceType.OTLP_LOGS, label: 'Logs', description: 'Ingest OpenTelemetry log records' },
@@ -16,13 +17,18 @@ const SIGNAL_OPTIONS = [
   { type: SourceType.OTLP_METRICS, label: 'Metrics', description: 'Ingest OpenTelemetry metric data points' },
 ]
 
-const TIME_WINDOW_OPTIONS = [
-  { label: '1 minute', value: '1m' },
-  { label: '5 minutes', value: '5m' },
-  { label: '15 minutes', value: '15m' },
-  { label: '1 hour', value: '1h' },
-  { label: '24 hours', value: '24h' },
-]
+const UNIT_SUFFIX: Record<string, string> = { seconds: 's', minutes: 'm', hours: 'h', days: 'd' }
+const SUFFIX_UNIT: Record<string, string> = { s: 'seconds', m: 'minutes', h: 'hours', d: 'days' }
+
+function parseTimeWindow(tw: string): { window: number; unit: string } {
+  const match = tw.match(/^(\d+)([smhd])$/)
+  if (!match) return { window: 5, unit: 'minutes' }
+  return { window: parseInt(match[1]), unit: SUFFIX_UNIT[match[2]] ?? 'minutes' }
+}
+
+function serializeTimeWindow(window: number, unit: string): string {
+  return `${window}${UNIT_SUFFIX[unit] ?? 'm'}`
+}
 
 export function OtlpSignalTypeStep({
   onCompleteStep,
@@ -34,6 +40,15 @@ export function OtlpSignalTypeStep({
   const { signalType, deduplication, schemaFields, setSignalType, setDeduplication, skipDeduplication, markAsValid } = otlpStore
 
   const [dedupEnabled, setDedupEnabled] = useState(deduplication.enabled)
+  const [dedupWindow, setDedupWindow] = useState(() => parseTimeWindow(deduplication.time_window || '5m').window)
+  const [dedupWindowUnit, setDedupWindowUnit] = useState(() => parseTimeWindow(deduplication.time_window || '5m').unit)
+
+  // Sync local window state when store is updated externally (e.g. hydration)
+  useEffect(() => {
+    const parsed = parseTimeWindow(deduplication.time_window || '5m')
+    setDedupWindow(parsed.window)
+    setDedupWindowUnit(parsed.unit)
+  }, [deduplication.time_window])
 
   // Keep coreStore.sourceType and otlpStore.signalType in sync.
   // enterCreateMode() resets coreStore to 'kafka', so if we navigate back into the OTLP
@@ -84,9 +99,15 @@ export function OtlpSignalTypeStep({
     })
   }, [setDeduplication])
 
-  const handleDedupTimeWindowChange = useCallback((timeWindow: string) => {
-    setDeduplication({ time_window: timeWindow })
-  }, [setDeduplication])
+  const handleDedupWindowChange = useCallback((value: number) => {
+    setDedupWindow(value)
+    setDeduplication({ time_window: serializeTimeWindow(value, dedupWindowUnit) })
+  }, [setDeduplication, dedupWindowUnit])
+
+  const handleDedupWindowUnitChange = useCallback((unit: string) => {
+    setDedupWindowUnit(unit)
+    setDeduplication({ time_window: serializeTimeWindow(dedupWindow, unit) })
+  }, [setDeduplication, dedupWindow])
 
   const handleContinue = useCallback(() => {
     if (!signalType) return
@@ -156,8 +177,8 @@ export function OtlpSignalTypeStep({
           </div>
 
           {dedupEnabled && (
-            <div className="flex gap-3 pt-2">
-              <div className="flex flex-col gap-1.5 flex-[3] min-w-0">
+            <div className="flex flex-col gap-4 pt-2">
+              <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-medium text-[var(--color-foreground-neutral-faded)]">
                   Deduplication Key
                 </label>
@@ -175,22 +196,12 @@ export function OtlpSignalTypeStep({
                 </select>
               </div>
 
-              <div className="flex flex-col gap-1.5 flex-[1] min-w-0">
-                <label className="text-xs font-medium text-[var(--color-foreground-neutral-faded)]">
-                  Time Window
-                </label>
-                <select
-                  className="w-full rounded-md border border-[var(--control-border)] bg-[var(--control-bg)] px-3 py-2 text-sm text-[var(--color-foreground-neutral)] focus:border-[var(--control-border-focus)] focus:shadow-[var(--control-shadow-focus)]"
-                  value={deduplication.time_window}
-                  onChange={(e) => handleDedupTimeWindowChange(e.target.value)}
-                >
-                  {TIME_WINDOW_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <TimeWindowConfigurator
+                window={dedupWindow}
+                setWindow={handleDedupWindowChange}
+                windowUnit={dedupWindowUnit}
+                setWindowUnit={handleDedupWindowUnitChange}
+              />
             </div>
           )}
         </div>
