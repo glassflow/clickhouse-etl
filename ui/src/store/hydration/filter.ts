@@ -22,14 +22,20 @@ export function hydrateFilter(pipelineConfig: any) {
   // filter.enabled is truthy — restore the active filter state
   filterStore.setFilterEnabled(true)
 
-  // Set the expression string if filter has an expression
+  // Set the expression string if filter has an expression.
+  // Expressions saved after the logic inversion are wrapped with !() so the backend's
+  // "drop when true" logic produces SQL WHERE semantics (keep when user condition is true).
+  // Strip the wrapper here so the UI always shows the user's "keep" condition.
   if (filter.expression) {
-    filterStore.setExpressionString(filter.expression)
+    const wrapperMatch = filter.expression.match(/^!\((.+)\)$/)
+    const userExpression = wrapperMatch ? wrapperMatch[1] : filter.expression
+
+    filterStore.setExpressionString(userExpression)
     // Mark backend validation as valid since this is a saved/validated expression
     filterStore.setBackendValidation({ status: 'valid' })
 
     // Try to parse the expression and reconstruct the tree structure
-    const parseResult = parseExprToFilterTree(filter.expression)
+    const parseResult = parseExprToFilterTree(userExpression)
 
     if (parseResult.success && parseResult.filterGroup) {
       // Successfully parsed - set the full filter config with reconstructed tree

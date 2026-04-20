@@ -76,9 +76,9 @@ function generateOtlpApiConfig(params: {
       },
     },
     join: { type: '', enabled: false, sources: [] },
-    filter: filterStore?.filterConfig?.enabled ? {
+    filter: filterStore?.filterConfig?.enabled && filterStore?.expressionString ? {
       enabled: true,
-      expression: filterStore.filterConfig.expression,
+      expression: `!(${filterStore.expressionString})`,
     } : undefined,
     stateless_transformation: transformationStore?.transformationConfig?.enabled ? {
       enabled: true,
