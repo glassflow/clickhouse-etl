@@ -19,6 +19,7 @@ import { cn, isDemoMode } from '@/src/utils/common.client'
 import { KafkaConnectionSection } from './sections/KafkaConnectionSection'
 import { OtlpSourceSection } from './sections/OtlpSourceSection'
 import { ClickhouseConnectionSection } from './sections/ClickhouseConnectionSection'
+import { ChevronRight } from 'lucide-react'
 import { isOtlpSource } from '@/src/config/source-types'
 import PipelineTagsModal from '@/src/modules/pipelines/components/PipelineTagsModal'
 import { handleApiError } from '@/src/notifications/api-error-handler'
@@ -341,7 +342,7 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
                 {/* Pipeline Configuration Overview - shows the visual representation of the pipeline */}
                 <div
                   className={cn(
-                    'flex flex-row gap-4 items-stretch transition-all duration-500 ease-out mt-6',
+                    'flex flex-row gap-1 items-start transition-all duration-500 ease-out mt-6',
                     showConfigurationSection ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4',
                   )}
                 >
@@ -357,6 +358,10 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
                       onStepClick={handleStepClick}
                     />
                   )}
+                  {/* Source → Transformation flow connector */}
+                  <div className="flex-shrink-0 flex items-start pt-[52px] px-0.5">
+                    <ChevronRight className="w-4 h-4 text-[var(--color-foreground-neutral-faded)] opacity-30" />
+                  </div>
                   <TransformationSection
                     pipeline={pipeline}
                     onStepClick={handleStepClick}
@@ -372,6 +377,10 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
                     activeStep={activeStep}
                     resourcesSelected={isResourcesSelected}
                   />
+                  {/* Transformation → Sink flow connector */}
+                  <div className="flex-shrink-0 flex items-start pt-[52px] px-0.5">
+                    <ChevronRight className="w-4 h-4 text-[var(--color-foreground-neutral-faded)] opacity-30" />
+                  </div>
                   <ClickhouseConnectionSection
                     disabled={isEditingDisabled && !demoMode}
                     selected={isSinkSelected}
