@@ -84,6 +84,11 @@
   box-shadow: var(--shadow-raised);
 }
 
+.btn-card.active {
+  border-color: var(--card-border-selected-start);
+  box-shadow: 0 0 0 1px var(--card-border-selected-start);
+}
+
 .btn-card:disabled {
   background: linear-gradient(180deg, var(--btn-bg-disabled) 0%, var(--btn-bg-disabled-faded) 100%);
   color: var(--btn-fg-disabled);

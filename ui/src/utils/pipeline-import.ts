@@ -308,8 +308,12 @@ export function markStoresValidAfterImport(store: any, config: Pipeline): void {
     joinStore.markAsValid()
   }
 
-  // Mark ClickHouse connection as valid if host and database are present
-  if (config.sink?.host && config.sink?.database) {
+  // Mark ClickHouse connection as valid if host and database are present.
+  // Handle both flat format (v1/v2: sink.host) and nested format (v3: sink.connection_params.host).
+  const sinkAny = config.sink as any
+  const sinkHost = sinkAny?.host || sinkAny?.connection_params?.host
+  const sinkDatabase = sinkAny?.database || sinkAny?.connection_params?.database
+  if (sinkHost && sinkDatabase) {
     clickhouseConnectionStore.markAsValid()
   }
 
