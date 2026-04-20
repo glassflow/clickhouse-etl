@@ -161,6 +161,20 @@ func mainErr(cfg *config, role models.Role) error {
 
 	log.Info("Starting App", slog.String("version", version))
 
+	if role == internal.RoleMigrateData {
+		if cfg.DatabaseURL == "" {
+			return fmt.Errorf("database URL is required: set GLASSFLOW_DATABASE_URL environment variable")
+		}
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		pool, err := storage.NewPool(ctx, cfg.DatabaseURL)
+		if err != nil {
+			return fmt.Errorf("connect to postgres: %w", err)
+		}
+		defer pool.Close()
+		return datamigrations.Run(ctx, pool)
+	}
+
 	if err := observability.InitMetrics(obsConfig); err != nil {
 		return fmt.Errorf("init metrics: %w", err)
 	}
@@ -191,15 +205,6 @@ func mainErr(cfg *config, role models.Role) error {
 
 	if cfg.DatabaseURL == "" {
 		return fmt.Errorf("database URL is required: set GLASSFLOW_DATABASE_URL environment variable")
-	}
-
-	if role == internal.RoleMigrateData {
-		pool, err := storage.NewPool(ctx, cfg.DatabaseURL)
-		if err != nil {
-			return fmt.Errorf("connect to postgres: %w", err)
-		}
-		defer pool.Close()
-		return datamigrations.Run(ctx, pool)
 	}
 
 	encryptionKey, err := loadEncryptionKey(cfg, log)
