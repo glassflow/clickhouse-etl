@@ -84,7 +84,7 @@ func loadV2Pipelines(ctx context.Context, tx pgx.Tx) ([]v2Pipeline, error) {
 	rows, err := tx.Query(ctx, `
 		SELECT p.id, p.source_id, p.sink_id, s.type
 		FROM pipelines p
-		JOIN sources s ON s.id::text = p.source_id
+		JOIN sources s ON s.id = p.source_id::uuid
 		WHERE p.version != 'v3' OR p.version IS NULL
 	`)
 	if err != nil {
@@ -298,7 +298,7 @@ func markPipelineV3(ctx context.Context, tx pgx.Tx, pipelineID string) error {
 // path is used instead.
 func clearSourceStreams(ctx context.Context, tx pgx.Tx, sourceID string) error {
 	_, err := tx.Exec(ctx,
-		`UPDATE sources SET config = '{"streams":{}}' WHERE id::text = $1`,
+		`UPDATE sources SET config = '{"streams":{}}' WHERE id = $1::uuid`,
 		sourceID,
 	)
 	return err
@@ -308,7 +308,7 @@ func clearSourceStreams(ctx context.Context, tx pgx.Tx, sourceID string) error {
 
 func loadSourceConfig(ctx context.Context, tx pgx.Tx, sourceID string) (v2SourceConfig, error) {
 	var raw []byte
-	err := tx.QueryRow(ctx, `SELECT config FROM sources WHERE id::text = $1`, sourceID).Scan(&raw)
+	err := tx.QueryRow(ctx, `SELECT config FROM sources WHERE id = $1::uuid`, sourceID).Scan(&raw)
 	if err != nil {
 		return v2SourceConfig{}, fmt.Errorf("load source config: %w", err)
 	}
@@ -323,7 +323,7 @@ func loadSourceConfig(ctx context.Context, tx pgx.Tx, sourceID string) (v2Source
 
 func loadSinkConfig(ctx context.Context, tx pgx.Tx, sinkID string) (v2SinkConfig, error) {
 	var raw []byte
-	err := tx.QueryRow(ctx, `SELECT config FROM sinks WHERE id::text = $1`, sinkID).Scan(&raw)
+	err := tx.QueryRow(ctx, `SELECT config FROM sinks WHERE id = $1::uuid`, sinkID).Scan(&raw)
 	if err != nil {
 		return v2SinkConfig{}, fmt.Errorf("load sink config: %w", err)
 	}
