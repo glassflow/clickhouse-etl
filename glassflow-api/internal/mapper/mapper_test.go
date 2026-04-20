@@ -511,4 +511,79 @@ func TestKafkaToClickHouseMapper_Map_EdgeCases(t *testing.T) {
 		resultMap := resultToMap(t, mapper, "v1", result)
 		assert.Equal(t, map[string]any{"name": ""}, resultMap)
 	})
+
+	t.Run("handles empty map in JSON", func(t *testing.T) {
+		config := map[string]models.Mapping{
+			"id": {
+				SourceField:      "id",
+				SourceType:       string(internal.KafkaTypeString),
+				DestinationField: "id",
+				DestinationType:  "String",
+			},
+			"attributes": {
+				SourceField:      "attributes",
+				SourceType:       string(internal.KafkaTypeMap),
+				DestinationField: "attributes",
+				DestinationType:  "Map(String, String)",
+			},
+		}
+
+		mapper := NewKafkaToClickHouseMapper()
+		data := []byte(`{"id":"1","attributes":{}}`)
+
+		result, err := mapper.Map(data, "v1", config)
+		require.NoError(t, err)
+		resultMap := resultToMap(t, mapper, "v1", result)
+		assert.Equal(t, map[string]any{"id": "1", "attributes": map[string]string{}}, resultMap)
+	})
+
+	t.Run("handles null map in JSON returns empty map", func(t *testing.T) {
+		config := map[string]models.Mapping{
+			"id": {
+				SourceField:      "id",
+				SourceType:       string(internal.KafkaTypeString),
+				DestinationField: "id",
+				DestinationType:  "String",
+			},
+			"resource": {
+				SourceField:      "resource",
+				SourceType:       string(internal.KafkaTypeMap),
+				DestinationField: "resource",
+				DestinationType:  "Map(LowCardinality(String), String)",
+			},
+		}
+
+		mapper := NewKafkaToClickHouseMapper()
+		data := []byte(`{"id":"1","resource":null}`)
+
+		result, err := mapper.Map(data, "v1", config)
+		require.NoError(t, err)
+		resultMap := resultToMap(t, mapper, "v1", result)
+		assert.Equal(t, map[string]any{"id": "1", "resource": map[string]string{}}, resultMap)
+	})
+
+	t.Run("handles missing map field in JSON returns empty map", func(t *testing.T) {
+		config := map[string]models.Mapping{
+			"id": {
+				SourceField:      "id",
+				SourceType:       string(internal.KafkaTypeString),
+				DestinationField: "id",
+				DestinationType:  "String",
+			},
+			"attributes": {
+				SourceField:      "attributes",
+				SourceType:       string(internal.KafkaTypeMap),
+				DestinationField: "attributes",
+				DestinationType:  "Map(String, String)",
+			},
+		}
+
+		mapper := NewKafkaToClickHouseMapper()
+		data := []byte(`{"id":"1"}`)
+
+		result, err := mapper.Map(data, "v1", config)
+		require.NoError(t, err)
+		resultMap := resultToMap(t, mapper, "v1", result)
+		assert.Equal(t, map[string]any{"id": "1", "attributes": map[string]string{}}, resultMap)
+	})
 }
