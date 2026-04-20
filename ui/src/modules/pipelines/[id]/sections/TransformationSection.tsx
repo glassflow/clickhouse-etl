@@ -182,19 +182,20 @@ function TransformationSection({ pipeline, onStepClick, disabled, validation, ac
   }
 
   return (
-    <div className="flex flex-col gap-4 w-[70%]">
-      {/* Transformation */}
+    <div className="flex flex-col gap-3 w-[70%]">
       <div className="text-center">
         <span className="text-lg font-bold text-[var(--color-foreground-neutral-faded)]">
           Transformation: {transformationLabel}
         </span>
       </div>
       {sectionContent}
-      <PipelineResourcesSection
-        disabled={disabled}
-        selected={resourcesSelected}
-        onStepClick={onStepClick}
-      />
+      <div className="mt-3">
+        <PipelineResourcesSection
+          disabled={disabled}
+          selected={resourcesSelected}
+          onStepClick={onStepClick}
+        />
+      </div>
     </div>
   )
 }

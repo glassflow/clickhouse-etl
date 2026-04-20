@@ -282,9 +282,9 @@ export default function HomePageClient() {
             Choose your data source
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 w-full">
-            <Card variant="selectable" className={cn(selectedSource === 'kafka' && 'active', 'h-16 sm:h-20 lg:h-24 w-full')}>
+            <Card variant="selectable" className={cn(selectedSource === 'kafka' && 'active', 'h-16 sm:h-20 lg:h-24 w-full !p-0')}>
               <button
-                className="flex items-center justify-center px-4 sm:px-6 w-full h-full"
+                className="flex items-center justify-center px-4 sm:px-6 w-full h-full cursor-pointer"
                 onClick={() => { setSelectedSource('kafka'); setSelectedOtlpSignal(null) }}
               >
                 <Image src={KafkaIcon} alt="Kafka" width={24} height={24} className="sm:w-9 sm:h-9" />
@@ -293,9 +293,9 @@ export default function HomePageClient() {
                 </span>
               </button>
             </Card>
-            <Card variant="selectable" className={cn(selectedSource === 'otlp' && 'active', 'h-16 sm:h-20 lg:h-24 w-full')}>
+            <Card variant="selectable" className={cn(selectedSource === 'otlp' && 'active', 'h-16 sm:h-20 lg:h-24 w-full !p-0')}>
               <button
-                className="flex items-center justify-center px-4 sm:px-6 w-full h-full"
+                className="flex items-center justify-center px-4 sm:px-6 w-full h-full cursor-pointer"
                 onClick={() => { setSelectedSource('otlp'); setSelectedOtlpSignal(null) }}
               >
                 <SignalIcon className="w-6 h-6 sm:w-9 sm:h-9 text-[var(--color-foreground-neutral-faded)]" />
@@ -317,9 +317,9 @@ export default function HomePageClient() {
               Choose a pipeline type based on the number of streams you want to ingest
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 w-full">
-              <Card variant="selectable" className={cn(topicCount === 1 && 'active', 'h-16 sm:h-20 lg:h-24 w-full')}>
+              <Card variant="selectable" className={cn(topicCount === 1 && 'active', 'h-16 sm:h-20 lg:h-24 w-full !p-0')}>
                 <button
-                  className="flex items-center justify-center px-4 sm:px-6 w-full h-full"
+                  className="flex items-center justify-center px-4 sm:px-6 w-full h-full cursor-pointer"
                   onClick={() => handleTopicCountClick(1)}
                 >
                   <Image src={IngestOnly} alt="Ingest Only" width={24} height={24} className="sm:w-9 sm:h-9" />
@@ -328,9 +328,9 @@ export default function HomePageClient() {
                   </span>
                 </button>
               </Card>
-              <Card variant="selectable" className={cn(topicCount === 2 && 'active', 'h-16 sm:h-20 lg:h-24 w-full')}>
+              <Card variant="selectable" className={cn(topicCount === 2 && 'active', 'h-16 sm:h-20 lg:h-24 w-full !p-0')}>
                 <button
-                  className="flex items-center justify-center px-4 sm:px-6 w-full h-full"
+                  className="flex items-center justify-center px-4 sm:px-6 w-full h-full cursor-pointer"
                   onClick={() => handleTopicCountClick(2)}
                 >
                   <Image src={Join} alt="Join" width={24} height={24} className="sm:w-9 sm:h-9" />
@@ -350,9 +350,9 @@ export default function HomePageClient() {
               Select signal type
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 w-full">
-              <Card variant="selectable" className={cn(selectedOtlpSignal === SourceType.OTLP_LOGS && 'active', 'h-16 sm:h-20 lg:h-24 w-full')}>
+              <Card variant="selectable" className={cn(selectedOtlpSignal === SourceType.OTLP_LOGS && 'active', 'h-16 sm:h-20 lg:h-24 w-full !p-0')}>
                 <button
-                  className="flex items-center justify-center px-4 sm:px-6 w-full h-full"
+                  className="flex items-center justify-center px-4 sm:px-6 w-full h-full cursor-pointer"
                   onClick={() => handleOtlpSignalClick(SourceType.OTLP_LOGS)}
                 >
                   <DocumentTextIcon className="w-6 h-6 sm:w-9 sm:h-9 text-[var(--color-foreground-neutral-faded)]" />
@@ -361,9 +361,9 @@ export default function HomePageClient() {
                   </span>
                 </button>
               </Card>
-              <Card variant="selectable" className={cn(selectedOtlpSignal === SourceType.OTLP_TRACES && 'active', 'h-16 sm:h-20 lg:h-24 w-full')}>
+              <Card variant="selectable" className={cn(selectedOtlpSignal === SourceType.OTLP_TRACES && 'active', 'h-16 sm:h-20 lg:h-24 w-full !p-0')}>
                 <button
-                  className="flex items-center justify-center px-4 sm:px-6 w-full h-full"
+                  className="flex items-center justify-center px-4 sm:px-6 w-full h-full cursor-pointer"
                   onClick={() => handleOtlpSignalClick(SourceType.OTLP_TRACES)}
                 >
                   <MapIcon className="w-6 h-6 sm:w-9 sm:h-9 text-[var(--color-foreground-neutral-faded)]" />
@@ -372,9 +372,9 @@ export default function HomePageClient() {
                   </span>
                 </button>
               </Card>
-              <Card variant="selectable" className={cn(selectedOtlpSignal === SourceType.OTLP_METRICS && 'active', 'h-16 sm:h-20 lg:h-24 w-full')}>
+              <Card variant="selectable" className={cn(selectedOtlpSignal === SourceType.OTLP_METRICS && 'active', 'h-16 sm:h-20 lg:h-24 w-full !p-0')}>
                 <button
-                  className="flex items-center justify-center px-4 sm:px-6 w-full h-full"
+                  className="flex items-center justify-center px-4 sm:px-6 w-full h-full cursor-pointer"
                   onClick={() => handleOtlpSignalClick(SourceType.OTLP_METRICS)}
                 >
                   <ChartBarIcon className="w-6 h-6 sm:w-9 sm:h-9 text-[var(--color-foreground-neutral-faded)]" />
@@ -397,8 +397,8 @@ export default function HomePageClient() {
           <p className="subtitle-3 text-xs sm:text-sm -mt-1">
             Import a prepared pipeline configuration from a file or paste it directly
           </p>
-          <Card variant="selectable" className="h-16 sm:h-20 lg:h-24 w-full max-w-md">
-            <button className="flex items-center justify-center px-4 sm:px-6 w-full h-full" onClick={handleUploadClick}>
+          <Card variant="selectable" className="h-16 sm:h-20 lg:h-24 w-full max-w-md !p-0">
+            <button className="flex items-center justify-center px-4 sm:px-6 w-full h-full cursor-pointer" onClick={handleUploadClick}>
               <ArrowUpTrayIcon className="w-6 h-6 sm:w-9 sm:h-9 text-[var(--color-orange-300)]" />
               <span className="ml-3 sm:ml-4 text-sm sm:text-lg font-medium text-muted-foreground">
                 Import Configuration

@@ -75,6 +75,13 @@ function PipelineWizard() {
     }
   }, [activeStepId, currentJourney, firstStepId, setActiveStepId])
 
+  // Scroll to top whenever the active step changes
+  useEffect(() => {
+    if (activeStepId) {
+      window.scrollTo(0, 0)
+    }
+  }, [activeStepId])
+
   // Use extracted hooks for validation status and smart navigation
   const { getValidationStatus } = useStepValidationStatus()
   const { handleSmartContinue, handleSidebarNavigation } = useWizardSmartNavigation({

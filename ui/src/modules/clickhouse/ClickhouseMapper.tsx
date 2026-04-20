@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { structuredLogger } from '@/src/observability'
 import { InfoModal } from '@/src/components/common/InfoModal'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/src/components/ui/tabs'
@@ -158,6 +158,13 @@ export function ClickhouseMapper({
       if (isOtlp) {
         return otlpStore.schemaFields.find((f) => f.name === field)?.type
       }
+      const isTransformationEnabled =
+        transformationStore.transformationConfig.enabled &&
+        transformationStore.transformationConfig.fields.length > 0
+      if (isTransformationEnabled) {
+        const schemaField = transformationStore.getIntermediarySchema().find((f) => f.name === field)
+        if (schemaField?.type) return schemaField.type
+      }
       if (mode === 'single') return getVerifiedTypeFromTopic(selectedTopic, field)
       const primary = primaryTopic ? getVerifiedTypeFromTopic(primaryTopic, field) : undefined
       if (primary) return primary
@@ -173,6 +180,7 @@ export function ClickhouseMapper({
     orderByOptions,
     isOtlp,
     otlpStore.schemaFields,
+    transformationStore,
     mode,
     selectedTopic,
     primaryTopic,
@@ -181,6 +189,23 @@ export function ClickhouseMapper({
     setMappedColumns,
     updateClickhouseDestinationDraft,
   ])
+
+  // Auto-trigger mapping when columns are freshly loaded from schema but none have event fields
+  const autoMappedRef = useRef(false)
+
+  useEffect(() => {
+    autoMappedRef.current = false
+  }, [selectedDatabase, selectedTable])
+
+  useEffect(() => {
+    if (destinationPath !== 'create') return
+    if (autoMappedRef.current) return
+    if (mappedColumns.length === 0 || mappedColumns.some((col) => col.eventField)) return
+    if (orderByOptions.length === 0) return
+
+    autoMappedRef.current = true
+    performAutoMapping()
+  }, [destinationPath, mappedColumns, orderByOptions.length, performAutoMapping, selectedDatabase, selectedTable])
 
   // Analytics tracking states (keep these as local state since they're UI-specific)
   const [hasTrackedView, setHasTrackedView] = useState(false)
