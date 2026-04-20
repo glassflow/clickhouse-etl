@@ -156,8 +156,8 @@ export function OtlpSignalTypeStep({
           </div>
 
           {dedupEnabled && (
-            <div className="flex flex-col gap-4 pt-2">
-              <div className="space-y-1.5">
+            <div className="flex gap-3 pt-2">
+              <div className="flex flex-col gap-1.5 flex-[3] min-w-0">
                 <label className="text-xs font-medium text-[var(--color-foreground-neutral-faded)]">
                   Deduplication Key
                 </label>
@@ -175,7 +175,7 @@ export function OtlpSignalTypeStep({
                 </select>
               </div>
 
-              <div className="space-y-1.5">
+              <div className="flex flex-col gap-1.5 flex-[1] min-w-0">
                 <label className="text-xs font-medium text-[var(--color-foreground-neutral-faded)]">
                   Time Window
                 </label>
