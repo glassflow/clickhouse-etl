@@ -548,7 +548,7 @@ export const buildInternalPipelineConfig = ({
         ? {
             filter: {
               enabled: true,
-              expression: filterStore.expressionString,
+              expression: `!(${filterStore.expressionString})`,
             },
           }
         : {
