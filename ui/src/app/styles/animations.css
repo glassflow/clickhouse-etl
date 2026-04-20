@@ -1,7 +1,15 @@
+/* ── Easing tokens ───────────────────────────────────────────────────────── */
+:root {
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-out-expo:  cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ── Keyframes ───────────────────────────────────────────────────────────── */
+
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
@@ -10,18 +18,27 @@
 }
 
 @keyframes fadeInOpacity {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Section content entrance — for sidebar navigation transitions */
+@keyframes sectionEnter {
   from {
     opacity: 0;
+    transform: translateY(6px);
   }
   to {
     opacity: 1;
+    transform: translateY(0);
   }
 }
 
+/* Dropdown menus sliding down from trigger */
 @keyframes slideDown {
   from {
     opacity: 0;
-    transform: translateY(-10px);
+    transform: translateY(-6px);
   }
   to {
     opacity: 1;
@@ -32,7 +49,7 @@
 @keyframes slideDownFade {
   from {
     opacity: 0;
-    transform: translateY(-20px) translateX(10px);
+    transform: translateY(-16px) translateX(8px);
   }
   to {
     opacity: 1;
@@ -41,21 +58,15 @@
 }
 
 @keyframes pulse {
-  0% {
-    opacity: 0.6;
-  }
-  50% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0.6;
-  }
+  0%   { opacity: 0.6; }
+  50%  { opacity: 1;   }
+  100% { opacity: 0.6; }
 }
 
 @keyframes slideUpFade {
   from {
     opacity: 0;
-    transform: translateY(30px);
+    transform: translateY(24px);
   }
   to {
     opacity: 1;
@@ -64,11 +75,11 @@
 }
 
 @keyframes feedbackEntrance {
-  0% {
+  from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(16px);
   }
-  100% {
+  to {
     opacity: 1;
     transform: translateY(0);
   }
@@ -77,7 +88,7 @@
 @keyframes fadeInUp {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(16px);
   }
   to {
     opacity: 1;
@@ -88,7 +99,7 @@
 @keyframes slideInFromRight {
   from {
     opacity: 0;
-    transform: translateX(30px);
+    transform: translateX(24px);
   }
   to {
     opacity: 1;
@@ -100,7 +111,7 @@
   from {
     opacity: 0;
     max-height: 0;
-    transform: translateY(-10px);
+    transform: translateY(-8px);
   }
   to {
     opacity: 1;
@@ -118,81 +129,15 @@
   to {
     opacity: 0;
     max-height: 0;
-    transform: translateY(-10px);
+    transform: translateY(-8px);
   }
-}
-
-.animate-fadeIn {
-  animation: fadeIn 0.2s ease-out;
-}
-
-.animate-slideDown {
-  animation: slideDown 0.2s ease-out;
-}
-
-.animate-slideDownFade {
-  animation: slideDownFade 0.3s ease-out;
-}
-
-.animate-pulse {
-  animation: pulse 1.5s infinite;
-}
-
-.animate-slideUpFade {
-  animation: slideUpFade 0.3s ease-out;
-}
-
-.animate-feedback-entrance {
-  animation: feedbackEntrance 0.5s ease-out forwards;
-}
-
-.animate-fade-in-up {
-  animation: fadeInUp 0.5s ease-out forwards;
-}
-
-.animate-slideInFromRight {
-  animation: slideInFromRight 0.3s ease-out forwards;
-}
-
-.animate-expand-down {
-  animation: expandDown 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-}
-
-.animate-collapse-up {
-  animation: collapseUp 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-}
-
-.animate-delay-100 {
-  animation-delay: 0.1s;
-}
-
-.animate-delay-200 {
-  animation-delay: 0.2s;
-}
-
-.animate-delay-300 {
-  animation-delay: 0.3s;
-}
-
-.animate-delay-400 {
-  animation-delay: 0.4s;
 }
 
 @keyframes flowDot {
-  0% {
-    left: -8px;
-    opacity: 0;
-  }
-  8% {
-    opacity: 1;
-  }
-  92% {
-    opacity: 1;
-  }
-  100% {
-    left: calc(100% + 8px);
-    opacity: 0;
-  }
+  0%   { left: -8px;             opacity: 0; }
+  8%   {                         opacity: 1; }
+  92%  {                         opacity: 1; }
+  100% { left: calc(100% + 8px); opacity: 0; }
 }
 
 @keyframes columnRise {
@@ -206,28 +151,104 @@
   }
 }
 
+/* ── Utility classes ─────────────────────────────────────────────────────── */
+
+.animate-fadeIn {
+  animation: fadeIn 0.2s var(--ease-out-quart) both;
+}
+
+.animate-fadeInOpacity {
+  animation: fadeInOpacity 0.2s var(--ease-out-quart) both;
+}
+
+/* Section transitions: sidebar navigation content switches */
+.animate-section-enter {
+  animation: sectionEnter 0.22s var(--ease-out-quart) both;
+}
+
+/* Dropdown menus */
+.animate-slideDown {
+  animation: slideDown 0.18s var(--ease-out-quart) both;
+}
+
+.animate-slideDownFade {
+  animation: slideDownFade 0.25s var(--ease-out-quart) both;
+}
+
+.animate-pulse {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.animate-slideUpFade {
+  animation: slideUpFade 0.3s var(--ease-out-quart) both;
+}
+
+.animate-feedback-entrance {
+  animation: feedbackEntrance 0.45s var(--ease-out-quart) both;
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.45s var(--ease-out-quart) both;
+}
+
+.animate-slideInFromRight {
+  animation: slideInFromRight 0.28s var(--ease-out-quart) both;
+}
+
+.animate-expand-down {
+  animation: expandDown 0.28s var(--ease-out-quart) both;
+}
+
+.animate-collapse-up {
+  animation: collapseUp 0.22s var(--ease-out-quart) both;
+}
+
 .animate-flow-dot {
   animation: flowDot 2.8s linear infinite;
 }
 
+/* Chart bar entrance — no overshoot, smooth deceleration */
 .animate-column-rise {
-  animation: columnRise 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  animation: columnRise 0.5s var(--ease-out-expo) both;
 }
 
-/* Smooth expand/collapse with CSS transitions */
+/* ── Delay helpers ───────────────────────────────────────────────────────── */
+
+.animate-delay-100 { animation-delay: 0.1s; }
+.animate-delay-200 { animation-delay: 0.2s; }
+.animate-delay-300 { animation-delay: 0.3s; }
+.animate-delay-400 { animation-delay: 0.4s; }
+
+/* ── Smooth expand/collapse (CSS transition variant) ─────────────────────── */
+
 .smooth-expand {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: max-height 0.28s var(--ease-out-quart),
+              opacity    0.22s var(--ease-out-quart),
+              transform  0.22s var(--ease-out-quart);
   overflow: hidden;
 }
 
 .smooth-expand.collapsed {
   max-height: 0;
   opacity: 0;
-  transform: translateY(-8px);
+  transform: translateY(-6px);
 }
 
 .smooth-expand.expanded {
   max-height: 500px;
   opacity: 1;
   transform: translateY(0);
+}
+
+/* ── Reduced motion ──────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    animation-delay: 0.01ms !important;
+  }
 }

@@ -193,14 +193,14 @@ Utility class for gradient borders on any element (used in modals, dropdowns, et
 - Each color has a complete scale (50-950, with additional shades like 750)
 - Easy to maintain color harmony
 - Predictable naming convention
-- Separate scales for dark theme (`gray-dark-*`) and light theme (`gray-light-*`)
+- Separate scales for dark-specific grays (`gray-dark-*`) alongside neutral grays (`gray-*`)
 
-### 4. **Theme Flexibility**
+### 4. **Dark-Only, Single Source of Truth**
 
-- Dark theme can use different variants of the same base color
-- Easy to create new themes (high contrast, etc.)
-- Consistent semantic meaning across themes
-- Theme switching via `data-theme` attribute
+- The app is dark-only — light theme was removed (see `docs/design/DESIGN_SIMPLIFICATION.md`)
+- All theme tokens live in `src/themes/theme.css` under `:root, [data-theme='dark']`
+- `data-theme` attribute is still set (by `ThemeProvider`) for explicit hook compatibility
+- No light-mode branches or conditionals anywhere in the codebase
 
 ### 5. **State-Based Semantic Tokens**
 
@@ -227,8 +227,8 @@ Utility class for gradient borders on any element (used in modals, dropdowns, et
 
 - `--color-{color}-{shade}` (e.g., `--color-orange-500`)
 - Shades: 50, 100, 200, 300, 400, 500, 600, 700, 750, 800, 900, 950
-- Colors: orange, red, green, yellow, blue, brown, slate, gray, gray-dark, gray-light, black, white
-- Special: `gray-dark-*` for dark theme, `gray-light-*` for light theme
+- Colors: orange, red, green, yellow, blue, brown, slate, gray, gray-dark, black, white
+- Special: `gray-dark-*` for dark-specific neutrals (backgrounds, surfaces); `gray-light-*` was removed with the light theme
 
 ### Semantic Colors (Theme Layer)
 
@@ -273,7 +273,7 @@ Utility class for gradient borders on any element (used in modals, dropdowns, et
   --color-background-accent: var(--color-purple-500);
 }
 
-/* In semantic-tokens.css - add state-based tokens if needed */
+/* In theme.css - add state-based tokens if needed */
 [data-theme='dark'] {
   --surface-bg-accent: var(--color-background-accent);
 }
@@ -288,22 +288,19 @@ Utility class for gradient borders on any element (used in modals, dropdowns, et
 /* All themes, semantic tokens, and components automatically use the new color! */
 ```
 
-### 3. Creating a New Theme
+### 3. Adding Tokens to an Existing Theme
+
+> **Dark-only app.** The light theme was removed in the design simplification refactor. All tokens live in `src/themes/theme.css` under `:root, [data-theme='dark']`. Do not create a separate theme file unless a new theme is explicitly planned.
 
 ```css
-/* Create light/high-contrast/theme.css */
-[data-theme='high-contrast'] {
-  /* Semantic color mappings */
-  --color-background-primary: var(--color-orange-600);
-  --color-background-page: var(--color-gray-950);
-  --color-foreground-neutral: var(--color-gray-50);
+/* In theme.css — add new semantic tokens to the existing block */
+:root,
+[data-theme='dark'] {
+  /* New semantic mapping */
+  --color-background-accent: var(--color-purple-500);
 
-  /* Component tokens */
-  --button-primary-bg: var(--color-background-primary);
-
-  /* Semantic tokens */
-  --control-bg: var(--color-background-elevation-raised);
-  --surface-bg: var(--color-background-elevation-raised);
+  /* New component token */
+  --button-accent-bg: var(--color-background-accent);
 }
 ```
 
@@ -446,7 +443,7 @@ When styling specific components:
 - Each color should have a complete scale (50-950, with 750 for special cases)
 - Use consistent shade increments
 - Document any deviations
-- Separate scales for dark (`gray-dark-*`) and light (`gray-light-*`) themes
+- Use `gray-dark-*` for dark-specific neutrals; do not introduce `gray-light-*` (light theme is removed)
 
 ### 6. **Interactive State Guidelines**
 
@@ -456,12 +453,12 @@ When styling specific components:
 - Ensure sufficient contrast ratios
 - Use semantic tokens for state management (`--option-bg-selected`, `--control-border-focus`)
 
-### 7. **Theme-Aware Components**
+### 7. **Token-Driven Components**
 
-Always test components in both themes:
+Always use semantic tokens — never hardcode hex values or raw Tailwind color classes:
 
 ```css
-/* Works in both themes automatically */
+/* Uses design system tokens — correct */
 .component {
   background: var(--surface-bg);
   color: var(--surface-fg);

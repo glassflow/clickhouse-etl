@@ -2,9 +2,7 @@
 
 import { useState } from 'react'
 import { Button } from '@/src/components/ui/button'
-import { XCircleIcon } from '@heroicons/react/24/outline'
-import DownloadIconWhite from '@/src/images/download-white.svg'
-import Image from 'next/image'
+import { XCircleIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline'
 import { DownloadFormatModal, type DownloadFormat } from '@/src/components/common/DownloadFormatModal'
 
 interface DestinationErrorBlockProps {
@@ -46,13 +44,7 @@ export function DestinationErrorBlock({ error, failedDeploymentConfig, onDownloa
             onClick={() => setShowFormatModal(true)}
             className="group flex items-center gap-2 whitespace-nowrap btn-action !px-3 !py-2 text-sm h-auto"
           >
-            <Image
-              src={DownloadIconWhite}
-              alt="Download"
-              width={16}
-              height={16}
-              className="filter brightness-100 group-hover:brightness-0 flex-shrink-0"
-            />
+            <ArrowDownTrayIcon className="h-4 w-4 shrink-0" />
             Download config
           </Button>
         </div>
