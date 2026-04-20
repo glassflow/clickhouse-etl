@@ -108,6 +108,8 @@ export function FilterConfigurator({
   // Track previous config key to avoid infinite loops
   const prevConfigKeyRef = useRef<string>('')
   const validationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Always-fresh ref to avoid stale closure in the debounced async callback
+  const availableFieldsRef = useRef(availableFields)
 
   // Helper to serialize the filter tree for comparison
   const serializeGroup = (group: FilterGroup): any => ({
@@ -132,6 +134,9 @@ export function FilterConfigurator({
       }
     }),
   })
+
+  // Keep the ref current on every render
+  availableFieldsRef.current = availableFields
 
   // Create a stable key for the filter config
   const filterConfigKey = JSON.stringify({
@@ -177,12 +182,16 @@ export function FilterConfigurator({
     })
 
     if (!localResult.isValid) {
+      // Reset backend status so it doesn't stay stuck at 'validating'
+      filterStore.setBackendValidation({ status: 'idle' })
       return
     }
 
     // Generate expression and validate with backend
     const expression = toExprString(filterConfig)
     if (!expression) {
+      // No complete rules yet — reset so the status doesn't linger
+      filterStore.setBackendValidation({ status: 'idle' })
       return
     }
 
@@ -190,7 +199,8 @@ export function FilterConfigurator({
     filterStore.setBackendValidation({ status: 'validating' })
 
     validationTimeoutRef.current = setTimeout(async () => {
-      const fields: FilterValidationField[] = availableFields.map((f) => ({
+      // Use the ref so we always send the freshest field list, not a stale closure value
+      const fields: FilterValidationField[] = availableFieldsRef.current.map((f) => ({
         name: f.name,
         type: f.type,
       }))

@@ -90,12 +90,41 @@ export function TransformationConfigurator({
     setApiValidationState(state)
   }, [])
 
-  // Sample for API validation: effective event from first topic (must be loaded in Kafka step)
+  // Sample for API validation.
+  // For OTLP sources there is no Kafka event — build a synthetic sample from the
+  // predefined schema so the backend evaluate endpoint can type-check expressions.
   const sampleForValidation = useMemo(() => {
+    if (isOtlpSource(coreStore.sourceType) && otlpFields && otlpFields.length > 0) {
+      const syntheticSample: Record<string, unknown> = {}
+      for (const field of otlpFields) {
+        switch (field.type) {
+          case 'int':
+          case 'uint':
+            syntheticSample[field.name] = 0
+            break
+          case 'float':
+          case 'float64':
+            syntheticSample[field.name] = 0.0
+            break
+          case 'bool':
+            syntheticSample[field.name] = false
+            break
+          case 'map':
+            syntheticSample[field.name] = {}
+            break
+          case 'array':
+            syntheticSample[field.name] = []
+            break
+          default:
+            syntheticSample[field.name] = ''
+        }
+      }
+      return syntheticSample
+    }
     if (effectiveEventData == null || typeof effectiveEventData !== 'object') return null
     if (Object.keys(effectiveEventData).length === 0) return null
     return effectiveEventData as Record<string, unknown>
-  }, [effectiveEventData])
+  }, [effectiveEventData, coreStore.sourceType, otlpFields])
 
   const apiValidationOption = useMemo(
     () => ({ sample: sampleForValidation, setApiValidation }),
@@ -191,9 +220,13 @@ export function TransformationConfigurator({
         <div className="text-sm text-content-faded flex-1">
           {availableFields.length > 0
             ? transformationConfig.fields.length > 0
-              ? "All fields from your Kafka event have been added as pass-through fields. Remove fields you don't need, convert them to computed transformations, or add new fields."
+              ? isOtlpSource(coreStore.sourceType)
+                ? "All fields from the OTLP schema have been added as pass-through fields. Remove fields you don't need, convert them to computed transformations, or add new fields."
+                : "All fields from your Kafka event have been added as pass-through fields. Remove fields you don't need, convert them to computed transformations, or add new fields."
               : 'Define transformations to create computed fields or pass through existing fields. The resulting schema will be used for mapping to ClickHouse.'
-            : 'Select a topic and verify field types to configure transformations.'}
+            : isOtlpSource(coreStore.sourceType)
+              ? 'Select an OTLP signal type to configure transformations.'
+              : 'Select a topic and verify field types to configure transformations.'}
         </div>
       </div>
 
@@ -280,8 +313,9 @@ export function TransformationConfigurator({
         </div>
       )}
 
-      {/* No sample event message */}
+      {/* No sample event message — not shown for OTLP (synthetic sample is always available) */}
       {!readOnly &&
+        !isOtlpSource(coreStore.sourceType) &&
         transformationConfig.enabled &&
         transformationConfig.fields.length > 0 &&
         completeFieldCount > 0 &&
