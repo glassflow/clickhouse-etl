@@ -595,7 +595,7 @@ function PipelineDetailsHeader({
       )}
     >
       <Card className="card-outline py-2 px-6 mb-4">
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-2">
           <div className="flex flex-row justify-between gap-4 items-start">
             <div className="flex flex-row flex-start gap-2 items-center min-w-0 flex-1">
               {actionState.isLoading && (
@@ -626,7 +626,7 @@ function PipelineDetailsHeader({
             </div>
             <div className="flex flex-row flex-end gap-2 flex-shrink-0">{actions || getActionButtons()}</div>
           </div>
-          <div className="flex flex-start items-center gap-1 text-sm text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
             {pipeline.pipeline_id ? (
               <div className="group flex items-center gap-1">
                 <span
@@ -638,7 +638,7 @@ function PipelineDetailsHeader({
                 </span>
                 <Copy className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                 {copied && (
-                  <Badge variant="secondary" className="ml-2 h-6 w-18 text-sm">
+                  <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
                     Copied
                   </Badge>
                 )}
@@ -646,16 +646,28 @@ function PipelineDetailsHeader({
             ) : (
               <span>Pipeline ID: None</span>
             )}
-          </div>
-          <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-            <span>Tags:</span>
-            {tagsList.length === 0 && <span className="text-muted-foreground">No tags yet</span>}
-            {tagsList.slice(0, 6).map((tag) => (
-              <Badge key={tag} variant="secondary" className="rounded-full px-2 py-0.5 text-xs">
-                {tag}
-              </Badge>
-            ))}
-            {tagsList.length > 6 && <span className="text-xs text-muted-foreground">+{tagsList.length - 6} more</span>}
+
+            <span className="opacity-30">·</span>
+
+            <div className="flex flex-wrap items-center gap-1.5">
+              {tagsList.slice(0, 6).map((tag) => (
+                <Badge key={tag} variant="secondary" className="rounded-full px-2 py-0.5 text-xs">
+                  {tag}
+                </Badge>
+              ))}
+              {tagsList.length > 6 && (
+                <span className="text-xs text-muted-foreground">+{tagsList.length - 6} more</span>
+              )}
+              {onManageTags && (
+                <button
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer opacity-60 hover:opacity-100"
+                  onClick={onManageTags}
+                  title="Manage tags"
+                >
+                  {tagsList.length === 0 ? '+ Add tags' : '+ Edit'}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </Card>
