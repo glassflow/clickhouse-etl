@@ -105,6 +105,13 @@ func loadV2Pipelines(ctx context.Context, tx pgx.Tx) ([]v2Pipeline, error) {
 }
 
 func migratePipeline(ctx context.Context, tx pgx.Tx, p v2Pipeline) error {
+	// Backfill kafka_topics[].id in the connection config for topics where id=""
+	// (pipelines created before topic IDs were introduced used topic name as streams key).
+	// Must run before upsertSourceSchemaVersions so source_id values align with topic.ID.
+	if err := backfillTopicIDs(ctx, tx, p.sourceID); err != nil {
+		return err
+	}
+
 	srcCfg, err := loadSourceConfig(ctx, tx, p.sourceID)
 	if err != nil {
 		return err
@@ -302,6 +309,63 @@ func clearSourceStreams(ctx context.Context, tx pgx.Tx, sourceID string) error {
 		sourceID,
 	)
 	return err
+}
+
+// backfillTopicIDs sets kafka_topics[].id = name for any topic whose id is empty.
+// Pipelines created before topic IDs were introduced stored the topic name as both
+// the streams map key and the topic identifier. The v3 load path looks up
+// schema_versions by topic.ID, so we must ensure IDs are populated.
+func backfillTopicIDs(ctx context.Context, tx pgx.Tx, sourceID string) error {
+	var raw []byte
+	err := tx.QueryRow(ctx, `
+		SELECT c.config
+		FROM connections c
+		JOIN sources s ON s.connection_id = c.id
+		WHERE s.id = $1::uuid
+	`, sourceID).Scan(&raw)
+	if err == pgx.ErrNoRows {
+		return nil // OTLP source or no connection — nothing to do
+	}
+	if err != nil {
+		return fmt.Errorf("load connection config for source %s: %w", sourceID, err)
+	}
+
+	var cfg struct {
+		KafkaTopics []struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+		} `json:"kafka_topics"`
+	}
+	if err := json.Unmarshal(raw, &cfg); err != nil {
+		return fmt.Errorf("unmarshal connection config for source %s: %w", sourceID, err)
+	}
+
+	needsUpdate := false
+	for i, t := range cfg.KafkaTopics {
+		if t.ID == "" {
+			cfg.KafkaTopics[i].ID = t.Name
+			needsUpdate = true
+		}
+	}
+	if !needsUpdate {
+		return nil
+	}
+
+	// Merge updated kafka_topics back into the full config JSONB.
+	topicsJSON, err := json.Marshal(cfg.KafkaTopics)
+	if err != nil {
+		return fmt.Errorf("marshal kafka_topics for source %s: %w", sourceID, err)
+	}
+
+	_, err = tx.Exec(ctx, `
+		UPDATE connections SET config = jsonb_set(config, '{kafka_topics}', $1::jsonb)
+		WHERE id = (SELECT connection_id FROM sources WHERE id = $2::uuid)
+	`, string(topicsJSON), sourceID)
+	if err != nil {
+		return fmt.Errorf("update connection topic IDs for source %s: %w", sourceID, err)
+	}
+
+	return nil
 }
 
 // --- data loaders ---
