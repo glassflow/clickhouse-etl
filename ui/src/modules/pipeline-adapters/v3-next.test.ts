@@ -438,7 +438,7 @@ describe('V3NextPipelineAdapter', () => {
       const internal = adapter.hydrate(kafkaSingleSourceConfig)
       const back = adapter.generate(internal)
 
-      expect(back.version).toBe('v3-next')
+      expect(back.version).toBe('v3') // adapter outputs 'v3' — the backend uses this version string for the new format
       expect(back.sources[0].source_id).toBe('orders')
       expect(back.sources[0].schema_fields).toHaveLength(2)
       expect(back.transforms.find((t: any) => t.type === 'dedup').config.key).toBe('order_id')
