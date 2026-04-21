@@ -247,11 +247,7 @@ func convertSinkMapping(v2 pipelineJSONv2) []sinkMappingEntry {
 	if len(v2.Sink.TableMapping) > 0 {
 		entries := make([]sinkMappingEntry, len(v2.Sink.TableMapping))
 		for i, m := range v2.Sink.TableMapping {
-			entries[i] = sinkMappingEntry{
-				Name:       m.Name,
-				ColumnName: m.ColumnName,
-				ColumnType: m.ColumnType,
-			}
+			entries[i] = sinkMappingEntry(m)
 		}
 		return entries
 	}
