@@ -26,7 +26,7 @@ type SinkTestSuite struct {
 	BaseTestSuite
 
 	streamName string
-	tablename  string
+	tableName  string
 
 	dlqStreamCfg jetstream.StreamConfig
 
@@ -145,15 +145,12 @@ func (s *SinkTestSuite) aClickHouseClientWithConfig(dbName, tableName string) er
 		return fmt.Errorf("get clickhouse port: %w", err)
 	}
 
-	s.tablename = dbName + "." + tableName
-
 	s.clickhouseConn = models.ClickHouseConnectionParamsConfig{
 		Host:     "localhost",
 		Port:     chPort,
 		Username: "default",
 		Password: "default",
 		Database: dbName,
-		Table:    tableName,
 		Secure:   false,
 	}
 
@@ -222,6 +219,8 @@ func (s *SinkTestSuite) theClickHouseTableAlreadyExistsWithSchema(tableName stri
 		return fmt.Errorf("create table: %w", err)
 	}
 
+	s.tableName = tableName
+
 	return nil
 }
 
@@ -239,9 +238,14 @@ func (s *SinkTestSuite) aPipelineConfig(cfg *godog.DocString) error {
 		return fmt.Errorf("insert pipeline: %w", err)
 	}
 
-	// Set sink config from pipeline
+	// Set sink config from pipeline, merging only runtime-only connection
+	// fields from the testcontainer. Database and Table come from the JSON
+	// so scenarios can point at non-existent tables explicitly.
 	s.pipelineConfig = &pc
-	s.pipelineConfig.Sink.ClickHouseConnectionParams = s.clickhouseConn
+	s.pipelineConfig.Sink.ClickHouseConnectionParams.Host = s.clickhouseConn.Host
+	s.pipelineConfig.Sink.ClickHouseConnectionParams.Port = s.clickhouseConn.Port
+	s.pipelineConfig.Sink.ClickHouseConnectionParams.Username = s.clickhouseConn.Username
+	s.pipelineConfig.Sink.ClickHouseConnectionParams.Password = s.clickhouseConn.Password
 
 	// Create config store for retrieving sink configs by schema version
 	s.configStore = configs.NewConfigStore(s.pipelineStore, pc.ID, pc.Sink.SourceID)
@@ -339,6 +343,13 @@ func (s *SinkTestSuite) cleanNatsStream() error {
 		return fmt.Errorf("delete nats stream: %w", err)
 	}
 
+	if s.dlqStreamCfg.Name != "" {
+		err = s.deleteStream(s.dlqStreamCfg.Name)
+		if err != nil {
+			return fmt.Errorf("delete nats DLQ stream: %w", err)
+		}
+	}
+
 	return nil
 }
 
@@ -349,12 +360,10 @@ func (s *SinkTestSuite) cleanClickHouseTable() error {
 	}
 	defer conn.Close()
 
-	tableName := "default.events_test"
-
-	query := "DROP TABLE IF EXISTS " + tableName
+	query := "DROP TABLE IF EXISTS " + s.tableName
 	err = conn.Exec(context.Background(), query)
 	if err != nil {
-		return fmt.Errorf("drop table %s: %w", tableName, err)
+		return fmt.Errorf("drop table %s: %w", s.tableName, err)
 	}
 	return nil
 }
@@ -366,7 +375,7 @@ func (s *SinkTestSuite) fastCleanUp() error {
 		s.chSink.Stop(component.WithNoWait(true))
 	}
 
-	if s.chContainer != nil && s.tablename != "" {
+	if s.chContainer != nil && s.tableName != "" {
 		err := s.cleanClickHouseTable()
 		if err != nil {
 			errs = append(errs, fmt.Errorf("close ClickHouse client: %w", err))

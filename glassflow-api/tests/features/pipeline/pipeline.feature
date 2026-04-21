@@ -890,6 +890,11 @@ Feature: Kafka to CH pipeline
                         "max_batch_size": 1000,
                         "max_delay_time": "1s"
                     },
+                    "clickhouse_connection_params": {
+                        "database": "default",
+                        "secure": false,
+                        "table": "logs_test"
+                    },
                     "config": [
                         {
                             "source_field": "container.image.name",

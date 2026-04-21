@@ -36,6 +36,10 @@ Feature: Clickhouse ETL sink
                 },
                 "sink": {
                     "type": "clickhouse",
+                    "clickhouse_connection_params": {
+                        "database": "default",
+                        "table": "events_test"
+                    },
                     "stream_id": "test_stream",
                     "source_id": "topic-1",
                     "batch": {
@@ -143,6 +147,10 @@ Feature: Clickhouse ETL sink
                 },
                 "sink": {
                     "type": "clickhouse",
+                    "clickhouse_connection_params": {
+                        "database": "default",
+                        "table": "events_test"
+                    },
                     "stream_id": "test_stream",
                     "source_id": "topic-1",
                     "batch": {
@@ -254,6 +262,10 @@ Feature: Clickhouse ETL sink
                 },
                 "sink": {
                     "type": "clickhouse",
+                    "clickhouse_connection_params": {
+                        "database": "default",
+                        "table": "events_test"
+                    },
                     "stream_id": "test_stream",
                     "source_id": "topic-1",
                     "batch": {
@@ -338,6 +350,10 @@ Feature: Clickhouse ETL sink
                 },
                 "sink": {
                     "type": "clickhouse",
+                    "clickhouse_connection_params": {
+                        "database": "default",
+                        "table": "events_test"
+                    },
                     "stream_id": "test_stream",
                     "source_id": "topic-1",
                     "batch": {
@@ -405,6 +421,10 @@ Feature: Clickhouse ETL sink
                 },
                 "sink": {
                     "type": "clickhouse",
+                    "clickhouse_connection_params": {
+                        "database": "default",
+                        "table": "events_test"
+                    },
                     "stream_id": "test_stream",
                     "source_id": "topic-1",
                     "batch": {
@@ -484,6 +504,10 @@ Feature: Clickhouse ETL sink
                 },
                 "sink": {
                     "type": "clickhouse",
+                    "clickhouse_connection_params": {
+                        "database": "default",
+                        "table": "events_test"
+                    },
                     "stream_id": "test_stream",
                     "source_id": "topic-1",
                     "batch": {
@@ -565,6 +589,10 @@ Feature: Clickhouse ETL sink
                 },
                 "sink": {
                     "type": "clickhouse",
+                    "clickhouse_connection_params": {
+                        "database": "default",
+                        "table": "events_test"
+                    },
                     "stream_id": "test_stream",
                     "source_id": "topic-1",
                     "batch": {
@@ -641,6 +669,10 @@ Feature: Clickhouse ETL sink
                 },
                 "sink": {
                     "type": "clickhouse",
+                    "clickhouse_connection_params": {
+                        "database": "default",
+                        "table": "events_test"
+                    },
                     "stream_id": "test_stream",
                     "source_id": "topic-1",
                     "batch": {
@@ -715,6 +747,10 @@ Feature: Clickhouse ETL sink
                 },
                 "sink": {
                     "type": "clickhouse",
+                    "clickhouse_connection_params": {
+                        "database": "default",
+                        "table": "events_test"
+                    },
                     "stream_id": "test_stream",
                     "source_id": "topic-1",
                     "batch": {
@@ -789,6 +825,10 @@ Feature: Clickhouse ETL sink
                 },
                 "sink": {
                     "type": "clickhouse",
+                    "clickhouse_connection_params": {
+                        "database": "default",
+                        "table": "events_test"
+                    },
                     "stream_id": "test_stream",
                     "source_id": "topic-1",
                     "batch": {
@@ -863,6 +903,10 @@ Feature: Clickhouse ETL sink
                 },
                 "sink": {
                     "type": "clickhouse",
+                    "clickhouse_connection_params": {
+                        "database": "default",
+                        "table": "events_test"
+                    },
                     "stream_id": "test_stream",
                     "source_id": "topic-1",
                     "batch": {
@@ -935,6 +979,10 @@ Feature: Clickhouse ETL sink
                 },
                 "sink": {
                     "type": "clickhouse",
+                    "clickhouse_connection_params": {
+                        "database": "default",
+                        "table": "events_test"
+                    },
                     "stream_id": "test_stream",
                     "source_id": "topic-1",
                     "batch": {
@@ -1032,6 +1080,10 @@ Feature: Clickhouse ETL sink
                 },
                 "sink": {
                     "type": "clickhouse",
+                    "clickhouse_connection_params": {
+                        "database": "default",
+                        "table": "events_test"
+                    },
                     "stream_id": "test_stream",
                     "source_id": "topic-1",
                     "batch": {

@@ -373,10 +373,15 @@ func (ch *ClickHouseSink) flushEvents(ctx context.Context, messages []jetstream.
 		"nats_read_duration_ms", natsReadDuration.Milliseconds())
 
 	err := ch.sendBatch(ctx, messages)
-	if err == nil {
-		return nil
+	if err != nil {
+		ch.log.ErrorContext(ctx, "failed to send batch to ClickHouse", "error", err)
+		dlqFlushErr := ch.flushFailedBatch(ctx, messages, err)
+		if dlqFlushErr != nil {
+			return fmt.Errorf("failed to flush bad batch to DLQ after send error: %w", dlqFlushErr)
+		}
 	}
-	return fmt.Errorf("send CH batches: %w", err)
+
+	return nil
 }
 
 // write failed batch to dlq
@@ -443,8 +448,6 @@ func (ch *ClickHouseSink) sendBatch(ctx context.Context, messages []jetstream.Ms
 			flushErr := ch.flushFailedBatch(ctx, schemaData.messages, err)
 			if flushErr != nil {
 				allErr = errors.Join(allErr, fmt.Errorf("schema %s flush bad batch: %w", schemaVersionID, flushErr))
-			} else {
-				allErr = errors.Join(allErr, fmt.Errorf("schema %s send the batch: %w", schemaVersionID, err))
 			}
 			continue
 		}
