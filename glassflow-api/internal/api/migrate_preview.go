@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -19,8 +20,11 @@ func MigratePreviewDocs() huma.Operation {
 	}
 }
 
+// MigratePreviewInput accepts raw JSON so Huma does not validate against the
+// v2 schema — v2 payloads in the wild contain fields we don't model and we
+// don't want unknown-property errors before the handler even runs.
 type MigratePreviewInput struct {
-	Body pipelineJSONv2
+	Body json.RawMessage
 }
 
 type MigratePreviewResponse struct {
@@ -28,7 +32,16 @@ type MigratePreviewResponse struct {
 }
 
 func (h *handler) migratePipelinePreview(_ context.Context, input *MigratePreviewInput) (*MigratePreviewResponse, error) {
-	out, err := convertV2ToV3(input.Body)
+	var v2 pipelineJSONv2
+	if err := json.Unmarshal(input.Body, &v2); err != nil {
+		return nil, &ErrorDetail{
+			Status:  http.StatusUnprocessableEntity,
+			Code:    "unprocessable_entity",
+			Message: "invalid v2 pipeline JSON",
+			Details: map[string]any{"error": err.Error()},
+		}
+	}
+	out, err := convertV2ToV3(v2)
 	if err != nil {
 		return nil, &ErrorDetail{
 			Status:  http.StatusUnprocessableEntity,

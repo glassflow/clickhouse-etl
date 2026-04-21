@@ -173,7 +173,7 @@ type clickhouseSinkV2 struct {
 	Password                    string `json:"password,omitempty"`
 	Secure                      bool   `json:"secure,omitempty"`
 	SkipCertificateVerification bool   `json:"skip_certificate_verification,omitempty"`
-	Table            string                 `json:"table"`
+	Table        string                 `json:"table"`
 	MaxBatchSize     int                    `json:"max_batch_size"`
 	MaxDelayTime     models.JSONDuration    `json:"max_delay_time"`
 	SourceID         string                 `json:"source_id,omitempty"`
