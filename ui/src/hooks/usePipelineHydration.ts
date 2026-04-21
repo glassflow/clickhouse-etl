@@ -168,7 +168,7 @@ export function usePipelineHydration(
 
       try {
         // 1. Detect version and get appropriate adapter
-        const adapter = getPipelineAdapter(pipeline.version || 'v1')
+        const adapter = getPipelineAdapter(pipeline.version || 'v1', pipeline)
 
         // 2. Hydrate raw API config into InternalPipelineConfig
         // Pipeline at this boundary is an API response that might differ in structure

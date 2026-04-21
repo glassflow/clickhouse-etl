@@ -224,7 +224,7 @@ export class V3NextPipelineAdapter implements PipelineAdapter {
     const isOtlp = (cfg.source?.type ?? '').startsWith('otlp.')
 
     const output: any = {
-      version: this.version,
+      version: PipelineVersion.V3, // Backend uses "v3" for this format
       pipeline_id: cfg.pipeline_id,
       name: cfg.name,
     }
