@@ -1,20 +1,16 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
-import { cn } from '@/src/utils/common.client'
+import React, { useEffect } from 'react'
+import { Plus } from 'lucide-react'
 import { Button } from '@/src/components/ui/button'
 import { useRouter } from 'next/navigation'
-import Image from 'next/image'
-import PlusIcon from '../../images/plus.svg'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 
 export function NoPipelines() {
   const analytics = useJourneyAnalytics()
   const router = useRouter()
 
-  // Check if feedback was already submitted
   useEffect(() => {
-    // Track page view when component loads
     analytics.page.pipelines({})
   }, [])
 
@@ -23,21 +19,25 @@ export function NoPipelines() {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)] gap-6">
-      <div className="flex flex-col items-center gap-3 text-center">
-        <h2 className="text-2xl font-semibold text-foreground">There is no pipeline to display</h2>
-        <p className="text-sm text-muted-foreground">Create your first pipeline to get started</p>
+    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)] gap-8">
+      <div className="flex flex-col items-center gap-3 text-center max-w-sm">
+        <h2 className="title-4 text-[var(--color-foreground-neutral)]">No pipelines yet</h2>
+        <p className="body-3 text-[var(--color-foreground-neutral-faded)]">
+          A pipeline connects your data source (Kafka or OpenTelemetry) to ClickHouse — filtering, transforming, and deduplicating events along the way.
+        </p>
+        <a
+          href="https://docs.glassflow.dev/"
+          target="_blank"
+          rel="noopener"
+          className="caption-1 text-[var(--color-foreground-primary)] hover:underline"
+        >
+          Read the docs →
+        </a>
       </div>
 
-      <Button variant="primary" size="custom" className="flex items-center gap-2" onClick={handleCreatePipeline}>
-        <Image
-          src={PlusIcon}
-          alt="New Pipeline"
-          width={16}
-          height={16}
-          className="filter brightness-0" // Makes the icon black to match text
-        />
-        New Pipeline
+      <Button variant="primary" size="default" onClick={handleCreatePipeline}>
+        <Plus className="h-4 w-4" />
+        Create your first pipeline
       </Button>
     </div>
   )

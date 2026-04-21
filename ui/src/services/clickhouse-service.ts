@@ -57,7 +57,7 @@ export class ClickhouseService {
             }
           } else if (testType === 'database' && database) {
             const result = await connection.client.query({
-              query: `SHOW TABLES FROM ${database}`,
+              query: `SHOW TABLES FROM ${quoteClickHouseIdentifier(database)}`,
               format: 'JSONEachRow',
             })
             const rows = (await result.json()) as { name: string }[]
@@ -70,7 +70,7 @@ export class ClickhouseService {
             }
           } else if (testType === 'table' && database && table) {
             const result = await connection.client.query({
-              query: `SELECT * FROM ${database}.${table} LIMIT 1`,
+              query: `SELECT * FROM ${quoteTableRef(database, table)} LIMIT 1`,
               format: 'JSONEachRow',
             })
             const rows = await result.json()
@@ -147,7 +147,7 @@ export class ClickhouseService {
     try {
       const connection = await createClickHouseConnection(config)
       if (connection.type === 'direct' && connection.directFetch) {
-        const data = await connection.directFetch(`SHOW TABLES FROM ${database} FORMAT TabSeparated`)
+        const data = await connection.directFetch(`SHOW TABLES FROM ${quoteClickHouseIdentifier(database)} FORMAT TabSeparated`)
         const tables = parseTabSeparated(data)
         return {
           success: true,
@@ -156,7 +156,7 @@ export class ClickhouseService {
         }
       } else if (connection.type === 'client' && connection.client) {
         const result = await connection.client.query({
-          query: `SHOW TABLES FROM ${database}`,
+          query: `SHOW TABLES FROM ${quoteClickHouseIdentifier(database)}`,
           format: 'JSONEachRow',
         })
         const rows = (await result.json()) as { name: string }[]
@@ -215,7 +215,7 @@ export class ClickhouseService {
         }
       } else if (connection.type === 'client' && connection.client) {
         const result = await connection.client.query({
-          query: `DESCRIBE TABLE ${database}.${table}`,
+          query: `DESCRIBE TABLE ${quoteTableRef(database, table)}`,
           format: 'JSONEachRow',
         })
         const columns = await result.json()

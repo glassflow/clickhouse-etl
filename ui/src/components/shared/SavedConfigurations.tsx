@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { structuredLogger } from '@/src/observability'
 import { Button } from '@/src/components/ui/button'
-import { Plus, Clock, Trash2 } from 'lucide-react'
+import { Plus, Clock, Trash2, Loader2 } from 'lucide-react'
 import { getConfigurations, deleteConfiguration, restoreConfiguration } from '@/src/utils/local-storage-config'
 import { SavedConfiguration } from '@/src/utils/local-storage-config'
 import { useStore } from '@/src/store'
@@ -80,7 +80,7 @@ export function SavedConfigurations() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[200px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+        <Loader2 className="h-8 w-8 animate-spin text-[var(--color-foreground-primary)]" />
       </div>
     )
   }

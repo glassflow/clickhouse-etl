@@ -8,6 +8,7 @@ import { StepKeys } from '@/src/config/constants'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/src/components/ui/card'
 import { validateStep } from '@/src/scheme/validators'
+import { isOtlpSource } from '@/src/config/source-types'
 import { useStore } from '@/src/store'
 import {
   getWizardJourneyInstances,
@@ -20,25 +21,37 @@ import { useStepValidationStatus, useWizardSmartNavigation } from './hooks'
 
 function PipelineWizard() {
   const { coreStore, stepsStore, topicsStore } = useStore()
-  const { topicCount } = coreStore
+  const { topicCount, sourceType } = coreStore
   const router = useRouter()
 
-  // If no topic count is selected, redirect to home
+  // If no topic count is selected, redirect to home (OTLP pipelines skip this check)
   useEffect(() => {
+    if (isOtlpSource(sourceType)) {
+      return // OTLP pipelines don't need topicCount validation
+    }
     if (!topicCount || topicCount < 1 || topicCount > 2) {
       router.push('/')
       return
     }
-  }, [topicCount, router])
+  }, [topicCount, sourceType, router])
 
   // Journey as step instances (unique id per occurrence)
-  const currentJourney = React.useMemo(() => getWizardJourneyInstances(topicCount), [topicCount])
-  const sidebarSteps = React.useMemo(
-    () =>
-      topicCount && topicCount >= 1 && topicCount <= 2 ? getSidebarStepsFromInstances(currentJourney, topicCount) : [],
-    [currentJourney, topicCount],
+  const currentJourney = React.useMemo(
+    () => getWizardJourneyInstances(topicCount, sourceType),
+    [topicCount, sourceType],
   )
-  const stepComponents = getWizardJourneySteps(topicCount)
+  const sidebarSteps = React.useMemo(
+    () => {
+      if (isOtlpSource(sourceType)) {
+        return getSidebarStepsFromInstances(currentJourney, 1)
+      }
+      return topicCount && topicCount >= 1 && topicCount <= 2
+        ? getSidebarStepsFromInstances(currentJourney, topicCount)
+        : []
+    },
+    [currentJourney, topicCount, sourceType],
+  )
+  const stepComponents = getWizardJourneySteps(topicCount, sourceType)
   const {
     completedStepIds,
     activeStepId,
@@ -61,6 +74,13 @@ function PipelineWizard() {
       setActiveStepId(firstStepId)
     }
   }, [activeStepId, currentJourney, firstStepId, setActiveStepId])
+
+  // Scroll to top whenever the active step changes
+  useEffect(() => {
+    if (activeStepId) {
+      window.scrollTo(0, 0)
+    }
+  }, [activeStepId])
 
   // Use extracted hooks for validation status and smart navigation
   const { getValidationStatus } = useStepValidationStatus()
@@ -165,6 +185,10 @@ function PipelineWizard() {
     if (stepKey === StepKeys.KAFKA_TYPE_VERIFICATION) {
       const topicIndex = instance.topicIndex ?? 0
       return <StepComponent onCompleteStep={onNext} index={topicIndex} />
+    }
+
+    if (stepKey === StepKeys.OTLP_SIGNAL_TYPE) {
+      return <StepComponent onCompleteStep={onNext} />
     }
 
     return <StepComponent steps={stepsMeta} onCompleteStep={onNext} validate={validateStepFn} />

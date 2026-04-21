@@ -17,7 +17,10 @@ import { usePipelineActions } from '@/src/hooks/usePipelineActions'
 import { getPipeline, updatePipelineMetadata } from '@/src/api/pipeline-api'
 import { cn, isDemoMode } from '@/src/utils/common.client'
 import { KafkaConnectionSection } from './sections/KafkaConnectionSection'
+import { OtlpSourceSection } from './sections/OtlpSourceSection'
 import { ClickhouseConnectionSection } from './sections/ClickhouseConnectionSection'
+import { ChevronRight } from 'lucide-react'
+import { isOtlpSource } from '@/src/config/source-types'
 import PipelineTagsModal from '@/src/modules/pipelines/components/PipelineTagsModal'
 import { handleApiError } from '@/src/notifications/api-error-handler'
 import { notify } from '@/src/notifications'
@@ -292,20 +295,18 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
     }
   }
 
+  // Determine source type from pipeline API response (available before hydration)
+  const isOtlp = isOtlpSource(pipeline.source?.type || '')
+
   // Section selection highlighting - determine which overview card should be highlighted
-  const isSourceSelected = isSourceStep(activeStep)
+  const isSourceSelected = isOtlp ? activeSection === 'otlp-source' : isSourceStep(activeStep)
   const isSinkSelected = isSinkStep(activeStep)
   const isResourcesSelected = isResourcesStep(activeStep)
 
   return (
     <div className="container mx-auto px-4 sm:px-0">
       {/* Two-column layout: Sidebar extends to top + Content (Header + Main) */}
-      <div
-        className={cn(
-          'flex flex-row gap-6 sm:gap-8 w-full py-4 transition-all duration-750 ease-out',
-          showConfigurationSection ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4',
-        )}
-      >
+      <div className="flex flex-row gap-6 sm:gap-8 w-full py-4 animate-section-enter">
         {/* Left Sidebar - extends from top */}
         <PipelineDetailsSidebar
           pipeline={pipeline}
@@ -329,9 +330,9 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
 
           {/* Main Content Area */}
           <div className="grow">
-            {/* Show Status Overview when 'monitor' is selected and no step is active */}
-            {activeSection === 'monitor' && !activeStep && (
-              <>
+            {/* Show Status Overview when 'monitor' is selected (or 'otlp-source') and no step is active */}
+            {(activeSection === 'monitor' || activeSection === 'otlp-source') && !activeStep && (
+              <div className="animate-section-enter">
                 <PipelineStatusOverviewSection
                   pipeline={pipeline}
                   showStatusOverview={showStatusOverview}
@@ -341,15 +342,26 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
                 {/* Pipeline Configuration Overview - shows the visual representation of the pipeline */}
                 <div
                   className={cn(
-                    'flex flex-row gap-4 items-stretch transition-all duration-750 ease-out mt-6',
+                    'flex flex-row gap-1 items-start transition-all duration-500 ease-out mt-6',
                     showConfigurationSection ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4',
                   )}
                 >
-                  <KafkaConnectionSection
-                    disabled={isEditingDisabled && !demoMode}
-                    selected={isSourceSelected}
-                    onStepClick={handleStepClick}
-                  />
+                  {isOtlp ? (
+                    <OtlpSourceSection
+                      disabled={isEditingDisabled && !demoMode}
+                      selected={isSourceSelected}
+                    />
+                  ) : (
+                    <KafkaConnectionSection
+                      disabled={isEditingDisabled && !demoMode}
+                      selected={isSourceSelected}
+                      onStepClick={handleStepClick}
+                    />
+                  )}
+                  {/* Source → Transformation flow connector */}
+                  <div className="flex-shrink-0 flex items-start pt-[52px] px-0.5">
+                    <ChevronRight className="w-4 h-4 text-[var(--color-foreground-neutral-faded)] opacity-30" />
+                  </div>
                   <TransformationSection
                     pipeline={pipeline}
                     onStepClick={handleStepClick}
@@ -365,18 +377,25 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
                     activeStep={activeStep}
                     resourcesSelected={isResourcesSelected}
                   />
+                  {/* Transformation → Sink flow connector */}
+                  <div className="flex-shrink-0 flex items-start pt-[52px] px-0.5">
+                    <ChevronRight className="w-4 h-4 text-[var(--color-foreground-neutral-faded)] opacity-30" />
+                  </div>
                   <ClickhouseConnectionSection
                     disabled={isEditingDisabled && !demoMode}
                     selected={isSinkSelected}
                     onStepClick={handleStepClick}
                   />
                 </div>
-              </>
+              </div>
             )}
 
-            {/* Render the standalone step renderer when a step is active */}
+            {/* Render the standalone step renderer when a step is active.
+                key={activeStep} forces remount on step change, resetting state
+                and retriggering the card entrance animation. */}
             {activeStep && (
               <StandaloneStepRenderer
+                key={activeStep}
                 stepKey={activeStep}
                 onClose={handleCloseStep}
                 onCloseAfterSave={closeStep}

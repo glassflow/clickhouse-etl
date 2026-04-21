@@ -4,6 +4,7 @@ import { useStore } from '@/src/store'
 import { structuredLogger } from '@/src/observability'
 import { EventDataFormat } from '@/src/config/constants'
 import { kafkaApiClient } from '@/src/services/kafka-api-client'
+import { isOtlpSource } from '@/src/config/source-types'
 
 interface PreloadRequirements {
   needsTopicEvents: boolean
@@ -82,21 +83,33 @@ export function useStepDataPreloader(stepKey: StepKeys, pipeline: any) {
           description: 'Loading event data for join configuration...',
         }
 
-      case StepKeys.CLICKHOUSE_MAPPER:
+      case StepKeys.CLICKHOUSE_MAPPER: {
+        // OTLP pipelines use schema fields from otlpStore — no Kafka topics to preload
+        const sourceType = useStore.getState().coreStore.sourceType
+        if (isOtlpSource(sourceType)) {
+          return { needsTopicEvents: false, topicIndices: [], description: '' }
+        }
         // Schema mapping needs all source topic events
         return {
           needsTopicEvents: true,
           topicIndices: Array.from({ length: currentTopicCount }, (_, i) => i),
           description: 'Loading source data for schema mapping...',
         }
+      }
 
-      case StepKeys.FILTER_CONFIGURATOR:
+      case StepKeys.FILTER_CONFIGURATOR: {
+        // OTLP pipelines use schema fields from otlpStore — no Kafka topics to preload
+        const sourceTypeFilter = useStore.getState().coreStore.sourceType
+        if (isOtlpSource(sourceTypeFilter)) {
+          return { needsTopicEvents: false, topicIndices: [], description: '' }
+        }
         // Filter needs topic event for field schema
         return {
           needsTopicEvents: true,
           topicIndices: [0], // Filter applies to first topic
           description: 'Loading event data for filter configuration...',
         }
+      }
 
       // Steps that don't need event pre-loading
       case StepKeys.KAFKA_CONNECTION:

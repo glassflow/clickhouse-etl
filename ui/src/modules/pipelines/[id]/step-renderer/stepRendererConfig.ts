@@ -101,6 +101,7 @@ export const STEP_RENDERER_CONFIG: Record<StepKeys, StepConfig | undefined> = {
   // Steps used in wizard flow (not in StandaloneStepRenderer)
   [StepKeys.REVIEW_CONFIGURATION]: undefined,
   [StepKeys.DEPLOY_PIPELINE]: undefined,
+  [StepKeys.OTLP_SIGNAL_TYPE]: undefined,
 }
 
 /**
