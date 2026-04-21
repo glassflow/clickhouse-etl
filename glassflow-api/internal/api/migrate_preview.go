@@ -154,11 +154,15 @@ func convertTransforms(v2 pipelineJSONv2) []pipelineTransform {
 		if sourceID == "" {
 			sourceID = t.Topic
 		}
+		dedupKey := t.Deduplication.Key
+		if dedupKey == "" {
+			dedupKey = t.Deduplication.IDField
+		}
 		transforms = append(transforms, pipelineTransform{
 			Type:     transformTypeDedup,
 			SourceID: sourceID,
 			Config: transformParams{
-				Key:        t.Deduplication.Key,
+				Key:        dedupKey,
 				TimeWindow: t.Deduplication.Window,
 			},
 		})

@@ -139,6 +139,7 @@ type topicSchemaFieldV1 struct {
 type dedupConfigV2 struct {
 	Enabled bool                `json:"enabled"`
 	Key     string              `json:"key,omitempty"`
+	IDField string              `json:"id_field,omitempty"` // older v2 format used id_field instead of key
 	Window  models.JSONDuration `json:"time_window,omitempty"`
 }
 
