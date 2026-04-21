@@ -181,13 +181,13 @@ describe('V3NextPipelineAdapter', () => {
 
       expect(result.join.enabled).toBe(true)
       expect(result.join.sources).toHaveLength(2)
-      expect(result.join.sources[0]).toMatchObject({
+      expect(result.join.sources![0]).toMatchObject({
         source_id: 'orders',
         join_key: 'customer_id',
         time_window: '30s',
         orientation: 'left',
       })
-      expect(result.join.sources[1]).toMatchObject({
+      expect(result.join.sources![1]).toMatchObject({
         source_id: 'users',
         join_key: 'user_id',
         time_window: '30s',
