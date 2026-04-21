@@ -4,25 +4,23 @@ import (
 	"context"
 	"time"
 
-	"github.com/nats-io/nats.go"
+	"errors"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 )
 
 type statelessTransformer interface {
-	Transform(inputBytes []byte) ([]byte, error)
+	Transform(ctx context.Context, inputMessage models.Message) (models.Message, error)
 }
 
 type StatelessTransformerProcessor struct {
 	transformer statelessTransformer
-	meter       *observability.Meter
 }
 
-func NewStatelessTransformerProcessor(transformer statelessTransformer, meter *observability.Meter) *StatelessTransformerProcessor {
+func NewStatelessTransformerProcessor(transformer statelessTransformer) *StatelessTransformerProcessor {
 	return &StatelessTransformerProcessor{
 		transformer: transformer,
-		meter:       meter,
 	}
 }
 
@@ -32,10 +30,22 @@ func (stp *StatelessTransformerProcessor) ProcessBatch(
 ) ProcessorBatch {
 	start := time.Now()
 
+	var inBytes int64
+	for _, msg := range batch.Messages {
+		inBytes += int64(len(msg.Payload()))
+	}
+	observability.RecordBytesProcessed(ctx, "transform", "in", inBytes)
+
 	result := ProcessorBatch{}
 	for _, message := range batch.Messages {
-		transformedBytes, err := stp.transformer.Transform(message.Payload())
+		transformedMessage, err := stp.transformer.Transform(ctx, message)
 		if err != nil {
+			if errors.Is(err, models.ErrSignalSent) {
+				return ProcessorBatch{
+					FatalError: models.ErrSignalSent,
+				}
+			}
+
 			result.FailedMessages = append(
 				result.FailedMessages,
 				models.FailedMessage{
@@ -43,31 +53,30 @@ func (stp *StatelessTransformerProcessor) ProcessBatch(
 					Error:   err,
 				},
 			)
+
 			continue
 		}
 
 		result.Messages = append(
 			result.Messages,
-			models.Message{
-				Type: models.MessageTypeNatsMsg,
-				NatsMsgOriginal: &nats.Msg{
-					Data:   transformedBytes,
-					Header: message.Headers(),
-				},
-			},
+			transformedMessage,
 		)
 	}
 
 	duration := time.Since(start).Seconds()
-	if stp.meter != nil {
-		stp.meter.RecordProcessorDuration(ctx, "transform", duration)
-		if len(result.Messages) > 0 {
-			stp.meter.RecordProcessorMessages(ctx, "transform", "success", int64(len(result.Messages)))
-		}
-		if len(result.FailedMessages) > 0 {
-			stp.meter.RecordProcessorMessages(ctx, "transform", "error", int64(len(result.FailedMessages)))
-		}
+	observability.RecordProcessingDuration(ctx, "transform", duration)
+	if len(result.Messages) > 0 {
+		observability.RecordProcessorMessages(ctx, "transform", "success", int64(len(result.Messages)))
 	}
+	if len(result.FailedMessages) > 0 {
+		observability.RecordProcessorMessages(ctx, "transform", "error", int64(len(result.FailedMessages)))
+	}
+
+	var outBytes int64
+	for _, msg := range result.Messages {
+		outBytes += int64(len(msg.Payload()))
+	}
+	observability.RecordBytesProcessed(ctx, "transform", "out", outBytes)
 
 	return result
 }

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"sync/atomic"
 
 	"github.com/avast/retry-go"
 	"github.com/nats-io/nats.go"
@@ -34,25 +35,35 @@ func WithUntilAck() PublishOpt {
 }
 
 type PublisherConfig struct {
-	Subject string `subject:"subject"`
+	Subject           string `subject:"subject"`
+	TotalSubjectCount int
 }
 
 type NatsPublisher struct {
-	js      jetstream.JetStream
-	Subject string
+	js                jetstream.JetStream
+	Subject           string
+	totalSubjectCount int
+	counter           atomic.Int64
 }
 
 func NewNATSPublisher(js jetstream.JetStream, cfg PublisherConfig) *NatsPublisher {
-	pub := &NatsPublisher{
-		js:      js,
-		Subject: cfg.Subject,
+	return &NatsPublisher{
+		js:                js,
+		Subject:           cfg.Subject,
+		totalSubjectCount: cfg.TotalSubjectCount,
 	}
+}
 
-	return pub
+func (p *NatsPublisher) selectSubject() string {
+	if p.totalSubjectCount <= 1 {
+		return p.Subject
+	}
+	n := p.counter.Add(1) - 1
+	return fmt.Sprintf("%s.%d", p.Subject, n%int64(p.totalSubjectCount))
 }
 
 func (p *NatsPublisher) Publish(ctx context.Context, msg []byte) error {
-	_, err := p.js.Publish(ctx, p.Subject, msg)
+	_, err := p.js.Publish(ctx, p.selectSubject(), msg)
 	if err != nil {
 		return fmt.Errorf("failed to publish message: %w", err)
 	}
@@ -78,6 +89,7 @@ func (p *NatsPublisher) PublishNatsMsg(ctx context.Context, msg *nats.Msg, opts 
 		if err != nil {
 			return fmt.Errorf("failed to publish message: %w", err)
 		}
+		return nil
 	}
 
 	ctxMax, cancel := context.WithTimeout(ctx, internal.PublisherSyncMaxRetryWait)
@@ -116,6 +128,10 @@ func (p *NatsPublisher) PublishNatsMsg(ctx context.Context, msg *nats.Msg, opts 
 func (p *NatsPublisher) PublishNatsMsgAsync(msg *nats.Msg, limit int) (jetstream.PubAckFuture, error) {
 	if msg == nil {
 		return nil, fmt.Errorf("message cannot be nil")
+	}
+
+	if p.totalSubjectCount > 1 || msg.Subject == "" {
+		msg.Subject = p.selectSubject()
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), internal.PublisherAsyncMaxRetryWait)

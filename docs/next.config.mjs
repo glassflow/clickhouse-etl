@@ -11,9 +11,6 @@ const withNextra = nextra({
 
 const nextConfig = withNextra({
   reactStrictMode: true,
-  eslint: {
-    ignoreDuringBuilds: true
-  },
   experimental: {
     mdxRs: true
   },

@@ -3,7 +3,8 @@ import { structuredLogger } from '@/src/observability'
 
 // Helper: Map backend config to your store's destination shape
 // schemaFields is optional and used for V2 format where mapping is in schema.fields instead of sink.table_mapping
-function mapBackendClickhouseDestinationToStore(sink: any, schemaFields?: any[]) {
+// When isDeployedPipeline is true, treat as "existing table" only (no create-table fields stored).
+function mapBackendClickhouseDestinationToStore(sink: any, schemaFields?: any[], isDeployedPipeline?: boolean) {
   // Parse max_delay_time from Go duration format (e.g., "1m", "30s", "2h", "55h0m0s")
   let maxDelayTime = 1
   let maxDelayTimeUnit = 'm'
@@ -86,6 +87,8 @@ function mapBackendClickhouseDestinationToStore(sink: any, schemaFields?: any[])
     isNullable: (m.column_type || '').includes('Nullable'),
   }))
 
+  const destinationPath: 'create' | 'existing' =
+    isDeployedPipeline ? 'existing' : (sink.destination_path === 'create' ? 'create' : 'existing')
   return {
     scheme: '', // If you use this, fill from config or leave empty
     database: sink.database || '',
@@ -95,6 +98,10 @@ function mapBackendClickhouseDestinationToStore(sink: any, schemaFields?: any[])
     maxBatchSize: sink.max_batch_size || 1000,
     maxDelayTime,
     maxDelayTimeUnit,
+    destinationPath,
+    tableName: isDeployedPipeline ? undefined : (sink.table_name ?? (destinationPath === 'create' ? sink.table : undefined)),
+    engine: isDeployedPipeline ? undefined : sink.engine,
+    orderBy: isDeployedPipeline ? undefined : sink.order_by,
   }
 }
 
@@ -114,7 +121,7 @@ function mapClickHouseTypeToJsonType(clickhouseType: string): string {
   if (unwrapped.startsWith('float') || unwrapped.startsWith('decimal')) return 'float'
   if (unwrapped.startsWith('date') || unwrapped.startsWith('datetime')) return 'string'
   if (unwrapped.startsWith('array')) return 'array'
-  if (unwrapped.startsWith('map')) return 'bytes'
+  if (unwrapped.startsWith('map')) return 'map'
 
   return 'string'
 }
@@ -143,24 +150,18 @@ export async function hydrateClickhouseDestination(pipelineConfig: any) {
     }))
   }
 
-  // Decode base64 password if it's encoded
-  let decodedPassword = sink.password || ''
-  try {
-    // Check if password is base64 encoded by trying to decode it
-    if (sink.password && typeof sink.password === 'string') {
-      const decoded = atob(sink.password)
-      // If decoding succeeds and doesn't contain control characters, use decoded version
-      if (decoded && !/[\x00-\x1F\x7F]/.test(decoded)) {
-        decodedPassword = decoded
-      }
-    }
-  } catch (error) {
-    // If decoding fails, use original password (might not be base64 encoded)
-    decodedPassword = sink.password || ''
-  }
+  // The backend decrypts the password before serialising the API response, so sink.password
+  // (set by the V3 adapter from connection_params.password) is already plaintext and can be
+  // used directly for ClickHouse metadata calls.
+  const decodedPassword = sink.password ?? sink.connection_params?.password ?? ''
 
-  // 1. Set the basic destination config (pass schema.fields for V2 format support)
-  const destination = mapBackendClickhouseDestinationToStore(sink, pipelineConfig?.schema?.fields)
+  // 1. Set the basic destination config (pass schema.fields for V2 format support).
+  // For deployed pipelines (pipeline_id present), treat as "existing table" only.
+  const destination = mapBackendClickhouseDestinationToStore(
+    sink,
+    pipelineConfig?.schema?.fields,
+    !!pipelineConfig?.pipeline_id,
+  )
   useStore.getState().clickhouseDestinationStore.setClickhouseDestination(destination)
 
   // 2. Fetch databases

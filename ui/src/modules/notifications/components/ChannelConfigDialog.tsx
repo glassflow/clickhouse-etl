@@ -130,6 +130,7 @@ export function ChannelConfigDialog({
               initialConfig={existingChannel?.config as EmailChannelConfig | null}
               onChange={handleConfigChange}
               disabled={isSaving}
+              isEditing={isEditing}
             />
           )}
         </div>

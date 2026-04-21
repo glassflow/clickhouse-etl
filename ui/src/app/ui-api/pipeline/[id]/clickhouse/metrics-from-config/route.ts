@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server'
-import { createClickHouseConnection, closeConnection } from '../../../../clickhouse/clickhouse-utils'
+import {
+  createClickHouseConnection,
+  closeConnection,
+  quoteTableRef,
+} from '../../../../clickhouse/clickhouse-utils'
 import { validatePipelineIdOrError } from '../../../validation'
 import { structuredLogger } from '@/src/observability'
 
@@ -57,38 +61,36 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       )
     }
 
-    // Extract ClickHouse connection parameters
-    // Decode base64 password if it's encoded
-    let decodedPassword = sink.password || ''
-    try {
-      if (sink.password && typeof sink.password === 'string') {
-        const decoded = atob(sink.password)
-        // If decoding succeeds and doesn't contain control characters, use decoded version
-        if (decoded && !/[\x00-\x1F\x7F]/.test(decoded)) {
-          decodedPassword = decoded
-        }
-      }
-    } catch (error) {
-      // If decoding fails, use original password (might not be base64 encoded)
-      decodedPassword = sink.password || ''
-    }
+    // v3-format pipelines from the backend store connection details inside
+    // sink.connection_params rather than as flat fields.  getPipeline() returns
+    // the raw API response (no adapter runs), so we must handle both layouts.
+    const cp = sink.connection_params || {}
+    const host = sink.host ?? cp.host
+    const database = sink.database ?? cp.database
+    const username = sink.username ?? cp.username
+    const password = sink.password ?? cp.password ?? ''
 
+    // Prefer http_port for HTTP connection; backend stores port (native) and http_port separately
+    const httpPort = parseInt(
+      sink.http_port ?? cp.http_port ?? sink.port ?? cp.port ?? 8123,
+      10
+    )
     const clickhouseConfig = {
-      host: sink.host,
-      httpPort: parseInt(sink.http_port || sink.port),
-      nativePort: sink.native_port ? parseInt(sink.native_port) : undefined,
-      username: sink.username,
-      password: decodedPassword,
-      database: sink.database,
-      useSSL: sink.secure || false,
-      skipCertificateVerification: sink.skip_certificate_verification || false,
+      host,
+      httpPort: Number.isNaN(httpPort) ? 8123 : httpPort,
+      nativePort: (sink.native_port ?? cp.native_port) ? parseInt(sink.native_port ?? cp.native_port) : undefined,
+      username,
+      password,
+      database,
+      useSSL: sink.secure ?? cp.secure ?? false,
+      skipCertificateVerification: sink.skip_certificate_verification ?? cp.skip_certificate_verification ?? false,
     }
 
     // Connect to ClickHouse and fetch metrics
     const connection = await createClickHouseConnection(clickhouseConfig)
 
     try {
-      const metrics = await fetchClickHouseTableMetrics(connection, sink.database, sink.table)
+      const metrics = await fetchClickHouseTableMetrics(connection, database, sink.table)
       await closeConnection(connection)
 
       return NextResponse.json({
@@ -124,11 +126,20 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 }
 
+/** Escape single quotes for safe use in ClickHouse string literals */
+function escapeForLiteral(s: string): string {
+  return (s || '').replace(/'/g, "''")
+}
+
 async function fetchClickHouseTableMetrics(
   connection: any,
   database: string,
   table: string,
 ): Promise<ClickHouseTableMetrics> {
+  const tableRef = quoteTableRef(database, table)
+  const dbEsc = escapeForLiteral(database)
+  const tblEsc = escapeForLiteral(table)
+
   const queries = {
     // Basic table info and row count - try multiple approaches
     tableInfo: `
@@ -137,16 +148,16 @@ async function fetchClickHouseTableMetrics(
         sum(data_compressed_bytes) as compressed_size_bytes,
         sum(data_uncompressed_bytes) as table_size_bytes
       FROM system.parts
-      WHERE database = '${database}' AND table = '${table}' AND active = 1
+      WHERE database = '${dbEsc}' AND table = '${tblEsc}' AND active = 1
     `,
 
-    // Fallback: Direct table count if system.parts is empty
+    // Fallback: Direct table count if system.parts is empty (use quoted identifiers)
     tableInfoDirect: `
       SELECT
         count() as row_count,
         0 as compressed_size_bytes,
         0 as table_size_bytes
-      FROM ${database}.${table}
+      FROM ${tableRef}
     `,
 
     // Table size from system.tables (most reliable for actual disk usage)
@@ -156,7 +167,7 @@ async function fetchClickHouseTableMetrics(
         total_bytes as compressed_size_bytes,
         0 as table_size_bytes
       FROM system.tables
-      WHERE database = '${database}' AND name = '${table}'
+      WHERE database = '${dbEsc}' AND name = '${tblEsc}'
     `,
 
     // Insert rate from query_log (last minute) - using written_rows instead of read_rows
@@ -170,7 +181,7 @@ async function fetchClickHouseTableMetrics(
       FROM system.query_log
       WHERE event_date >= today() - 5
         AND event_time >= now() - INTERVAL 5 MINUTE
-        AND query LIKE '%INSERT INTO ${database}.${table}%'
+        AND query LIKE '%${dbEsc}.${tblEsc}%'
         AND query NOT LIKE '%system.%'
         AND type = 'QueryFinish'
         AND written_rows > 0
@@ -184,7 +195,7 @@ async function fetchClickHouseTableMetrics(
       FROM system.query_log
       WHERE event_date >= today() - 1
         AND event_time >= now() - INTERVAL 1 HOUR
-        AND query LIKE '%INSERT INTO ${database}.${table}%'
+        AND query LIKE '%${dbEsc}.${tblEsc}%'
         AND query NOT LIKE '%system.%'
         AND type = 'QueryFinish'
         AND written_rows > 0
@@ -196,7 +207,7 @@ async function fetchClickHouseTableMetrics(
       FROM system.query_log
       WHERE event_date >= today() - 5
         AND event_time >= now() - INTERVAL 5 MINUTE
-        AND query LIKE '%INSERT INTO ${database}.${table}%'
+        AND query LIKE '%${dbEsc}.${tblEsc}%'
         AND type = 'ExceptionWhileProcessing'
     `,
 
@@ -206,7 +217,7 @@ async function fetchClickHouseTableMetrics(
         count() as current_rows,
         sum(data_compressed_bytes) as current_size
       FROM system.parts
-      WHERE database = '${database}' AND table = '${table}' AND active = 1
+      WHERE database = '${dbEsc}' AND table = '${tblEsc}' AND active = 1
     `,
 
     // Merge pressure - using correct column names for system.merges
@@ -215,7 +226,7 @@ async function fetchClickHouseTableMetrics(
         count() as merges_in_progress,
         0 as mutations_in_progress
       FROM system.merges
-      WHERE database = '${database}' AND table = '${table}'
+      WHERE database = '${dbEsc}' AND table = '${tblEsc}'
     `,
 
     // Memory usage - only from currently running queries (real-time)
@@ -223,7 +234,7 @@ async function fetchClickHouseTableMetrics(
       SELECT
         sum(memory_usage) as memory_usage_bytes
       FROM system.processes
-      WHERE query LIKE '%INSERT INTO ${database}.${table}%'
+      WHERE query LIKE '%${dbEsc}.${tblEsc}%'
         AND query NOT LIKE '%system.%'
     `,
 
@@ -234,7 +245,7 @@ async function fetchClickHouseTableMetrics(
       FROM system.query_log
       WHERE event_date >= today() - 1
         AND event_time >= now() - INTERVAL 5 MINUTE
-        AND query LIKE '%INSERT INTO ${database}.${table}%'
+        AND query LIKE '%${dbEsc}.${tblEsc}%'
         AND query NOT LIKE '%system.%'
         AND type = 'QueryFinish'
         AND memory_usage > 0
@@ -244,7 +255,7 @@ async function fetchClickHouseTableMetrics(
     activeQueries: `
       SELECT count() as active_queries
       FROM system.processes
-      WHERE query LIKE '%${database}.${table}%'
+      WHERE query LIKE '%${dbEsc}.${tblEsc}%'
     `,
   }
 
@@ -268,7 +279,19 @@ async function fetchClickHouseTableMetrics(
         results[key] = rows[0] || {}
       }
     } catch (error) {
-      structuredLogger.warn('Failed to execute ClickHouse query', { key, error: error instanceof Error ? error.message : String(error) })
+      const errMsg = error instanceof Error ? error.message : String(error)
+      const isUnknownTable =
+        /Unknown table|table.*does not exist|TABLE_NOT_FOUND/i.test(errMsg)
+      if (isUnknownTable) {
+        structuredLogger.info('Table not yet visible for metrics query (e.g. newly created)', {
+          key,
+          database,
+          table,
+          hint: 'Table may not be replicated yet or metrics run before creation propagated.',
+        })
+      } else {
+        structuredLogger.warn('Failed to execute ClickHouse query', { key, error: errMsg })
+      }
       results[key] = {}
     }
   }

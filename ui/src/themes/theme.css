@@ -1,3 +1,4 @@
+:root,
 [data-theme='dark'] {
   /* ================== Color System ================== */
   /* Color tokens mapping semantic meanings to base colors */
@@ -382,6 +383,7 @@
   --badge-error-text: var(--color-foreground-critical);
   --badge-warning-bg: var(--color-background-warning-faded);
   --badge-warning-text: var(--color-foreground-warning);
+  --badge-notification-bg: var(--color-red-500); /* vivid dot for unread counts */
 
   /* ================== Text Tokens ================== */
   --text-primary: var(--color-foreground-neutral);

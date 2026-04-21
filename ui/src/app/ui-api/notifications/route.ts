@@ -69,6 +69,8 @@ export async function GET(request: NextRequest) {
 
   try {
     const { searchParams } = new URL(request.url)
+    // read_status is not supported by the notifier — strip it before forwarding
+    searchParams.delete('read_status')
     const queryString = searchParams.toString()
     const url = `${runtimeConfig.notifierUrl}/api/notifications${queryString ? `?${queryString}` : ''}`
 

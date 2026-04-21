@@ -73,9 +73,9 @@ export function isResourcesStep(step: StepKeys | null): boolean {
  */
 export const ANIMATION_DELAYS = {
   /** Delay before showing the status overview section */
-  STATUS_OVERVIEW: 500,
+  STATUS_OVERVIEW: 150,
   /** Delay before showing the configuration section */
-  CONFIGURATION: 1000,
+  CONFIGURATION: 300,
 } as const
 
 /**

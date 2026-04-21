@@ -12,6 +12,7 @@ interface EmailConfigFormProps {
   initialConfig?: EmailChannelConfig | null
   onChange: (config: EmailChannelConfig, isValid: boolean) => void
   disabled?: boolean
+  isEditing?: boolean
 }
 
 interface FormState {
@@ -39,12 +40,16 @@ interface FormErrors {
  * Form for configuring Email/SMTP settings.
  * Validates required fields and email formats.
  */
-export function EmailConfigForm({ initialConfig, onChange, disabled }: EmailConfigFormProps) {
+export function EmailConfigForm({ initialConfig, onChange, disabled, isEditing }: EmailConfigFormProps) {
+  // smtp_password is intentionally never pre-filled from initialConfig.
+  // The notifier API masks secrets in GET responses. Pre-filling a masked value
+  // and sending it back would break SMTP auth. The user must always enter the
+  // password explicitly; on edit it is optional (blank = keep existing).
   const [formState, setFormState] = useState<FormState>({
     smtp_host: initialConfig?.smtp_host || '',
     smtp_port: initialConfig?.smtp_port?.toString() || '587',
     smtp_username: initialConfig?.smtp_username || '',
-    smtp_password: initialConfig?.smtp_password || '',
+    smtp_password: '',
     smtp_use_tls: initialConfig?.smtp_use_tls ?? true,
     from_address: initialConfig?.from_address || '',
     from_name: initialConfig?.from_name || '',
@@ -91,7 +96,9 @@ export function EmailConfigForm({ initialConfig, onChange, disabled }: EmailConf
       newErrors.smtp_username = 'SMTP username is required'
     }
 
-    if (!formState.smtp_password.trim()) {
+    // Password is required when creating a new channel; optional when editing
+    // (blank means "keep existing password" — the notifier preserves the stored value)
+    if (!isEditing && !formState.smtp_password.trim()) {
       newErrors.smtp_password = 'SMTP password is required'
     }
 
@@ -107,9 +114,11 @@ export function EmailConfigForm({ initialConfig, onChange, disabled }: EmailConf
       smtp_host: formState.smtp_host.trim(),
       smtp_port: parseInt(formState.smtp_port, 10) || 587,
       smtp_username: formState.smtp_username.trim(),
-      smtp_password: formState.smtp_password,
       smtp_use_tls: formState.smtp_use_tls,
       to_addresses: formState.to_addresses.trim(),
+      // Only include password in payload when the user has typed one.
+      // On edit with blank password the notifier keeps its stored credential.
+      ...(formState.smtp_password.trim() && { smtp_password: formState.smtp_password }),
       ...(formState.from_address.trim() && { from_address: formState.from_address.trim() }),
       ...(formState.from_name.trim() && { from_name: formState.from_name.trim() }),
     }
@@ -121,14 +130,15 @@ export function EmailConfigForm({ initialConfig, onChange, disabled }: EmailConf
     validate()
   }, [validate])
 
-  // Reset form when initialConfig changes
+  // Reset form when initialConfig changes (e.g. dialog re-opens for a different channel).
+  // smtp_password is intentionally left blank — never pre-filled from the API response.
   useEffect(() => {
     if (initialConfig) {
       setFormState({
         smtp_host: initialConfig.smtp_host || '',
         smtp_port: initialConfig.smtp_port?.toString() || '587',
         smtp_username: initialConfig.smtp_username || '',
-        smtp_password: initialConfig.smtp_password || '',
+        smtp_password: '',
         smtp_use_tls: initialConfig.smtp_use_tls ?? true,
         from_address: initialConfig.from_address || '',
         from_name: initialConfig.from_name || '',
@@ -230,7 +240,12 @@ export function EmailConfigForm({ initialConfig, onChange, disabled }: EmailConf
           {/* SMTP Password */}
           <div className="grid gap-2">
             <Label htmlFor="smtp_password" className="text-sm text-[var(--color-foreground-neutral-faded)]">
-              SMTP Password <span className="text-[var(--color-foreground-critical)]">*</span>
+              SMTP Password{' '}
+              {isEditing ? (
+                <span className="text-[var(--color-foreground-neutral-faded)]">(leave blank to keep existing)</span>
+              ) : (
+                <span className="text-[var(--color-foreground-critical)]">*</span>
+              )}
             </Label>
             <div className="relative">
               <Input
@@ -239,7 +254,7 @@ export function EmailConfigForm({ initialConfig, onChange, disabled }: EmailConf
                 value={formState.smtp_password}
                 onChange={(e) => handleChange('smtp_password', e.target.value)}
                 onBlur={() => handleBlur('smtp_password')}
-                placeholder="Enter SMTP password or app-specific password"
+                placeholder={isEditing ? 'Enter new password to change' : 'Enter SMTP password or app-specific password'}
                 disabled={disabled}
                 error={!!showError('smtp_password')}
                 className="pr-10"

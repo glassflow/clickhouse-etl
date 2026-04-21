@@ -32,12 +32,14 @@ import type { Notification, NotificationSeverity } from '@/src/services/notifica
  */
 const getSeverityBadge = (severity: NotificationSeverity) => {
   switch (severity) {
-    case 'critical':
-      return { variant: 'error' as const, icon: XCircle, label: 'Critical' }
+    case 'fatal':
+      return { variant: 'error' as const, icon: XCircle, label: 'Fatal' }
     case 'error':
       return { variant: 'error' as const, icon: AlertCircle, label: 'Error' }
-    case 'warning':
+    case 'warn':
       return { variant: 'warning' as const, icon: AlertTriangle, label: 'Warning' }
+    case 'debug':
+      return { variant: 'secondary' as const, icon: Info, label: 'Debug' }
     case 'info':
     default:
       return { variant: 'default' as const, icon: Info, label: 'Info' }

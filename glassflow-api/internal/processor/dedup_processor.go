@@ -17,13 +17,11 @@ type dedup interface {
 
 type DedupProcessor struct {
 	dedup dedup
-	meter *observability.Meter
 }
 
-func NewDedupProcessor(dedup dedup, meter *observability.Meter) *DedupProcessor {
+func NewDedupProcessor(dedup dedup) *DedupProcessor {
 	return &DedupProcessor{
 		dedup: dedup,
-		meter: meter,
 	}
 }
 
@@ -37,6 +35,13 @@ func (dp *DedupProcessor) ProcessBatch(
 ) ProcessorBatch {
 	start := time.Now()
 
+	var inBytes int64
+	for _, msg := range batch.Messages {
+		inBytes += int64(len(msg.Payload()))
+	}
+
+	observability.RecordBytesProcessed(ctx, "dedup", "in", inBytes)
+
 	deduplicatedMessages, err := dp.dedup.FilterDuplicates(ctx, batch.Messages)
 	if err != nil {
 		return ProcessorBatch{
@@ -45,16 +50,20 @@ func (dp *DedupProcessor) ProcessBatch(
 	}
 
 	lookupDuration := time.Since(start).Seconds()
-	if dp.meter != nil {
-		dp.meter.RecordProcessorDuration(ctx, "dedup_filter", lookupDuration)
-		duplicatesFound := int64(len(batch.Messages) - len(deduplicatedMessages))
-		if duplicatesFound > 0 {
-			dp.meter.RecordProcessorMessages(ctx, "dedup", "duplicate", duplicatesFound)
-		}
-		if len(deduplicatedMessages) > 0 {
-			dp.meter.RecordProcessorMessages(ctx, "dedup", "success", int64(len(deduplicatedMessages)))
-		}
+	observability.RecordProcessingDuration(ctx, "dedup_filter", lookupDuration)
+	duplicatesFound := int64(len(batch.Messages) - len(deduplicatedMessages))
+	if duplicatesFound > 0 {
+		observability.RecordProcessorMessages(ctx, "dedup", "duplicate", duplicatesFound)
 	}
+	if len(deduplicatedMessages) > 0 {
+		observability.RecordProcessorMessages(ctx, "dedup", "success", int64(len(deduplicatedMessages)))
+	}
+
+	var outBytes int64
+	for _, msg := range deduplicatedMessages {
+		outBytes += int64(len(msg.Payload()))
+	}
+	observability.RecordBytesProcessed(ctx, "dedup", "out", outBytes)
 
 	commitFn := func() error {
 		commitStart := time.Now()
@@ -64,9 +73,7 @@ func (dp *DedupProcessor) ProcessBatch(
 		}
 
 		commitDuration := time.Since(commitStart).Seconds()
-		if dp.meter != nil {
-			dp.meter.RecordProcessorDuration(ctx, "dedup_write", commitDuration)
-		}
+		observability.RecordProcessingDuration(ctx, "dedup_write", commitDuration)
 
 		return nil
 	}

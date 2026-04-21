@@ -339,8 +339,10 @@ func StartPostgresContainer(ctx context.Context) (*PostgresContainer, error) {
 			"POSTGRES_USER":     "testuser",
 			"POSTGRES_PASSWORD": "testpass",
 		},
-		WaitingFor: wait.ForListeningPort(PostgresPort).
-			WithStartupTimeout(30 * time.Second),
+		WaitingFor: wait.ForAll(
+			wait.ForListeningPort(PostgresPort).WithStartupTimeout(30*time.Second),
+			wait.ForLog("database system is ready to accept connections").WithStartupTimeout(30*time.Second),
+		),
 	}
 
 	container, err := testcontainers.GenericContainer(ctx,

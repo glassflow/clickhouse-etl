@@ -54,7 +54,7 @@ export const NotificationBadge: React.FC = () => {
             'absolute flex items-center justify-center',
             'min-w-[18px] h-[18px] px-1',
             'text-[10px] font-semibold text-white',
-            'bg-red-500 rounded-full',
+            'bg-[var(--badge-notification-bg)] rounded-full',
             'top-0.5 right-0.5 lg:top-1 lg:right-1',
             'animate-in fade-in zoom-in-50 duration-200',
           )}

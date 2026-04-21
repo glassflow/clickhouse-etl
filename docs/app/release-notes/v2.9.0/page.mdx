@@ -11,9 +11,9 @@ The 2.9.x series introduces **Web UI full support for stateless transformations*
 
 ## Version History
 
-- **v2.9.2** — Patch release with bug fixes and default behavior updates
-- **v2.9.1** — Patch release with filter and deduplication component fixes
-- **v2.9.0** — Pipeline list and wizard revamp, transformations and filter improvements
+- **v2.9.2** — Patch release with bug fixes and default behavior updates.
+- **v2.9.1** — Patch release with filter and deduplication component fixes.
+- **v2.9.0** — Pipeline list and wizard revamp, transformations and filter improvements.
 
 ## What's New
 
@@ -21,86 +21,86 @@ The 2.9.x series introduces **Web UI full support for stateless transformations*
 
 Stateless transformations and filters are now **enabled on the web UI**:
 
-- **Remove feature flag for filters and transformations** — Filters and transformations are now enabled by default on the web UI
-- **Transformations** — Stateless transformations are now fully supported in the web UI
+- **Remove feature flag for filters and transformations** — Filters and transformations are now enabled by default on the web UI.
+- **Transformations** — Stateless transformations are now fully supported in the web UI.
 
 ### 📋 Revamped Pipelines List
 
 The pipelines list has been **redesigned** for a clearer overview and easier actions:
 
-- **Cleaner layout** — Updated table and card presentation with consistent styling
-- **Copy pipeline ID** — Quick copy of pipeline ID from the list
-- **Status filtering** — Filter pipelines by status
-- **Streamlined actions** — Simplified action buttons and navigation
+- **Cleaner layout** — Updated table and card presentation with consistent styling.
+- **Copy pipeline ID** — Quick copy of pipeline ID from the list.
+- **Status filtering** — Filter pipelines by status.
+- **Streamlined actions** — Simplified action buttons and navigation.
 
 ### 🔧 Transformation Configurator Improvements
 
 The transformation configurator has been **reworked** for clarity and flexibility:
 
-- **Concatenation builder** — New builder for string concatenation expressions
-- **Waterfall support** — Support for waterfall-style functions and a more capable complex expression builder
-- **Raw expression mode** — Manual input and raw expression mode for advanced expressions
-- **Expression mode fixes** — Correct handling of various functions and fractional values in expression mode
-- **Error feedback** — Expandable panel to inspect transformation expression errors
-- **Event editing** — Event modifications at the type verification step; modified schema can be used as the source of truth for downstream steps, including when a schema is already present
+- **Concatenation builder** — New builder for string concatenation expressions.
+- **Waterfall support** — Support for waterfall-style functions and a more capable complex expression builder.
+- **Raw expression mode** — Manual input and raw expression mode for advanced expressions.
+- **Expression mode fixes** — Correct handling of various functions and fractional values in expression mode.
+- **Error feedback** — Expandable panel to inspect transformation expression errors.
+- **Event editing** — Event modifications at the type verification step; modified schema can be used as the source of truth for downstream steps, including when a schema is already present.
 
 ### 🔍 Filter Builder Revamp
 
 The filter builder has been **improved** for reliability and flexibility:
 
-- **Condition chaining** — Filter conditions chain correctly
-- **Manual input** — Option to enter filter expressions manually
+- **Condition chaining** — Filter conditions chain correctly.
+- **Manual input** — Option to enter filter expressions manually.
 
 ### 🗺️ Pipeline Configuration Upload
 
 You can **upload a pipeline configuration** instead of building it step-by-step:
 
-- **Upload option** — New option in the wizard to upload a pipeline JSON configuration file
-- **Hydration** — Uploaded config is hydrated so the wizard reflects the full configuration
-- **Validation** — Validation and error handling for uploaded configs
+- **Upload option** — New option in the wizard to upload a pipeline JSON configuration file.
+- **Hydration** — Uploaded config is hydrated so the wizard reflects the full configuration.
+- **Validation** — Validation and error handling for uploaded configs.
 
 ### 🗂️ Auto Mapping and Schema Handling
 
-- **Auto mapping on demand** — Auto mapping can be triggered at the mapping step when needed
-- **Type verification** — Event editing at the type verification step; modified schema is used as the source of truth for downstream steps
+- **Auto mapping on demand** — Auto mapping can be triggered at the mapping step when needed.
+- **Type verification** — Event editing at the type verification step; modified schema is used as the source of truth for downstream steps.
 
 ### 🆕 Patch Releases: v2.9.1 and v2.9.2
 
 **v2.9.1**
 
-- **Filter-only pipelines** — Kubernetes orchestrator now enables the deduplication component when only filtering is enabled (no deduplication), so filter-only pipelines run correctly
+- **Filter-only pipelines** — Kubernetes orchestrator now enables the deduplication component when only filtering is enabled (no deduplication), so filter-only pipelines run correctly.
 
 **v2.9.2**
 
-- **Sink read path** — Fixed sink reading from the transform component when only filtering is enabled
-- **Pipeline config generation** — Fixed pipeline config generation to correctly include transformation expressions
-- **Event fetching** — Improved error display when reaching end-of-topic while fetching events
-- **Config upload** — Fixed pipeline config upload failing silently after hydration
-- **Field mapper** — Fixed search field alignment in the field mapper
-- **Validation** — Improved validation for topic selection and deduplication, with clearer error messages and correct submit button state when valid
-- **UI** — Styling changes to consolidate look and feel; new searchable select component (reused in transformation field select); fixed transformation select positioning; fixed help menu in light mode; ClickHouse mapper draft state preserved when revisiting the step; smart navigation with resume step and skipped event fetching when revisiting the Kafka selection form
+- **Sink read path** — Fixed sink reading from the transform component when only filtering is enabled.
+- **Pipeline config generation** — Fixed pipeline config generation to correctly include transformation expressions.
+- **Event fetching** — Improved error display when reaching end-of-topic while fetching events.
+- **Config upload** — Fixed pipeline config upload failing silently after hydration.
+- **Field mapper** — Fixed search field alignment in the field mapper.
+- **Validation** — Improved validation for topic selection and deduplication, with clearer error messages and correct submit button state when valid.
+- **UI** — Styling changes to consolidate look and feel; new searchable select component (reused in transformation field select); fixed transformation select positioning; fixed help menu in light mode; ClickHouse mapper draft state preserved when revisiting the step; smart navigation with resume step and skipped event fetching when revisiting the Kafka selection form.
 
 ## Migration Notes
 
 ### For Existing Users
 
-- **No breaking changes** — This release is fully backward compatible
-- **Filter-only pipelines** — Pipelines with only a filter (no deduplication) now correctly start the deduplication component; no config change needed
+- **No breaking changes** — This release is fully backward compatible.
+- **Filter-only pipelines** — Pipelines with only a filter (no deduplication) now correctly start the deduplication component; no config change needed.
 
 ### Configuration Updates
 
-- **Filters** — Default for `NEXT_PUBLIC_FILTERS_ENABLED` is now `true` in the UI
-- **Transformations** — Default for `NEXT_PUBLIC_TRANSFORMATIONS_ENABLED` is now `true` in the UI
-- **Helm and build** — No new required Helm values; build and image options updated for multi-arch and standalone output
+- **Filters** — Default for `NEXT_PUBLIC_FILTERS_ENABLED` is now `true` in the UI.
+- **Transformations** — Default for `NEXT_PUBLIC_TRANSFORMATIONS_ENABLED` is now `true` in the UI.
+- **Helm and build** — No new required Helm values; build and image options updated for multi-arch and standalone output.
 
 ## Try It Out
 
 To try the new features in v2.9.x:
 
-1. **Deploy the latest version** using our [Kubernetes Helm charts](/installation/kubernetes)
-2. **Create a pipeline with transformations** — Use the transformation configurator in the wizard (enabled by default)
-3. **Use the revamped pipelines list** — Filter by status, copy pipeline IDs, and use the new actions
-4. **Upload a config** — Upload an existing pipeline JSON from the creation flow
+1. **Deploy the latest version** using our [Kubernetes Helm charts](/installation/kubernetes).
+2. **Create a pipeline with transformations** — Use the transformation configurator in the wizard (enabled by default).
+3. **Use the revamped pipelines list** — Filter by status, copy pipeline IDs, and use the new actions.
+4. **Upload a config** — Upload an existing pipeline JSON from the creation flow.
 
 ## Full Changelog
 

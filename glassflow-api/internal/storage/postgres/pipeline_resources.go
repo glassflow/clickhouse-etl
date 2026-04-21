@@ -69,7 +69,7 @@ func (s *PostgresStorage) UpsertPipelineResources(
 		ON CONFLICT (pipeline_id) DO UPDATE
 			SET resources = $2, updated_at = NOW()
 		RETURNING id, pipeline_id, resources, created_at, updated_at
-	`, pipelineID, resourcesJSON).Scan(
+	`, pipelineID, string(resourcesJSON)).Scan(
 		&row.ID,
 		&row.PipelineID,
 		&returnedJSON,

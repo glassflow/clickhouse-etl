@@ -123,19 +123,35 @@ export const createNotificationsSlice: StateCreator<NotificationsSlice> = (set, 
         },
       }))
 
-      const result = await notificationsApi.fetchNotifications({
-        ...filters,
-        limit: pageSize,
-        offset: (currentPage - 1) * pageSize,
-      })
+      // Run the paginated page fetch and a global unread count fetch in parallel.
+      // The notifier backend does not support read_status filtering, so unread count
+      // is computed client-side from a broad fetch (limit=1000).
+      const [result, unreadResult] = await Promise.all([
+        notificationsApi.fetchNotifications({
+          ...filters,
+          limit: pageSize,
+          offset: (currentPage - 1) * pageSize,
+        }),
+        notificationsApi.fetchNotifications({ limit: 1000, offset: 0 }),
+      ])
 
       if (result.success && result.data) {
-        const unreadCount = result.data.notifications.filter((n) => !n.read).length
+        // Apply client-side read_status filter (backend doesn't support it yet)
+        const readStatus = filters.read_status
+        const displayed = readStatus
+          ? result.data.notifications.filter((n) =>
+              readStatus === 'unread' ? !n.read : n.read,
+            )
+          : result.data.notifications
+
+        const unreadCount = unreadResult.success && unreadResult.data
+          ? unreadResult.data.notifications.filter((n) => !n.read).length
+          : displayed.filter((n) => !n.read).length
 
         set((state) => ({
           notificationsStore: {
             ...state.notificationsStore,
-            notifications: result.data!.notifications,
+            notifications: displayed,
             totalCount: result.data!.pagination.total,
             unreadCount,
             isLoading: false,
@@ -157,19 +173,31 @@ export const createNotificationsSlice: StateCreator<NotificationsSlice> = (set, 
       // Same as fetchNotifications but doesn't show loading state
       const { filters, currentPage, pageSize } = get().notificationsStore
 
-      const result = await notificationsApi.fetchNotifications({
-        ...filters,
-        limit: pageSize,
-        offset: (currentPage - 1) * pageSize,
-      })
+      const [result, unreadResult] = await Promise.all([
+        notificationsApi.fetchNotifications({
+          ...filters,
+          limit: pageSize,
+          offset: (currentPage - 1) * pageSize,
+        }),
+        notificationsApi.fetchNotifications({ limit: 1000, offset: 0 }),
+      ])
 
       if (result.success && result.data) {
-        const unreadCount = result.data.notifications.filter((n) => !n.read).length
+        const readStatus = filters.read_status
+        const displayed = readStatus
+          ? result.data.notifications.filter((n) =>
+              readStatus === 'unread' ? !n.read : n.read,
+            )
+          : result.data.notifications
+
+        const unreadCount = unreadResult.success && unreadResult.data
+          ? unreadResult.data.notifications.filter((n) => !n.read).length
+          : displayed.filter((n) => !n.read).length
 
         set((state) => ({
           notificationsStore: {
             ...state.notificationsStore,
-            notifications: result.data!.notifications,
+            notifications: displayed,
             totalCount: result.data!.pagination.total,
             unreadCount,
             lastFetchedAt: Date.now(),

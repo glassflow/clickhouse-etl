@@ -57,7 +57,7 @@ function extractRootVars(cssContent) {
 function resolveValue(valueStr, vars) {
   return valueStr.replace(/var\(\s*--([a-zA-Z0-9-]+)\s*\)/g, (_, name) => {
     const v = vars.get(name);
-    return v !== undefined ? v : valueStr;
+    return v !== undefined ? v : `var(--${name})`;
   });
 }
 

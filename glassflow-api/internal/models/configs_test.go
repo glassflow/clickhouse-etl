@@ -34,6 +34,7 @@ func TestNewPipelineConfig(t *testing.T) {
 	id := "test-pipeline"
 	name := "Test Pipeline"
 	mapper := MapperConfig{Type: internal.SchemaMapperJSONToCHType}
+	sourceType := SourceType(internal.KafkaIngestorType)
 	ingestor := IngestorComponentConfig{Type: internal.KafkaIngestorType}
 	join := JoinComponentConfig{Type: internal.TemporalJoinType}
 	sink := SinkComponentConfig{Type: internal.ClickHouseSinkType}
@@ -45,6 +46,8 @@ func TestNewPipelineConfig(t *testing.T) {
 		id,
 		name,
 		mapper,
+		sourceType,
+		OTLPSourceConfig{},
 		ingestor,
 		join,
 		sink,
@@ -52,6 +55,7 @@ func TestNewPipelineConfig(t *testing.T) {
 		statelessTransformation,
 		metadata,
 		PipelineResources{},
+		nil,
 	)
 
 	if config.ID != id {
@@ -147,17 +151,17 @@ func TestGetPipelineStreamName(t *testing.T) {
 		{
 			name:     "simple topic",
 			topic:    "my-topic",
-			expected: "gf-", // Will be followed by hash and topic
+			expected: "gfm-", // Will be followed by hash and topic
 		},
 		{
 			name:     "topic with dots",
 			topic:    "my.topic.name",
-			expected: "gf-", // Will be followed by hash and sanitized topic
+			expected: "gfm-", // Will be followed by hash and sanitized topic
 		},
 		{
 			name:     "very long topic name",
 			topic:    strings.Repeat("a", 50),
-			expected: "gf-", // Should be truncated
+			expected: "gfm-", // Should be truncated
 		},
 	}
 
@@ -198,17 +202,17 @@ func TestGetIngestorStreamName(t *testing.T) {
 		{
 			name:     "simple topic",
 			topic:    "my-topic",
-			expected: "gf-", // Will be followed by hash and topic
+			expected: "gfm-", // Will be followed by hash and topic
 		},
 		{
 			name:     "topic with dots",
 			topic:    "my.topic.name",
-			expected: "gf-", // Will be followed by hash and sanitized topic
+			expected: "gfm-", // Will be followed by hash and sanitized topic
 		},
 		{
 			name:     "very long topic name",
 			topic:    strings.Repeat("a", 50),
-			expected: "gf-", // Should be truncated
+			expected: "gfm-", // Should be truncated
 		},
 	}
 

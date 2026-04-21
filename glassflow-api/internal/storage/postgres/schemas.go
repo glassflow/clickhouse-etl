@@ -66,7 +66,7 @@ func (s *PostgresStorage) insertSchema(ctx context.Context, tx pgx.Tx, pipelineI
 	_, err := tx.Exec(ctx, `
 		INSERT INTO schemas (pipeline_id, version, active, schema_data, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, NOW(), NOW())
-	`, pipelineID, version, status, schemaJSON)
+	`, pipelineID, version, status, string(schemaJSON))
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to insert schema",
 			slog.String("pipeline_id", pipelineID),
@@ -86,7 +86,7 @@ func (s *PostgresStorage) updateSchema(ctx context.Context, tx pgx.Tx, pipelineI
 		UPDATE schemas
 		SET schema_data = $1, updated_at = NOW()
 		WHERE pipeline_id = $2 AND version = 'v0'
-	`, schemaJSON, pipelineID)
+	`, string(schemaJSON), pipelineID)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to update schema",
 			slog.String("pipeline_id", pipelineID),

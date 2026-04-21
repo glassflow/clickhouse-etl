@@ -4,7 +4,9 @@ import Image from 'next/image'
 import { structuredLogger } from '@/src/observability'
 import Join from '../../images/join.svg'
 import IngestOnly from '../../images/ingest-only.svg'
-import { ArrowUpTrayIcon } from '@heroicons/react/24/outline'
+import KafkaIcon from '../../images/kafka.svg'
+import { ArrowUpTrayIcon, SignalIcon, DocumentTextIcon, MapIcon, ChartBarIcon } from '@heroicons/react/24/outline'
+import { SourceType } from '@/src/config/source-types'
 import { useStore } from '@/src/store'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { cn } from '@/src/utils/common.client'
@@ -46,7 +48,7 @@ function OrSeparator() {
 // Client Component for handling searchParams
 export default function HomePageClient() {
   const store = useStore()
-  const { topicsStore, kafkaStore, joinStore, coreStore, resetForNewPipeline, resetAllPipelineState } = store
+  const { topicsStore, kafkaStore, joinStore, coreStore, otlpStore, resetForNewPipeline, resetAllPipelineState } = store
   const analytics = useJourneyAnalytics()
   const searchParams = useSearchParams()
   const showWarning = searchParams?.get('showWarning') === 'true'
@@ -60,7 +62,9 @@ export default function HomePageClient() {
   const [isNavigating, setIsNavigating] = useState(false)
   const [activePipelinesCount, setActivePipelinesCount] = useState(0)
   const [showPipelineLimitModal, setShowPipelineLimitModal] = useState(false)
-  const { setPipelineName, setPipelineId, topicCount, enterCreateMode, hydrateFromConfig } = coreStore
+  const [selectedSource, setSelectedSource] = useState<'kafka' | 'otlp' | null>(null)
+  const [selectedOtlpSignal, setSelectedOtlpSignal] = useState<SourceType | null>(null)
+  const { setPipelineName, setPipelineId, topicCount, enterCreateMode, hydrateFromConfig, setSourceType } = coreStore
   const { isDocker, isLocal } = usePlatformDetection()
 
   // by default enter create mode as soon as the component loads
@@ -114,6 +118,17 @@ export default function HomePageClient() {
     setIsNavigating(false) // Reset navigation state when opening modal
   }
 
+  const handleOtlpSignalClick = (signal: SourceType) => {
+    if ((isDocker || isLocal) && activePipelinesCount > 0) {
+      setShowPipelineLimitModal(true)
+      return
+    }
+    setSelectedOtlpSignal(signal)
+    setPendingTopicCount(1)
+    setIsCreatePipelineModalVisible(true)
+    setIsNavigating(false)
+  }
+
   const handleWarningModalComplete = (result: string) => {
     setShowWarningModal(false)
 
@@ -146,6 +161,17 @@ export default function HomePageClient() {
       // Use provided pipeline ID or generate one
       const finalPipelineId = pipelineId || generatePipelineId(configName)
       setPipelineId(finalPipelineId)
+
+      // Set source type based on selection
+      if (selectedSource === 'otlp' && selectedOtlpSignal) {
+        setSourceType(selectedOtlpSignal)
+        // Initialize the OTLP store with signal type (populates schemaFields) and
+        // source ID. These must be set AFTER resetForNewPipeline which clears them.
+        otlpStore.setSignalType(selectedOtlpSignal)
+        otlpStore.setSourceId(`${finalPipelineId}-source`)
+      } else {
+        setSourceType(SourceType.KAFKA)
+      }
 
       // Use setTimeout to ensure state updates are processed before navigation
       setTimeout(() => {
@@ -242,47 +268,124 @@ export default function HomePageClient() {
   }
 
   return (
-    <div className="grow flex-col items-start gap-6 sm:gap-8 container mx-auto px-4 sm:px-0 py-20">
-      <div className="flex flex-col items-start gap-3 sm:gap-3 w-full px-4 sm:px-0 py-16 sm:py-20">
-        <h1 className="title-1 sm:text-3xl lg:text-4xl text-brand-gradient text-start">Create Pipeline</h1>
+    <div className="grow flex-col items-start gap-6 sm:gap-8 container mx-auto px-4 sm:px-0 py-8 sm:py-12">
+      <div className="flex flex-col items-start gap-3 sm:gap-3 w-full px-4 sm:px-0 pt-6 pb-4">
+        <h1 className="title-1 text-start">Create Pipeline</h1>
         <h2 className="w-full text-start subtitle muted-foreground text-xs sm:text-sm">
           Create a new pipeline or import a prepared configuration
         </h2>
       </div>
-      <div className="flex flex-col gap-8 sm:gap-10 mt-8 sm:mt-12 w-full max-w-[960px]">
-        {/* Section 1: Configure with wizard */}
-        <section className="flex flex-col gap-3 sm:gap-4 w-full" aria-labelledby="section-wizard-heading">
-          <h2 id="section-wizard-heading" className="subtitle-2 text-content text-xs sm:text-sm font-medium mb-3">
-            Configure with wizard
+      <div className="flex flex-col gap-8 sm:gap-10 mt-4 sm:mt-6 w-full max-w-[960px]">
+        {/* Section 1: Choose your data source */}
+        <section className="flex flex-col gap-3 sm:gap-4 w-full" aria-labelledby="section-source-heading">
+          <h2 id="section-source-heading" className="subtitle-2 text-content text-xs sm:text-sm font-medium mb-3">
+            Choose your data source
           </h2>
-          <p className="subtitle-3 text-xs sm:text-sm -mt-1">
-            Choose a pipeline type based on the number of streams you want to ingest
-          </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 w-full">
-            <Card variant="selectable" className={cn(topicCount === 1 && 'active', 'h-16 sm:h-20 lg:h-24 w-full')}>
+            <Card variant="selectable" className={cn(selectedSource === 'kafka' && 'active', 'h-16 sm:h-20 lg:h-24 w-full !p-0')}>
               <button
-                className="flex items-center justify-center px-4 sm:px-6 w-full h-full"
-                onClick={() => handleTopicCountClick(1)}
+                className="flex items-center justify-center px-4 sm:px-6 w-full h-full cursor-pointer"
+                onClick={() => { setSelectedSource('kafka'); setSelectedOtlpSignal(null) }}
               >
-                <Image src={IngestOnly} alt="Ingest Only" width={24} height={24} className="sm:w-9 sm:h-9" />
+                <Image src={KafkaIcon} alt="Kafka" width={24} height={24} className="sm:w-9 sm:h-9" />
                 <span className="ml-3 sm:ml-4 text-sm sm:text-lg font-medium text-muted-foreground">
-                  Single-Topic Pipeline
+                  Kafka
                 </span>
               </button>
             </Card>
-            <Card variant="selectable" className={cn(topicCount === 2 && 'active', 'h-16 sm:h-20 lg:h-24 w-full')}>
+            <Card variant="selectable" className={cn(selectedSource === 'otlp' && 'active', 'h-16 sm:h-20 lg:h-24 w-full !p-0')}>
               <button
-                className="flex items-center justify-center px-4 sm:px-6 w-full h-full"
-                onClick={() => handleTopicCountClick(2)}
+                className="flex items-center justify-center px-4 sm:px-6 w-full h-full cursor-pointer"
+                onClick={() => { setSelectedSource('otlp'); setSelectedOtlpSignal(null) }}
               >
-                <Image src={Join} alt="Join" width={24} height={24} className="sm:w-9 sm:h-9" />
+                <SignalIcon className="w-6 h-6 sm:w-9 sm:h-9 text-[var(--color-foreground-neutral-faded)]" />
                 <span className="ml-3 sm:ml-4 text-sm sm:text-lg font-medium text-muted-foreground">
-                  Multi-Topic Pipeline
+                  OpenTelemetry (OTLP)
                 </span>
               </button>
             </Card>
           </div>
         </section>
+
+        {/* Section 2a: Kafka — Configure with wizard (topic count) */}
+        {selectedSource === 'kafka' && (
+          <section className="flex flex-col gap-3 sm:gap-4 w-full animate-fadeIn" aria-labelledby="section-wizard-heading">
+            <h2 id="section-wizard-heading" className="subtitle-2 text-content text-xs sm:text-sm font-medium mb-3">
+              Configure with wizard
+            </h2>
+            <p className="subtitle-3 text-xs sm:text-sm -mt-1">
+              Choose a pipeline type based on the number of streams you want to ingest
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 w-full">
+              <Card variant="selectable" className={cn(topicCount === 1 && 'active', 'h-16 sm:h-20 lg:h-24 w-full !p-0')}>
+                <button
+                  className="flex items-center justify-center px-4 sm:px-6 w-full h-full cursor-pointer"
+                  onClick={() => handleTopicCountClick(1)}
+                >
+                  <Image src={IngestOnly} alt="Ingest Only" width={24} height={24} className="sm:w-9 sm:h-9" />
+                  <span className="ml-3 sm:ml-4 text-sm sm:text-lg font-medium text-[var(--color-foreground-neutral)]">
+                    Single-Topic Pipeline
+                  </span>
+                </button>
+              </Card>
+              <Card variant="selectable" className={cn(topicCount === 2 && 'active', 'h-16 sm:h-20 lg:h-24 w-full !p-0')}>
+                <button
+                  className="flex items-center justify-center px-4 sm:px-6 w-full h-full cursor-pointer"
+                  onClick={() => handleTopicCountClick(2)}
+                >
+                  <Image src={Join} alt="Join" width={24} height={24} className="sm:w-9 sm:h-9" />
+                  <span className="ml-3 sm:ml-4 text-sm sm:text-lg font-medium text-[var(--color-foreground-neutral)]">
+                    Multi-Topic Pipeline
+                  </span>
+                </button>
+              </Card>
+            </div>
+          </section>
+        )}
+
+        {/* Section 2b: OTLP — Select signal type */}
+        {selectedSource === 'otlp' && (
+          <section className="flex flex-col gap-3 sm:gap-4 w-full animate-fadeIn" aria-labelledby="section-signal-heading">
+            <h2 id="section-signal-heading" className="subtitle-2 text-content text-xs sm:text-sm font-medium mb-3">
+              Select signal type
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 w-full">
+              <Card variant="selectable" className={cn(selectedOtlpSignal === SourceType.OTLP_LOGS && 'active', 'h-16 sm:h-20 lg:h-24 w-full !p-0')}>
+                <button
+                  className="flex items-center justify-center px-4 sm:px-6 w-full h-full cursor-pointer"
+                  onClick={() => handleOtlpSignalClick(SourceType.OTLP_LOGS)}
+                >
+                  <DocumentTextIcon className="w-6 h-6 sm:w-9 sm:h-9 text-[var(--color-foreground-neutral-faded)]" />
+                  <span className="ml-3 sm:ml-4 text-sm sm:text-lg font-medium text-[var(--color-foreground-neutral)]">
+                    Logs
+                  </span>
+                </button>
+              </Card>
+              <Card variant="selectable" className={cn(selectedOtlpSignal === SourceType.OTLP_TRACES && 'active', 'h-16 sm:h-20 lg:h-24 w-full !p-0')}>
+                <button
+                  className="flex items-center justify-center px-4 sm:px-6 w-full h-full cursor-pointer"
+                  onClick={() => handleOtlpSignalClick(SourceType.OTLP_TRACES)}
+                >
+                  <MapIcon className="w-6 h-6 sm:w-9 sm:h-9 text-[var(--color-foreground-neutral-faded)]" />
+                  <span className="ml-3 sm:ml-4 text-sm sm:text-lg font-medium text-[var(--color-foreground-neutral)]">
+                    Traces
+                  </span>
+                </button>
+              </Card>
+              <Card variant="selectable" className={cn(selectedOtlpSignal === SourceType.OTLP_METRICS && 'active', 'h-16 sm:h-20 lg:h-24 w-full !p-0')}>
+                <button
+                  className="flex items-center justify-center px-4 sm:px-6 w-full h-full cursor-pointer"
+                  onClick={() => handleOtlpSignalClick(SourceType.OTLP_METRICS)}
+                >
+                  <ChartBarIcon className="w-6 h-6 sm:w-9 sm:h-9 text-[var(--color-foreground-neutral-faded)]" />
+                  <span className="ml-3 sm:ml-4 text-sm sm:text-lg font-medium text-[var(--color-foreground-neutral)]">
+                    Metrics
+                  </span>
+                </button>
+              </Card>
+            </div>
+          </section>
+        )}
 
         <OrSeparator />
 
@@ -294,8 +397,8 @@ export default function HomePageClient() {
           <p className="subtitle-3 text-xs sm:text-sm -mt-1">
             Import a prepared pipeline configuration from a file or paste it directly
           </p>
-          <Card variant="selectable" className="h-16 sm:h-20 lg:h-24 w-full max-w-md">
-            <button className="flex items-center justify-center px-4 sm:px-6 w-full h-full" onClick={handleUploadClick}>
+          <Card variant="selectable" className="h-16 sm:h-20 lg:h-24 w-full max-w-md !p-0">
+            <button className="flex items-center justify-center px-4 sm:px-6 w-full h-full cursor-pointer" onClick={handleUploadClick}>
               <ArrowUpTrayIcon className="w-6 h-6 sm:w-9 sm:h-9 text-[var(--color-orange-300)]" />
               <span className="ml-3 sm:ml-4 text-sm sm:text-lg font-medium text-muted-foreground">
                 Import Configuration

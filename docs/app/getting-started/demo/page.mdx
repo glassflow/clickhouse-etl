@@ -8,7 +8,7 @@ import { Tabs } from 'nextra/components'
 # Run a demo pipeline
 
 
-GlassFlow comes with a comprehensive demo environment that allows you to test its capabilities locally. This guide walks you through a **local installation using GlassFlow CLI**. The CLI brings up a Kind cluster and deploys Kafka, ClickHouse, and GlassFlow ETL. You will then create a pipeline and run through a deduplication demo.
+GlassFlow comes with a comprehensive demo environment that allows you to test its capabilities locally. This guide walks you through a **local installation using GlassFlow CLI**. The CLI brings up a Kind cluster and deploys GlassFlow ETL, with optional local Kafka and ClickHouse for the demo. You will then create a pipeline and run through a deduplication demo.
 
 ## Demo Overview
 
@@ -41,27 +41,25 @@ glassflow version
 ```
 
 ```
-glassflow version 2.2.1
-commit: 7b4743328312791cbeb0ba8235dd5b85719e9f2d
-date: 2026-03-04T11:15:36Z
+glassflow version 2.4.2
+commit: 4a26d756328b55761aa8792fe85bcf45702fc181
+date: 2026-03-25T12:22:01Z
 ```
 
-### Start GlassFlow locally
+### Start GlassFlow with Kafka and ClickHouse
 
-With the CLI installed, bring up the local environment (Kind, Kafka, ClickHouse, and GlassFlow ETL):
+With the CLI installed, bring up the full local environment including Kafka and ClickHouse (needed for this demo):
 
 ```bash
-glassflow up
+glassflow up --demo
 ```
 
 This will:
 
 - Create a **Kind** cluster (if needed)
-- Install **GlassFlow ETL** (glassflow namespace) via Helm
-- Install **Kafka** (kafka namespace) and **ClickHouse** (clickhouse namespace) via Helm
-- Wait for all services to be ready (up to ~25 minutes)
-
-The following steps guide you through creating a pipeline in the GlassFlow UI.
+- Download pre-built container images (first run only)
+- Install **GlassFlow ETL** (glassflow namespace), **Kafka** (kafka namespace), and **ClickHouse** (clickhouse namespace)
+- Wait for all services to be ready
 
 For more options and details, see the [Installation Guide](/installation/cli).
 

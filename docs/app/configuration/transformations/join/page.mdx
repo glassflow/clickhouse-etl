@@ -91,6 +91,10 @@ Join is configured at the pipeline level. Here's the configuration structure:
 
 ### Setting Time Windows
 
+<Callout type="info">
+The maximum supported `time_window` value is **7 days** (`168h`).
+</Callout>
+
 - **Match event arrival patterns**: Set the time window based on the expected time difference between related events
 - **Consider processing delays**: Account for potential delays in event processing or network latency
 - **Balance memory and coverage**: Longer windows use more memory but catch matches over longer periods

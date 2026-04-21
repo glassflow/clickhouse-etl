@@ -5,6 +5,7 @@ import { structuredLogger } from '@/src/observability'
 import { InternalPipelineConfig } from '@/src/types/pipeline'
 import { getPipelineAdapter } from '@/src/modules/pipeline-adapters/factory'
 import { LATEST_PIPELINE_VERSION } from '@/src/config/pipeline-versions'
+import { isOtlpSource } from '@/src/config/source-types'
 
 const encodeBase64 = (password: string) => {
   return password ? Buffer.from(password).toString('base64') : undefined
@@ -100,6 +101,8 @@ export const buildInternalPipelineConfig = ({
   deduplicationStore,
   filterStore,
   transformationStore,
+  coreStore,
+  otlpStore,
 }: {
   pipelineId: string
   pipelineName: string
@@ -113,6 +116,8 @@ export const buildInternalPipelineConfig = ({
   deduplicationStore: any
   filterStore?: any
   transformationStore?: any
+  coreStore?: any
+  otlpStore?: any
 }): InternalPipelineConfig => {
   // Generate a new pipeline ID if one doesn't exist
   let finalPipelineId = pipelineId
@@ -120,6 +125,9 @@ export const buildInternalPipelineConfig = ({
     finalPipelineId = uuidv4()
     setPipelineId(finalPipelineId)
   }
+
+  // Detect OTLP source — no Kafka topics, different source structure
+  const isOtlp = !!(coreStore?.sourceType && isOtlpSource(coreStore.sourceType))
 
   const mapping = clickhouseDestination?.mapping || []
 
@@ -237,6 +245,11 @@ export const buildInternalPipelineConfig = ({
             }
           }
 
+          // For OTLP: no Kafka topics so selectedTopics[0] is undefined; fall back to the OTLP source id
+          if (isOtlp && !sourceId) {
+            sourceId = otlpStore?.sourceId || 'source'
+          }
+
           return {
             source_id: sourceId,
             field_name: mapping.eventField,
@@ -300,8 +313,9 @@ export const buildInternalPipelineConfig = ({
   // but the backend needs to know they're part of the Kafka schema
   if (filterStore?.filterConfig?.enabled && filterStore?.filterConfig?.root) {
     const filterFields = extractFilterFields(filterStore.filterConfig.root)
-    // For single-topic pipelines, use the first topic as the source
-    const topicName = selectedTopics[0]?.name
+    // For OTLP there are no Kafka topics; use the OTLP source id instead.
+    // For single-topic Kafka pipelines, use the first topic name.
+    const topicName = isOtlp ? (otlpStore?.sourceId || 'source') : selectedTopics[0]?.name
 
     filterFields.forEach((fieldName: string) => {
       const fieldKey = `${topicName}:${fieldName}`
@@ -432,49 +446,52 @@ export const buildInternalPipelineConfig = ({
   const config: InternalPipelineConfig = {
     pipeline_id: finalPipelineId,
     name: pipelineName,
-    source: {
-      type: 'kafka',
-      provider: 'custom', // Or determine from connection details
-      connection_params: connectionParams as KafkaConnectionParams,
-      topics: topicsConfig,
-    },
-    // Include join configuration if multiple topics
-    ...(topicsConfig.length > 1
+    source: isOtlp
       ? {
-          join: {
-            enabled: joinStore.enabled,
-            type: joinStore.type || 'temporal',
-            sources:
-              joinStore.streams.length > 0
-                ? joinStore.streams.map((stream: any) => ({
-                    // source_id: stream.streamId,
-                    source_id: stream.topicName,
-                    join_key: stream.joinKey,
-                    time_window: `${stream.joinTimeWindowValue}${stream.joinTimeWindowUnit.charAt(0)}`,
-                    orientation: stream.orientation,
-                  }))
-                : topicsConfig.map((topic: any, index: number) => {
-                    // Get deduplication config for join key
-                    const deduplicationConfig = deduplicationStore?.getDeduplication?.(index) || null
-                    const joinKey = deduplicationConfig?.key || ''
-
-                    return {
-                      source_id: topic.name,
-                      join_key: joinKey,
-                      time_window: '1h',
-                      orientation: index === 0 ? 'left' : 'right',
-                    }
-                  }),
-          },
+          // OTLP source: no Kafka topics or connection params
+          type: otlpStore?.signalType || coreStore?.sourceType || 'otlp',
+          id: otlpStore?.sourceId || '',
+          ...(otlpStore?.deduplication?.enabled
+            ? {
+                deduplication: {
+                  enabled: true,
+                  key: otlpStore.deduplication.key,
+                  time_window: otlpStore.deduplication.time_window,
+                },
+              }
+            : {}),
         }
       : {
-          // Add default empty join object to satisfy type
-          join: {
-            type: '',
-            enabled: false,
-            sources: [],
-          },
-        }),
+          type: 'kafka',
+          provider: 'custom', // Or determine from connection details
+          connection_params: connectionParams as KafkaConnectionParams,
+          topics: topicsConfig,
+        },
+    // Include join configuration for Kafka multi-topic pipelines; disabled join for all others
+    join: isOtlp || topicsConfig.length <= 1
+      ? { type: '', enabled: false, sources: [] }
+      : {
+          enabled: joinStore.enabled,
+          type: joinStore.type || 'temporal',
+          sources:
+            joinStore.streams.length > 0
+              ? joinStore.streams.map((stream: any) => ({
+                  source_id: stream.topicName,
+                  join_key: stream.joinKey,
+                  time_window: `${stream.joinTimeWindowValue}${stream.joinTimeWindowUnit.charAt(0)}`,
+                  orientation: stream.orientation,
+                }))
+              : topicsConfig.map((topic: any, index: number) => {
+                  const deduplicationConfig = deduplicationStore?.getDeduplication?.(index) || null
+                  const joinKey = deduplicationConfig?.key || ''
+                  return {
+                    source_id: topic.name,
+                    join_key: joinKey,
+                    time_window: '1h',
+                    orientation: index === 0 ? 'left' : 'right',
+                  }
+                }),
+        },
     sink: {
       type: 'clickhouse',
       provider: 'custom', // Or determine from connection details
@@ -487,7 +504,7 @@ export const buildInternalPipelineConfig = ({
             http_port: clickhouseConnection.directConnection?.httpPort?.toString() || undefined,
             database: clickhouseDestination?.database,
             username: clickhouseConnection.directConnection?.username,
-            password: encodeBase64(clickhouseConnection.directConnection?.password),
+            password: clickhouseConnection.directConnection?.password,
             secure: clickhouseConnection.directConnection?.useSSL || false,
             skip_certificate_verification: clickhouseConnection.directConnection?.skipCertificateVerification || false,
             max_batch_size: clickhouseDestination?.maxBatchSize || 1000,
@@ -510,15 +527,28 @@ export const buildInternalPipelineConfig = ({
       // but assuming they are filled by the spread above or default values
       table: clickhouseDestination?.table,
       table_mapping: tableMappings,
+      ...(clickhouseDestination?.engine ? { engine: clickhouseDestination.engine } : {}),
+      ...(clickhouseDestination?.orderBy
+        ? {
+            order_by: (() => {
+              const mapping = clickhouseDestination?.mapping ?? []
+              const byEventField = mapping.find(
+                (m: any) => m.eventField === clickhouseDestination.orderBy,
+              )
+              const byColumnName = mapping.find((m: any) => m.name === clickhouseDestination.orderBy)
+              return byEventField?.name ?? byColumnName?.name ?? clickhouseDestination.orderBy
+            })(),
+          }
+        : {}),
     } as any, // Type assertion to bypass strict checks on conditional properties for now
-    // Include filter configuration only for single-topic pipelines
-    // Filter is not available for multi-topic journeys
-    ...(topicsConfig.length === 1
+    // Include filter configuration for single-topic and OTLP pipelines
+    // Filter is not available for multi-topic (join) journeys
+    ...(topicsConfig.length === 1 || isOtlp
       ? filterStore?.filterConfig?.enabled && filterStore?.expressionString
         ? {
             filter: {
               enabled: true,
-              expression: filterStore.expressionString,
+              expression: `!(${filterStore.expressionString})`,
             },
           }
         : {
@@ -528,9 +558,9 @@ export const buildInternalPipelineConfig = ({
             },
           }
       : {}),
-    // Include transformation configuration only for single-topic pipelines
-    // Transformation is not available for multi-topic journeys
-    ...(topicsConfig.length === 1
+    // Include transformation configuration for single-topic and OTLP pipelines
+    // Transformation is not available for multi-topic (join) journeys
+    ...(topicsConfig.length === 1 || isOtlp
       ? transformationStore?.transformationConfig?.enabled &&
         transformationStore?.transformationConfig?.fields?.length > 0
         ? {
@@ -588,6 +618,8 @@ export const generateApiConfig = ({
   transformationStore,
   pipeline_resources,
   version, // New optional parameter
+  coreStore,
+  otlpStore,
 }: {
   pipelineId: string
   pipelineName: string
@@ -603,6 +635,8 @@ export const generateApiConfig = ({
   transformationStore?: any
   pipeline_resources?: import('@/src/types/pipeline').PipelineResources | null
   version?: string
+  coreStore?: any
+  otlpStore?: any
 }) => {
   try {
     // 1. Build the internal configuration structure
@@ -619,6 +653,8 @@ export const generateApiConfig = ({
       deduplicationStore,
       filterStore,
       transformationStore,
+      coreStore,
+      otlpStore,
     })
 
     // 2. Get the appropriate adapter
@@ -727,6 +763,18 @@ export const getFieldType = (data: any, fieldPath: string): string => {
 }
 
 /**
+ * Get verified type for a field from the topic's schema (schema.fields).
+ * Used when we have topic schema and want to use the schema type rather than inferring from data.
+ */
+export const getVerifiedTypeFromTopic = (topic: any, fieldName: string): string | undefined => {
+  if (!topic?.schema?.fields || !Array.isArray(topic.schema.fields)) {
+    return undefined
+  }
+  const schemaField = topic.schema.fields.find((f: any) => f.name === fieldName && !f.isRemoved)
+  return schemaField?.userType || schemaField?.type
+}
+
+/**
  * Maps JSON/Kafka types to compatible ClickHouse types
  * Simplified to use basic types: string, bool, int, float, bytes, array
  */
@@ -755,6 +803,9 @@ export const TYPE_COMPATIBILITY_MAP: Record<string, string[]> = {
   float: ['Float32', 'Float64', 'Decimal', 'DateTime', 'DateTime64'],
   bytes: ['String'],
   array: ['Array', 'String'],
+  // map type: primary target is Map(String, String) for create-table path;
+  // String is allowed as a fallback for JSON-serialised storage
+  map: ['Map(String, String)', 'String'],
 
   // Backward compatibility: legacy precision types map to same ClickHouse types
   int8: ['Int8', 'Int16', 'Int32', 'Int64'],
@@ -802,12 +853,35 @@ export function isTypeCompatible(sourceType: string | undefined, clickhouseType:
     return sourceType === 'array' || isTypeCompatible(sourceType, innerType)
   }
 
+  // Handle Map types in ClickHouse (e.g. Map(String, String), Map(LowCardinality(String), String))
+  // Must be handled explicitly: the generic substring check below would wrongly match 'String'
+  // inside a Map type's parameter list against non-map source types.
+  if (clickhouseType.startsWith('Map(')) {
+    return sourceType === 'map'
+  }
+
+  // Handle LowCardinality wrapper — strip it and recurse so LowCardinality(String) matches 'string'
+  if (clickhouseType.startsWith('LowCardinality(')) {
+    const innerType = clickhouseType.substring(15, clickhouseType.length - 1)
+    return isTypeCompatible(sourceType, innerType)
+  }
+
   // Check the compatibility map
   const compatibleTypes = TYPE_COMPATIBILITY_MAP[sourceType.toLowerCase()]
   if (!compatibleTypes) return false
 
   // Check if any compatible type matches (partially) the ClickHouse type
   return compatibleTypes.some((type) => clickhouseType.includes(type))
+}
+
+/**
+ * Returns a default ClickHouse type for a given JSON/Kafka type (first compatible type).
+ * Used when auto-generating mapping rows for the create-table path.
+ */
+export function getDefaultClickHouseType(jsonType: string): string {
+  if (!jsonType) return 'String'
+  const compatible = TYPE_COMPATIBILITY_MAP[jsonType.toLowerCase()]
+  return compatible?.[0] ?? 'String'
 }
 
 /**
@@ -860,4 +934,58 @@ export const getMappingType = (eventField: string, mapping: any) => {
 
   // NOTE: default to string if no mapping entry is found - check this
   return 'string'
+}
+
+export interface AlterTableAddOperation {
+  op: 'add'
+  name: string
+  type: string
+  nullable?: boolean
+}
+
+/**
+ * Compute ALTER TABLE operations for new columns.
+ * Only ADD COLUMN operations; never DROP or MODIFY (data integrity).
+ * Mapping rows with name not in existingColumnNames become ADD operations.
+ */
+export function computeAlterTableOperations(
+  mapping: TableColumn[],
+  existingColumnNames: string[]
+): { add: AlterTableAddOperation[] } {
+  const existingSet = new Set(existingColumnNames.map((n) => n.trim()))
+  const add: AlterTableAddOperation[] = []
+  for (const col of mapping) {
+    const name = (col.name || '').trim()
+    if (!name) continue
+    if (existingSet.has(name)) continue
+    const baseType = (col.type || 'String').replace(/^Nullable\((.*)\)$/, '$1')
+    add.push({
+      op: 'add',
+      name,
+      type: baseType,
+      nullable: col.isNullable !== false,
+    })
+  }
+  return { add }
+}
+
+/**
+ * Builds initial mapping rows from event field names and topic schema (create-table path).
+ */
+export function buildInitialMappingFromEventFields(
+  eventFields: string[],
+  getJsonType: (field: string) => string | undefined,
+): TableColumn[] {
+  return eventFields.map((field) => {
+    const jsonType = getJsonType(field) || 'string'
+    const chType = getDefaultClickHouseType(jsonType)
+    return {
+      name: field,
+      type: chType,
+      jsonType,
+      isNullable: true,
+      isKey: false,
+      eventField: field,
+    }
+  })
 }

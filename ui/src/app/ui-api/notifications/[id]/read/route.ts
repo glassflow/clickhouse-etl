@@ -30,7 +30,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         { status: 404 },
       )
     }
-    return NextResponse.json(result.notification)
+    return NextResponse.json({ message: 'Notification marked as read', notification_id: id })
   }
 
   try {

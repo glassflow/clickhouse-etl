@@ -20,10 +20,11 @@ import type { NotificationSeverity } from '@/src/services/notifications-api'
 
 const SEVERITY_OPTIONS: { value: NotificationSeverity | 'all'; label: string }[] = [
   { value: 'all', label: 'All Severities' },
-  { value: 'critical', label: 'Critical' },
+  { value: 'fatal', label: 'Fatal' },
   { value: 'error', label: 'Error' },
-  { value: 'warning', label: 'Warning' },
+  { value: 'warn', label: 'Warning' },
   { value: 'info', label: 'Info' },
+  { value: 'debug', label: 'Debug' },
 ]
 
 const READ_STATUS_OPTIONS = [

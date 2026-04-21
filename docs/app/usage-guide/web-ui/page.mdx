@@ -2,7 +2,7 @@
 title: 'Web UI'
 description: 'Learn how to use the GlassFlow web interface to create and manage data pipelines'
 ---
-import { Steps } from 'nextra/components'
+import { Callout, Steps } from 'nextra/components'
 
 # Web UI
 
@@ -12,7 +12,7 @@ The GlassFlow web interface provides an intuitive, visual way to create and mana
 
 ### Access the Web Interface
 
-The GlassFlow web interface is available at `http://localhost:8080` by default. For production deployments, use your configured GlassFlow URL.
+When using the GlassFlow CLI, the web interface is available at `http://localhost:30080` after running `glassflow up`. For production deployments, use your configured GlassFlow URL.
 
 ### Pipeline Types
 
@@ -21,16 +21,16 @@ The web interface supports four main pipeline types:
 1. **Deduplicate** - Remove duplicate records based on specified keys
 2. **Join** - Combine data from multiple Kafka topics
 3. **Deduplicate and Join** - Both deduplication and joining in a single pipeline
-4. **Ingest Only** - Simple data ingestion without transformations
+4. **Single Topic** - Ingest, filter, transform, and deduplicate data from a single Kafka topic
 
 ![Pipeline Types](/assets/ui_home.png)
 
 
 ## Creating a Pipeline
 
-### Creating a Deduplication Pipeline
+### Creating a Single Topic Pipeline
 
-This section walks through creating a pipeline that removes duplicate records from a Kafka topic.
+This section walks through creating a pipeline that ingests, filters, transforms, and deduplicates records from a single Kafka topic.
 <Steps>
 #### Setup Kafka Connection
 
@@ -72,19 +72,17 @@ Choose the Kafka topic and define its schema:
 **Schema Definition**
 The UI automatically detects the schema of the topic.
 
-#### Define Deduplicate Keys
+#### Configure Deduplicate
 
+This step is optional. Skip it if you do not need to deduplicate records before they reach ClickHouse.
 
 Configure deduplication settings to remove duplicate records:
 
 **Deduplication Configuration**
 
-- **Enable Deduplication**: Toggle to enable/disable deduplication
-- **ID Field**: Select the field to use for identifying duplicates
+- **Deduplication Key**: Select the field to use for identifying duplicates
   - Choose a field that uniquely identifies each record
   - Common choices: `user_id`, `event_id`, `transaction_id`
-- **ID Field Type**: Specify the data type of the ID field
-  - Usually `string` for most use cases
 - **Time Window**: Set the deduplication time window
   - `30s` - 30 seconds
   - `1m` - 1 minute
@@ -102,6 +100,37 @@ The system will:
 2. Keep only the first occurrence of each unique ID
 3. Discard subsequent duplicates within the time window
 4. Reset tracking after the time window expires
+
+#### Configure Filter
+
+This step is optional. Skip it if you do not need to filter records before they reach ClickHouse.
+
+Toggle the filter on to define a condition that identifies records to drop. Records that match the expression are excluded from the pipeline; records that do not match are passed through.
+
+**Filter Configuration**
+
+- **Filter Expression**: Enter a JSON-based condition that describes the records you want to drop
+  - Example: `{"status": "aborted"}` drops every record where `status` equals `"cancelled"`
+  - Conditions can reference any field present in the topic schema
+  - Only records that match the expression are dropped; all others continue downstream
+
+![Filter Configuration](/assets/ui_filter_config.png)
+
+#### Configure Stateless Transformation
+
+This step is optional. Skip it if you do not need to modify records before they are written to ClickHouse. When both filter and transformation are enabled, the transformation is applied after filtering.
+
+Toggle the transformation on to define an expression or script that reshapes each record passing through the pipeline.
+
+**Transformation Configuration**
+
+- **Transformation Expression**: Write the expression or script to apply to each record
+  - **Field renaming**: Map an existing field to a new name
+  - **Adding fields**: Compute and attach new fields to the record
+  - **Removing fields**: Drop fields that are not needed downstream
+  - **Type casting**: Convert a field value to a different data type
+
+![Stateless Transformation Configuration](/assets/ui_transform_config.png)
 
 #### Setup ClickHouse Connection
 
@@ -123,7 +152,6 @@ Configure the connection to your ClickHouse database:
 
 #### Select Destination
 
-
 Configure the destination table and field mappings:
 
 **Table Configuration**
@@ -131,29 +159,49 @@ Configure the destination table and field mappings:
 - **Table**: Select an existing table or create a new one
 - **Table Name**: Enter the name for your destination table
 
-**Field Mapping**
-
-Map source fields to ClickHouse columns:
-
-- **Source Field**: The field from your Kafka topic
-- **Column Name**: The corresponding ClickHouse column name
-- **Column Type**: Select the ClickHouse data type:
-  - `String` - For text data
-  - `Int8`, `Int16`, `Int32`, `Int64` - For integers
-  - `Float32`, `Float64` - For floating-point numbers
-  - `DateTime` - For timestamp data
-  - `Boolean` - For boolean values
-
 **Batch Configuration**
 
 - **Max Batch Size**: Maximum number of records per batch (default: 1000)
 - **Max Delay Time**: Maximum time to wait before flushing batch (default: 1s)
 
-![Clickhouse Table Mapping](/assets/ui_table_mapping.png)
+**Field Mapping**
+
+Map source fields to ClickHouse columns:
+
+- **Source Field**: The field from your Kafka topic
+- **Data Type**: The incoming data type extracted from previous configuration
+- **Destination Column**: The corresponding ClickHouse column name and type loaded from the database
+
+![Clickhouse Table Mapping](/assets/ui_clickhouse_table_mapping.png)
+
+#### Configure Pipeline Resources
+
+Set the replica counts and CPU/memory limits for each pipeline component. The defaults are sufficient for most workloads up to ~80k rps. Increase them when targeting higher throughput.
+
+**Component Resources**
+
+For each component — **Ingestor**, **Transform**, and **Sink** — you can configure:
+
+- **Replicas**: Number of parallel instances. More replicas increase throughput for that stage.
+  - Ingestor replicas must not exceed the Kafka topic's partition count
+  - Transform replicas cannot be changed after pipeline creation when deduplication is enabled
+- **CPU Request / Limit**: CPU allocated to each replica (millicores)
+- **Memory Request / Limit**: RAM allocated to each replica
+
+**NATS Stream Settings**
+
+- **Max Bytes**: Maximum size of the internal NATS buffer (e.g., `25GB`)
+- **Max Age**: Maximum retention time for buffered messages (e.g., `24h`)
+
+<Callout type="info">
+  For guidance on replica counts and resource values for specific throughput targets, see the [Scaling Guide](/installation/kubernetes/scaling).
+</Callout>
+
+![Pipeline Resources Configuration](/assets/ui_pipeline_resources.png)
 
 </Steps>
 
-### Creating a Join Pipeline
+### Creating a Multi-Topic Pipeline
 
 This section covers creating pipelines that combine data from multiple Kafka topics.
 <Steps>
@@ -186,54 +234,6 @@ The system will:
 #### Setup ClickHouse and Destination
 
 Follow the same steps as the deduplication pipeline for the destination configuration.
-
-</Steps>
-
-### Creating a Deduplicate and Join Pipeline
-
-This pipeline type combines both deduplication and joining capabilities.
-<Steps>
-#### Setup Multiple Kafka Connections
-
-Configure connections for all topics you want to process.
-
-#### Configure Deduplication
-
-Set up deduplication for each topic individually:
-- Configure deduplication keys for the first topic
-- Configure deduplication keys for the second topic
-- Set appropriate time windows for each
-
-#### Configure Join Settings
-
-Set up the join configuration as described in the join pipeline section.
-
-#### Setup ClickHouse and Destination
-
-Configure the destination as in previous pipeline types.
-</Steps>
-
-### Creating an Ingest Only Pipeline
-
-This is the simplest pipeline type for basic data ingestion without transformations.
-<Steps>
-#### Setup Kafka Connection
-
-Follow the same Kafka connection setup as other pipeline types.
-
-#### Select Topic
-
-Choose your topic and define the schema.
-
-#### Setup ClickHouse Connection
-
-Configure the ClickHouse connection.
-
-#### Select Destination
-
-Configure the destination table and field mappings.
-
-**Note**: No deduplication or join configuration is needed for ingest-only pipelines.
 
 </Steps>
 
@@ -286,6 +286,24 @@ All pipeline configurations can be edited. Only stopped (or terminated) pipeline
 ### Deleting Pipelines
 
 Only stopped (or terminated) pipelines can be deleted. Deleting a pipeline will remove all pipeline resources and configuration.
+
+## Pipeline States
+
+Every pipeline moves through a defined set of states. Understanding these states helps you interpret the dashboard, respond to failures, and avoid invalid operations.
+
+### State Reference
+
+| State | Type | Description |
+|-------|------|-------------|
+| `Created` | Stable | The pipeline configuration has been saved but the pipeline has never been started. No Kubernetes workloads are running. |
+| `Running` | Stable | The pipeline is actively consuming from Kafka, processing data, and writing to ClickHouse. |
+| `Stopping` | Transitional | A stop has been requested. The pipeline is draining in-flight messages from the queue before scaling down to zero replicas. |
+| `Stopped` | Stable | The pipeline has scaled down to zero replicas. No data is being processed. Configuration is preserved and the pipeline can be resumed or deleted. |
+| `Resuming` | Transitional | A resume has been requested. Kubernetes workloads are scaling back up. The pipeline transitions to `Running` once all components are healthy. |
+| `Terminating` | Transitional | A terminate has been requested. The pipeline is scaling down immediately, without waiting to drain the queue. |
+| `Failed` | Stable | A system-level failure has occurred that the pipeline cannot recover from automatically (for example, a Kubernetes workload crash or an unrecoverable NATS error). |
+
+**Transitional states** (`Stopping`, `Resuming`, `Terminating`) are temporary. The pipeline moves through them automatically; you cannot directly request a transitional state. While a pipeline is in a transitional state, most operations are blocked — the exception is that `Terminating` can always be requested from any non-terminal state.
 
 ## Best Practices
 

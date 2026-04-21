@@ -9,6 +9,8 @@ import (
 	"github.com/avast/retry-go/v4"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/encryption"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -20,7 +22,7 @@ type PostgresStorage struct {
 }
 
 // NewPostgres creates a new PostgresStorage instance with retry logic
-func NewPostgres(ctx context.Context, dsn string, logger *slog.Logger, encryptionKey []byte) (*PostgresStorage, error) {
+func NewPostgres(ctx context.Context, dsn string, logger *slog.Logger, encryptionKey []byte, role models.Role) (*PostgresStorage, error) {
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -35,10 +37,26 @@ func NewPostgres(ctx context.Context, dsn string, logger *slog.Logger, encryptio
 		return nil, fmt.Errorf("parse postgres config: %w", err)
 	}
 
-	// Configure connection pool
-	config.MaxConns = 25
-	config.MinConns = 5
+	// Configure connection pool for PGBouncer transaction mode.
+	// Components (ingestors, sink, etc.) use MinConns=0 — they query infrequently
+	// so connections are acquired on demand and returned to the pool immediately.
+	// The API keeps MinConns=2 to avoid cold-start latency on incoming requests.
+	if role == internal.RoleETL {
+		config.MaxConns = 5
+		config.MinConns = 1
+	} else {
+		config.MaxConns = 5
+		config.MinConns = 0
+	}
 	config.MaxConnLifetime = 5 * time.Minute
+
+	// Since we use pgbouncer pool, prepared statements might fail
+	config.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeExec
+
+	// set application name
+	config.ConnConfig.RuntimeParams = map[string]string{
+		"application_name": "glassflow_" + role.String(),
+	}
 
 	var pool *pgxpool.Pool
 
@@ -89,8 +107,8 @@ func NewPostgres(ctx context.Context, dsn string, logger *slog.Logger, encryptio
 	}
 
 	logger.InfoContext(ctx, "postgres connection established",
-		slog.Int("max_conns", 25),
-		slog.Int("min_conns", 5))
+		slog.Int("max_conns", int(config.MaxConns)),
+		slog.Int("min_conns", int(config.MinConns)))
 
 	var encService *encryption.Service
 	if len(encryptionKey) > 0 {

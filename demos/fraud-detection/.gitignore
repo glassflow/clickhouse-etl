@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+*.pyc
+
+# Parent repo ignores `.env*`; allow committing the template only.
+!.env.example

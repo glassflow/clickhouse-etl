@@ -1,11 +1,15 @@
 /**
  * Pipeline Import Utilities
  *
- * Handles validation and import of pipeline configuration JSON files.
+ * Handles validation and import of pipeline configuration files (JSON and YAML).
  * Used by the upload pipeline feature on the create screen.
  */
 
 import type { Pipeline } from '@/src/types/pipeline'
+import { isOtlpSource } from '@/src/config/source-types'
+import yaml from 'js-yaml'
+
+export type ConfigFormat = 'json' | 'yaml'
 
 export interface ImportValidationResult {
   valid: boolean
@@ -14,6 +18,7 @@ export interface ImportValidationResult {
   config?: Pipeline
   topicCount: number
   pipelineName: string
+  detectedFormat?: ConfigFormat
 }
 
 /**
@@ -56,59 +61,66 @@ export function validatePipelineConfig(json: unknown): ImportValidationResult {
   }
 
   const source = config.source as Record<string, unknown>
+  const sourceType = typeof source.type === 'string' ? source.type : ''
 
-  // Check for connection params
-  if (!source.connection_params || typeof source.connection_params !== 'object') {
-    errors.push('Missing required field: source.connection_params')
+  let topicCount = 0
+
+  if (isOtlpSource(sourceType)) {
+    // OTLP sources have no connection_params or topics
+    topicCount = 1
   } else {
-    const connectionParams = source.connection_params as Record<string, unknown>
+    // Kafka: validate connection_params and topics
+    if (!source.connection_params || typeof source.connection_params !== 'object') {
+      errors.push('Missing required field: source.connection_params')
+    } else {
+      const connectionParams = source.connection_params as Record<string, unknown>
 
-    // Validate brokers
-    if (!connectionParams.brokers || !Array.isArray(connectionParams.brokers) || connectionParams.brokers.length === 0) {
-      errors.push('Missing or empty: source.connection_params.brokers')
+      if (!connectionParams.brokers || !Array.isArray(connectionParams.brokers) || connectionParams.brokers.length === 0) {
+        errors.push('Missing or empty: source.connection_params.brokers')
+      }
     }
-  }
 
-  // Check for topics
-  if (!source.topics || !Array.isArray(source.topics)) {
-    errors.push('Missing required field: source.topics (must be an array)')
-    return {
-      valid: false,
-      errors,
-      warnings,
-      topicCount: 0,
-      pipelineName,
+    if (!source.topics || !Array.isArray(source.topics)) {
+      errors.push('Missing required field: source.topics (must be an array)')
+      return {
+        valid: false,
+        errors,
+        warnings,
+        topicCount: 0,
+        pipelineName,
+      }
     }
-  }
 
-  const topics = source.topics as Array<Record<string, unknown>>
-  const topicCount = topics.length
+    const topics = source.topics as Array<Record<string, unknown>>
+    topicCount = topics.length
 
-  // Validate topic count (must be 1 or 2)
-  if (topicCount === 0) {
-    errors.push('At least one topic is required in source.topics')
-  } else if (topicCount > 2) {
-    errors.push(`Invalid topic count: ${topicCount}. Only 1 or 2 topics are supported`)
-  }
-
-  // Validate each topic
-  topics.forEach((topic, index) => {
-    if (!topic.name || typeof topic.name !== 'string') {
-      errors.push(`Missing or invalid topic name at source.topics[${index}]`)
+    if (topicCount === 0) {
+      errors.push('At least one topic is required in source.topics')
+    } else if (topicCount > 2) {
+      errors.push(`Invalid topic count: ${topicCount}. Only 1 or 2 topics are supported`)
     }
-  })
+
+    topics.forEach((topic, index) => {
+      if (!topic.name || typeof topic.name !== 'string') {
+        errors.push(`Missing or invalid topic name at source.topics[${index}]`)
+      }
+    })
+  }
 
   // Check for sink configuration
   if (!config.sink || typeof config.sink !== 'object') {
     errors.push('Missing required field: sink')
   } else {
     const sink = config.sink as Record<string, unknown>
+    const cp = (sink.connection_params as Record<string, unknown>) || {}
 
-    if (!sink.host || typeof sink.host !== 'string') {
+    const host = sink.host ?? cp.host
+    if (!host || typeof host !== 'string') {
       errors.push('Missing required field: sink.host')
     }
 
-    if (!sink.database || typeof sink.database !== 'string') {
+    const database = sink.database ?? cp.database
+    if (!database || typeof database !== 'string') {
       errors.push('Missing required field: sink.database')
     }
 
@@ -149,7 +161,7 @@ export function validatePipelineConfig(json: unknown): ImportValidationResult {
 export function parsePipelineConfigJson(jsonString: string): ImportValidationResult {
   try {
     const parsed = JSON.parse(jsonString)
-    return validatePipelineConfig(parsed)
+    return { ...validatePipelineConfig(parsed), detectedFormat: 'json' }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown parsing error'
     return {
@@ -158,8 +170,48 @@ export function parsePipelineConfigJson(jsonString: string): ImportValidationRes
       warnings: [],
       topicCount: 0,
       pipelineName: '',
+      detectedFormat: 'json',
     }
   }
+}
+
+/**
+ * Parses a YAML string and validates it as a pipeline configuration.
+ */
+export function parsePipelineConfigYaml(yamlString: string): ImportValidationResult {
+  try {
+    const parsed = yaml.load(yamlString)
+    return { ...validatePipelineConfig(parsed), detectedFormat: 'yaml' }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown parsing error'
+    return {
+      valid: false,
+      errors: [`Invalid YAML syntax: ${message}`],
+      warnings: [],
+      topicCount: 0,
+      pipelineName: '',
+      detectedFormat: 'yaml',
+    }
+  }
+}
+
+/**
+ * Auto-detects format from file extension or content heuristic, then parses and validates.
+ */
+export function parsePipelineConfigContent(content: string, filename?: string): ImportValidationResult {
+  const ext = filename?.split('.').pop()?.toLowerCase()
+  let format: ConfigFormat
+
+  if (ext === 'yaml' || ext === 'yml') {
+    format = 'yaml'
+  } else if (ext === 'json') {
+    format = 'json'
+  } else {
+    // Detect by content: JSON always starts with { or [
+    format = content.trimStart().startsWith('{') || content.trimStart().startsWith('[') ? 'json' : 'yaml'
+  }
+
+  return format === 'yaml' ? parsePipelineConfigYaml(content) : parsePipelineConfigJson(content)
 }
 
 /**
@@ -214,6 +266,7 @@ export function markStoresValidAfterImport(store: any, config: Pipeline): void {
   const {
     kafkaStore,
     topicsStore,
+    otlpStore,
     deduplicationStore,
     filterStore,
     transformationStore,
@@ -222,14 +275,20 @@ export function markStoresValidAfterImport(store: any, config: Pipeline): void {
     clickhouseDestinationStore,
   } = store
 
-  // Mark Kafka connection as valid if brokers are present
-  if (config.source?.connection_params?.brokers?.length > 0) {
-    kafkaStore.markAsValid()
-  }
+  const sourceType = config.source?.type ?? ''
 
-  // Mark topics store as valid if topics are present
-  if (config.source?.topics?.length > 0) {
-    topicsStore.markAsValid()
+  if (isOtlpSource(sourceType)) {
+    // OTLP: hydrateOtlpSource already calls markAsValid(), but ensure it here too
+    otlpStore?.markAsValid()
+  } else {
+    // Kafka: mark connection and topics stores based on presence of data
+    if ((config.source?.connection_params?.brokers?.length ?? 0) > 0) {
+      kafkaStore.markAsValid()
+    }
+
+    if ((config.source?.topics?.length ?? 0) > 0) {
+      topicsStore.markAsValid()
+    }
   }
 
   // Mark deduplication as valid (it's always optional, defaults to disabled)
@@ -243,14 +302,18 @@ export function markStoresValidAfterImport(store: any, config: Pipeline): void {
   // Mark transformation as valid (optional operation)
   transformationStore.markAsValid()
 
-  // Mark join as valid if 2 topics and join is configured, or if single topic
-  const topicCount = config.source?.topics?.length || 0
+  // OTLP is always single-source; Kafka uses the topics array length
+  const topicCount = isOtlpSource(sourceType) ? 1 : (config.source?.topics?.length || 0)
   if (topicCount < 2 || (config.join?.enabled && config.join?.sources?.length > 0)) {
     joinStore.markAsValid()
   }
 
-  // Mark ClickHouse connection as valid if host and database are present
-  if (config.sink?.host && config.sink?.database) {
+  // Mark ClickHouse connection as valid if host and database are present.
+  // Handle both flat format (v1/v2: sink.host) and nested format (v3: sink.connection_params.host).
+  const sinkAny = config.sink as any
+  const sinkHost = sinkAny?.host || sinkAny?.connection_params?.host
+  const sinkDatabase = sinkAny?.database || sinkAny?.connection_params?.database
+  if (sinkHost && sinkDatabase) {
     clickhouseConnectionStore.markAsValid()
   }
 

@@ -12,7 +12,6 @@ import (
 	"github.com/danielgtaylor/huma/v2/adapters/humamux"
 	"github.com/gorilla/mux"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/usagestats"
 )
 
@@ -39,7 +38,6 @@ func NewRouter(
 	log *slog.Logger,
 	pipelineService PipelineService,
 	dlqService DLQ,
-	meter *observability.Meter,
 	usageStatsClient *usagestats.Client,
 ) http.Handler {
 	r := mux.NewRouter()
@@ -97,13 +95,14 @@ func NewRouter(
 	registerHumaHandler("/api/v1/pipeline/{id}", h.deletePipeline, log, DeletePipelineDocs(), humaAPI, h.usageStatsClient)
 	registerHumaHandler("/api/v1/pipeline/{id}/resume", h.resumePipeline, log, ResumePipelineDocs(), humaAPI, h.usageStatsClient)
 	registerHumaHandler("/api/v1/pipeline/{id}/edit", h.editPipeline, log, EditPipelineDocs(), humaAPI, h.usageStatsClient)
+	registerHumaHandler("/internal/pipelines/{id}/otlp-config", h.getOTLPConfig, log, GetOTLPConfigDocs(), humaAPI, h.usageStatsClient)
 
 	r.HandleFunc("/api/v1/docs", h.docs)
 	r.HandleFunc("/api/v1/openapi.json", h.swaggerDocsJSON)
 
 	r.HandleFunc("/api/v1/healthz", h.healthz).Methods("GET")
 
-	r.Use(Recovery(log), RequestLogging(log), RequestMetrics(meter))
+	r.Use(Recovery(log), RequestLogging(log), RequestMetrics())
 
 	return r
 }

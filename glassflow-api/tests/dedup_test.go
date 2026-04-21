@@ -18,6 +18,7 @@ import (
 	filterJSON "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/filter/json"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/processor"
+	subjectrouter "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/subject/router"
 	jsonTransformer "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/transformer/json"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/tests/steps"
 )
@@ -165,11 +166,23 @@ func createComponent(
 	require.NoError(t, err)
 
 	reader := batchNats.NewBatchReader(consumer)
-	writer := batchNats.NewBatchWriter(js, outputSubject)
+
+	subjectRouter, err := subjectrouter.New(models.RoutingConfig{
+		OutputSubject: outputSubject,
+		Type:          models.RoutingTypeName,
+	})
+	require.NoError(t, err)
+	writer := batchNats.NewBatchWriter(js, subjectRouter)
 
 	var dlqWriter batch.BatchWriter
 	if dlqSubject != nil {
-		dlqWriter = batchNats.NewBatchWriter(js, *dlqSubject)
+		dlqSubjectRouter, err := subjectrouter.New(models.RoutingConfig{
+			OutputSubject: *dlqSubject,
+			Type:          models.RoutingTypeName,
+		})
+		require.NoError(t, err)
+
+		dlqWriter = batchNats.NewBatchWriter(js, dlqSubjectRouter)
 	}
 
 	role := internal.RoleDeduplicator
@@ -179,7 +192,7 @@ func createComponent(
 	if dedupConfig != nil && dedupConfig.Enabled {
 		ttl := dedupConfig.Window.Duration()
 		badgerDedup := dedupBadger.NewDeduplicator(suite.GetBadgerDB(), ttl)
-		dedupProcessor = processor.NewDedupProcessor(badgerDedup, nil)
+		dedupProcessor = processor.NewDedupProcessor(badgerDedup)
 	} else {
 		dedupProcessor = &processor.NoopProcessor{}
 	}
@@ -189,7 +202,7 @@ func createComponent(
 	if statelessTransform != nil && statelessTransform.Enabled {
 		transformer, err := jsonTransformer.NewTransformer(statelessTransform.Config.Transform)
 		require.NoError(t, err)
-		statelessTransformerProcessorBase := processor.NewStatelessTransformerProcessor(transformer, nil)
+		statelessTransformerProcessorBase := processor.NewStatelessTransformerProcessor(transformer)
 		statelessTransformerProcessor = processor.ChainProcessors(
 			processor.ChainMiddlewares(processor.DLQMiddleware(dlqWriter, role)),
 			statelessTransformerProcessorBase,
@@ -203,7 +216,7 @@ func createComponent(
 	if filterConfig != nil && filterConfig.Enabled {
 		filterJson, err := filterJSON.New(filterConfig.Expression, filterConfig.Enabled)
 		require.NoError(t, err)
-		filterProcessorBase := processor.NewFilterProcessor(filterJson, nil) // nil meter for tests
+		filterProcessorBase := processor.NewFilterProcessor(filterJson)
 		filterProcessor = processor.ChainProcessors(
 			processor.ChainMiddlewares(processor.DLQMiddleware(dlqWriter, role)),
 			filterProcessorBase,
@@ -472,7 +485,7 @@ func TestDeduplication_BasicFiltering(t *testing.T) {
 
 	filterConfig := &models.FilterComponentConfig{
 		Enabled:    true,
-		Expression: `age < 18`, // Filter out minors
+		Expression: `age >= 18`, // Keep adults
 	}
 
 	component := createComponent(
@@ -488,7 +501,7 @@ func TestDeduplication_BasicFiltering(t *testing.T) {
 		nil,          // dlq
 	)
 
-	// Publish 3 messages: 2 match filter (dropped), 1 doesn't match (passes through)
+	// Publish 3 messages: 2 do not match filter (dropped), 1 matches (passes through)
 	for _, data := range []string{`{"age": 15}`, `{"age": 25}`, `{"age": 10}`} {
 		msg := &nats.Msg{
 			Subject: inputSubject,
@@ -527,7 +540,7 @@ func TestDeduplication_FilterWithDedupAndTransform(t *testing.T) {
 	// Filter: keep only adults (age >= 18)
 	filterConfig := &models.FilterComponentConfig{
 		Enabled:    true,
-		Expression: `age < 18`, // Filter out minors
+		Expression: `age >= 18`, // Keep adults
 	}
 
 	// Deduplication: enabled with 1 hour window
@@ -568,11 +581,11 @@ func TestDeduplication_FilterWithDedupAndTransform(t *testing.T) {
 		msgID string
 		data  string
 	}{
-		{"msg-1", `{"age": 15, "name": "alice"}`},  // Filtered out (age < 18)
-		{"msg-2", `{"age": 25, "name": "bob"}`},    // Passes filter, deduped, transformed
-		{"msg-2", `{"age": 25, "name": "bob"}`},    // Duplicate (deduped)
+		{"msg-1", `{"age": 15, "name": "alice"}`},   // Filtered out (does not match age >= 18)
+		{"msg-2", `{"age": 25, "name": "bob"}`},     // Passes filter, deduped, transformed
+		{"msg-2", `{"age": 25, "name": "bob"}`},     // Duplicate (deduped)
 		{"msg-3", `{"age": 30, "name": "charlie"}`}, // Passes filter, deduped, transformed
-		{"msg-4", `{"age": 10, "name": "dave"}`},   // Filtered out (age < 18)
+		{"msg-4", `{"age": 10, "name": "dave"}`},    // Filtered out (does not match age >= 18)
 	}
 
 	for _, tm := range testMessages {

@@ -9,11 +9,11 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/configs"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/mapper"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/sink"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 )
 
 type Sink interface {
@@ -32,10 +32,10 @@ type SinkComponent struct {
 func NewSinkComponent(
 	sinkConfig models.SinkComponentConfig,
 	streamCon jetstream.Consumer,
-	schemaMapper schema.Mapper,
+	mapper *mapper.KafkaToClickHouseMapper,
+	cfgStore *configs.ConfigStore,
 	doneCh chan struct{},
 	log *slog.Logger,
-	meter *observability.Meter,
 	dlqPublisher stream.Publisher,
 	streamSourceID string,
 ) (Component, error) {
@@ -46,9 +46,9 @@ func NewSinkComponent(
 	chSink, err := sink.NewClickHouseSink(
 		sinkConfig,
 		streamCon,
-		schemaMapper,
+		mapper,
+		cfgStore,
 		log,
-		meter,
 		dlqPublisher,
 		models.ClickhouseQueryConfig{
 			WaitForAsyncInsert: true,

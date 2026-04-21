@@ -8,21 +8,21 @@ import (
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/component"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/componentsignals"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema"
+	sr "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema_registry"
+	schemav2 "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema_v2"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 )
 
 type IngestorRunner struct {
 	nc  *client.NATSClient
 	log *slog.Logger
 
-	topicName    string
-	pipelineCfg  models.PipelineConfig
-	runtimeCfg   models.IngestorRuntimeConfig
-	schemaMapper schema.Mapper
-	meter        *observability.Meter
+	topicName   string
+	pipelineCfg models.PipelineConfig
+	db          PipelineStore
+	runtimeCfg  models.IngestorRuntimeConfig
 
 	component component.Component
 	c         chan error
@@ -34,19 +34,17 @@ func NewIngestorRunner(
 	nc *client.NATSClient,
 	topicName string,
 	pipelineCfg models.PipelineConfig,
+	db PipelineStore,
 	runtimeCfg models.IngestorRuntimeConfig,
-	schemaMapper schema.Mapper,
-	meter *observability.Meter,
 ) *IngestorRunner {
 	return &IngestorRunner{
 		nc:  nc,
 		log: log,
 
-		topicName:    topicName,
-		pipelineCfg:  pipelineCfg,
-		runtimeCfg:   runtimeCfg,
-		schemaMapper: schemaMapper,
-		meter:        meter,
+		topicName:   topicName,
+		pipelineCfg: pipelineCfg,
+		db:          db,
+		runtimeCfg:  runtimeCfg,
 
 		component: nil,
 	}
@@ -81,10 +79,24 @@ func (i *IngestorRunner) Start(ctx context.Context) error {
 		}
 	}
 
+	dlqSubject := models.GetDLQStreamSubjectName(i.pipelineCfg.ID)
+	var srClient schemav2.SchemaRegistryClient
+	if topicCfg.SchemaRegistryConfig.URL != "" {
+		srClient, err = sr.NewSchemaRegistryClient(topicCfg.SchemaRegistryConfig)
+		if err != nil {
+			i.log.ErrorContext(ctx, "failed to create schema registry client", "error", err)
+			return fmt.Errorf("create schema registry client: %w", err)
+		}
+	}
+
 	i.log.InfoContext(ctx, "Ingestor will write to NATS subject",
 		"subject", outputSubject,
 		"pipelineId", i.pipelineCfg.Status.PipelineID,
 		"topic", i.topicName,
+	)
+	i.log.InfoContext(ctx, "Ingestor will write failed events to DLQ subject",
+		"dlq_subject", dlqSubject,
+		"pipelineId", i.pipelineCfg.Status.PipelineID,
 	)
 	if topicCfg.Deduplication.Enabled {
 		i.log.InfoContext(ctx, "Ingestor will route messages by dedup key to subjects",
@@ -102,9 +114,24 @@ func (i *IngestorRunner) Start(ctx context.Context) error {
 	dlqStreamPublisher := stream.NewNATSPublisher(
 		i.nc.JetStream(),
 		stream.PublisherConfig{
-			Subject: models.GetDLQStreamSubjectName(i.pipelineCfg.ID),
+			Subject: dlqSubject,
 		},
 	)
+
+	signalPublisher, err := componentsignals.NewPublisher(i.nc)
+	if err != nil {
+		return fmt.Errorf("create component signal publisher: %w", err)
+	}
+
+	schema, err := schemav2.NewSchema(
+		i.pipelineCfg.Status.PipelineID,
+		i.topicName,
+		i.db,
+		srClient,
+	)
+	if err != nil {
+		return fmt.Errorf("create schema for ingestor: %w", err)
+	}
 
 	component, err := component.NewIngestorComponent(
 		i.pipelineCfg,
@@ -112,10 +139,10 @@ func (i *IngestorRunner) Start(ctx context.Context) error {
 		i.runtimeCfg,
 		streamPublisher,
 		dlqStreamPublisher,
-		i.schemaMapper,
+		schema,
+		signalPublisher,
 		i.doneCh,
 		i.log,
-		i.meter,
 	)
 	if err != nil {
 		i.log.ErrorContext(ctx, "failed to create ingestor component: ", "error", err)

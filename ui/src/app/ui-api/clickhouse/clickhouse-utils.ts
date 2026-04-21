@@ -135,6 +135,21 @@ export async function executeQuery(connection: ClickHouseConnection, query: stri
   }
 }
 
+/** Run a DDL command (CREATE/ALTER/DROP); no return value needed. */
+export async function executeCommand(connection: ClickHouseConnection, query: string): Promise<void> {
+  await executeQuery(connection, query)
+}
+
+/** Quote a ClickHouse identifier (e.g. table or column name) with backticks. */
+export function quoteClickHouseIdentifier(name: string): string {
+  return `\`${name.replace(/`/g, '``')}\``
+}
+
+/** Quote database and table for use in a query (e.g. `db`.`table`). */
+export function quoteTableRef(database: string, table: string): string {
+  return `${quoteClickHouseIdentifier(database)}.${quoteClickHouseIdentifier(table)}`
+}
+
 export async function closeConnection(connection: ClickHouseConnection): Promise<void> {
   if (connection.type === 'client' && connection.client) {
     await connection.client.close()
@@ -156,9 +171,9 @@ export function buildSchemaQuery(database: string, table: string): string {
   }
 }
 
-// Fallback schema query without backticks
+// Fallback schema query (also properly quoted — identifiers with hyphens must be backtick-quoted)
 export function buildFallbackSchemaQuery(database: string, table: string): string {
-  return `DESCRIBE TABLE ${database}.${table} FORMAT JSONEachRow`
+  return `DESCRIBE TABLE ${quoteTableRef(database, table)} FORMAT JSONEachRow`
 }
 
 // Specialized functions for test-connection queries
@@ -168,10 +183,10 @@ export function buildTestQuery(testType: string, database?: string, table?: stri
       return 'SHOW DATABASES FORMAT TabSeparated'
     case 'database':
       if (!database) throw new Error('Database name required for database test')
-      return `SHOW TABLES FROM ${database} FORMAT TabSeparated`
+      return `SHOW TABLES FROM ${quoteClickHouseIdentifier(database)} FORMAT TabSeparated`
     case 'table':
       if (!database || !table) throw new Error('Database and table names required for table test')
-      return `SELECT * FROM ${database}.${table} LIMIT 1 FORMAT JSONEachRow`
+      return `SELECT * FROM ${quoteTableRef(database, table)} LIMIT 1 FORMAT JSONEachRow`
     default:
       throw new Error(`Invalid test type: ${testType}`)
   }

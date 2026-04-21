@@ -18,9 +18,15 @@ const (
 	SchemaMapperJSONToCHType = "jsonToClickhouse"
 	ClickHouseSinkType       = "clickhouse"
 
+	// source types
+	OTLPSourceType        = "otlp"
+	OTLPLogsSourceType    = "otlp.logs"
+	OTLPTracesSourceType  = "otlp.traces"
+	OTLPMetricsSourceType = "otlp.metrics"
+
 	// Stream naming constants
 	MaxStreamNameLength  = 32
-	PipelineStreamPrefix = "gf"
+	PipelineStreamPrefix = "gfm"
 
 	// Pipeline status constants
 	PipelineStatusCreated     = "Created"
@@ -51,6 +57,7 @@ const (
 	RoleIngestor     = "ingestor"
 	RoleDeduplicator = "dedup"
 	RoleETL          = ""
+	RoleOLTPReceiver = "oltp-receiver"
 
 	// DLQ constants
 	DLQDefaultBatchSize = 1
@@ -229,6 +236,11 @@ const (
 
 	// Encryption constants
 	AESKeySize = 32
+
+	// Schema version id NATS header
+	SchemaVersionIDHeader = "Schema-Version-Id"
+
+	OTLPPipelineIDHeader = "x-glassflow-pipeline-id"
 )
 
 // IsFixedStringType reports whether t is a ClickHouse FixedString type (with or without length).

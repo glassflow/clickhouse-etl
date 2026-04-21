@@ -34,7 +34,7 @@ func (s *PostgresStorage) insertConnectionWithConfig(ctx context.Context, tx pgx
 		INSERT INTO connections (type, config)
 		VALUES ($1, $2)
 		RETURNING id
-	`, connType, configToStore).Scan(&connID)
+	`, connType, string(configToStore)).Scan(&connID)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to insert connection",
 			slog.String("connection_type", connType),
@@ -65,7 +65,7 @@ func (s *PostgresStorage) updateConnectionWithConfig(ctx context.Context, tx pgx
 		UPDATE connections
 		SET config = $1, updated_at = NOW()
 		WHERE id = $2
-	`, configToStore, connID)
+	`, string(configToStore), connID)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to update connection",
 			slog.String("connection_id", connID.String()),
@@ -165,6 +165,17 @@ func encryptKafkaFields(encryptionService *encryption.Service, config *models.In
 		config.KafkaConnectionParams.KerberosKeytab = base64.StdEncoding.EncodeToString(encrypted)
 	}
 
+	// Encrypt schema registry API secret for each topic
+	for i := range config.KafkaTopics {
+		if config.KafkaTopics[i].SchemaRegistryConfig.APISecret != "" {
+			encrypted, err := encryptionService.Encrypt([]byte(config.KafkaTopics[i].SchemaRegistryConfig.APISecret))
+			if err != nil {
+				return fmt.Errorf("encrypt schema registry api secret: %w", err)
+			}
+			config.KafkaTopics[i].SchemaRegistryConfig.APISecret = base64.StdEncoding.EncodeToString(encrypted)
+		}
+	}
+
 	return nil
 }
 
@@ -203,6 +214,15 @@ func decryptKafkaFields(encryptionService *encryption.Service, config *models.In
 	if config.KafkaConnectionParams.KerberosKeytab != "" {
 		if decrypted, err := attemptDecryptField(encryptionService, config.KafkaConnectionParams.KerberosKeytab); err == nil {
 			config.KafkaConnectionParams.KerberosKeytab = decrypted
+		}
+	}
+
+	// Decrypt schema registry API secret for each topic
+	for i := range config.KafkaTopics {
+		if config.KafkaTopics[i].SchemaRegistryConfig.APISecret != "" {
+			if decrypted, err := attemptDecryptField(encryptionService, config.KafkaTopics[i].SchemaRegistryConfig.APISecret); err == nil {
+				config.KafkaTopics[i].SchemaRegistryConfig.APISecret = decrypted
+			}
 		}
 	}
 

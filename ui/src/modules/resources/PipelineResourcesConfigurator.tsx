@@ -2,8 +2,6 @@
 
 import React, { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Image from 'next/image'
-import { XCircleIcon } from '@heroicons/react/24/outline'
 import { useStore } from '@/src/store'
 import { getResourceDefaults } from '@/src/config/resource-defaults'
 import { createPipeline, getPipelineResources, getPipelineResourcesValidation, updatePipelineResources } from '@/src/api/pipeline-api'
@@ -13,11 +11,14 @@ import { StepKeys } from '@/src/config/constants'
 import { notify } from '@/src/notifications'
 import { isPreviewModeEnabled } from '@/src/config/feature-flags'
 import { generateApiConfig, getMappingType } from '@/src/modules/clickhouse/utils'
+import { toTransformArray } from '@/src/modules/transformation/utils'
 import { structuredLogger } from '@/src/observability'
-import { Button } from '@/src/components/ui/button'
-import DownloadIconWhite from '@/src/images/download-white.svg'
 import { LATEST_PIPELINE_VERSION } from '@/src/config/pipeline-versions'
+import { downloadFailedConfig } from '@/src/utils/pipeline-download'
 import type { StepBaseProps } from '@/src/modules/pipelines/[id]/step-renderer/stepProps'
+import { DestinationErrorBlock } from '@/src/modules/clickhouse/components/DestinationErrorBlock'
+import type { DownloadFormat } from '@/src/components/common/DownloadFormatModal'
+import { isOtlpSource } from '@/src/config/source-types'
 
 export function PipelineResourcesConfigurator({
   onCompleteStep,
@@ -40,12 +41,14 @@ export function PipelineResourcesConfigurator({
     clickhouseConnectionStore,
     clickhouseDestinationStore,
     kafkaStore,
+    otlpStore,
   } = useStore()
   const [initialized, setInitialized] = useState(false)
   const [initialValues, setInitialValues] = useState(resourcesToFormValues(null))
   const [deployError, setDeployError] = useState<string | null>(null)
   const [failedDeploymentConfig, setFailedDeploymentConfig] = useState<any>(null)
 
+  const isOtlp = isOtlpSource(coreStore?.sourceType || 'kafka')
   const hasJoin = joinStore?.enabled === true
   const topics = topicsStore?.topics ? Object.values(topicsStore.topics) : []
   const hasTopicDedup = topics.some(
@@ -59,7 +62,7 @@ export function PipelineResourcesConfigurator({
     transformationStore?.transformationConfig?.enabled === true ||
     (transformationStore?.transformationConfig?.fields?.length ?? 0) > 0
 
-  const pipelineShape = { hasJoin, hasTransform, hasDedup }
+  const pipelineShape = { hasJoin, hasTransform, hasDedup, isOtlp }
   const immutablePaths = resourcesStore.fields_policy?.immutable ?? []
 
   useEffect(() => {
@@ -128,23 +131,90 @@ export function PipelineResourcesConfigurator({
         const { clickhouseConnection } = clickhouseConnectionStore
         const { clickhouseDestination } = clickhouseDestinationStore
         const selectedTopics = Object.values(topicsStore.topics || {})
+        const conn = clickhouseConnection?.directConnection
 
-        const payload = generateApiConfig({
-          pipelineId,
-          pipelineName: pipelineName || 'Pipeline',
-          setPipelineId,
-          clickhouseConnection,
-          clickhouseDestination,
-          selectedTopics,
-          getMappingType,
-          joinStore,
-          kafkaStore,
-          deduplicationStore,
-          filterStore,
-          transformationStore,
-          pipeline_resources: resourcesStore.pipeline_resources,
-          version: pipelineVersion,
-        })
+        let payload: any
+        if (isOtlp) {
+          // OTLP pipeline: build source from otlpStore, sink in V3 wire format
+          payload = {
+            pipeline_id: pipelineId,
+            name: pipelineName,
+            source: {
+              type: otlpStore.signalType || coreStore.sourceType || '',
+              id: otlpStore.sourceId,
+              deduplication: otlpStore.deduplication.enabled
+                ? { enabled: true, key: otlpStore.deduplication.key, time_window: otlpStore.deduplication.time_window }
+                : { enabled: false },
+            },
+            join: { type: '', enabled: false, sources: [] },
+            filter: filterStore?.filterConfig?.enabled && filterStore?.expressionString
+              ? { enabled: true, expression: filterStore.expressionString }
+              : { enabled: false, expression: '' },
+            stateless_transformation: (() => {
+              const baseName = (pipelineName || 'pipeline').toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-transform$/, '')
+              const transformId = `${baseName}-transform`
+              if (transformationStore?.transformationConfig?.enabled) {
+                return {
+                  id: transformId,
+                  type: 'expr_lang_transform',
+                  enabled: true,
+                  source_id: otlpStore.sourceId,
+                  config: { transform: toTransformArray(transformationStore.transformationConfig) },
+                }
+              }
+              return { id: transformId, type: 'expr_lang_transform', enabled: false }
+            })(),
+            sink: {
+              type: 'clickhouse',
+              connection_params: {
+                host: conn?.host || '',
+                port: conn?.nativePort?.toString() || '9000',
+                http_port: conn?.httpPort?.toString() || '8123',
+                database: clickhouseDestination?.database || 'default',
+                username: conn?.username || '',
+                password: conn?.password || '',
+                secure: conn?.useSSL || false,
+                ...(conn?.skipCertificateVerification && { skip_certificate_verification: true }),
+              },
+              table: clickhouseDestination?.tableName || clickhouseDestination?.table,
+              ...(clickhouseDestination?.engine ? { engine: clickhouseDestination.engine } : {}),
+              ...(clickhouseDestination?.orderBy ? { order_by: clickhouseDestination.orderBy } : {}),
+              max_batch_size: clickhouseDestination?.maxBatchSize || 1000,
+              max_delay_time: (() => {
+                const time = clickhouseDestination?.maxDelayTime || 1
+                const unit = clickhouseDestination?.maxDelayTimeUnit || 'm'
+                const shortUnit = unit === 'seconds' ? 's' : unit === 'minutes' ? 'm' : unit === 'hours' ? 'h' : unit === 'days' ? 'd' : unit
+                return `${time}${shortUnit}`
+              })(),
+              source_id: otlpStore.sourceId,
+              mapping: (clickhouseDestination?.mapping || [])
+                .filter((m: any) => m.eventField)
+                .map((col: any) => ({
+                  name: col.eventField || col.field_name,
+                  column_name: col.name || col.column_name,
+                  column_type: (col.type || col.column_type || '').replace(/Nullable\((.*)\)/, '$1'),
+                })),
+            },
+            pipeline_resources: resourcesStore.pipeline_resources,
+          }
+        } else {
+          payload = generateApiConfig({
+            pipelineId,
+            pipelineName: pipelineName || 'Pipeline',
+            setPipelineId,
+            clickhouseConnection,
+            clickhouseDestination,
+            selectedTopics,
+            getMappingType,
+            joinStore,
+            kafkaStore,
+            deduplicationStore,
+            filterStore,
+            transformationStore,
+            pipeline_resources: resourcesStore.pipeline_resources,
+            version: pipelineVersion,
+          })
+        }
 
         if (payload && typeof payload === 'object' && !('error' in payload)) {
           setDeployError(null)
@@ -157,9 +227,13 @@ export function PipelineResourcesConfigurator({
             structuredLogger.error('PipelineResourcesConfigurator failed to deploy pipeline', {
               error: err instanceof Error ? err.message : String(err),
             })
-            setDeployError(err?.message || 'Failed to deploy pipeline')
+            const orphanTable = err?.orphanTable as { database?: string; table?: string; message?: string } | undefined
+            const errorMessage = orphanTable
+              ? `${err?.message || 'Failed to deploy pipeline'}. ${orphanTable.message || ''} Table: ${orphanTable.database ?? ''}.${orphanTable.table ?? ''}`
+              : `Failed to deploy pipeline: ${err?.message}`
+            setDeployError(errorMessage)
             setFailedDeploymentConfig(payload)
-            notify({ variant: 'error', title: err?.message || 'Failed to deploy pipeline' })
+            notify({ variant: 'error', title: errorMessage })
           }
         } else {
           notify({ variant: 'error', title: 'Invalid pipeline configuration' })
@@ -183,41 +257,23 @@ export function PipelineResourcesConfigurator({
     toggleEditMode?.()
   }
 
-  const handleDownloadFailedConfig = useCallback(() => {
-    if (!failedDeploymentConfig) return
-
-    try {
-      const downloadConfig = {
-        ...failedDeploymentConfig,
-        exported_at: new Date().toISOString(),
-        exported_by: 'GlassFlow UI',
-        version: LATEST_PIPELINE_VERSION,
+  const handleDownloadFailedConfig = useCallback(
+    (format: DownloadFormat = 'yaml') => {
+      if (!failedDeploymentConfig) return
+      try {
+        const config = {
+          ...failedDeploymentConfig,
+          name: failedDeploymentConfig.name || coreStore.pipelineName || 'pipeline',
+        }
+        downloadFailedConfig(config, format, LATEST_PIPELINE_VERSION)
+      } catch (downloadError) {
+        structuredLogger.error('PipelineResourcesConfigurator failed to download configuration', {
+          error: downloadError instanceof Error ? downloadError.message : String(downloadError),
+        })
       }
-
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0]
-      const configName = failedDeploymentConfig.name || coreStore.pipelineName || 'pipeline'
-      const sanitizedName = configName.replace(/[^a-zA-Z0-9-_]/g, '_')
-      const filename = `${sanitizedName}_config_${timestamp}.json`
-
-      const blob = new Blob([JSON.stringify(downloadConfig, null, 2)], {
-        type: 'application/json',
-      })
-
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = filename
-      link.style.display = 'none'
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      URL.revokeObjectURL(url)
-    } catch (downloadError) {
-      structuredLogger.error('PipelineResourcesConfigurator failed to download configuration', {
-        error: downloadError instanceof Error ? downloadError.message : String(downloadError),
-      })
-    }
-  }, [failedDeploymentConfig, coreStore.pipelineName])
+    },
+    [failedDeploymentConfig, coreStore.pipelineName],
+  )
 
   if (!initialized) {
     return (
@@ -241,36 +297,11 @@ export function PipelineResourcesConfigurator({
         pipelineActionState={pipelineActionState}
         onClose={onCompleteStandaloneEditing}
       />
-      {deployError && (
-        <div className="space-y-3 mt-6">
-          <div className="p-3 bg-background-neutral-faded text-[var(--text-error)] rounded-md flex items-center border border-[var(--color-border-neutral-faded)]">
-            <XCircleIcon className="h-5 w-5 mr-2 flex-shrink-0" />
-            <span>{deployError}</span>
-          </div>
-          {failedDeploymentConfig && (
-            <div className="flex items-center gap-3 p-3 bg-background-neutral-faded rounded-md border border-[var(--color-border-neutral-faded)] text-content">
-              <span className="text-sm text-muted-foreground">
-                You can download the configuration to save your work and try again later.
-              </span>
-              <Button
-                size="sm"
-                onClick={handleDownloadFailedConfig}
-                variant="ghost"
-                className="group flex items-center gap-2 whitespace-nowrap !px-3 !py-2 text-sm h-auto hover:cursor-pointer"
-              >
-                <Image
-                  src={DownloadIconWhite}
-                  alt="Download"
-                  width={16}
-                  height={16}
-                  className="filter brightness-100 group-hover:brightness-100 hover:cursor-pointer flex-shrink-0"
-                />
-                Download config
-              </Button>
-            </div>
-          )}
-        </div>
-      )}
+      <DestinationErrorBlock
+        error={deployError}
+        failedDeploymentConfig={failedDeploymentConfig}
+        onDownloadConfig={handleDownloadFailedConfig}
+      />
     </>
   )
 }

@@ -80,6 +80,10 @@ Deduplication is configured per Kafka topic in the pipeline configuration. Here'
 
 ### Setting Time Windows
 
+<Callout type="info">
+The maximum supported `time_window` value is **7 days** (`168h`).
+</Callout>
+
 - **Match your use case**: Set the time window based on how long duplicates might arrive (e.g., retry windows, network delays)
 - **Balance memory and coverage**: Longer windows use more memory but catch duplicates over longer periods
 - **Consider event frequency**: For high-frequency events, shorter windows may be sufficient
@@ -108,7 +112,7 @@ Here's a complete example of a pipeline with deduplication enabled:
       {
         "name": "user-events",
         "consumer_group_initial_offset": "latest",
-        "replicas": 1
+        "replicas": 1,
         "deduplication": {
           "enabled": true,
           "id_field": "event_id",

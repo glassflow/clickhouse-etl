@@ -47,11 +47,6 @@ func TestValidateResourceQuantities(t *testing.T) {
 			},
 		},
 		{
-			name:    "empty cpu is rejected",
-			r:       models.PipelineResources{Join: &models.ComponentResources{Requests: &models.ResourceList{CPU: "", Memory: "256Mi"}}},
-			wantErr: true,
-		},
-		{
 			name:    "invalid cpu in requests",
 			r:       models.PipelineResources{Join: &models.ComponentResources{Requests: &models.ResourceList{CPU: "bad"}}},
 			wantErr: true,

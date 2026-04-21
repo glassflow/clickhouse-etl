@@ -10,7 +10,9 @@
     "lint": "next lint",
     "test": "vitest",
     "test:run": "vitest run",
-    "sync-tokens": "node figma-sync/sync-tokens-to-figma-via-api/sync-tokens-to-figma.mjs"
+    "sync-tokens": "node figma-sync/sync-tokens-to-figma-via-api/sync-tokens-to-figma.mjs",
+    "figma:publish": "figma connect publish",
+    "figma:unpublish": "figma connect unpublish"
   },
   "dependencies": {
     "@auth0/nextjs-auth0": "^4.12.0",
@@ -89,6 +91,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",
+    "@figma/code-connect": "^1.4.3",
     "@next/eslint-plugin-next": "^15.3.0",
     "@tailwindcss/postcss": "^4.1.3",
     "@testing-library/jest-dom": "^6.6.3",

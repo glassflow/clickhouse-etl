@@ -1,4 +1,5 @@
 import { cache, Suspense } from 'react'
+import { Loader2 } from 'lucide-react'
 import { redirect, notFound } from 'next/navigation'
 import { structuredLogger } from '@/src/observability'
 import type { Metadata } from 'next'
@@ -15,11 +16,9 @@ const getCachedPipeline = cache(getPipeline)
 
 function PipelineDetailsLoadingFallback() {
   return (
-    <div className="flex items-center justify-center min-h-[400px]">
-      <div className="text-center">
-        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4" />
-        <p className="text-content">Loading pipeline details...</p>
-      </div>
+    <div className="flex flex-col items-center justify-center gap-3 min-h-[400px]" aria-busy="true">
+      <Loader2 className="h-8 w-8 animate-spin text-[var(--color-foreground-primary)]" role="status" aria-hidden />
+      <p className="body-3 text-[var(--color-foreground-neutral-faded)]">Loading pipeline details…</p>
     </div>
   )
 }
@@ -84,7 +83,10 @@ async function PipelinePage({
 
     return <PipelineDetailsModule pipeline={pipeline} />
   } catch (error) {
-    structuredLogger.error('Failed to fetch pipeline during SSR', { error: error instanceof Error ? error.message : String(error) })
+    const err = error as ApiError & Error
+    const message = err?.message ?? (error instanceof Error ? error.message : String(error))
+    const code = err?.code
+    structuredLogger.error('Failed to fetch pipeline during SSR', { error: message, code })
 
     // Check if this is a 404 error (pipeline not found) — use Next.js not-found boundary
     const apiError = error as ApiError
