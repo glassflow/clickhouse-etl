@@ -166,20 +166,20 @@ type clickhouseSinkV2 struct {
 	Provider         string                 `json:"provider,omitempty"`
 	ConnectionParams sinkConnectionParamsV2 `json:"connection_params,omitempty"`
 	// Flat fields — older v2 format stores connection params at top level
-	Host                        string `json:"host,omitempty"`
-	Port                        string `json:"port,omitempty"`
-	HttpPort                    string `json:"http_port,omitempty"`
-	Database                    string `json:"database,omitempty"`
-	Username                    string `json:"username,omitempty"`
-	Password                    string `json:"password,omitempty"`
-	Secure                      bool   `json:"secure,omitempty"`
-	SkipCertificateVerification bool   `json:"skip_certificate_verification,omitempty"`
-	Table        string                 `json:"table"`
-	MaxBatchSize     int                    `json:"max_batch_size"`
-	MaxDelayTime     models.JSONDuration    `json:"max_delay_time"`
-	SourceID         string                 `json:"source_id,omitempty"`
-	TableMapping     []tableMappingEntryV2  `json:"mapping,omitempty"`
-	TableMappingV1   []tableMappingEntryV1  `json:"table_mapping,omitempty"`
+	Host                        string                `json:"host,omitempty"`
+	Port                        string                `json:"port,omitempty"`
+	HttpPort                    string                `json:"http_port,omitempty"`
+	Database                    string                `json:"database,omitempty"`
+	Username                    string                `json:"username,omitempty"`
+	Password                    string                `json:"password,omitempty"`
+	Secure                      bool                  `json:"secure,omitempty"`
+	SkipCertificateVerification bool                  `json:"skip_certificate_verification,omitempty"`
+	Table                       string                `json:"table"`
+	MaxBatchSize                int                   `json:"max_batch_size"`
+	MaxDelayTime                models.JSONDuration   `json:"max_delay_time"`
+	SourceID                    string                `json:"source_id,omitempty"`
+	TableMapping                []tableMappingEntryV2 `json:"mapping,omitempty"`
+	TableMappingV1              []tableMappingEntryV1 `json:"table_mapping,omitempty"`
 }
 
 type tableMappingEntryV1 struct {
