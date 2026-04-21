@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -249,6 +250,17 @@ func sinkConnParams(s clickhouseSinkV2) sinkConnectionParamsV2 {
 	}
 }
 
+// decodeBase64Password decodes a base64-encoded password back to plaintext.
+// v2 pipelines stored the ClickHouse password base64-encoded in the JSON;
+// v3 expects plaintext (the storage layer handles encryption).
+func decodeBase64Password(p string) string {
+	decoded, err := base64.StdEncoding.DecodeString(p)
+	if err != nil {
+		return p // not base64 — already plaintext
+	}
+	return string(decoded)
+}
+
 func convertSink(v2 pipelineJSONv2) sink {
 	cp := sinkConnParams(v2.Sink)
 	s := sink{
@@ -259,7 +271,7 @@ func convertSink(v2 pipelineJSONv2) sink {
 			HTTPPort:                    cp.HttpPort,
 			Database:                    cp.Database,
 			Username:                    cp.Username,
-			Password:                    cp.Password,
+			Password:                    decodeBase64Password(cp.Password),
 			Secure:                      cp.Secure,
 			SkipCertificateVerification: cp.SkipCertificateVerification,
 		},
