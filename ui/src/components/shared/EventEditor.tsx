@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import dynamic from 'next/dynamic'
+import { Loader2 } from 'lucide-react'
 
 // Dynamically import AceEditor to avoid SSR issues
 const AceEditor = dynamic(
@@ -114,8 +115,8 @@ export const EventEditor = ({
 
           <div className="flex-grow relative w-full h-full code-editor-container">
             {isLoadingEvent ? (
-              <div className="absolute inset-0 flex items-center justify-center bg-black-500 bg-opacity-50">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+              <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                <Loader2 className="h-8 w-8 animate-spin text-[var(--color-foreground-primary)]" />
               </div>
             ) : (
               <>

@@ -1,4 +1,3 @@
-import { ValidationState } from '@/src/types/validation'
 import TitleCardWithIcon from '../TitleCardWithIcon'
 import { useStore } from '@/src/store'
 import { StepKeys } from '@/src/config/constants'
@@ -15,6 +14,7 @@ export function KafkaConnectionSection({
   onStepClick: (step: StepKeys) => void
 }) {
   const kafkaValidation = useStore((state) => state.kafkaStore.validation)
+  const bootstrapServers = useStore((state) => state.kafkaStore.bootstrapServers)
 
   return (
     <div className="flex flex-col gap-4 w-1/5">
@@ -24,6 +24,7 @@ export function KafkaConnectionSection({
       <TitleCardWithIcon
         validation={kafkaValidation}
         title="Kafka"
+        subtitle={bootstrapServers || undefined}
         onClick={() => onStepClick(StepKeys.KAFKA_CONNECTION)}
         disabled={disabled}
         selected={selected}

@@ -10,6 +10,10 @@ import {
   type TransformationValidation,
 } from './transformation'
 import { PipelineResourcesSection } from './PipelineResourcesSection'
+import { isOtlpSource } from '@/src/config/source-types'
+import { isFiltersEnabled } from '@/src/config/feature-flags'
+import { FilterCard, TransformationCard } from './transformation/cards'
+import DoubleColumnCard from '../DoubleColumnCard'
 
 interface TransformationSectionProps {
   pipeline: any
@@ -106,11 +110,35 @@ function TransformationSection({ pipeline, onStepClick, disabled, validation, ac
     pipeline,
   }
 
+  // Detect OTLP source — check store first, fall back to raw pipeline config
+  const sourceType = coreStore.sourceType || pipeline?.source?.type || ''
+  const isOtlp = isOtlpSource(sourceType)
+
   // Determine which case to render
   let sectionContent = null
 
+  // OTLP source: no Kafka topics — skip the topic info card and wire up the destination card
+  if (isOtlp) {
+    sectionContent = (
+      <div className="flex flex-col gap-4">
+        {isFiltersEnabled() && (
+          <FilterCard onStepClick={onStepClick} disabled={disabled} validation={validation} activeStep={activeStep} />
+        )}
+        <TransformationCard onStepClick={onStepClick} disabled={disabled} activeStep={activeStep} pipeline={pipeline} />
+        <DoubleColumnCard
+          label={['Destination Table', 'Schema Mapping']}
+          value={[destinationTable, `${totalSourceFields} fields → ${totalDestinationColumns} columns`]}
+          width="full"
+          onClick={() => onStepClick(StepKeys.CLICKHOUSE_MAPPER)}
+          disabled={disabled}
+          validation={validation.clickhouseDestinationValidation}
+          selected={activeStep === StepKeys.CLICKHOUSE_MAPPER}
+        />
+      </div>
+    )
+  }
   // Single topic case (deduplication or ingest only)
-  if (topics.length === 1 && !hasJoin) {
+  else if (topics.length === 1 && !hasJoin) {
     const shouldShowDedupCard = topicCount === 1 && isDeduplicationEnabled(dedup0, topic0)
 
     sectionContent = <DeduplicationCase topic={topic0} hasDedup={shouldShowDedupCard} {...commonProps} />
@@ -154,19 +182,20 @@ function TransformationSection({ pipeline, onStepClick, disabled, validation, ac
   }
 
   return (
-    <div className="flex flex-col gap-4 w-[70%]">
-      {/* Transformation */}
+    <div className="flex flex-col gap-3 w-[70%]">
       <div className="text-center">
         <span className="text-lg font-bold text-[var(--color-foreground-neutral-faded)]">
           Transformation: {transformationLabel}
         </span>
       </div>
       {sectionContent}
-      <PipelineResourcesSection
-        disabled={disabled}
-        selected={resourcesSelected}
-        onStepClick={onStepClick}
-      />
+      <div className="mt-3">
+        <PipelineResourcesSection
+          disabled={disabled}
+          selected={resourcesSelected}
+          onStepClick={onStepClick}
+        />
+      </div>
     </div>
   )
 }

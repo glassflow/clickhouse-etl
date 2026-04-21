@@ -14,16 +14,20 @@ export function ClickhouseConnectionSection({
   onStepClick: (step: StepKeys) => void
 }) {
   const clickhouseConnectionValidation = useStore((state) => state.clickhouseConnectionStore.validation)
+  const database = useStore((state) => state.clickhouseDestinationStore.clickhouseDestination.database)
+  const table = useStore((state) => state.clickhouseDestinationStore.clickhouseDestination.table)
+
+  const subtitle = database && table ? `${database} / ${table}` : database || table || undefined
 
   return (
     <div className="flex flex-col gap-4 w-1/5">
-      {/* Sink */}
       <div className="text-center">
         <span className="text-lg font-bold">Sink</span>
       </div>
       <TitleCardWithIcon
         validation={clickhouseConnectionValidation}
         title="ClickHouse"
+        subtitle={subtitle}
         onClick={() => onStepClick(StepKeys.CLICKHOUSE_CONNECTION)}
         disabled={disabled}
         selected={selected}

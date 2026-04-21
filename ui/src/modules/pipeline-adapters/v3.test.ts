@@ -250,6 +250,52 @@ describe('V3PipelineAdapter', () => {
       expect(result.sink.host).toBeUndefined()
     })
 
+    it('preserves engine and order_by in generate output for create-table flow', () => {
+      const internalConfig: InternalPipelineConfig = {
+        pipeline_id: 'pipeline-1',
+        name: 'Test',
+        source: {
+          type: 'kafka',
+          provider: 'custom',
+          connection_params: { brokers: [], protocol: 'PLAINTEXT', mechanism: 'NO_AUTH' },
+          topics: [
+            {
+              id: 'orders',
+              name: 'orders',
+              schema: { type: 'json', fields: [{ name: 'order_id', type: 'string' }] },
+              consumer_group_initial_offset: 'latest',
+              deduplication: { enabled: false, id_field: '', id_field_type: 'string', time_window: '1h' },
+            },
+          ],
+        },
+        join: { type: '', enabled: false, sources: [] },
+        sink: {
+          type: 'clickhouse',
+          host: 'clickhouse-host',
+          port: '9000',
+          http_port: '8123',
+          database: 'default',
+          table: 'new_orders',
+          engine: 'MergeTree',
+          order_by: 'order_id',
+          secure: false,
+          table_mapping: [
+            { source_id: 'orders', field_name: 'order_id', column_name: 'order_id', column_type: 'String' },
+          ],
+          max_batch_size: 1000,
+          max_delay_time: '1s',
+          skip_certificate_verification: false,
+        } as any,
+      }
+
+      const result = adapter.generate(internalConfig)
+
+      // engine and order_by must survive generate() so the UI API route can
+      // detect the create-table flow and create the table before stripping them.
+      expect(result.sink.engine).toBe('MergeTree')
+      expect(result.sink.order_by).toBe('order_id')
+    })
+
     it('outputs V3 source topics: schema_fields, deduplication.key', () => {
       const internalConfig: InternalPipelineConfig = {
         pipeline_id: 'pipeline-1',

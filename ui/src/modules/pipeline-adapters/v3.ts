@@ -3,6 +3,109 @@ import { InternalPipelineConfig } from '@/src/types/pipeline'
 import { PipelineVersion } from '@/src/config/pipeline-versions'
 import { toTransformArray, exprToFieldName } from '@/src/modules/transformation/utils'
 
+function parseFunctionArgs(argsString: string): string[] {
+  const args: string[] = []
+  let current = ''
+  let depth = 0
+  let inString = false
+  let stringChar = ''
+
+  for (let i = 0; i < argsString.length; i++) {
+    const char = argsString[i]
+    if ((char === '"' || char === "'") && (i === 0 || argsString[i - 1] !== '\\')) {
+      if (!inString) {
+        inString = true
+        stringChar = char
+        current += char
+      } else if (char === stringChar) {
+        inString = false
+        stringChar = ''
+        current += char
+      } else {
+        current += char
+      }
+    } else if (!inString) {
+      if (char === '(' || char === '[') {
+        depth++
+        current += char
+      } else if (char === ')' || char === ']') {
+        depth--
+        current += char
+      } else if (char === ',' && depth === 0) {
+        args.push(current.trim())
+        current = ''
+      } else {
+        current += char
+      }
+    } else {
+      current += char
+    }
+  }
+  if (current.trim()) args.push(current.trim())
+  return args
+}
+
+export function mapTransformToField(transform: any, index: number): any {
+  const expression = transform.expression || ''
+  const outputName = transform.output_name || ''
+  const outputType = transform.output_type || 'string'
+  const fieldNameFromExpr = exprToFieldName(expression)
+  const isPassthrough = fieldNameFromExpr !== null
+
+  if (isPassthrough) {
+    return {
+      id: `field-${index}`,
+      type: 'passthrough',
+      outputFieldName: outputName,
+      outputFieldType: outputType,
+      sourceField: fieldNameFromExpr,
+      sourceFieldType: outputType,
+    }
+  }
+
+  const functionMatch = expression.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*\((.+)\)$/)
+  if (functionMatch) {
+    const functionName = functionMatch[1]
+    const argsString = functionMatch[2]
+    const args: any[] = []
+    const argParts = parseFunctionArgs(argsString)
+    argParts.forEach((arg: string) => {
+      const trimmed = arg.trim()
+      if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+        args.push({ type: 'literal', value: trimmed.slice(1, -1), literalType: 'string' })
+      } else if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+        const arrayContent = trimmed.slice(1, -1)
+        const arrayValues = parseFunctionArgs(arrayContent).map((v: string) =>
+          v.trim().replace(/^"|"$/g, ''),
+        )
+        args.push({ type: 'array', values: arrayValues, elementType: 'string' })
+      } else if (/^-?\d+$/.test(trimmed)) {
+        args.push({ type: 'literal', value: parseInt(trimmed, 10), literalType: 'number' })
+      } else {
+        args.push({ type: 'field', fieldName: exprToFieldName(trimmed) ?? trimmed, fieldType: 'string' })
+      }
+    })
+    return {
+      id: `field-${index}`,
+      type: 'computed',
+      outputFieldName: outputName,
+      outputFieldType: outputType,
+      functionName,
+      functionArgs: args,
+    }
+  }
+
+  return {
+    id: `field-${index}`,
+    type: 'computed',
+    outputFieldName: outputName,
+    outputFieldType: outputType,
+    functionName: '__raw_expression__',
+    functionArgs: [{ type: 'literal', value: expression, literalType: 'string' }],
+    rawExpression: expression,
+  }
+}
+
 export class V3PipelineAdapter implements PipelineAdapter {
   version = PipelineVersion.V3
 
@@ -77,7 +180,7 @@ export class V3PipelineAdapter implements PipelineAdapter {
       if (statelessTransformation.enabled && statelessTransformation.config?.transform) {
         const transformArray = statelessTransformation.config.transform || []
         const fields = transformArray.map((transform: any, index: number) =>
-          this.mapTransformToField(transform, index),
+          mapTransformToField(transform, index),
         )
         internalConfig.transformation = {
           enabled: true,
@@ -103,117 +206,6 @@ export class V3PipelineAdapter implements PipelineAdapter {
 
     internalConfig.version = this.version
     return internalConfig as InternalPipelineConfig
-  }
-
-  private mapTransformToField(transform: any, index: number): any {
-    const expression = transform.expression || ''
-    const outputName = transform.output_name || ''
-    const outputType = transform.output_type || 'string'
-    const fieldNameFromExpr = exprToFieldName(expression)
-    const isPassthrough = fieldNameFromExpr !== null
-
-    if (isPassthrough) {
-      return {
-        id: `field-${index}`,
-        type: 'passthrough',
-        outputFieldName: outputName,
-        outputFieldType: outputType,
-        sourceField: fieldNameFromExpr,
-        sourceFieldType: outputType,
-      }
-    }
-
-    const functionMatch = expression.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*\((.+)\)$/)
-    if (functionMatch) {
-      const functionName = functionMatch[1]
-      const argsString = functionMatch[2]
-      const args: any[] = []
-      const argParts = this.parseFunctionArgs(argsString)
-      argParts.forEach((arg: string) => {
-        const trimmed = arg.trim()
-        if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
-          args.push({ type: 'literal', value: trimmed.slice(1, -1), literalType: 'string' })
-        } else if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
-          const arrayContent = trimmed.slice(1, -1)
-          const arrayValues = this.parseFunctionArgs(arrayContent).map((v: string) =>
-            v.trim().replace(/^"|"$/g, ''),
-          )
-          args.push({ type: 'array', values: arrayValues, elementType: 'string' })
-        } else if (/^-?\d+$/.test(trimmed)) {
-          args.push({
-            type: 'literal',
-            value: parseInt(trimmed, 10),
-            literalType: 'number',
-          })
-        } else {
-          args.push({
-            type: 'field',
-            fieldName: exprToFieldName(trimmed) ?? trimmed,
-            fieldType: 'string',
-          })
-        }
-      })
-      return {
-        id: `field-${index}`,
-        type: 'computed',
-        outputFieldName: outputName,
-        outputFieldType: outputType,
-        functionName: functionName,
-        functionArgs: args,
-      }
-    }
-
-    return {
-      id: `field-${index}`,
-      type: 'computed',
-      outputFieldName: outputName,
-      outputFieldType: outputType,
-      functionName: '__raw_expression__',
-      functionArgs: [{ type: 'literal', value: expression, literalType: 'string' }],
-      rawExpression: expression,
-    }
-  }
-
-  private parseFunctionArgs(argsString: string): string[] {
-    const args: string[] = []
-    let current = ''
-    let depth = 0
-    let inString = false
-    let stringChar = ''
-
-    for (let i = 0; i < argsString.length; i++) {
-      const char = argsString[i]
-      if ((char === '"' || char === "'") && (i === 0 || argsString[i - 1] !== '\\')) {
-        if (!inString) {
-          inString = true
-          stringChar = char
-          current += char
-        } else if (char === stringChar) {
-          inString = false
-          stringChar = ''
-          current += char
-        } else {
-          current += char
-        }
-      } else if (!inString) {
-        if (char === '(' || char === '[') {
-          depth++
-          current += char
-        } else if (char === ')' || char === ']') {
-          depth--
-          current += char
-        } else if (char === ',' && depth === 0) {
-          args.push(current.trim())
-          current = ''
-        } else {
-          current += char
-        }
-      } else {
-        current += char
-      }
-    }
-    if (current.trim()) args.push(current.trim())
-    return args
   }
 
   generate(internalConfig: InternalPipelineConfig): any {
@@ -250,6 +242,8 @@ export class V3PipelineAdapter implements PipelineAdapter {
     const hasTransform =
       Boolean(transformation?.enabled && transformation?.fields?.length)
     const hasJoin = Boolean(join?.enabled && join?.sources?.length)
+    // For OTLP sources there are no Kafka topics; use source.id as the upstream reference
+    const isOtlpSource = (internalConfig.source?.type || '').startsWith('otlp.')
 
     let sinkSourceId: string
     if (hasTransform) {
@@ -262,7 +256,7 @@ export class V3PipelineAdapter implements PipelineAdapter {
       const joinId = (join as { id?: string }).id
       sinkSourceId = joinId ?? topics[0]?.id ?? topics[0]?.name ?? 'source'
     } else {
-      sinkSourceId = topics[0]?.id ?? topics[0]?.name ?? 'source'
+      sinkSourceId = topics[0]?.id ?? topics[0]?.name ?? (isOtlpSource ? (internalConfig.source?.id ?? 'source') : 'source')
     }
 
     if (apiConfig.sink) {
@@ -282,6 +276,10 @@ export class V3PipelineAdapter implements PipelineAdapter {
           }),
         },
         table: s.table,
+        // Preserve create-table fields so the UI API route can detect and execute the
+        // create-table flow before stripping them before forwarding to the backend.
+        ...(s.engine ? { engine: s.engine } : {}),
+        ...(s.order_by ? { order_by: s.order_by } : {}),
         max_batch_size: s.max_batch_size ?? 1000,
         max_delay_time: s.max_delay_time ?? '1s',
         source_id: s.source_id ?? sinkSourceId,

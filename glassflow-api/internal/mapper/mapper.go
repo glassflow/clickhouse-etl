@@ -111,6 +111,9 @@ func (m *KafkaToClickHouseMapper) Map(data []byte, schemaVersionID string, confi
 				return nil, fmt.Errorf("failed to convert field %s: %w", info.sourceField, err)
 			}
 			values[info.idx] = convertedValue
+		} else if strings.HasPrefix(string(info.columnType), "Map(") {
+			// Map types cannot be NULL in ClickHouse; use empty map for missing fields
+			values[info.idx] = map[string]string{}
 		}
 	}
 

@@ -1,4 +1,3 @@
-import React from 'react'
 import Image from 'next/image'
 import Loader from '@/src/images/loader-small.svg'
 
@@ -17,15 +16,16 @@ interface StepDataPreloaderProps {
 export function StepDataPreloader({ isLoading, error, progress, onRetry, stepTitle }: StepDataPreloaderProps) {
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center py-8 px-4">
-        <div className="text-center max-w-md">
-          <p className="text-red-500 text-sm mb-3">
-            Failed to load data for {stepTitle}. {error}
-          </p>
-          <button onClick={onRetry} className="text-blue-600 hover:text-blue-700 text-sm font-medium underline">
-            Try again
-          </button>
-        </div>
+      <div className="flex flex-col items-center justify-center py-8 px-4 gap-3">
+        <p className="body-3 text-[var(--color-foreground-critical)] text-center max-w-md">
+          Failed to load data for {stepTitle}. {error}
+        </p>
+        <button
+          onClick={onRetry}
+          className="caption-1 text-[var(--color-foreground-primary)] hover:underline"
+        >
+          Try again →
+        </button>
       </div>
     )
   }
@@ -35,9 +35,8 @@ export function StepDataPreloader({ isLoading, error, progress, onRetry, stepTit
       <div className="flex flex-col items-center justify-center py-8 px-4">
         <div className="flex items-center gap-2 mb-2">
           <Image src={Loader} alt="Loading" width={20} height={20} className="animate-spin" />
-          <span className="text-sm text-primary font-medium">Loading...</span>
+          <span className="body-3 text-[var(--color-foreground-primary)] font-medium">Loading…</span>
         </div>
-        {/* <p className="text-xs text-gray-500 text-center">Fetching event data to enable editing</p> */}
       </div>
     )
   }
