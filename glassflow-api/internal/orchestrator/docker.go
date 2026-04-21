@@ -167,9 +167,11 @@ func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.Pipeli
 			}
 
 			runtimeCfg := models.IngestorRuntimeConfig{
-				OutputSubject:      outputSubject,
-				DedupSubjectPrefix: resolveDedupSubjectPrefix(subjectPattern),
-				DedupSubjectCount:  subjectCount,
+				OutputSubject:       outputSubject,
+				OutputSubjectPrefix: resolveDedupSubjectPrefix(subjectPattern),
+				TotalSubjectCount:   1,
+				DedupSubjectPrefix:  resolveDedupSubjectPrefix(subjectPattern),
+				DedupSubjectCount:   subjectCount,
 			}
 
 			ingestorRunner := service.NewIngestorRunner(
@@ -309,7 +311,7 @@ func resolveJoinInputStreamName(pipeline *models.PipelineConfig, sourceID string
 	}
 
 	for _, topic := range pipeline.Ingestor.KafkaTopics {
-		if topic.Name != sourceID {
+		if topic.ID != sourceID {
 			continue
 		}
 		return models.GetIngestorStreamName(pipeline.ID, sourceID), nil

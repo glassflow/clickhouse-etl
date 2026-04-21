@@ -1,6 +1,7 @@
 import { StepKeys } from '@/src/config/constants'
 import { Pipeline } from '@/src/types/pipeline'
 import { isFiltersEnabled } from '@/src/config/feature-flags'
+import { isOtlpSource } from '@/src/config/source-types'
 
 /**
  * Section types for the sidebar
@@ -9,6 +10,7 @@ export type SidebarSection =
   | 'monitor'
   | 'resources'
   | 'kafka-connection'
+  | 'otlp-source'
   | 'topic'
   | 'left-topic'
   | 'right-topic'
@@ -35,9 +37,13 @@ export interface SidebarItem {
 }
 
 /**
- * Get source section items (Kafka connection and topics)
+ * Get source section items (Kafka connection and topics, or OTLP source)
  */
 export function getSourceItems(pipeline: Pipeline): SidebarItem[] {
+  if (isOtlpSource(pipeline?.source?.type || '')) {
+    return [{ key: 'otlp-source', label: 'OTLP Source' }]
+  }
+
   const items: SidebarItem[] = [
     { key: 'kafka-connection', label: 'Kafka Connection', stepKey: StepKeys.KAFKA_CONNECTION },
   ]
@@ -128,8 +134,9 @@ export function getTransformationItems(pipeline: Pipeline): SidebarItem[] {
     })
   }
 
-  // Add Filter section (only if filters feature is enabled)
-  if (isFiltersEnabled()) {
+  // Add Filter section only when the feature is enabled AND the pipeline has a filter configured
+  const hasFilter = pipeline?.filter?.enabled === true
+  if (isFiltersEnabled() && hasFilter) {
     items.push({
       key: 'filter',
       label: 'Filter',

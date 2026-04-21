@@ -52,9 +52,18 @@ func (s *PostgresStorage) reconstructPipelineConfig(ctx context.Context, data *p
 		return nil, err
 	}
 
-	joinConfig := reconstructJoinConfig(data.transformations)
-	filterConfig := reconstructFilterConfig(data.transformations)
-	statelessTransformationConfig := reconstructStatelessTransformationConfig(data.transformations)
+	joinConfig, err := reconstructJoinConfig(data.transformations)
+	if err != nil {
+		return nil, fmt.Errorf("reconstruct join config: %w", err)
+	}
+	filterConfig, err := reconstructFilterConfig(data.transformations)
+	if err != nil {
+		return nil, fmt.Errorf("reconstruct filter config: %w", err)
+	}
+	statelessTransformationConfig, err := reconstructStatelessTransformationConfig(data.transformations)
+	if err != nil {
+		return nil, fmt.Errorf("reconstruct stateless transformation config: %w", err)
+	}
 
 	id := data.pipelineID
 	cfg := &models.PipelineConfig{
@@ -156,28 +165,34 @@ func reconstructSinkConfig(chConnJSON json.RawMessage) (models.SinkComponentConf
 }
 
 // reconstructJoinConfig reconstructs JoinComponentConfig from transformations
-func reconstructJoinConfig(transformations map[string]Transformation) models.JoinComponentConfig {
+func reconstructJoinConfig(transformations map[string]Transformation) (models.JoinComponentConfig, error) {
 	joinConfig := models.JoinComponentConfig{Enabled: false}
 	if joinTrans, ok := transformations["join"]; ok {
-		_ = json.Unmarshal(joinTrans.Config, &joinConfig)
+		if err := json.Unmarshal(joinTrans.Config, &joinConfig); err != nil {
+			return joinConfig, fmt.Errorf("unmarshal join config: %w", err)
+		}
 	}
-	return joinConfig
+	return joinConfig, nil
 }
 
 // reconstructFilterConfig reconstructs FilterComponentConfig from transformations
-func reconstructFilterConfig(transformations map[string]Transformation) models.FilterComponentConfig {
+func reconstructFilterConfig(transformations map[string]Transformation) (models.FilterComponentConfig, error) {
 	filterConfig := models.FilterComponentConfig{Enabled: false}
 	if filterTrans, ok := transformations["filter"]; ok {
-		_ = json.Unmarshal(filterTrans.Config, &filterConfig)
+		if err := json.Unmarshal(filterTrans.Config, &filterConfig); err != nil {
+			return filterConfig, fmt.Errorf("unmarshal filter config: %w", err)
+		}
 	}
-	return filterConfig
+	return filterConfig, nil
 }
 
 // reconstructStatelessTransformationConfig reconstructs StatelessTransformation from transformations
-func reconstructStatelessTransformationConfig(transformations map[string]Transformation) models.StatelessTransformation {
+func reconstructStatelessTransformationConfig(transformations map[string]Transformation) (models.StatelessTransformation, error) {
 	statelessConfig := models.StatelessTransformation{Enabled: false}
 	if statelessTrans, ok := transformations["stateless_transformation"]; ok {
-		_ = json.Unmarshal(statelessTrans.Config, &statelessConfig)
+		if err := json.Unmarshal(statelessTrans.Config, &statelessConfig); err != nil {
+			return statelessConfig, fmt.Errorf("unmarshal stateless transformation config: %w", err)
+		}
 	}
-	return statelessConfig
+	return statelessConfig, nil
 }

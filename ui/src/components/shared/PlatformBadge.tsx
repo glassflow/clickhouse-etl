@@ -20,7 +20,7 @@ export const PlatformBadge: React.FC = () => {
 
   if (loading) {
     return (
-      <span className="text-xs" style={{ color: '#A8ADB8' }}>
+      <span className="text-xs text-[var(--color-foreground-neutral-faded)]">
         Loading...
       </span>
     )
@@ -35,7 +35,7 @@ export const PlatformBadge: React.FC = () => {
   }
 
   return (
-    <span className="text-xs" style={{ color: '#A8ADB8' }}>
+    <span className="text-xs text-[var(--color-foreground-neutral-faded)]">
       {getPlatformLabel(platform.orchestrator)}
     </span>
   )

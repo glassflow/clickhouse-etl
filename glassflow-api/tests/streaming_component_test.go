@@ -132,7 +132,7 @@ func TestStreamingComponent_FilterWithDedupAndTransform(t *testing.T) {
 
 	filterConfig := &models.FilterComponentConfig{
 		Enabled:    true,
-		Expression: `age < 18`, // Filter out minors
+		Expression: `age >= 18`, // Keep adults
 	}
 
 	dedupConfig := &models.DeduplicationConfig{
@@ -178,11 +178,11 @@ func TestStreamingComponent_FilterWithDedupAndTransform(t *testing.T) {
 		msgID string
 		data  string
 	}{
-		{"msg-1", `{"age": 15, "name": "alice"}`},   // Filtered out (age < 18)
+		{"msg-1", `{"age": 15, "name": "alice"}`},   // Filtered out (age < 18, does not match age >= 18)
 		{"msg-2", `{"age": 25, "name": "bob"}`},     // Passes filter, deduped, transformed
 		{"msg-2", `{"age": 25, "name": "bob"}`},     // Duplicate (deduped)
 		{"msg-3", `{"age": 30, "name": "charlie"}`}, // Passes filter, deduped, transformed
-		{"msg-4", `{"age": 10, "name": "dave"}`},    // Filtered out (age < 18)
+		{"msg-4", `{"age": 10, "name": "dave"}`},    // Filtered out (age < 18, does not match age >= 18)
 	}
 
 	for _, tm := range testMessages {

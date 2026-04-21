@@ -11,7 +11,9 @@ import { ClickhouseMapper } from '../clickhouse/ClickhouseMapper'
 import { ReviewConfiguration } from '../review/ReviewConfiguration'
 import { PipelineResourcesConfigurator } from '../resources/PipelineResourcesConfigurator'
 import { JoinConfigurator } from '../join/JoinConfigurator'
+import { OtlpSignalTypeStep } from '../otlp/components/OtlpSignalTypeStep'
 import { OperationKeys } from '@/src/config/constants'
+import { isOtlpSource } from '@/src/config/source-types'
 import type { SidebarStep } from './WizardSidebar'
 import { isPreviewModeEnabled, isFiltersEnabled, isTransformationsEnabled } from '@/src/config/feature-flags'
 
@@ -87,6 +89,10 @@ const sidebarStepConfig: Record<StepKeys, Omit<SidebarStep, 'id' | 'key'>> = {
   },
   [StepKeys.DEPLOY_PIPELINE]: {
     title: 'Deploy Pipeline',
+    parent: null,
+  },
+  [StepKeys.OTLP_SIGNAL_TYPE]: {
+    title: 'Select Signal Type',
     parent: null,
   },
 }
@@ -215,6 +221,32 @@ export const getTwoTopicJourney = (): StepKeys[] => {
   return steps
 }
 
+export const getOtlpJourney = (): StepKeys[] => {
+  const steps: StepKeys[] = [
+    StepKeys.OTLP_SIGNAL_TYPE,
+  ]
+
+  if (isFiltersEnabled()) {
+    steps.push(StepKeys.FILTER_CONFIGURATOR)
+  }
+
+  if (isTransformationsEnabled()) {
+    steps.push(StepKeys.TRANSFORMATION_CONFIGURATOR)
+  }
+
+  steps.push(
+    StepKeys.CLICKHOUSE_CONNECTION,
+    StepKeys.CLICKHOUSE_MAPPER,
+    StepKeys.PIPELINE_RESOURCES,
+  )
+
+  if (isPreviewModeEnabled()) {
+    steps.push(StepKeys.REVIEW_CONFIGURATION)
+  }
+
+  return steps
+}
+
 /** Build a stable unique id for a step occurrence (key + topicIndex or journey index). */
 function stepInstanceId(key: StepKeys, topicIndex?: number, journeyIndex?: number): string {
   if (topicIndex !== undefined) {
@@ -264,8 +296,23 @@ export function getTwoTopicJourneyInstances(): StepInstance[] {
   return instances
 }
 
+/** OTLP journey as step instances with unique ids. */
+export function getOtlpJourneyInstances(): StepInstance[] {
+  const keys = getOtlpJourney()
+  return keys.map((key, index) => ({
+    id: stepInstanceId(key, undefined, index),
+    key,
+  }))
+}
+
 /** Get journey as step instances for the given topic count. */
-export function getWizardJourneyInstances(topicCount: number | undefined): StepInstance[] {
+export function getWizardJourneyInstances(
+  topicCount: number | undefined,
+  sourceType?: string,
+): StepInstance[] {
+  if (sourceType && isOtlpSource(sourceType)) {
+    return getOtlpJourneyInstances()
+  }
   if (!topicCount || topicCount < 1 || topicCount > 2) {
     return []
   }
@@ -514,6 +561,7 @@ export const componentsMap = {
   [StepKeys.CLICKHOUSE_MAPPER]: ClickhouseMapper,
   [StepKeys.PIPELINE_RESOURCES]: PipelineResourcesConfigurator,
   [StepKeys.REVIEW_CONFIGURATION]: ReviewConfiguration,
+  [StepKeys.OTLP_SIGNAL_TYPE]: OtlpSignalTypeStep,
 }
 
 // Helper function to convert journey array to component map
@@ -529,7 +577,13 @@ const getJourneyComponents = (journey: StepKeys[]): Record<string, React.Compone
 }
 
 // New function: Get wizard journey steps based on topic count
-export const getWizardJourneySteps = (topicCount: number | undefined): Record<string, React.ComponentType<any>> => {
+export const getWizardJourneySteps = (
+  topicCount: number | undefined,
+  sourceType?: string,
+): Record<string, React.ComponentType<any>> => {
+  if (sourceType && isOtlpSource(sourceType)) {
+    return getJourneyComponents(getOtlpJourney())
+  }
   if (!topicCount || topicCount < 1 || topicCount > 2) {
     // Return empty object if topicCount is invalid
     return {}

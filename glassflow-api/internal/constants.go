@@ -241,6 +241,11 @@ const (
 	SchemaVersionIDHeader = "Schema-Version-Id"
 
 	OTLPPipelineIDHeader = "x-glassflow-pipeline-id"
+
+	PipelineVersion     = "v3"
+	MinPipelineIDLength = 5
+	JoinIDSuffix        = "-join"
+	StatelessIDSuffix   = "-stateless"
 )
 
 // IsFixedStringType reports whether t is a ClickHouse FixedString type (with or without length).

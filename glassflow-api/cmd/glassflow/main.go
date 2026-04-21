@@ -457,14 +457,30 @@ func getIngestorRuntimeConfigFromEnv(dedupEnabled bool) (models.IngestorRuntimeC
 		return models.IngestorRuntimeConfig{}, fmt.Errorf("required environment variable NATS_SUBJECT_PREFIX is missing or empty")
 	}
 
-	podIndex := os.Getenv("GLASSFLOW_POD_INDEX")
-	if podIndex == "" {
+	podIndexRaw := os.Getenv("GLASSFLOW_POD_INDEX")
+	if podIndexRaw == "" {
 		return models.IngestorRuntimeConfig{}, fmt.Errorf("required environment variable GLASSFLOW_POD_INDEX is missing or empty")
 	}
 
+	podIndex, err := strconv.Atoi(podIndexRaw)
+	if err != nil || podIndex < 0 {
+		return models.IngestorRuntimeConfig{}, fmt.Errorf("invalid GLASSFLOW_POD_INDEX=%q: must be a non-negative integer", podIndexRaw)
+	}
+
+	totalSubjects := 1
+	if raw := os.Getenv("NATS_SUBJECT_TOTAL_COUNT"); raw != "" {
+		n, err := strconv.Atoi(raw)
+		if err != nil || n <= 0 {
+			return models.IngestorRuntimeConfig{}, fmt.Errorf("invalid NATS_SUBJECT_TOTAL_COUNT=%q: must be a positive integer", raw)
+		}
+		totalSubjects = n
+	}
+
 	cfg := models.IngestorRuntimeConfig{
-		OutputSubject:      fmt.Sprintf("%s.%s", prefix, podIndex),
-		DedupSubjectPrefix: prefix,
+		OutputSubject:       fmt.Sprintf("%s.%d", prefix, podIndex),
+		OutputSubjectPrefix: prefix,
+		TotalSubjectCount:   totalSubjects,
+		DedupSubjectPrefix:  prefix,
 	}
 
 	if !dedupEnabled {

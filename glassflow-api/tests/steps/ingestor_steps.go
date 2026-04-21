@@ -331,7 +331,7 @@ func (s *IngestorTestSuite) iRunningIngestorComponent() error {
 
 	schema, err := schemav2.NewSchema(
 		s.pipelineConfig.ID,
-		s.topicName,
+		s.pipelineConfig.Ingestor.KafkaTopics[0].ID,
 		s.pipelineStore,
 		srClient,
 	)

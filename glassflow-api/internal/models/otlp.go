@@ -16,12 +16,12 @@ type OTLPConfig struct {
 type RoutingType string
 
 const (
-	// RoutingTypeName - just returns OutputSubject without any logic
-	RoutingTypeName     RoutingType = "name"
-	RoutingTypeField    RoutingType = "field"
-	RoutingTypeHash     RoutingType = "message_hash"
-	RoutingTypeRandom   RoutingType = "random"
-	RoutingTypePodIndex RoutingType = "pod_index"
+	RoutingTypeName       RoutingType = "name"
+	RoutingTypeField      RoutingType = "field"
+	RoutingTypeHash       RoutingType = "message_hash"
+	RoutingTypeRandom     RoutingType = "random"
+	RoutingTypePodIndex   RoutingType = "pod_index"
+	RoutingTypeRoundRobin RoutingType = "round_robin"
 )
 
 type RoutingConfig struct {
@@ -63,6 +63,10 @@ func (c RoutingConfig) Validate() error {
 		}
 		if c.Field.Name == "" {
 			return fmt.Errorf("dedup.field is required")
+		}
+	case RoutingTypeRoundRobin:
+		if c.SubjectCount < 1 {
+			return fmt.Errorf("subject_count must be >= 1 for type %q", c.Type)
 		}
 	default:
 		return fmt.Errorf("unknown routing type %q", c.Type)
@@ -145,7 +149,7 @@ type OTLPMetric struct {
 	Max                    *float64          `json:"max"`
 	BucketCounts           []uint64          `json:"bucket_counts"`
 	ExplicitBounds         []float64         `json:"explicit_bounds"`
-	Resource               map[string]string `json:"resource"`
+	ResourceAttributes     map[string]string `json:"resource_attributes"`
 	ScopeName              string            `json:"scope_name"`
 	ScopeVersion           string            `json:"scope_version,omitempty"`
 	ScopeAttributes        map[string]string `json:"scope_attributes"`
@@ -205,7 +209,7 @@ func otlpMetricsSchemaFields() []Field {
 		{Name: "max", Type: "float"},
 		{Name: "bucket_counts", Type: "array"},
 		{Name: "explicit_bounds", Type: "array"},
-		{Name: "resource", Type: "map"},
+		{Name: "resource_attributes", Type: "map"},
 		{Name: "scope_name", Type: "string"},
 		{Name: "scope_version", Type: "string"},
 		{Name: "scope_attributes", Type: "map"},

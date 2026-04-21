@@ -224,7 +224,7 @@
       "radius-none": 0,
       "stroke-width": 2,
       "border-width": 1,
-      "font-family-title": "Inter",
+      "font-family-title": "var(--font-archivo), Inter, sans-serif",
       "font-family-body": "Inter, BlinkMacSystemFont, -apple-system, Roboto, Helvetica, Arial, sans-serif",
       "font-weight-regular": 400,
       "font-weight-medium": 500,
@@ -908,7 +908,7 @@
       "button-card-padding-x": 16,
       "button-card-padding-y": 27,
       "button-card-gap": 16,
-      "button-card-font-family": "Inter",
+      "button-card-font-family": "var(--font-archivo), Inter, sans-serif",
       "button-card-font-size": 16,
       "button-card-font-weight": 400,
       "button-card-line-height": 20,
@@ -919,7 +919,7 @@
       "button-card-secondary-padding-x": 16,
       "button-card-secondary-padding-y": 27,
       "button-card-secondary-gap": 16,
-      "button-card-secondary-font-family": "Inter",
+      "button-card-secondary-font-family": "var(--font-archivo), Inter, sans-serif",
       "button-card-secondary-font-size": 16,
       "button-card-secondary-font-weight": 400,
       "button-card-secondary-line-height": 20,
@@ -2281,6 +2281,12 @@
         "r": 0.9333333333333333,
         "g": 0.8352941176470589,
         "b": 0.5411764705882353,
+        "a": 1
+      },
+      "badge-notification-bg": {
+        "r": 0.8862745098039215,
+        "g": 0.17254901960784313,
+        "b": 0.17254901960784313,
         "a": 1
       },
       "text-primary": {

@@ -12,6 +12,8 @@ import { structuredLogger } from '@/src/observability'
 import { hydrateFilter } from './hydration/filter'
 import { hydrateTransformation } from './hydration/transformation'
 import { hydrateResources } from './hydration/resources'
+import { hydrateOtlpSource } from './hydration/otlp-source'
+import { isOtlpSource } from '@/src/config/source-types'
 
 // Helper function to compute operation type from topicCount + deduplication + join state
 // This is used for backward compatibility (analytics, display, etc.)
@@ -81,6 +83,7 @@ interface CoreStoreProps {
   pipelineId: string
   pipelineName: string
   topicCount: number // Primary: number of topics (1 or 2)
+  sourceType: string // 'kafka' | 'otlp' — determines which source UI to render
   operationsSelected: OperationsSelectedType // Computed/derived for backward compatibility
   pipelineVersion: string | undefined // Track the version of the pipeline config
   outboundEventPreview: OutboundEventPreviewType
@@ -100,6 +103,7 @@ interface CoreStore extends CoreStoreProps {
   // actions
   setApiConfig: (config: Partial<Pipeline>) => void
   setTopicCount: (topicCount: number) => void
+  setSourceType: (sourceType: string) => void
   setOperationsSelected: (operations: OperationsSelectedType) => void // Kept for backward compatibility
   getComputedOperation: () => string // Computes operation from topicCount + deduplication + join
   setOutboundEventPreview: (preview: OutboundEventPreviewType) => void
@@ -142,6 +146,7 @@ export const initialCoreStore: CoreStoreProps = {
   pipelineId: '',
   pipelineName: '',
   topicCount: 0, // 0 = not set, 1 = single topic, 2 = two topics
+  sourceType: 'kafka', // Default to Kafka for backward compatibility
   pipelineVersion: undefined,
   operationsSelected: {
     operation: '',
@@ -171,6 +176,10 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
     setPipelineName: (name: string) =>
       set((state) => ({
         coreStore: { ...state.coreStore, pipelineName: name },
+      })),
+    setSourceType: (sourceType: string) =>
+      set((state) => ({
+        coreStore: { ...state.coreStore, sourceType },
       })),
     setTopicCount: (topicCount: number) => {
       set((state) => ({
@@ -548,15 +557,20 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
           case 'resources':
             await hydrateResources(config)
             break
+          case 'otlp':
+            hydrateOtlpSource(config)
+            break
           case 'all':
-            // Hydrate sync sections first (including filter and transformation - don't need event schema)
-            hydrateKafkaConnection(config)
+            if (config.source?.type && isOtlpSource(config.source.type)) {
+              hydrateOtlpSource(config)
+            } else {
+              hydrateKafkaConnection(config)
+              await hydrateKafkaTopics(config)
+            }
             hydrateClickhouseConnection(config)
             hydrateJoinConfiguration(config)
             hydrateFilter(config)
             hydrateTransformation(config)
-            // Then async sections that require network calls
-            await hydrateKafkaTopics(config)
             await hydrateClickhouseDestination(config)
             await hydrateResources(config)
             break

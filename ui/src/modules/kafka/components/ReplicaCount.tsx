@@ -52,11 +52,7 @@ export default function ReplicaCount({
           <TooltipTrigger asChild>
             <Image src={InfoIcon} alt="Info" className="w-4 h-4" />
           </TooltipTrigger>
-          <TooltipContent
-            side="right"
-            align="start"
-            className="max-w-[300px] bg-[var(--surface-bg)] text-[var(--surface-fg)] border border-[var(--surface-border)] rounded-lg p-3 shadow-lg"
-          >
+          <TooltipContent side="right" align="start" className="p-3">
             <p className="text-sm leading-relaxed">
               Decreasing the number of replicas will result in slower performance, but it will reduce resource usage
             </p>

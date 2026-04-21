@@ -8,6 +8,8 @@ import {
 import { extractEventFields } from '@/src/utils/common.client'
 import type { TableColumn } from '../types'
 import type { MappingMode } from '../types'
+import { useStore } from '@/src/store'
+import { isOtlpSource } from '@/src/config/source-types'
 
 export interface UseClickhouseMapperEventFieldsParams {
   mode: MappingMode
@@ -40,6 +42,9 @@ export function useClickhouseMapperEventFields({
   clickhouseDestination,
   setClickhouseDestination,
 }: UseClickhouseMapperEventFieldsParams) {
+  const { coreStore, otlpStore } = useStore()
+  const isOtlp = isOtlpSource(coreStore.sourceType)
+
   const selectedEvent = selectedTopic?.selectedEvent
 
   const [eventFields, setEventFields] = useState<string[]>([])
@@ -53,6 +58,31 @@ export function useClickhouseMapperEventFields({
   // Load event fields when event data changes (single mode)
   useEffect(() => {
     if (mode !== 'single') return
+
+    // OTLP: use predefined schema fields instead of sampling a Kafka event
+    if (isOtlp && otlpStore.schemaFields.length > 0) {
+      const otlpFieldNames = otlpStore.schemaFields.map((f) => f.name)
+      setEventFields(otlpFieldNames)
+
+      if (clickhouseDestination?.mapping?.length > 0) return
+      if (mappedColumns.length > 0) {
+        const fieldTypeMap = new Map(otlpStore.schemaFields.map((f) => [f.name, f.type]))
+        const updatedColumns = [...mappedColumns]
+        updatedColumns.forEach((col, index) => {
+          const matchingField = findBestMatchingField(col.name, otlpFieldNames)
+          if (matchingField) {
+            updatedColumns[index] = {
+              ...col,
+              eventField: matchingField,
+              jsonType: fieldTypeMap.get(matchingField) ?? 'string',
+            }
+          }
+        })
+        setMappedColumns(updatedColumns)
+        setClickhouseDestination({ ...clickhouseDestination, mapping: updatedColumns })
+      }
+      return
+    }
 
     const isTransformationEnabled =
       transformationStore.transformationConfig.enabled &&
@@ -108,6 +138,8 @@ export function useClickhouseMapperEventFields({
     }
   }, [
     mode,
+    isOtlp,
+    otlpStore.schemaFields,
     selectedEvent?.event,
     selectedTopic,
     clickhouseDestination,
@@ -366,7 +398,21 @@ export function useClickhouseMapperEventFields({
     let hasChanges = false
 
     if (mode === 'single') {
-      if (isTransformationEnabled) {
+      if (isOtlp && otlpStore.schemaFields.length > 0) {
+        const otlpFieldNames = otlpStore.schemaFields.map((f) => f.name)
+        const fieldTypeMap = new Map(otlpStore.schemaFields.map((f) => [f.name, f.type]))
+        updatedColumns.forEach((col, index) => {
+          const matchingField = findBestMatchingField(col.name, otlpFieldNames)
+          if (matchingField) {
+            updatedColumns[index] = {
+              ...col,
+              eventField: matchingField,
+              jsonType: fieldTypeMap.get(matchingField) ?? 'string',
+            }
+            hasChanges = true
+          }
+        })
+      } else if (isTransformationEnabled) {
         const intermediarySchema = transformationStore.getIntermediarySchema()
         if (intermediarySchema.length > 0) {
           const transformedFields = intermediarySchema.map((field) => field.name)
@@ -431,6 +477,8 @@ export function useClickhouseMapperEventFields({
     return hasChanges
   }, [
     mode,
+    isOtlp,
+    otlpStore.schemaFields,
     mappedColumns,
     eventFields,
     eventData,
@@ -455,7 +503,10 @@ export function useClickhouseMapperEventFields({
         transformationStore.transformationConfig.fields.length > 0
 
       let inferredType: string
-      if (isTransformationEnabled && eventField) {
+      if (isOtlp && eventField && mode === 'single') {
+        const schemaField = otlpStore.schemaFields.find((f) => f.name === eventField)
+        inferredType = schemaField?.type ?? 'string'
+      } else if (isTransformationEnabled && eventField) {
         const intermediarySchema = transformationStore.getIntermediarySchema()
         const schemaField = intermediarySchema.find((field) => field.name === eventField)
         inferredType = schemaField?.type || 'string'
@@ -513,6 +564,8 @@ export function useClickhouseMapperEventFields({
     },
     [
       mode,
+      isOtlp,
+      otlpStore.schemaFields,
       mappedColumns,
       eventData,
       primaryTopic,

@@ -9,6 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/src/components/ui/ta
 import yaml from 'js-yaml'
 import { useRouter } from 'next/navigation'
 import { generateApiConfig, getMappingType } from '../clickhouse/utils'
+import { SourceType, isOtlpSource, getOtlpSignalLabel } from '@/src/config/source-types'
+import { OTLP_LOGS_FIELDS, OTLP_TRACES_FIELDS, OTLP_METRICS_FIELDS } from '@/src/modules/otlp/constants'
 import { ReviewConfigurationProps } from './types'
 import { ClickhouseDestinationPreview } from './ClickhouseDestinationPreview'
 import { ClickhouseConnectionPreview } from './ClickhouseConnectionPreview'
@@ -18,6 +20,100 @@ import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 import { createPipeline } from '@/src/api/pipeline-api'
 import { Pipeline } from '@/src/types/pipeline'
 import { isFiltersEnabled, isTransformationsEnabled } from '@/src/config/feature-flags'
+
+// Infer OTLP signal type from schema fields when store values are unreliable.
+function inferOtlpSignalType(schemaFields: { name: string }[]): SourceType | null {
+  if (!schemaFields || schemaFields.length === 0) return null
+  const names = new Set(schemaFields.map((f) => f.name))
+  // Use discriminating fields unique to each signal type
+  if (names.has('severity_text') && names.has('observed_timestamp')) return SourceType.OTLP_LOGS
+  if (names.has('span_id') && names.has('duration_ns')) return SourceType.OTLP_TRACES
+  if (names.has('metric_name') && names.has('metric_type')) return SourceType.OTLP_METRICS
+  return null
+}
+
+// Build V3 sink.mapping from OTLP mapped columns.
+// V3 format: [{ name, column_name, column_type }] (no source_id per entry).
+function buildOtlpSinkMapping(mappedColumns: any[]) {
+  return mappedColumns.map((col: any) => ({
+    name: col.eventField || col.field_name,
+    column_name: col.name || col.column_name,
+    column_type: (col.type || col.column_type || '').replace(/Nullable\((.*)\)/, '$1'),
+  }))
+}
+
+
+// Generate API config for OTLP pipelines in V3 wire format.
+// The backend expects: sink.connection_params (nested), sink.mapping (V3),
+// sink.source_id, and source.deduplication.key (not id_field).
+function generateOtlpApiConfig(params: {
+  pipelineId: string
+  pipelineName: string
+  otlpStore: any
+  clickhouseConnection: any
+  clickhouseDestination: any
+  filterStore: any
+  transformationStore: any
+  pipeline_resources: any
+  version: string | undefined
+  sourceTypeFallback?: string
+}) {
+  const { pipelineId, pipelineName, otlpStore, clickhouseConnection, clickhouseDestination, filterStore, transformationStore, pipeline_resources, version, sourceTypeFallback } = params
+  const conn = clickhouseConnection?.directConnection
+
+  return {
+    pipeline_id: pipelineId,
+    name: pipelineName,
+    source: {
+      type: otlpStore.signalType || sourceTypeFallback || inferOtlpSignalType(otlpStore.schemaFields) || '',
+      id: otlpStore.sourceId,
+      deduplication: otlpStore.deduplication.enabled ? {
+        enabled: true,
+        key: otlpStore.deduplication.key,
+        time_window: otlpStore.deduplication.time_window,
+      } : {
+        enabled: false,
+      },
+    },
+    join: { type: '', enabled: false, sources: [] },
+    filter: filterStore?.filterConfig?.enabled && filterStore?.expressionString ? {
+      enabled: true,
+      expression: `!(${filterStore.expressionString})`,
+    } : undefined,
+    stateless_transformation: transformationStore?.transformationConfig?.enabled ? {
+      enabled: true,
+      config: { transform: transformationStore.transformationConfig.fields },
+    } : undefined,
+    sink: {
+      type: 'clickhouse',
+      connection_params: {
+        host: conn?.host || '',
+        port: conn?.nativePort?.toString() || '9000',
+        http_port: conn?.httpPort?.toString() || '8123',
+        database: clickhouseDestination?.database || 'default',
+        username: conn?.username || '',
+        password: conn?.password || '',
+        secure: conn?.useSSL || false,
+        ...(conn?.skipCertificateVerification && {
+          skip_certificate_verification: true,
+        }),
+      },
+      table: clickhouseDestination?.tableName || clickhouseDestination?.table,
+      max_batch_size: clickhouseDestination?.maxBatchSize || 1000,
+      max_delay_time: (() => {
+        const time = clickhouseDestination?.maxDelayTime || 1
+        const unit = clickhouseDestination?.maxDelayTimeUnit || 'm'
+        const shortUnit = unit === 'seconds' ? 's' : unit === 'minutes' ? 'm' : unit === 'hours' ? 'h' : unit === 'days' ? 'd' : unit
+        return `${time}${shortUnit}`
+      })(),
+      source_id: otlpStore.sourceId,
+      mapping: buildOtlpSinkMapping(clickhouseDestination?.mapping || []),
+    },
+    pipeline_resources: (pipeline_resources && Object.keys(pipeline_resources).length > 0)
+      ? pipeline_resources
+      : undefined,
+  }
+}
 
 export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewConfigurationProps) {
   const {
@@ -31,7 +127,14 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
     filterStore,
     transformationStore,
     resourcesStore,
+    otlpStore,
   } = useStore()
+  // Detect OTLP source using multiple signals — coreStore.sourceType can be unreliable
+  // because enterCreateMode() resets it to 'kafka'. Check otlpStore.signalType (set by
+  // the OtlpSignalTypeStep) and otlpStore.sourceId (set on the home page) as fallbacks.
+  const isOtlp = isOtlpSource(coreStore.sourceType)
+    || isOtlpSource(otlpStore.signalType ?? '')
+    || (otlpStore.sourceId !== '' && otlpStore.schemaFields.length > 0)
   const { apiConfig, pipelineId, setPipelineId, pipelineName, pipelineVersion } = coreStore
   const { clickhouseConnection } = clickhouseConnectionStore
   const { clickhouseDestination } = clickhouseDestinationStore
@@ -47,6 +150,20 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
 
   // Compute config from current stores so display and deploy always reflect latest state
   const effectiveConfig = useMemo(() => {
+    if (isOtlp) {
+      return generateOtlpApiConfig({
+        pipelineId,
+        pipelineName: pipelineName || 'Pipeline',
+        otlpStore,
+        clickhouseConnection,
+        clickhouseDestination,
+        filterStore,
+        transformationStore,
+        pipeline_resources: resourcesStore.pipeline_resources,
+        version: pipelineVersion,
+        sourceTypeFallback: coreStore.sourceType,
+      })
+    }
     const result = generateApiConfig({
       pipelineId,
       pipelineName: pipelineName || 'Pipeline',
@@ -65,6 +182,7 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
     })
     return result
   }, [
+    isOtlp,
     pipelineId,
     pipelineName,
     setPipelineId,
@@ -78,6 +196,8 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
     transformationStore,
     resourcesStore.pipeline_resources,
     pipelineVersion,
+    otlpStore,
+    coreStore.sourceType,
   ])
 
   const configError = effectiveConfig && typeof effectiveConfig === 'object' && 'error' in effectiveConfig
@@ -187,15 +307,33 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
-          <div className="p-4 border-b border-[var(--color-border-neutral-faded)] last:border-b-0 transition-all duration-200 hover:bg-[var(--color-background-neutral-faded)] animate-fade-in-up animate-delay-100">
-            <h3 className="text-lg font-medium mb-2 transition-colors duration-200">Kafka Connection</h3>
-            <KafkaConnectionPreview kafkaStore={kafkaStore} />
-          </div>
+          {isOtlp ? (
+            <div className="p-4 border-b border-[var(--color-border-neutral-faded)] last:border-b-0 transition-all duration-200 hover:bg-[var(--color-background-neutral-faded)] animate-fade-in-up animate-delay-100">
+              <h3 className="text-lg font-medium mb-2 transition-colors duration-200">Source</h3>
+              <div className="space-y-2">
+                <p className="text-sm text-[var(--color-foreground-neutral)]">
+                  <strong>Source Type:</strong> OTLP {getOtlpSignalLabel(coreStore.sourceType)}
+                </p>
+                {otlpStore.deduplication.enabled && (
+                  <p className="text-sm text-[var(--color-foreground-neutral-faded)]">
+                    Deduplication: {otlpStore.deduplication.key} (window: {otlpStore.deduplication.time_window})
+                  </p>
+                )}
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="p-4 border-b border-[var(--color-border-neutral-faded)] last:border-b-0 transition-all duration-200 hover:bg-[var(--color-background-neutral-faded)] animate-fade-in-up animate-delay-100">
+                <h3 className="text-lg font-medium mb-2 transition-colors duration-200">Kafka Connection</h3>
+                <KafkaConnectionPreview kafkaStore={kafkaStore} />
+              </div>
 
-          <div className="p-4 border-b border-[var(--color-border-neutral-faded)] last:border-b-0 transition-all duration-200 hover:bg-[var(--color-background-neutral-faded)] animate-fade-in-up animate-delay-200">
-            <h3 className="text-lg font-medium mb-2 transition-colors duration-200">Selected Topics</h3>
-            <ul className="list-disc list-inside">{renderTopics()}</ul>
-          </div>
+              <div className="p-4 border-b border-[var(--color-border-neutral-faded)] last:border-b-0 transition-all duration-200 hover:bg-[var(--color-background-neutral-faded)] animate-fade-in-up animate-delay-200">
+                <h3 className="text-lg font-medium mb-2 transition-colors duration-200">Selected Topics</h3>
+                <ul className="list-disc list-inside">{renderTopics()}</ul>
+              </div>
+            </>
+          )}
 
           {isFiltersEnabled() && filterStore?.filterConfig?.enabled && (
             <div className="p-4 border-b border-gray-200 last:border-b-0 transition-all duration-200 hover:bg-[var(--color-background-neutral-faded)] animate-fade-in-up animate-delay-250">

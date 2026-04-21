@@ -20,7 +20,7 @@ func (s *PostgresStorage) insertStatelessTransformationConfig(ctx context.Contex
 	_, err = tx.Exec(ctx, `
 		INSERT INTO transformation_configs (pipeline_id, source_id, schema_version_id, transformation_id, output_schema_version_id, config)
 		VALUES ($1, $2, $3, $4, $5, $6)
-	`, pipelineID, sourceID, sourceSchemaVersionID, transformationID, outputSchemaVersionID, configJSON)
+	`, pipelineID, sourceID, sourceSchemaVersionID, transformationID, outputSchemaVersionID, string(configJSON))
 	if err != nil {
 		return fmt.Errorf("insert transformation config: %w", err)
 	}
@@ -38,7 +38,7 @@ func (s *PostgresStorage) updateStatelessTransformationConfig(ctx context.Contex
 		UPDATE transformation_configs
 		SET config = $1, updated_at = NOW()
 		WHERE pipeline_id = $2 AND source_id = $3 AND schema_version_id = $4
-	`, configJSON, pipelineID, sourceID, sourceSchemaVersionID)
+	`, string(configJSON), pipelineID, sourceID, sourceSchemaVersionID)
 	if err != nil {
 		return fmt.Errorf("update transformation config: %w", err)
 	}
@@ -86,7 +86,7 @@ func (s *PostgresStorage) insertJoinConfig(ctx context.Context, tx pgx.Tx, pipel
 	_, err = tx.Exec(ctx, `
 		INSERT INTO join_configs (pipeline_id, source_id, schema_version_id, join_id, output_schema_version_id, config)
 		VALUES ($1, $2, $3, $4, $5, $6)
-	`, pipelineID, sourceID, sourceSchemaVersionID, joinID, outputSchemaVersionID, configJSON)
+	`, pipelineID, sourceID, sourceSchemaVersionID, joinID, outputSchemaVersionID, string(configJSON))
 	if err != nil {
 		return fmt.Errorf("insert join config: %w", err)
 	}
@@ -114,7 +114,7 @@ func (s *PostgresStorage) upsertJoinConfig(
 		DO UPDATE
 		SET config = EXCLUDED.config,
 		    updated_at = NOW()
-	`, pipelineID, sourceID, sourceSchemaVersionID, joinID, outputSchemaVersionID, configJSON)
+	`, pipelineID, sourceID, sourceSchemaVersionID, joinID, outputSchemaVersionID, string(configJSON))
 	if err != nil {
 		return fmt.Errorf("upsert join config: %w", err)
 	}
@@ -209,7 +209,7 @@ func (s *PostgresStorage) insertSinkConfig(ctx context.Context, tx pgx.Tx, pipel
 	_, err = tx.Exec(ctx, `
 		INSERT INTO sink_configs (pipeline_id, source_id, schema_version_id, config)
 		VALUES ($1, $2, $3, $4)
-	`, pipelineID, sourceID, sourceSchemaVersionID, configJSON)
+	`, pipelineID, sourceID, sourceSchemaVersionID, string(configJSON))
 	if err != nil {
 		return fmt.Errorf("insert sink config: %w", err)
 	}
@@ -235,7 +235,7 @@ func (s *PostgresStorage) upsertSinkConfig(
 		DO UPDATE
 		SET config = EXCLUDED.config,
 		    updated_at = NOW()
-	`, pipelineID, sourceID, sourceSchemaVersionID, configJSON)
+	`, pipelineID, sourceID, sourceSchemaVersionID, string(configJSON))
 	if err != nil {
 		return fmt.Errorf("upsert sink config: %w", err)
 	}

@@ -1,7 +1,7 @@
 /* Base theme variables that are shared between light and dark modes */
 :root {
   /* Typography */
-  --font-family-title: Inter;
+  --font-family-title: var(--font-archivo), Inter, sans-serif;
   --font-family-body: Inter, BlinkMacSystemFont, -apple-system, Roboto, Helvetica, Arial, sans-serif;
   --font-weight-regular: 400;
   --font-weight-medium: 500;

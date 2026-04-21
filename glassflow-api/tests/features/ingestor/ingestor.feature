@@ -105,7 +105,7 @@ Feature: Kafka Ingestor
                     "kafka_topics": [
                         {
                             "name": "test_topic",
-                            "id": "topic_topic",
+                            "id": "test_topic_id",
                             "consumer_group_name": "glassflow-consumer-group-pipeline-123",
                             "partitions": 1,
                             "deduplication": {
@@ -119,10 +119,10 @@ Feature: Kafka Ingestor
                 },
                 "sink": {
                     "type": "clickhouse",
-                    "source_id": "test_topic"
+                    "source_id": "test_topic_id"
                 },
                 "schema_versions": {
-                    "test_topic": {
+                    "test_topic_id": {
                         "source_id": "test_topic",
                         "version_id": "1",
                         "data_type": "json",
@@ -177,7 +177,7 @@ Feature: Kafka Ingestor
                     "kafka_topics": [
                         {
                             "name": "test_topic",
-                            "id": "topic_topic",
+                            "id": "test_topic_id",
                             "consumer_group_name": "glassflow-consumer-group-pipeline-123",
                             "partitions": 1,
                             "deduplication": {
@@ -194,10 +194,10 @@ Feature: Kafka Ingestor
                 },
                 "sink": {
                     "type": "clickhouse",
-                    "source_id": "test_topic"
+                    "source_id": "test_topic_id"
                 },
                 "schema_versions": {
-                    "test_topic": {
+                    "test_topic_id": {
                         "source_id": "test_topic",
                         "version_id": "1",
                         "data_type": "json",
@@ -251,7 +251,7 @@ Feature: Kafka Ingestor
                     "kafka_topics": [
                         {
                             "name": "test_topic",
-                            "id": "topic_topic",
+                            "id": "test_topic_id",
                             "consumer_group_name": "glassflow-consumer-group-pipeline-123",
                             "partitions": 1,
                             "deduplication": {
@@ -265,10 +265,10 @@ Feature: Kafka Ingestor
                 },
                 "sink": {
                     "type": "clickhouse",
-                    "source_id": "test_topic"
+                    "source_id": "test_topic_id"
                 },
                 "schema_versions": {
-                    "test_topic": {
+                    "test_topic_id": {
                         "source_id": "test_topic",
                         "version_id": "1",
                         "data_type": "json",
@@ -323,7 +323,7 @@ Feature: Kafka Ingestor
                     "kafka_topics": [
                         {
                             "name": "test_topic",
-                            "id": "topic_topic",
+                            "id": "test_topic_id",
                             "consumer_group_name": "glassflow-consumer-group-pipeline-123",
                             "partitions": 1,
                             "deduplication": {
@@ -337,10 +337,10 @@ Feature: Kafka Ingestor
                 },
                 "sink": {
                     "type": "clickhouse",
-                    "source_id": "test_topic"
+                    "source_id": "test_topic_id"
                 },
                 "schema_versions": {
-                    "test_topic": {
+                    "test_topic_id": {
                         "source_id": "test_topic",
                         "version_id": "1",
                         "data_type": "json",
@@ -396,7 +396,7 @@ Feature: Kafka Ingestor
                     "kafka_topics": [
                         {
                             "name": "test_topic",
-                            "id": "topic_topic",
+                            "id": "test_topic_id",
                             "consumer_group_name": "glassflow-consumer-group-pipeline-456",
                             "partitions": 1,
                             "deduplication": {
@@ -410,10 +410,10 @@ Feature: Kafka Ingestor
                 },
                 "sink": {
                     "type": "clickhouse",
-                    "source_id": "test_topic"
+                    "source_id": "test_topic_id"
                 },
                 "schema_versions": {
-                    "test_topic": {
+                    "test_topic_id": {
                         "source_id": "test_topic",
                         "version_id": "1",
                         "data_type": "json",
@@ -461,7 +461,7 @@ Feature: Kafka Ingestor
                     "kafka_topics": [
                         {
                             "name": "test_topic",
-                            "id": "topic_topic",
+                            "id": "test_topic_id",
                             "consumer_group_name": "glassflow-consumer-group-pipeline-123",
                             "partitions": 1,
                             "deduplication": {
@@ -478,10 +478,10 @@ Feature: Kafka Ingestor
                 },
                 "sink": {
                     "type": "clickhouse",
-                    "source_id": "test_topic"
+                    "source_id": "test_topic_id"
                 },
                 "schema_versions": {
-                    "test_topic": {
+                    "test_topic_id": {
                         "source_id": "test_topic",
                         "version_id": "1",
                         "data_type": "json",
@@ -546,7 +546,7 @@ Feature: Kafka Ingestor
                     "kafka_topics": [
                         {
                             "name": "test_topic",
-                            "id": "topic_topic",
+                            "id": "test_topic_id",
                             "consumer_group_name": "glassflow-consumer-group-pipeline-123",
                             "partitions": 1,
                             "deduplication": {
@@ -563,10 +563,10 @@ Feature: Kafka Ingestor
                 },
                 "sink": {
                     "type": "clickhouse",
-                    "source_id": "test_topic"
+                    "source_id": "test_topic_id"
                 },
                 "schema_versions": {
-                    "test_topic": {
+                    "test_topic_id": {
                         "source_id": "test_topic",
                         "version_id": "1",
                         "data_type": "json",
@@ -632,7 +632,7 @@ Feature: Kafka Ingestor
                     "kafka_topics": [
                         {
                             "name": "test_topic",
-                            "id": "topic_topic",
+                            "id": "test_topic_id",
                             "consumer_group_name": "glassflow-consumer-group-pipeline-123",
                             "partitions": 1,
                             "deduplication": {
@@ -648,7 +648,7 @@ Feature: Kafka Ingestor
                     "id": "test-transform",
                     "type": "expr_lang_transform",
                     "enabled": true,
-                    "source_id": "test_topic",
+                    "source_id": "test_topic_id",
                     "config": {
                         "transform": [
                             {
@@ -663,10 +663,10 @@ Feature: Kafka Ingestor
                 },
                 "sink": {
                     "type": "clickhouse",
-                    "source_id": "test_topic"
+                    "source_id": "test_topic_id"
                 },
                 "schema_versions": {
-                    "test_topic": {
+                    "test_topic_id": {
                         "source_id": "test_topic",
                         "version_id": "1",
                         "data_type": "json",

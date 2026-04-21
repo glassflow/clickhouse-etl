@@ -19,6 +19,7 @@ import { useStore } from '@/src/store'
 import { getPipelineAdapter } from '@/src/modules/pipeline-adapters/factory'
 import type { Pipeline } from '@/src/types/pipeline'
 import { structuredLogger } from '@/src/observability'
+import { isOtlpSource } from '@/src/config/source-types'
 
 const HYDRATION_CACHE_KEY = 'lastHydratedPipeline'
 
@@ -51,8 +52,20 @@ export function generateHydrationCacheKey(pipeline: Pipeline): string {
  * Verifies that the stores have valid data for the pipeline.
  * Returns true if stores are properly populated and no re-hydration is needed.
  */
-export function verifyStoreData(): { hasValidData: boolean; reason?: string } {
-  const { topicsStore } = useStore.getState()
+export function verifyStoreData(pipeline?: Pipeline | null): { hasValidData: boolean; reason?: string } {
+  const state = useStore.getState()
+  const sourceType = pipeline?.source?.type || state.coreStore.sourceType
+
+  if (isOtlpSource(sourceType)) {
+    // For OTLP pipelines: valid if signalType has been hydrated
+    const hasSignalType = !!state.otlpStore.signalType
+    return hasSignalType
+      ? { hasValidData: true }
+      : { hasValidData: false, reason: 'no-otlp-signal-type' }
+  }
+
+  // Kafka path: check topics and event data
+  const { topicsStore } = state
   const hasTopics = topicsStore.topics && Object.keys(topicsStore.topics).length > 0
 
   if (!hasTopics) {
@@ -141,7 +154,7 @@ export function usePipelineHydration(
       // Check if cache says we're hydrated, but also verify stores actually have data
       // After a page reload, sessionStorage persists but Zustand stores are empty
       if (lastHydratedKey === currentPipelineKey) {
-        const { hasValidData, reason } = verifyStoreData()
+        const { hasValidData, reason } = verifyStoreData(pipeline)
 
         if (hasValidData) {
           // Already hydrated with valid data, skip
@@ -155,7 +168,7 @@ export function usePipelineHydration(
 
       try {
         // 1. Detect version and get appropriate adapter
-        const adapter = getPipelineAdapter(pipeline.version || 'v1')
+        const adapter = getPipelineAdapter(pipeline.version || 'v1', pipeline)
 
         // 2. Hydrate raw API config into InternalPipelineConfig
         // Pipeline at this boundary is an API response that might differ in structure

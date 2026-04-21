@@ -6,12 +6,12 @@ import { structuredLogger } from '@/src/observability'
 import { Button } from '@/src/components/ui/button'
 import { Badge } from '@/src/components/ui/badge'
 import { Card } from '@/src/components/ui/card'
-import { Copy, Check, Tag as TagIcon } from 'lucide-react'
+import { Copy, Tag as TagIcon, Play, Square, Pencil, PencilLine, Trash2, Download, X, MoreVertical } from 'lucide-react'
 import TerminatePipelineModal from '@/src/modules/pipelines/components/TerminatePipelineModal'
 import DeletePipelineModal from '@/src/modules/pipelines/components/DeletePipelineModal'
 import RenamePipelineModal from '@/src/modules/pipelines/components/RenamePipelineModal'
 import StopPipelineModal from '@/src/modules/pipelines/components/StopPipelineModal'
-import UnsavedChangesDownloadModal from '@/src/modules/pipelines/components/UnsavedChangesDownloadModal'
+import { DownloadFormatModal, type DownloadFormat } from '@/src/components/common/DownloadFormatModal'
 import FlushDLQModal from '@/src/modules/pipelines/components/FlushDLQModal'
 import { Pipeline } from '@/src/types/pipeline'
 import { usePipelineActions } from '@/src/hooks/usePipelineActions'
@@ -19,17 +19,9 @@ import { PipelineAction } from '@/src/types/pipeline'
 import { useStore } from '@/src/store'
 import Image from 'next/image'
 import Loader from '@/src/images/loader-small.svg'
-import PlayIcon from '@/src/images/play.svg'
-import EditIcon from '@/src/images/edit.svg'
-import RenameIcon from '@/src/images/rename.svg'
-import DeleteIcon from '@/src/images/trash.svg'
-import CloseIcon from '@/src/images/close.svg'
-import DownloadIcon from '@/src/images/download-white.svg'
-import StopWhiteIcon from '@/src/images/stop-white.svg'
-import MenuWhiteIcon from '@/src/images/menu-white.svg'
 import { PipelineStatus } from '@/src/types/pipeline'
 import { usePipelineState, usePipelineOperations, usePipelineMonitoring } from '@/src/hooks/usePipelineStateAdapter'
-import { downloadPipelineConfig } from '@/src/utils/pipeline-download'
+import { downloadPipelineConfigInFormat } from '@/src/utils/pipeline-download'
 import { isDemoMode, getDashboardUrl, isDashboardAvailable } from '@/src/utils/common.client'
 import { cn } from '@/src/utils/common.client'
 import { purgePipelineDLQ } from '@/src/api/pipeline-api'
@@ -61,7 +53,7 @@ function PipelineDetailsHeader({
 }: PipelineDetailsHeaderProps) {
   const [activeModal, setActiveModal] = useState<PipelineAction | null>(null)
   const [copied, setCopied] = useState(false)
-  const [showDownloadWarningModal, setShowDownloadWarningModal] = useState(false)
+  const [showDownloadFormatModal, setShowDownloadFormatModal] = useState(false)
   const [showFlushDLQModal, setShowFlushDLQModal] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0 })
@@ -188,16 +180,8 @@ function PipelineDetailsHeader({
     }
   }
 
-  const handleDownloadClick = async () => {
-    // Check for unsaved changes
-    if (coreStore.isDirty) {
-      // Show warning modal if there are unsaved changes
-      setShowDownloadWarningModal(true)
-      return
-    }
-
-    // No unsaved changes, proceed with download
-    await proceedWithDownload()
+  const handleDownloadClick = () => {
+    setShowDownloadFormatModal(true)
   }
 
   const handleFlushDataClick = () => {
@@ -229,24 +213,20 @@ function PipelineDetailsHeader({
     }
   }
 
-  const proceedWithDownload = async () => {
+  const handleDownloadWithFormat = async (format: DownloadFormat) => {
+    setShowDownloadFormatModal(false)
     try {
-      await downloadPipelineConfig(pipeline)
-      setShowDownloadWarningModal(false) // Close modal if it was open
+      await downloadPipelineConfigInFormat(pipeline, format)
     } catch (error) {
       notify({
         variant: 'error',
         title: 'Failed to download pipeline configuration.',
         description: 'The configuration file could not be downloaded.',
-        action: { label: 'Try again', onClick: proceedWithDownload },
+        action: { label: 'Try again', onClick: () => handleDownloadWithFormat(format) },
         reportLink: 'https://github.com/glassflow/clickhouse-etl/issues',
         channel: 'toast',
       })
     }
-  }
-
-  const handleDownloadWarningCancel = () => {
-    setShowDownloadWarningModal(false)
   }
 
   const handleModalConfirm = async (action: PipelineAction, payload?: any) => {
@@ -387,60 +367,12 @@ function PipelineDetailsHeader({
           </span>
         ) : (
           <div className="flex items-center gap-2">
-            {action === 'resume' && (
-              <Image
-                src={PlayIcon}
-                alt="Start"
-                width={14}
-                height={14}
-                className="filter brightness-100 group-hover:brightness-0"
-              />
-            )}
-            {action === 'stop' && (
-              <Image
-                src={StopWhiteIcon}
-                alt="Stop"
-                width={14}
-                height={14}
-                className="filter brightness-100 group-hover:brightness-0"
-              />
-            )}
-            {action === 'rename' && (
-              <Image
-                src={RenameIcon}
-                alt="Rename"
-                width={14}
-                height={14}
-                className="filter brightness-100 group-hover:brightness-0"
-              />
-            )}
-            {action === 'terminate' && (
-              <Image
-                src={CloseIcon}
-                alt="Terminate"
-                width={14}
-                height={14}
-                className="filter brightness-100 group-hover:brightness-0"
-              />
-            )}
-            {action === 'delete' && (
-              <Image
-                src={DeleteIcon}
-                alt="Delete"
-                width={14}
-                height={14}
-                className="filter brightness-100 group-hover:brightness-0"
-              />
-            )}
-            {action === 'edit' && (
-              <Image
-                src={EditIcon}
-                alt="Edit"
-                width={14}
-                height={14}
-                className="filter brightness-0 group-hover:brightness-0"
-              />
-            )}
+            {action === 'resume' && <Play className="h-[14px] w-[14px] shrink-0" />}
+            {action === 'stop' && <Square className="h-[14px] w-[14px] shrink-0" />}
+            {action === 'rename' && <Pencil className="h-[14px] w-[14px] shrink-0" />}
+            {action === 'terminate' && <X className="h-[14px] w-[14px] shrink-0" />}
+            {action === 'delete' && <Trash2 className="h-[14px] w-[14px] shrink-0" />}
+            {action === 'edit' && <PencilLine className="h-[14px] w-[14px] shrink-0" />}
             {buttonText}
           </div>
         )}
@@ -448,7 +380,7 @@ function PipelineDetailsHeader({
     )
   }
 
-  const renderMenuButton = (action: PipelineAction, label: string, icon: any) => {
+  const renderMenuButton = (action: PipelineAction, label: string, Icon: React.ComponentType<{ className?: string }>) => {
     const config = getActionConfiguration(action)
     // isActionDisabled already accounts for demo mode via the hook options
     const disabled = isActionDisabled(action)
@@ -477,13 +409,7 @@ function PipelineDetailsHeader({
         disabled={disabled}
         title={config.disabledReason}
       >
-        <Image
-          src={icon}
-          alt={label}
-          width={16}
-          height={16}
-          className="filter brightness-100 group-hover:brightness-0 flex-shrink-0"
-        />
+        <Icon className="h-4 w-4 shrink-0" />
         <span className="truncate">{label}</span>
       </Button>
     )
@@ -521,14 +447,7 @@ function PipelineDetailsHeader({
             onClick={handleMenuButtonClick}
           >
             <div className="flex items-center gap-2">
-              <Image
-                src={MenuWhiteIcon}
-                alt="More options"
-                width={16}
-                height={16}
-                className="filter brightness-100 group-hover:brightness-0"
-              />
-              {/* Other actions */}
+              <MoreVertical className="h-4 w-4 shrink-0" />
             </div>
           </Button>
 
@@ -541,7 +460,7 @@ function PipelineDetailsHeader({
 
                 {/* Menu dropdown - using fixed positioning */}
                 <div
-                  className="fixed z-[110] w-48 surface-gradient-border border-0 bg-[var(--color-background-elevation-raised-faded-2)] shadow-lg p-1 min-w-[160px] sm:min-w-[180px]"
+                  className="fixed z-[110] w-48 surface-gradient-border border-0 bg-[var(--color-background-elevation-raised-faded-2)] shadow-lg p-1 min-w-[160px] sm:min-w-[180px] animate-slideDown"
                   style={{
                     top: `${menuPosition.top}px`,
                     right: `${menuPosition.right}px`,
@@ -549,13 +468,13 @@ function PipelineDetailsHeader({
                   onClick={(e) => e.stopPropagation()}
                 >
                   {/* Show resume in menu if not primary */}
-                  {showResume && primaryAction !== 'resume' && renderMenuButton('resume', 'Resume', PlayIcon)}
+                  {showResume && primaryAction !== 'resume' && renderMenuButton('resume', 'Resume', Play)}
                   {/* Show stop in menu if not primary */}
-                  {showStop && primaryAction !== 'stop' && renderMenuButton('stop', 'Stop', StopWhiteIcon)}
-                  {showRename && renderMenuButton('rename', 'Rename', RenameIcon)}
-                  {showTerminate && renderMenuButton('terminate', 'Terminate', CloseIcon)}
+                  {showStop && primaryAction !== 'stop' && renderMenuButton('stop', 'Stop', Square)}
+                  {showRename && renderMenuButton('rename', 'Rename', Pencil)}
+                  {showTerminate && renderMenuButton('terminate', 'Terminate', X)}
                   {/* Show delete in menu if not primary */}
-                  {showDelete && primaryAction !== 'delete' && renderMenuButton('delete', 'Delete', DeleteIcon)}
+                  {showDelete && primaryAction !== 'delete' && renderMenuButton('delete', 'Delete', Trash2)}
 
                   {/* Manage Tags Button */}
                   {onManageTags && (
@@ -598,13 +517,7 @@ function PipelineDetailsHeader({
                         : 'Download configuration'
                     }
                   >
-                    <Image
-                      src={DownloadIcon}
-                      alt="Download"
-                      width={16}
-                      height={16}
-                      className="filter brightness-100 group-hover:brightness-0 flex-shrink-0"
-                    />
+                    <Download className="h-4 w-4 shrink-0" />
                     <span className="truncate">Download config</span>
                     {coreStore.isDirty && (
                       <Badge variant="warning" className="ml-auto px-1.5 py-0.5 text-[10px] leading-none">
@@ -631,13 +544,7 @@ function PipelineDetailsHeader({
                     title="Flush DLQ"
                     disabled={demoMode}
                   >
-                    <Image
-                      src={DeleteIcon}
-                      alt="Flush"
-                      width={16}
-                      height={16}
-                      className="filter brightness-100 group-hover:brightness-0 flex-shrink-0"
-                    />
+                    <Trash2 className="h-4 w-4 shrink-0" />
                     <span className="truncate">Flush DLQ</span>
                   </Button>
 
@@ -683,18 +590,18 @@ function PipelineDetailsHeader({
   return (
     <div
       className={cn(
-        'flex flex-col gap-4 transition-all duration-750 ease-out',
+        'flex flex-col gap-4 transition-all duration-500 ease-out',
         showHeader ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4',
       )}
     >
       <Card className="card-outline py-2 px-6 mb-4">
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-2">
           <div className="flex flex-row justify-between gap-4 items-start">
             <div className="flex flex-row flex-start gap-2 items-center min-w-0 flex-1">
               {actionState.isLoading && (
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <Image src={Loader} alt="Loading" width={24} height={24} className="animate-spin" />
-                  <span className="text-sm text-blue-600 font-medium whitespace-nowrap">
+                  <span className="body-3 text-[var(--color-foreground-info)] font-medium whitespace-nowrap">
                     {actionState.lastAction === 'stop' && 'Stopping pipeline...'}
                     {actionState.lastAction === 'resume' && 'Resuming pipeline...'}
                     {actionState.lastAction === 'terminate' && 'Terminating pipeline...'}
@@ -704,7 +611,7 @@ function PipelineDetailsHeader({
                   </span>
                 </div>
               )}
-              <h2 className="text-2xl font-bold truncate min-w-0" title={pipeline.name}>
+              <h2 className="title-3 truncate min-w-0" title={pipeline.name}>
                 {pipeline.name}
               </h2>
               <Badge variant={statusVariant} className="rounded-xl my-2 mx-4 flex-shrink-0">
@@ -719,7 +626,7 @@ function PipelineDetailsHeader({
             </div>
             <div className="flex flex-row flex-end gap-2 flex-shrink-0">{actions || getActionButtons()}</div>
           </div>
-          <div className="flex flex-start items-center gap-1 text-sm text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
             {pipeline.pipeline_id ? (
               <div className="group flex items-center gap-1">
                 <span
@@ -731,7 +638,7 @@ function PipelineDetailsHeader({
                 </span>
                 <Copy className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                 {copied && (
-                  <Badge variant="secondary" className="ml-2 h-6 w-18 text-sm">
+                  <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
                     Copied
                   </Badge>
                 )}
@@ -739,16 +646,28 @@ function PipelineDetailsHeader({
             ) : (
               <span>Pipeline ID: None</span>
             )}
-          </div>
-          <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-            <span>Tags:</span>
-            {tagsList.length === 0 && <span className="text-muted-foreground">No tags yet</span>}
-            {tagsList.slice(0, 6).map((tag) => (
-              <Badge key={tag} variant="secondary" className="rounded-full px-2 py-0.5 text-xs">
-                {tag}
-              </Badge>
-            ))}
-            {tagsList.length > 6 && <span className="text-xs text-muted-foreground">+{tagsList.length - 6} more</span>}
+
+            <span className="opacity-30">·</span>
+
+            <div className="flex flex-wrap items-center gap-1.5">
+              {tagsList.slice(0, 6).map((tag) => (
+                <Badge key={tag} variant="secondary" className="rounded-full px-2 py-0.5 text-xs">
+                  {tag}
+                </Badge>
+              ))}
+              {tagsList.length > 6 && (
+                <span className="text-xs text-muted-foreground">+{tagsList.length - 6} more</span>
+              )}
+              {onManageTags && (
+                <button
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer opacity-60 hover:opacity-100"
+                  onClick={onManageTags}
+                  title="Manage tags"
+                >
+                  {tagsList.length === 0 ? '+ Add tags' : '+ Edit'}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </Card>
@@ -780,11 +699,12 @@ function PipelineDetailsHeader({
         onCancel={handleModalCancel}
       />
 
-      {/* Unsaved Changes Download Warning Modal */}
-      <UnsavedChangesDownloadModal
-        visible={showDownloadWarningModal}
-        onOk={proceedWithDownload}
-        onCancel={handleDownloadWarningCancel}
+      {/* Download Format Selection Modal */}
+      <DownloadFormatModal
+        visible={showDownloadFormatModal}
+        onDownload={handleDownloadWithFormat}
+        onCancel={() => setShowDownloadFormatModal(false)}
+        hasUnsavedChanges={coreStore.isDirty}
       />
 
       {/* TEMPORARILY COMMENTED OUT - EDIT FUNCTIONALITY DISABLED FOR DEMO */}
