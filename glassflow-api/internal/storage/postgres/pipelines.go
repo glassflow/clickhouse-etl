@@ -228,7 +228,7 @@ func (s *PostgresStorage) InsertPipeline(ctx context.Context, p models.PipelineC
 	_, err = tx.Exec(ctx, `
 		INSERT INTO pipelines (id, name, status, source_id, sink_id, transformation_ids, metadata, version, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-	`, insertData.pipelineID, insertData.name, insertData.status, insertData.sourceID, insertData.sinkID, insertData.transformationIDsArg, string(insertData.metadataJSON), "v2", insertData.createdAt, insertData.updatedAt)
+	`, insertData.pipelineID, insertData.name, insertData.status, insertData.sourceID, insertData.sinkID, insertData.transformationIDsArg, string(insertData.metadataJSON), "v3", insertData.createdAt, insertData.updatedAt)
 	if err != nil {
 		return fmt.Errorf("insert pipeline: %w", err)
 	}
@@ -478,7 +478,7 @@ func (s *PostgresStorage) UpdatePipeline(ctx context.Context, id string, newCfg 
 		UPDATE pipelines
 		SET name = $1, status = $2, transformation_ids = $3, metadata = $4, version = $5, updated_at = $6
 		WHERE id = $7
-	`, updateData.name, updateData.status, updateData.transformationIDsArg, string(updateData.metadataJSON), "v2", updateData.updatedAt, updateData.pipelineID)
+	`, updateData.name, updateData.status, updateData.transformationIDsArg, string(updateData.metadataJSON), "v3", updateData.updatedAt, updateData.pipelineID)
 	if err != nil {
 		return fmt.Errorf("update pipeline: %w", err)
 	}
@@ -674,7 +674,7 @@ func (s *PostgresStorage) DeletePipeline(ctx context.Context, id string) error {
 	if len(transformationIDs) > 0 {
 		_, err = tx.Exec(ctx, `
 			DELETE FROM transformations WHERE id = ANY($1)
-		`, transformationIDs)
+		`, uuidsToArrayArg(transformationIDs))
 		if err != nil {
 			return fmt.Errorf("delete transformations: %w", err)
 		}
@@ -827,7 +827,7 @@ func (s *PostgresStorage) upsertPipelineSourceSchemaVersions(ctx context.Context
 
 	if p.SourceType.IsKafka() {
 		for _, topic := range p.Ingestor.KafkaTopics {
-			if err := s.upsertSourceSchemaVersion(ctx, tx, pipelineID, p, topic.Name); err != nil {
+			if err := s.upsertSourceSchemaVersion(ctx, tx, pipelineID, p, topic.ID); err != nil {
 				return err
 			}
 		}
@@ -1015,7 +1015,11 @@ func uuidsToArrayArg(ids []uuid.UUID) pgtype.Array[pgtype.UUID] {
 	for i, id := range ids {
 		elements[i] = pgtype.UUID{Bytes: id, Valid: true}
 	}
-	return pgtype.Array[pgtype.UUID]{Elements: elements, Valid: true}
+	return pgtype.Array[pgtype.UUID]{
+		Elements: elements,
+		Dims:     []pgtype.ArrayDimension{{Length: int32(len(elements)), LowerBound: 1}},
+		Valid:    true,
+	}
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -1176,21 +1180,21 @@ func (s *PostgresStorage) loadConfigsAndSchemaVersionsWithSelection(
 	for _, topic := range pipelineCfg.Ingestor.KafkaTopics {
 		var schemaVersion models.SchemaVersion
 
-		requestedVersionID, hasRequestedVersion := sourceSchemaVersions[topic.Name]
+		requestedVersionID, hasRequestedVersion := sourceSchemaVersions[topic.ID]
 		if hasRequestedVersion {
-			schemaVersion, err = s.getSchemaVersion(ctx, tx, pipelineCfg.ID, topic.Name, requestedVersionID)
-			delete(notFoundSchemas, topic.Name)
+			schemaVersion, err = s.getSchemaVersion(ctx, tx, pipelineCfg.ID, topic.ID, requestedVersionID)
+			delete(notFoundSchemas, topic.ID)
 		} else {
-			schemaVersion, err = s.getLatestSchemaVersion(ctx, tx, pipelineCfg.ID, topic.Name)
+			schemaVersion, err = s.getLatestSchemaVersion(ctx, tx, pipelineCfg.ID, topic.ID)
 		}
 		if err != nil {
-			return fmt.Errorf("get schema version for topic '%s': %w", topic.Name, err)
+			return fmt.Errorf("get schema version for source '%s': %w", topic.ID, err)
 		}
 
 		if pipelineCfg.SchemaVersions == nil {
 			pipelineCfg.SchemaVersions = make(map[string]models.SchemaVersion)
 		}
-		pipelineCfg.SchemaVersions[topic.Name] = schemaVersion
+		pipelineCfg.SchemaVersions[topic.ID] = schemaVersion
 	}
 
 	if pipelineCfg.SourceType.IsOTLP() {
