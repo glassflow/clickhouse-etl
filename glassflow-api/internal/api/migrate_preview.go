@@ -220,8 +220,24 @@ func convertJoin(v2 pipelineJSONv2) (join, error) {
 	}, nil
 }
 
+func sinkConnParams(s clickhouseSinkV2) sinkConnectionParamsV2 {
+	if s.ConnectionParams != (sinkConnectionParamsV2{}) {
+		return s.ConnectionParams
+	}
+	return sinkConnectionParamsV2{
+		Host:                        s.Host,
+		Port:                        s.Port,
+		HttpPort:                    s.HttpPort,
+		Database:                    s.Database,
+		Username:                    s.Username,
+		Password:                    s.Password,
+		Secure:                      s.Secure,
+		SkipCertificateVerification: s.SkipCertificateVerification,
+	}
+}
+
 func convertSink(v2 pipelineJSONv2) sink {
-	cp := v2.Sink.ConnectionParams
+	cp := sinkConnParams(v2.Sink)
 	s := sink{
 		Type: v2.Sink.Kind,
 		ConnectionParams: clickhouseConnectionParams{
