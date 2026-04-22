@@ -48,9 +48,11 @@ export function validatePipelineConfig(json: unknown): ImportValidationResult {
     errors.push('Missing required field: name')
   }
 
-  // Check for source configuration
-  if (!config.source || typeof config.source !== 'object') {
-    errors.push('Missing required field: source')
+  // Check for source configuration — accept either legacy `source` object or v3 `sources[]`
+  const hasLegacySource = config.source && typeof config.source === 'object'
+  const hasV3Sources = Array.isArray(config.sources) && (config.sources as unknown[]).length > 0
+  if (!hasLegacySource && !hasV3Sources) {
+    errors.push('Missing required field: source (or sources[] for v3 multi-source format)')
     return {
       valid: false,
       errors,
