@@ -560,8 +560,10 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
           case 'otlp':
             hydrateOtlpSource(config)
             break
-          case 'all':
-            if (config.source?.type && isOtlpSource(config.source.type)) {
+          case 'all': {
+            const cfg = config as any
+            const sourceType: string = cfg.sources?.[0]?.type ?? cfg.source?.type ?? ''
+            if (sourceType && isOtlpSource(sourceType)) {
               hydrateOtlpSource(config)
             } else {
               hydrateKafkaConnection(config)
@@ -574,6 +576,7 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
             await hydrateClickhouseDestination(config)
             await hydrateResources(config)
             break
+          }
           default:
             structuredLogger.warn('Unknown section for hydration', { section })
         }
