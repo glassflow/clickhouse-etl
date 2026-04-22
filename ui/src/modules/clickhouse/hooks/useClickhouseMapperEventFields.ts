@@ -70,7 +70,7 @@ export function useClickhouseMapperEventFields({
       // from scratch using orderByOptions (these event fields). Auto-mapping here would apply
       // stale existing-table columns that haven't been cleared by the sync effect yet.
       if (destinationPath === 'create') return
-      if (clickhouseDestination?.mapping?.length > 0) return
+      if (clickhouseDestination?.mapping?.some((col: any) => col.eventField)) return
       if (mappedColumns.length > 0) {
         const fieldTypeMap = new Map(otlpStore.schemaFields.map((f) => [f.name, f.type]))
         const updatedColumns = [...mappedColumns]
@@ -101,7 +101,7 @@ export function useClickhouseMapperEventFields({
         setEventFields(transformedFields)
         const fieldTypeMap = new Map(intermediarySchema.map((field) => [field.name, field.type]))
 
-        if (clickhouseDestination?.mapping?.length > 0) return
+        if (clickhouseDestination?.mapping?.some((col: any) => col.eventField)) return
         if (mappedColumns.length > 0 && transformedFields.length > 0) {
           const updatedColumns = [...mappedColumns]
           updatedColumns.forEach((col, index) => {
@@ -124,7 +124,7 @@ export function useClickhouseMapperEventFields({
       const fields = extractEventFields(data)
       setEventFields(fields)
 
-      if (clickhouseDestination?.mapping?.length > 0) return
+      if (clickhouseDestination?.mapping?.some((col: any) => col.eventField)) return
       if (mappedColumns.length > 0 && fields.length > 0) {
         const updatedColumns = [...mappedColumns]
         updatedColumns.forEach((col, index) => {
@@ -193,7 +193,7 @@ export function useClickhouseMapperEventFields({
       mappedColumns.length === 0
     )
       return
-    if (clickhouseDestination?.mapping?.length > 0) return
+    if (clickhouseDestination?.mapping?.some((col: any) => col.eventField)) return
 
     const updatedColumns = [...mappedColumns]
     let hasChanges = false
