@@ -661,15 +661,27 @@ export const generateApiConfig = ({
     //    so any adapter can hydrate into it, but generation always targets the current backend API.
     const adapter = getPipelineAdapter(LATEST_PIPELINE_VERSION)
 
-    // 3. Inject pipeline_resources so the adapter can convert it to the correct wire format
-    //    (v3-next converts ingestor/transform/sink → resources.sources[]/transform[]/sink).
-    const internalWithResources =
+    // 3. Enrich internalConfig with pipeline_resources so the V3 adapter can translate
+    // them into resources.sources[] / resources.transform[] in the output.
+    // For legacy adapters (V1/V2) that don't handle this translation, we fall back to
+    // merging pipeline_resources as a top-level key after generation.
+    const enrichedConfig =
       pipeline_resources && typeof pipeline_resources === 'object' && Object.keys(pipeline_resources).length > 0
         ? { ...internalConfig, pipeline_resources }
         : internalConfig
 
     // 4. Generate the external API configuration
-    return adapter.generate(internalWithResources)
+    const apiConfig = adapter.generate(enrichedConfig)
+
+    // 5. Legacy fallback: V1/V2 adapters don't translate pipeline_resources internally
+    if (
+      pipeline_resources &&
+      Object.keys(pipeline_resources).length > 0 &&
+      adapter.version !== 'v3'
+    ) {
+      return { ...apiConfig, pipeline_resources }
+    }
+    return apiConfig
   } catch (error) {
     structuredLogger.error('Error generating API config', { error: error instanceof Error ? error.message : String(error) })
     return { error: 'Failed to generate API configuration' }

@@ -1,3 +1,16 @@
+/**
+ * V3 Pipeline Adapter
+ *
+ * Handles the current backend v3 API format:
+ *   - sources[]         (one entry per Kafka topic or OTLP signal, each with its own source_id)
+ *   - transforms[]      (unified array for dedup, filter, stateless transformation)
+ *   - join.left_source / join.right_source + join.output_fields[]
+ *   - resources.sources[] + resources.transform[]
+ *
+ * Previous intermediary format (single source + stateless_transformation + schema_fields)
+ * was never persisted to the backend and has been removed.
+ */
+
 import { PipelineAdapter } from './types'
 import { InternalPipelineConfig } from '@/src/types/pipeline'
 import { PipelineVersion } from '@/src/config/pipeline-versions'
@@ -110,180 +123,321 @@ export class V3PipelineAdapter implements PipelineAdapter {
   version = PipelineVersion.V3
 
   hydrate(apiConfig: any): InternalPipelineConfig {
-    const internalConfig = JSON.parse(JSON.stringify(apiConfig)) as any
+    const config = JSON.parse(JSON.stringify(apiConfig)) as any
 
-    // 1. Source topics: schema_fields -> schema.fields, deduplication.key -> id_field
-    if (internalConfig.source?.topics) {
-      internalConfig.source.topics.forEach((topic: any) => {
-        if (Array.isArray(topic.schema_fields)) {
-          topic.schema = {
+    const sources: any[] = Array.isArray(config.sources) ? config.sources : []
+    const transforms: any[] = Array.isArray(config.transforms) ? config.transforms : []
+    const joinCfg = config.join ?? {}
+
+    // ── 1. sources[] → internal source ──────────────────────────────────────
+    const otlpSources = sources.filter((s: any) => typeof s.type === 'string' && s.type.startsWith('otlp.'))
+    const kafkaSources = sources.filter((s: any) => !otlpSources.includes(s))
+
+    let internalSource: any
+    if (otlpSources.length > 0) {
+      internalSource = { type: otlpSources[0].type, id: otlpSources[0].source_id }
+    } else {
+      internalSource = {
+        type: 'kafka',
+        ...(kafkaSources[0]?.provider ? { provider: kafkaSources[0].provider } : {}),
+        connection_params: kafkaSources[0]?.connection_params ?? {},
+        topics: kafkaSources.map((s: any) => ({
+          id: s.source_id,
+          name: s.topic ?? s.source_id,
+          consumer_group_initial_offset: s.consumer_group_initial_offset ?? 'latest',
+          schema: {
             type: 'json',
-            fields: topic.schema_fields.map((f: any) => ({ name: f.name, type: f.type || 'string' })),
-          }
-          delete topic.schema_fields
-        }
-        if (topic.deduplication) {
-          if (topic.deduplication.key !== undefined) {
-            topic.deduplication.id_field = topic.deduplication.key
-            delete topic.deduplication.key
-          }
-          if (topic.deduplication.id_field_type === undefined) {
-            topic.deduplication.id_field_type = 'string'
-          }
-        }
-      })
-    }
-
-    // 2. Sink: connection_params -> flat; mapping + source_id -> table_mapping
-    if (internalConfig.sink) {
-      const sink = internalConfig.sink
-      const cp = sink.connection_params || {}
-      sink.host = cp.host ?? sink.host
-      sink.http_port = cp.http_port ?? sink.http_port
-      sink.port = cp.port ?? sink.port
-      sink.database = cp.database ?? sink.database
-      sink.username = cp.username ?? sink.username
-      sink.password = cp.password ?? sink.password
-      sink.secure = cp.secure ?? sink.secure
-      if (cp.skip_certificate_verification !== undefined) {
-        sink.skip_certificate_verification = cp.skip_certificate_verification
+            fields: (s.schema_fields ?? []).map((f: any) => ({ name: f.name, type: f.type ?? 'string' })),
+          },
+          deduplication: { enabled: false, id_field: '', id_field_type: 'string', time_window: '1h' },
+          ...(s.schema_version != null ? { schema_version: s.schema_version } : {}),
+          ...(s.schema_registry != null ? { schema_registry: s.schema_registry } : {}),
+        })),
       }
-      delete sink.connection_params
-
-      const sourceId = sink.source_id
-      if (Array.isArray(sink.mapping)) {
-        sink.table_mapping = sink.mapping.map((m: any) => ({
-          source_id: sourceId,
-          field_name: m.name,
-          column_name: m.column_name,
-          column_type: m.column_type,
-        }))
-        delete sink.mapping
-      }
-      // Keep sink.source_id for generate (internal shape allows extra props)
     }
 
-    // 3. Join: sources[].key -> join_key
-    if (internalConfig.join?.enabled && Array.isArray(internalConfig.join.sources)) {
-      internalConfig.join.sources.forEach((src: any) => {
-        if (src.key !== undefined) {
-          src.join_key = src.key
-          delete src.key
-        }
-      })
-      // join.fields not needed for internal; hydration only uses sources[].join_key
-    }
+    // ── 2. transforms[] → dedup per topic/source, filter, transformation ─────
+    let filterConfig: any = { enabled: false, expression: '' }
+    let internalTransformation: any = { enabled: false, expression: '', fields: [] }
 
-    // 4. Stateless transformation -> transformation (reuse V2-style logic)
-    const statelessTransformation = apiConfig.stateless_transformation
-    if (statelessTransformation) {
-      if (statelessTransformation.enabled && statelessTransformation.config?.transform) {
-        const transformArray = statelessTransformation.config.transform || []
-        const fields = transformArray.map((transform: any, index: number) =>
-          mapTransformToField(transform, index),
-        )
-        internalConfig.transformation = {
-          enabled: true,
-          expression: '',
-          fields,
-          ...(statelessTransformation.source_id != null && {
-            source_id: statelessTransformation.source_id,
-          }),
+    for (const t of transforms) {
+      switch (t.type) {
+        case 'dedup': {
+          if (otlpSources.length > 0) {
+            internalSource.deduplication = {
+              enabled: true,
+              key: t.config?.key ?? '',
+              time_window: t.config?.time_window ?? '1h',
+            }
+          } else {
+            const topic = internalSource.topics?.find((tp: any) => tp.id === t.source_id)
+            if (topic) {
+              topic.deduplication = {
+                enabled: true,
+                id_field: t.config?.key ?? '',
+                id_field_type: 'string',
+                time_window: t.config?.time_window ?? '1h',
+              }
+            }
+          }
+          break
         }
-      } else if (!statelessTransformation.enabled) {
-        internalConfig.transformation = {
-          enabled: false,
-          expression: '',
-          fields: [],
+        case 'filter': {
+          filterConfig = { enabled: true, expression: t.config?.expression ?? '' }
+          break
+        }
+        case 'stateless': {
+          const tfArray: any[] = t.config?.transforms ?? []
+          internalTransformation = {
+            enabled: true,
+            expression: '',
+            fields: tfArray.map((tf: any, idx: number) => mapTransformToField(tf, idx)),
+            source_id: t.source_id,
+          }
+          break
         }
       }
-      delete internalConfig.stateless_transformation
     }
 
-    // 5. Filter unchanged
-    // 6. No root schema in V3
-    delete internalConfig.schema
+    // ── 3. join.left_source / right_source → join.sources[] with orientation ─
+    let internalJoin: any
+    if (joinCfg.enabled) {
+      const joinSources: any[] = []
+      if (joinCfg.left_source) {
+        joinSources.push({
+          source_id: joinCfg.left_source.source_id,
+          join_key: joinCfg.left_source.key,
+          time_window: joinCfg.left_source.time_window,
+          orientation: 'left',
+        })
+      }
+      if (joinCfg.right_source) {
+        joinSources.push({
+          source_id: joinCfg.right_source.source_id,
+          join_key: joinCfg.right_source.key,
+          time_window: joinCfg.right_source.time_window,
+          orientation: 'right',
+        })
+      }
+      internalJoin = {
+        type: joinCfg.type ?? 'temporal',
+        enabled: true,
+        ...(joinCfg.id ? { id: joinCfg.id } : {}),
+        sources: joinSources,
+      }
+    } else {
+      internalJoin = { type: 'temporal', enabled: false, sources: [] }
+    }
 
-    internalConfig.version = this.version
-    return internalConfig as InternalPipelineConfig
+    // ── 4. sink: connection_params → flat, mapping → table_mapping ────────────
+    let internalSink: any = {}
+    if (config.sink) {
+      const s = config.sink
+      const cp = s.connection_params ?? {}
+      const sourceId = s.source_id
+      internalSink = {
+        type: s.type ?? 'clickhouse',
+        host: cp.host ?? s.host ?? '',
+        http_port: cp.http_port ?? s.http_port ?? '8123',
+        port: cp.port ?? s.port ?? '9000',
+        database: cp.database ?? s.database ?? 'default',
+        username: cp.username ?? s.username ?? '',
+        password: cp.password ?? s.password ?? '',
+        secure: cp.secure ?? s.secure ?? false,
+        ...(cp.skip_certificate_verification != null
+          ? { skip_certificate_verification: cp.skip_certificate_verification }
+          : s.skip_certificate_verification != null
+            ? { skip_certificate_verification: s.skip_certificate_verification }
+            : {}),
+        table: s.table ?? '',
+        max_batch_size: s.max_batch_size ?? 1000,
+        max_delay_time: s.max_delay_time ?? '1s',
+        table_mapping: Array.isArray(s.mapping)
+          ? s.mapping.map((m: any) => ({
+              source_id: sourceId ?? '',
+              field_name: m.name,
+              column_name: m.column_name,
+              column_type: m.column_type,
+            }))
+          : [],
+      }
+    }
+
+    // ── 5. resources.sources[] + resources.transform[] → pipeline_resources ──
+    let pipelineResources: any = undefined
+    if (config.resources) {
+      const r = config.resources
+      pipelineResources = {}
+      if (r.nats) pipelineResources.nats = r.nats
+      if (r.sink) pipelineResources.sink = r.sink
+
+      const srcRes: any[] = Array.isArray(r.sources) ? r.sources : []
+      if (srcRes.length > 0) {
+        if (joinCfg.enabled) {
+          const leftId = joinCfg.left_source?.source_id
+          const rightId = joinCfg.right_source?.source_id
+          const leftR = srcRes.find((s: any) => s.source_id === leftId)
+          const rightR = srcRes.find((s: any) => s.source_id === rightId)
+          pipelineResources.ingestor = {
+            ...(leftR ? { left: { requests: leftR.requests, limits: leftR.limits, replicas: leftR.replicas } } : {}),
+            ...(rightR ? { right: { requests: rightR.requests, limits: rightR.limits, replicas: rightR.replicas } } : {}),
+          }
+        } else {
+          const base = srcRes[0]
+          pipelineResources.ingestor = {
+            base: { requests: base.requests, limits: base.limits, replicas: base.replicas },
+          }
+        }
+      }
+
+      const transformRes: any[] = Array.isArray(r.transform) ? r.transform : []
+      if (transformRes.length > 0) {
+        const t = transformRes[0]
+        pipelineResources.transform = { requests: t.requests, limits: t.limits, replicas: t.replicas, storage: t.storage }
+      }
+    }
+
+    return {
+      pipeline_id: config.pipeline_id,
+      name: config.name,
+      version: this.version,
+      source: internalSource,
+      join: internalJoin,
+      filter: filterConfig,
+      transformation: internalTransformation,
+      sink: internalSink,
+      ...(pipelineResources != null ? { pipeline_resources: pipelineResources } : {}),
+      ...(config.metadata != null ? { metadata: config.metadata } : {}),
+    } as InternalPipelineConfig
   }
 
   generate(internalConfig: InternalPipelineConfig): any {
-    const apiConfig = JSON.parse(JSON.stringify(internalConfig)) as any
+    const cfg = internalConfig
+    const topics = (cfg.source?.topics ?? []) as any[]
+    const join = cfg.join as any
+    const transformation = cfg.transformation as any
+    const filter = cfg.filter
+    const isOtlp = (cfg.source?.type ?? '').startsWith('otlp.')
 
-    // 1. Source topics: schema.fields -> schema_fields, id_field -> key, add schema_version/schema_registry
-    if (apiConfig.source?.topics) {
-      apiConfig.source.topics.forEach((topic: any) => {
-        if (topic.schema?.fields) {
-          topic.schema_fields = topic.schema.fields.map((f: any) => ({
-            name: f.name,
-            type: f.type || 'string',
-          }))
-          delete topic.schema
-        }
-        if (topic.deduplication) {
-          if (topic.deduplication.id_field !== undefined) {
-            topic.deduplication.key = topic.deduplication.id_field
-            delete topic.deduplication.id_field
-          }
-          delete topic.deduplication.id_field_type
-        }
-        if (topic.schema_version === undefined) topic.schema_version = '1'
-        if (topic.schema_registry === undefined) {
-          topic.schema_registry = { url: '', api_key: '', api_secret: '' }
-        }
-      })
+    const output: any = {
+      version: this.version,
+      pipeline_id: cfg.pipeline_id,
+      name: cfg.name,
     }
 
-    // 2. Sink: flat -> connection_params; table_mapping -> mapping; set source_id
-    const topics = internalConfig.source?.topics || []
-    const transformation = internalConfig.transformation
-    const join = internalConfig.join
-    const hasTransform =
-      Boolean(transformation?.enabled && transformation?.fields?.length)
-    const hasJoin = Boolean(join?.enabled && join?.sources?.length)
-    // For OTLP sources there are no Kafka topics; use source.id as the upstream reference
-    const isOtlpSource = (internalConfig.source?.type || '').startsWith('otlp.')
+    // ── 1. source → sources[] ─────────────────────────────────────────────────
+    if (isOtlp) {
+      output.sources = [{ type: cfg.source.type, source_id: (cfg.source as any).id ?? 'source' }]
+    } else {
+      output.sources = topics.map((t: any) => ({
+        type: 'kafka',
+        source_id: t.id ?? t.name,
+        connection_params: cfg.source?.connection_params,
+        topic: t.name,
+        consumer_group_initial_offset: t.consumer_group_initial_offset ?? 'latest',
+        schema_fields: (t.schema?.fields ?? []).map((f: any) => ({ name: f.name, type: f.type ?? 'string' })),
+        schema_version: t.schema_version ?? '1',
+        schema_registry: t.schema_registry ?? { url: '', api_key: '', api_secret: '' },
+      }))
+    }
 
-    let sinkSourceId: string
-    if (hasTransform) {
-      const baseName = (internalConfig.name || internalConfig.pipeline_id || 'transform')
+    // ── 2. dedup / filter / transformation → transforms[] ────────────────────
+    const transforms: any[] = []
+
+    if (!isOtlp) {
+      for (const t of topics) {
+        if (t.deduplication?.enabled && t.deduplication?.id_field) {
+          transforms.push({
+            type: 'dedup',
+            source_id: t.id ?? t.name,
+            config: { key: t.deduplication.id_field, time_window: t.deduplication.time_window ?? '1h' },
+          })
+        }
+      }
+    } else {
+      const otlpDedup = (cfg.source as any)?.deduplication
+      if (otlpDedup?.enabled && otlpDedup?.key) {
+        transforms.push({
+          type: 'dedup',
+          source_id: (cfg.source as any)?.id ?? 'source',
+          config: { key: otlpDedup.key, time_window: otlpDedup.time_window ?? '1h' },
+        })
+      }
+    }
+
+    if (filter?.enabled) {
+      const srcId = isOtlp
+        ? ((cfg.source as any)?.id ?? 'source')
+        : (topics[0]?.id ?? topics[0]?.name ?? 'source')
+      transforms.push({ type: 'filter', source_id: srcId, config: { expression: filter.expression ?? '' } })
+    }
+
+    if (transformation?.enabled && (transformation?.fields?.length ?? 0) > 0) {
+      const baseName = (cfg.name ?? cfg.pipeline_id ?? 'transform')
         .toLowerCase()
         .replace(/[^a-z0-9-]/g, '-')
         .replace(/-transform$/, '')
-      sinkSourceId = `${baseName}-transform`
-    } else if (hasJoin) {
-      const joinId = (join as { id?: string }).id
-      sinkSourceId = joinId ?? topics[0]?.id ?? topics[0]?.name ?? 'source'
-    } else {
-      sinkSourceId = topics[0]?.id ?? topics[0]?.name ?? (isOtlpSource ? (internalConfig.source?.id ?? 'source') : 'source')
+      const srcId =
+        transformation.source_id ??
+        (isOtlp ? ((cfg.source as any)?.id ?? 'source') : (topics[0]?.id ?? topics[0]?.name ?? 'source'))
+      transforms.push({
+        type: 'stateless',
+        id: `${baseName}-transform`,
+        source_id: srcId,
+        config: { transforms: toTransformArray({ enabled: true, fields: transformation.fields }) },
+      })
     }
 
-    if (apiConfig.sink) {
-      const s = apiConfig.sink
-      apiConfig.sink = {
-        type: s.type || 'clickhouse',
+    if (transforms.length > 0) output.transforms = transforms
+
+    // ── 3. join.sources[] → left_source / right_source + output_fields ────────
+    if (join?.enabled && Array.isArray(join?.sources)) {
+      const left = join.sources.find((s: any) => s.orientation === 'left')
+      const right = join.sources.find((s: any) => s.orientation === 'right')
+      const tableMapping: any[] = (cfg.sink as any)?.table_mapping ?? []
+      const seen = new Set<string>()
+      const outputFields: any[] = []
+      for (const m of tableMapping) {
+        const key = `${m.source_id}:${m.field_name}`
+        if (!seen.has(key)) {
+          seen.add(key)
+          outputFields.push({ source_id: m.source_id, name: m.field_name, output_name: m.field_name })
+        }
+      }
+      output.join = {
+        enabled: true,
+        type: join.type ?? 'temporal',
+        ...(join.id ? { id: join.id } : {}),
+        ...(left ? { left_source: { source_id: left.source_id, key: left.join_key, time_window: left.time_window } } : {}),
+        ...(right ? { right_source: { source_id: right.source_id, key: right.join_key, time_window: right.time_window } } : {}),
+        ...(outputFields.length > 0 ? { output_fields: outputFields } : {}),
+      }
+    }
+    // Single-source: omit join entirely — backend rejects even { enabled: false }
+
+    // ── 4. sink: flat → connection_params, table_mapping → mapping ────────────
+    if (cfg.sink) {
+      const s = cfg.sink as any
+      output.sink = {
+        type: s.type ?? 'clickhouse',
         connection_params: {
           host: s.host ?? '',
           port: s.port ?? '9000',
-          http_port: s.http_port ?? '8123',
+          http_port: s.http_port ?? s.httpPort ?? '8123',
           database: s.database ?? 'default',
           username: s.username ?? '',
           password: s.password ?? '',
           secure: s.secure ?? false,
-          ...(s.skip_certificate_verification !== undefined && {
-            skip_certificate_verification: s.skip_certificate_verification,
-          }),
+          ...(s.skip_certificate_verification != null
+            ? { skip_certificate_verification: s.skip_certificate_verification }
+            : {}),
         },
         table: s.table,
-        // Preserve create-table fields so the UI API route can detect and execute the
-        // create-table flow before stripping them before forwarding to the backend.
         ...(s.engine ? { engine: s.engine } : {}),
         ...(s.order_by ? { order_by: s.order_by } : {}),
         max_batch_size: s.max_batch_size ?? 1000,
         max_delay_time: s.max_delay_time ?? '1s',
-        source_id: s.source_id ?? sinkSourceId,
-        mapping: (s.table_mapping || []).map((m: any) => ({
+        mapping: (s.table_mapping ?? []).map((m: any) => ({
           name: m.field_name,
           column_name: m.column_name,
           column_type: m.column_type,
@@ -291,68 +445,42 @@ export class V3PipelineAdapter implements PipelineAdapter {
       }
     }
 
-    // 3. Join: strip to {enabled:false} when disabled to avoid backend validation of empty sources/type
-    if (apiConfig.join && !apiConfig.join.enabled) {
-      apiConfig.join = { enabled: false }
-    }
+    // ── 5. pipeline_resources → resources.sources[] + resources.transform[] ──
+    const pr = cfg.pipeline_resources
+    if (pr) {
+      const resources: any = {}
+      if (pr.nats) resources.nats = pr.nats
 
-    // 3b. Join: join_key -> key; build join.fields from table_mapping
-    if (apiConfig.join?.enabled && Array.isArray(apiConfig.join.sources)) {
-      apiConfig.join.sources.forEach((src: any) => {
-        if (src.join_key !== undefined) {
-          src.key = src.join_key
-          delete src.join_key
+      const hasJoin = join?.enabled
+      const sourcesOut: any[] = []
+
+      if (pr.ingestor) {
+        if (hasJoin) {
+          const left = join?.sources?.find((s: any) => s.orientation === 'left')
+          const right = join?.sources?.find((s: any) => s.orientation === 'right')
+          if (left && pr.ingestor.left) sourcesOut.push({ source_id: left.source_id, ...pr.ingestor.left })
+          if (right && pr.ingestor.right) sourcesOut.push({ source_id: right.source_id, ...pr.ingestor.right })
+        } else if (pr.ingestor.base && !isOtlp) {
+          const srcId = topics[0]?.id ?? topics[0]?.name ?? 'source'
+          sourcesOut.push({ source_id: srcId, ...pr.ingestor.base })
         }
-      })
-      const tableMapping = internalConfig.sink?.table_mapping || []
-      const joinSourceIds = new Set((apiConfig.join.sources || []).map((s: any) => s.source_id))
-      const joinId = apiConfig.join.id
-      if (joinId) joinSourceIds.add(joinId)
-      const fieldSet = new Set<string>()
-      const joinFields: any[] = []
-      tableMapping.forEach((m: any) => {
-        if (!joinSourceIds.has(m.source_id)) return
-        const key = `${m.source_id}:${m.field_name}`
-        if (fieldSet.has(key)) return
-        fieldSet.add(key)
-        joinFields.push({
-          source_id: m.source_id,
-          name: m.field_name,
-          output_name: m.field_name,
-        })
-      })
-      apiConfig.join.fields = joinFields
+      }
+
+      if (sourcesOut.length > 0) resources.sources = sourcesOut
+
+      if (pr.transform) {
+        const srcId = isOtlp
+          ? ((cfg.source as any)?.id ?? 'source')
+          : (topics[0]?.id ?? topics[0]?.name ?? 'source')
+        resources.transform = [{ source_id: srcId, ...pr.transform }]
+      }
+
+      if (pr.sink) resources.sink = pr.sink
+      output.resources = resources
     }
 
-    // 4. Transformation -> stateless_transformation (same as V2 + source_id)
-    if (transformation?.enabled && transformation?.fields?.length) {
-      const baseName = (internalConfig.name || internalConfig.pipeline_id || 'transform')
-        .toLowerCase()
-        .replace(/[^a-z0-9-]/g, '-')
-        .replace(/-transform$/, '')
-      const transformationId = `${baseName}-transform`
-      const transformSourceId = (transformation as { source_id?: string }).source_id ?? topics[0]?.id ?? topics[0]?.name
+    if (cfg.metadata) output.metadata = cfg.metadata
 
-      apiConfig.stateless_transformation = {
-        id: transformationId,
-        type: 'expr_lang_transform',
-        enabled: true,
-        source_id: transformSourceId,
-        config: {
-          transform: toTransformArray({ enabled: true, fields: transformation.fields }),
-        },
-      }
-      delete apiConfig.transformation
-    } else if (transformation && !transformation.enabled) {
-      apiConfig.stateless_transformation = {
-        id: 'transform',
-        type: 'expr_lang_transform',
-        enabled: false,
-      }
-      delete apiConfig.transformation
-    }
-
-    apiConfig.version = this.version
-    return apiConfig
+    return output
   }
 }
