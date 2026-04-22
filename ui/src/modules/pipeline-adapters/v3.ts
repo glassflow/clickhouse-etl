@@ -419,20 +419,6 @@ export class V3PipelineAdapter implements PipelineAdapter {
     // ── 4. sink: flat → connection_params, table_mapping → mapping ────────────
     if (cfg.sink) {
       const s = cfg.sink as any
-      let sinkSrcId: string
-      if (transformation?.enabled && (transformation?.fields?.length ?? 0) > 0) {
-        const baseName = (cfg.name ?? cfg.pipeline_id ?? 'transform')
-          .toLowerCase()
-          .replace(/[^a-z0-9-]/g, '-')
-          .replace(/-transform$/, '')
-        sinkSrcId = `${baseName}-transform`
-      } else if (join?.enabled) {
-        sinkSrcId = join.id ?? topics[0]?.id ?? 'source'
-      } else {
-        sinkSrcId = isOtlp
-          ? ((cfg.source as any)?.id ?? 'source')
-          : (topics[0]?.id ?? topics[0]?.name ?? 'source')
-      }
       output.sink = {
         type: s.type ?? 'clickhouse',
         connection_params: {
@@ -452,7 +438,6 @@ export class V3PipelineAdapter implements PipelineAdapter {
         ...(s.order_by ? { order_by: s.order_by } : {}),
         max_batch_size: s.max_batch_size ?? 1000,
         max_delay_time: s.max_delay_time ?? '1s',
-        source_id: s.source_id ?? sinkSrcId,
         mapping: (s.table_mapping ?? []).map((m: any) => ({
           name: m.field_name,
           column_name: m.column_name,
@@ -476,10 +461,8 @@ export class V3PipelineAdapter implements PipelineAdapter {
           const right = join?.sources?.find((s: any) => s.orientation === 'right')
           if (left && pr.ingestor.left) sourcesOut.push({ source_id: left.source_id, ...pr.ingestor.left })
           if (right && pr.ingestor.right) sourcesOut.push({ source_id: right.source_id, ...pr.ingestor.right })
-        } else if (pr.ingestor.base) {
-          const srcId = isOtlp
-            ? ((cfg.source as any)?.id ?? 'source')
-            : (topics[0]?.id ?? topics[0]?.name ?? 'source')
+        } else if (pr.ingestor.base && !isOtlp) {
+          const srcId = topics[0]?.id ?? topics[0]?.name ?? 'source'
           sourcesOut.push({ source_id: srcId, ...pr.ingestor.base })
         }
       }

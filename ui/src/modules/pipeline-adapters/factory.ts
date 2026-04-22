@@ -10,7 +10,7 @@ const adapters: Record<string, PipelineAdapter> = {
   [PipelineVersion.V3]: new V3PipelineAdapter(),
 }
 
-export const getPipelineAdapter = (version?: string, config?: any): PipelineAdapter => {
+export const getPipelineAdapter = (version?: string): PipelineAdapter => {
   const normalized = version === '3' ? PipelineVersion.V3 : version
 
   if (normalized && adapters[normalized]) {

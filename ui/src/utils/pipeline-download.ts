@@ -53,7 +53,7 @@ export const downloadPipelineConfig = async (
     // Use the adapter system to get the correct format
     // 1. Hydrate using content-aware adapter detection (sources[] → v3-next schema)
     const sourceVersion = rawConfig.version || PipelineVersion.V1
-    const sourceAdapter = getPipelineAdapter(sourceVersion, rawConfig)
+    const sourceAdapter = getPipelineAdapter(sourceVersion)
     const internalConfig = sourceAdapter.hydrate(rawConfig)
 
     // 2. Always export in the latest format so downloaded configs match the backend API
@@ -104,7 +104,7 @@ export const downloadPipelineConfigAsYaml = async (
     }
 
     const sourceVersion = rawConfig.version || PipelineVersion.V1
-    const sourceAdapter = getPipelineAdapter(sourceVersion, rawConfig)
+    const sourceAdapter = getPipelineAdapter(sourceVersion)
     const internalConfig = sourceAdapter.hydrate(rawConfig)
 
     const targetAdapter = getPipelineAdapter(LATEST_PIPELINE_VERSION)
