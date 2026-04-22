@@ -333,7 +333,6 @@ export class V3PipelineAdapter implements PipelineAdapter {
         type: 'kafka',
         source_id: t.id ?? t.name,
         connection_params: cfg.source?.connection_params,
-        ...(cfg.source?.provider ? { provider: cfg.source.provider } : {}),
         topic: t.name,
         consumer_group_initial_offset: t.consumer_group_initial_offset ?? 'latest',
         schema_fields: (t.schema?.fields ?? []).map((f: any) => ({ name: f.name, type: f.type ?? 'string' })),
