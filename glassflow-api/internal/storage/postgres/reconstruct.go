@@ -171,6 +171,8 @@ func reconstructJoinConfig(transformations map[string]Transformation) (models.Jo
 		if err := json.Unmarshal(joinTrans.Config, &joinConfig); err != nil {
 			return joinConfig, fmt.Errorf("unmarshal join config: %w", err)
 		}
+		// The v2 config blob may not contain the ID — always use the DB row ID as source of truth.
+		joinConfig.ID = joinTrans.ID
 	}
 	return joinConfig, nil
 }
@@ -193,6 +195,8 @@ func reconstructStatelessTransformationConfig(transformations map[string]Transfo
 		if err := json.Unmarshal(statelessTrans.Config, &statelessConfig); err != nil {
 			return statelessConfig, fmt.Errorf("unmarshal stateless transformation config: %w", err)
 		}
+		// Always use the DB row ID — the v2 config blob may store a string alias, not the UUID.
+		statelessConfig.ID = statelessTrans.ID
 	}
 	return statelessConfig, nil
 }

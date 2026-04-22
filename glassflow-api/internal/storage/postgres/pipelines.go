@@ -25,6 +25,7 @@ const (
 
 // Transformation represents a pipeline transformation with its type and configuration
 type Transformation struct {
+	ID     string
 	Type   string
 	Config json.RawMessage
 }
