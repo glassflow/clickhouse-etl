@@ -1222,6 +1222,13 @@ func (s *PostgresStorage) loadConfigsAndSchemaVersionsWithSelection(
 	}
 
 	if pipelineCfg.StatelessTransformation.Enabled {
+		if pipelineCfg.StatelessTransformation.SourceID == "" {
+			sourceID, err := s.getTransformationSourceID(ctx, tx, pipelineCfg.ID, pipelineCfg.StatelessTransformation.ID)
+			if err != nil {
+				return fmt.Errorf("get stateless transformation source_id: %w", err)
+			}
+			pipelineCfg.StatelessTransformation.SourceID = sourceID
+		}
 		sourceSchema, found := pipelineCfg.SchemaVersions[pipelineCfg.StatelessTransformation.SourceID]
 		if !found {
 			return fmt.Errorf("schema version for source ID '%s' not found", pipelineCfg.StatelessTransformation.SourceID)

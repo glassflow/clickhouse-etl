@@ -272,6 +272,22 @@ func (s *PostgresStorage) getSinkConfig(ctx context.Context, tx pgx.Tx, pipeline
 	return &result, nil
 }
 
+// getTransformationSourceID returns the source_id stored in transformation_configs for the given pipeline and transformation.
+// Used when StatelessTransformation.SourceID is not populated in the config blob (v2 pipelines).
+func (s *PostgresStorage) getTransformationSourceID(ctx context.Context, tx pgx.Tx, pipelineID, transformationID string) (string, error) {
+	var sourceID string
+	err := tx.QueryRow(ctx, `
+		SELECT source_id FROM transformation_configs WHERE pipeline_id = $1 AND transformation_id = $2 LIMIT 1
+	`, pipelineID, transformationID).Scan(&sourceID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", models.ErrRecordNotFound
+		}
+		return "", fmt.Errorf("get transformation source_id: %w", err)
+	}
+	return sourceID, nil
+}
+
 // getSinkSourceID returns the source_id stored in sink_configs for the given pipeline.
 // Used as a fallback when SinkComponentConfig.SourceID is not populated in connections.config
 // (e.g. pipelines migrated from v2 where source_id was not stored there).
