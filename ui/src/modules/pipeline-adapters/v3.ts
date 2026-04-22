@@ -472,7 +472,10 @@ export class V3PipelineAdapter implements PipelineAdapter {
         const srcId = isOtlp
           ? ((cfg.source as any)?.id ?? 'source')
           : (topics[0]?.id ?? topics[0]?.name ?? 'source')
-        resources.transform = [{ source_id: srcId, ...pr.transform }]
+        const hasDedup = transforms.some((t: any) => t.type === 'dedup')
+        const transformOut: any = { source_id: srcId, ...pr.transform }
+        if (!hasDedup) delete transformOut.storage
+        resources.transform = [transformOut]
       }
 
       if (pr.sink) resources.sink = pr.sink
