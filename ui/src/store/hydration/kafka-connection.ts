@@ -27,12 +27,12 @@ function mapBackendKafkaConfigToStore(connection_params: any): any {
                       : // Fallback: check deprecated skip_auth field for backward compatibility
                         Boolean(connection_params.skip_auth)
                         ? 'NO_AUTH'
-                        : ''
+                        : 'NO_AUTH'
 
   return {
     // base values
     authMethod,
-    securityProtocol: connection_params.protocol || '',
+    securityProtocol: connection_params.protocol || 'PLAINTEXT',
     bootstrapServers: (connection_params.brokers || []).join(', '),
 
     // sasl connection types
