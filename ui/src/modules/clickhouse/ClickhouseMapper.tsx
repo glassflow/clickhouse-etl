@@ -55,6 +55,8 @@ export function ClickhouseMapper({
     coreStore,
     transformationStore,
     otlpStore,
+    joinStore,
+    deduplicationStore,
   } = useStore()
   const isOtlp = isOtlpSource(coreStore.sourceType)
   const analytics = useJourneyAnalytics()
@@ -269,6 +271,21 @@ export function ClickhouseMapper({
     ],
   )
 
+  // Collect all fields used as join/dedup keys so the validation hook can warn when they're unmapped
+  const structuralFields = useMemo(() => {
+    const fields: string[] = []
+    for (let i = 0; i < topicCount; i++) {
+      const dedup = deduplicationStore?.getDeduplication?.(i)
+      if (dedup?.enabled && dedup?.key) fields.push(dedup.key)
+    }
+    if (joinStore?.enabled) {
+      joinStore.streams?.forEach((stream: { joinKey?: string }) => {
+        if (stream.joinKey) fields.push(stream.joinKey)
+      })
+    }
+    return [...new Set(fields)]
+  }, [topicCount, deduplicationStore, joinStore])
+
   // Mapping validation hook - computes validation issues in real-time
   const { validationIssues, validateMapping } = useMappingValidation({
     tableSchema,
@@ -279,6 +296,7 @@ export function ClickhouseMapper({
     mode,
     destinationPath,
     orderBy,
+    structuralFields,
   })
 
   const selectedTopics = useMemo(() => {
