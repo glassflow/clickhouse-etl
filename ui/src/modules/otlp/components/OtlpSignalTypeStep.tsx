@@ -125,7 +125,7 @@ export function OtlpSignalTypeStep({
             <Card
               key={option.type}
               variant="selectable"
-              className={cn('cursor-pointer', signalType === option.type && 'active')}
+              className={cn('cursor-pointer !p-0', signalType === option.type && 'active')}
             >
               <button
                 className="flex flex-col items-start p-4 w-full h-full text-left"
