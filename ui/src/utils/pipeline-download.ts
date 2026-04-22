@@ -2,7 +2,7 @@ import { Pipeline, ListPipelineConfig } from '@/src/types/pipeline'
 import { getPipeline } from '@/src/api/pipeline-api'
 import { getPipelineAdapter } from '@/src/modules/pipeline-adapters/factory'
 import { structuredLogger } from '@/src/observability'
-import { PipelineVersion } from '@/src/config/pipeline-versions'
+import { PipelineVersion, LATEST_PIPELINE_VERSION } from '@/src/config/pipeline-versions'
 import yaml from 'js-yaml'
 
 /**
@@ -51,13 +51,13 @@ export const downloadPipelineConfig = async (
     }
 
     // Use the adapter system to get the correct format
-    // 1. Hydrate to internal config using the source version adapter
+    // 1. Hydrate using content-aware adapter detection (sources[] → v3-next schema)
     const sourceVersion = rawConfig.version || PipelineVersion.V1
-    const sourceAdapter = getPipelineAdapter(sourceVersion)
+    const sourceAdapter = getPipelineAdapter(sourceVersion, rawConfig)
     const internalConfig = sourceAdapter.hydrate(rawConfig)
 
-    // 2. Generate the export config using the same version (preserve original format)
-    const targetAdapter = getPipelineAdapter(sourceVersion)
+    // 2. Always export in the latest format so downloaded configs match the backend API
+    const targetAdapter = getPipelineAdapter(LATEST_PIPELINE_VERSION)
     const exportConfig = targetAdapter.generate(internalConfig)
 
     // Safely remove status field (it's runtime state, not configuration)
@@ -104,10 +104,10 @@ export const downloadPipelineConfigAsYaml = async (
     }
 
     const sourceVersion = rawConfig.version || PipelineVersion.V1
-    const sourceAdapter = getPipelineAdapter(sourceVersion)
+    const sourceAdapter = getPipelineAdapter(sourceVersion, rawConfig)
     const internalConfig = sourceAdapter.hydrate(rawConfig)
 
-    const targetAdapter = getPipelineAdapter(sourceVersion)
+    const targetAdapter = getPipelineAdapter(LATEST_PIPELINE_VERSION)
     const exportConfig = targetAdapter.generate(internalConfig)
 
     const { status: _status, ...configWithoutStatus } = exportConfig || {}

@@ -469,7 +469,7 @@ export const buildInternalPipelineConfig = ({
         },
     // Include join configuration for Kafka multi-topic pipelines; disabled join for all others
     join: isOtlp || topicsConfig.length <= 1
-      ? { type: '', enabled: false, sources: [] }
+      ? { enabled: false }
       : {
           enabled: joinStore.enabled,
           type: joinStore.type || 'temporal',
@@ -617,7 +617,7 @@ export const generateApiConfig = ({
   filterStore,
   transformationStore,
   pipeline_resources,
-  version, // New optional parameter
+  version: _version, // ignored — generation always uses LATEST_PIPELINE_VERSION
   coreStore,
   otlpStore,
 }: {
@@ -657,20 +657,19 @@ export const generateApiConfig = ({
       otlpStore,
     })
 
-    // 2. Get the appropriate adapter
-    // Use provided version or fallback to LATEST_PIPELINE_VERSION if not provided
-    // If version is passed (e.g. from existing config), we respect it to avoid implicit upgrades
-    const targetVersion = version || LATEST_PIPELINE_VERSION
-    const adapter = getPipelineAdapter(targetVersion)
+    // 2. Always generate in the latest format — the internal config shape is version-agnostic
+    //    so any adapter can hydrate into it, but generation always targets the current backend API.
+    const adapter = getPipelineAdapter(LATEST_PIPELINE_VERSION)
 
-    // 3. Generate the external API configuration
-    const apiConfig = adapter.generate(internalConfig)
+    // 3. Inject pipeline_resources so the adapter can convert it to the correct wire format
+    //    (v3-next converts ingestor/transform/sink → resources.sources[]/transform[]/sink).
+    const internalWithResources =
+      pipeline_resources && typeof pipeline_resources === 'object' && Object.keys(pipeline_resources).length > 0
+        ? { ...internalConfig, pipeline_resources }
+        : internalConfig
 
-    // 4. Merge pipeline_resources from Resources step when present
-    if (pipeline_resources && typeof pipeline_resources === 'object' && Object.keys(pipeline_resources).length > 0) {
-      return { ...apiConfig, pipeline_resources }
-    }
-    return apiConfig
+    // 4. Generate the external API configuration
+    return adapter.generate(internalWithResources)
   } catch (error) {
     structuredLogger.error('Error generating API config', { error: error instanceof Error ? error.message : String(error) })
     return { error: 'Failed to generate API configuration' }

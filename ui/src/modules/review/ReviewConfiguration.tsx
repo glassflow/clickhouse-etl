@@ -75,7 +75,7 @@ function generateOtlpApiConfig(params: {
         enabled: false,
       },
     },
-    join: { type: '', enabled: false, sources: [] },
+    join: { enabled: false },
     filter: filterStore?.filterConfig?.enabled && filterStore?.expressionString ? {
       enabled: true,
       expression: `!(${filterStore.expressionString})`,

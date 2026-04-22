@@ -99,7 +99,6 @@ func (j *JoinRunner) Start(ctx context.Context) error {
 		jetstream.ConsumerConfig{
 			Name:          models.GetNATSJoinLeftConsumerName(j.cfg.ID),
 			Durable:       models.GetNATSJoinLeftConsumerName(j.cfg.ID),
-			FilterSubject: models.GetWildcardNATSSubjectName(leftInputStreamName),
 			AckPolicy:     jetstream.AckExplicitPolicy,
 			AckWait:       internal.NatsDefaultAckWait,
 			MaxAckPending: -1,
@@ -117,7 +116,6 @@ func (j *JoinRunner) Start(ctx context.Context) error {
 		jetstream.ConsumerConfig{
 			Name:          models.GetNATSJoinRightConsumerName(j.cfg.ID),
 			Durable:       models.GetNATSJoinRightConsumerName(j.cfg.ID),
-			FilterSubject: models.GetWildcardNATSSubjectName(rightInputStreamName),
 			AckPolicy:     jetstream.AckExplicitPolicy,
 			AckWait:       internal.NatsDefaultAckWait,
 			MaxAckPending: -1,

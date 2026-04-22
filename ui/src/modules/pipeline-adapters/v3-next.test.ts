@@ -181,13 +181,13 @@ describe('V3NextPipelineAdapter', () => {
 
       expect(result.join.enabled).toBe(true)
       expect(result.join.sources).toHaveLength(2)
-      expect(result.join.sources[0]).toMatchObject({
+      expect(result.join.sources![0]).toMatchObject({
         source_id: 'orders',
         join_key: 'customer_id',
         time_window: '30s',
         orientation: 'left',
       })
-      expect(result.join.sources[1]).toMatchObject({
+      expect(result.join.sources![1]).toMatchObject({
         source_id: 'users',
         join_key: 'user_id',
         time_window: '30s',
@@ -438,7 +438,7 @@ describe('V3NextPipelineAdapter', () => {
       const internal = adapter.hydrate(kafkaSingleSourceConfig)
       const back = adapter.generate(internal)
 
-      expect(back.version).toBe('v3-next')
+      expect(back.version).toBe('v3') // adapter outputs 'v3' — the backend uses this version string for the new format
       expect(back.sources[0].source_id).toBe('orders')
       expect(back.sources[0].schema_fields).toHaveLength(2)
       expect(back.transforms.find((t: any) => t.type === 'dedup').config.key).toBe('order_id')
