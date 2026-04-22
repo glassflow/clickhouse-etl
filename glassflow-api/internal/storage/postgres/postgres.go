@@ -132,3 +132,54 @@ func (s *PostgresStorage) Close() error {
 	s.pool.Close()
 	return nil
 }
+
+// NewPool creates a bare pgxpool.Pool for use cases that don't need the full
+// PostgresStorage (e.g. running data migrations as an init container).
+func NewPool(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
+	connCtx, cancel := context.WithTimeout(ctx, internal.PostgresMaxConnectionWait)
+	defer cancel()
+
+	config, err := pgxpool.ParseConfig(dsn)
+	if err != nil {
+		return nil, fmt.Errorf("parse postgres config: %w", err)
+	}
+
+	config.MaxConns = 5
+	config.MinConns = 0
+	config.MaxConnLifetime = 5 * time.Minute
+	config.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeExec
+	config.ConnConfig.RuntimeParams = map[string]string{
+		"application_name": "glassflow_migrate_data",
+	}
+
+	var pool *pgxpool.Pool
+	err = retry.Do(
+		func() error {
+			poolCtx, poolCancel := context.WithTimeout(connCtx, internal.PostgresConnectionTimeout)
+			newPool, poolErr := pgxpool.NewWithConfig(poolCtx, config)
+			poolCancel()
+			if poolErr != nil {
+				return poolErr
+			}
+			pingCtx, pingCancel := context.WithTimeout(connCtx, internal.PostgresConnectionTimeout)
+			pingErr := newPool.Ping(pingCtx)
+			pingCancel()
+			if pingErr != nil {
+				newPool.Close()
+				return pingErr
+			}
+			pool = newPool
+			return nil
+		},
+		retry.Attempts(internal.PostgresConnectionRetries),
+		retry.Delay(internal.PostgresInitialRetryDelay),
+		retry.MaxDelay(internal.PostgresMaxRetryDelay),
+		retry.DelayType(retry.BackOffDelay),
+		retry.Context(connCtx),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to Postgres after %d attempts: %w", internal.PostgresConnectionRetries, err)
+	}
+
+	return pool, nil
+}

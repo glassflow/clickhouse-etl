@@ -28,6 +28,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/server"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/storage"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/storage/postgres/datamigrations"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/usagestats"
 )
@@ -159,6 +160,20 @@ func mainErr(cfg *config, role models.Role) error {
 	log := observability.ConfigureLogger(obsConfig, logOut)
 
 	log.Info("Starting App", slog.String("version", version))
+
+	if role == internal.RoleMigrateData {
+		if cfg.DatabaseURL == "" {
+			return fmt.Errorf("database URL is required: set GLASSFLOW_DATABASE_URL environment variable")
+		}
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		pool, err := storage.NewPool(ctx, cfg.DatabaseURL)
+		if err != nil {
+			return fmt.Errorf("connect to postgres: %w", err)
+		}
+		defer pool.Close()
+		return datamigrations.Run(ctx, pool)
+	}
 
 	if err := observability.InitMetrics(obsConfig); err != nil {
 		return fmt.Errorf("init metrics: %w", err)

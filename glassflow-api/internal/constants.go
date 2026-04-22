@@ -58,6 +58,7 @@ const (
 	RoleDeduplicator = "dedup"
 	RoleETL          = ""
 	RoleOLTPReceiver = "oltp-receiver"
+	RoleMigrateData  = "migrate-data"
 
 	// DLQ constants
 	DLQDefaultBatchSize = 1
