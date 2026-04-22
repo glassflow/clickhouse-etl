@@ -54,10 +54,10 @@ export function OtlpSignalTypeStep({
   // enterCreateMode() resets coreStore to 'kafka', so if we navigate back into the OTLP
   // wizard while signalType is still set, we re-sync coreStore to avoid stale 'kafka' state.
   useEffect(() => {
-    if (!signalType && sourceType && sourceType !== 'kafka') {
+    if (!signalType && sourceType && sourceType !== SourceType.KAFKA) {
       // Hydrating from an existing config: sourceType arrived before signalType
       setSignalType(sourceType as SourceType)
-    } else if (signalType && (sourceType === 'kafka' || !sourceType)) {
+    } else if (signalType && (sourceType === SourceType.KAFKA || !sourceType)) {
       // coreStore was reset (e.g. enterCreateMode) but otlpStore still holds the signal type
       coreStore.setSourceType(signalType)
     }
