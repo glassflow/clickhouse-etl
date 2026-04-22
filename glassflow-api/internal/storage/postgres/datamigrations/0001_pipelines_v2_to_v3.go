@@ -401,11 +401,14 @@ func loadSinkConfig(ctx context.Context, tx pgx.Tx, sinkID string) (v2SinkConfig
 }
 
 func loadStatelessTransformation(ctx context.Context, tx pgx.Tx, pipelineID string) (*v2StatelessTransformation, error) {
-	var raw []byte
+	var (
+		id  string
+		raw []byte
+	)
 	err := tx.QueryRow(ctx, `
-		SELECT config FROM transformations
+		SELECT id, config FROM transformations
 		WHERE pipeline_id = $1 AND type = 'stateless_transformation'
-	`, pipelineID).Scan(&raw)
+	`, pipelineID).Scan(&id, &raw)
 	if err == pgx.ErrNoRows {
 		return nil, nil
 	}
@@ -417,16 +420,20 @@ func loadStatelessTransformation(ctx context.Context, tx pgx.Tx, pipelineID stri
 	if err := json.Unmarshal(raw, &t); err != nil {
 		return nil, fmt.Errorf("unmarshal stateless transformation: %w", err)
 	}
+	t.ID = id
 
 	return &t, nil
 }
 
 func loadJoinConfig(ctx context.Context, tx pgx.Tx, pipelineID string) (*v2JoinConfig, error) {
-	var raw []byte
+	var (
+		id  string
+		raw []byte
+	)
 	err := tx.QueryRow(ctx, `
-		SELECT config FROM transformations
+		SELECT id, config FROM transformations
 		WHERE pipeline_id = $1 AND type = 'join'
-	`, pipelineID).Scan(&raw)
+	`, pipelineID).Scan(&id, &raw)
 	if err == pgx.ErrNoRows {
 		return nil, nil
 	}
@@ -438,6 +445,7 @@ func loadJoinConfig(ctx context.Context, tx pgx.Tx, pipelineID string) (*v2JoinC
 	if err := json.Unmarshal(raw, &j); err != nil {
 		return nil, fmt.Errorf("unmarshal join config: %w", err)
 	}
+	j.ID = id
 
 	return &j, nil
 }
