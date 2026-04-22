@@ -13,12 +13,6 @@ const adapters: Record<string, PipelineAdapter> = {
 export const getPipelineAdapter = (version?: string, config?: any): PipelineAdapter => {
   const normalized = version === '3' ? PipelineVersion.V3 : version
 
-  // v3 configs from the backend may use the old schema (source object) or the new schema
-  // (sources array). Detect by content so old configs hydrate correctly.
-  if (normalized === PipelineVersion.V3 && config && Array.isArray(config.sources)) {
-    return adapters[PipelineVersion.V3_NEXT]
-  }
-
   if (normalized && adapters[normalized]) {
     return adapters[normalized]
   }

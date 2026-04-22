@@ -67,7 +67,7 @@ export function getSourceItems(pipeline: Pipeline): SidebarItem[] {
 
     const items: SidebarItem[] = [{ key: 'otlp-source', label: 'OTLP Source' }]
     if (hasOtlpDedup) {
-      items.push({ key: 'deduplicate', label: 'Deduplicate', stepKey: StepKeys.OTLP_SIGNAL_TYPE })
+      items.push({ key: 'deduplicate', label: 'Deduplicate', stepKey: StepKeys.OTLP_DEDUPLICATION })
     }
     return items
   }

@@ -140,10 +140,10 @@ function TransformationSection({ pipeline, onStepClick, disabled, validation, ac
             value={[otlpDedupKey]}
             orientation="center"
             width="full"
-            onClick={() => onStepClick(StepKeys.OTLP_SIGNAL_TYPE)}
+            onClick={() => onStepClick(StepKeys.OTLP_DEDUPLICATION)}
             disabled={disabled}
             validation={validation.deduplicationValidation}
-            selected={activeStep === StepKeys.OTLP_SIGNAL_TYPE}
+            selected={activeStep === StepKeys.OTLP_DEDUPLICATION}
           />
         )}
         {isFiltersEnabled() && (

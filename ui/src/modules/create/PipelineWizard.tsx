@@ -187,7 +187,7 @@ function PipelineWizard() {
       return <StepComponent onCompleteStep={onNext} index={topicIndex} />
     }
 
-    if (stepKey === StepKeys.OTLP_SIGNAL_TYPE) {
+    if (stepKey === StepKeys.OTLP_SIGNAL_TYPE || stepKey === StepKeys.OTLP_DEDUPLICATION) {
       return <StepComponent onCompleteStep={onNext} />
     }
 
