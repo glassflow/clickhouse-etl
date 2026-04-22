@@ -132,8 +132,10 @@ export function usePipelineHydration(
         return
       }
 
-      // Validate pipeline has required data for hydration
-      if (!pipeline || !pipeline.source || !pipeline.sink) {
+      // Validate pipeline has required data for hydration.
+      // v3 format uses sources[] at root instead of a single source object.
+      const hasSource = !!(pipeline!.source || (pipeline as any).sources?.length > 0)
+      if (!pipeline || !hasSource || !pipeline.sink) {
         return
       }
 
