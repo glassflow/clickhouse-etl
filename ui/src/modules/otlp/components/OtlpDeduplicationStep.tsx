@@ -1,11 +1,14 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from '@/src/store'
 import { getOtlpFieldsForSignalType } from '@/src/modules/otlp/constants'
 import { StepKeys } from '@/src/config/constants'
 import FormActions from '@/src/components/shared/FormActions'
 import { TimeWindowConfigurator } from '@/src/modules/deduplication/components/TimeWindowConfigurator'
+import { SearchableSelect } from '@/src/components/common/SearchableSelect'
+import { Label } from '@/src/components/ui/label'
+import { Button } from '@/src/components/ui/button'
 
 const UNIT_SUFFIX: Record<string, string> = { seconds: 's', minutes: 'm', hours: 'h', days: 'd' }
 const SUFFIX_UNIT: Record<string, string> = { s: 'seconds', m: 'minutes', h: 'hours', d: 'days' }
@@ -38,49 +41,61 @@ export function OtlpDeduplicationStep({
   const { otlpStore, coreStore } = useStore()
   const { signalType, deduplication, setDeduplication, skipDeduplication, markAsValid } = otlpStore
 
-  const [dedupEnabled, setDedupEnabled] = useState(deduplication.enabled)
+  // Snapshot dedup state on mount so discard can restore it
+  const snapshot = useRef({ ...deduplication })
+
+  const [dedupKey, setDedupKey] = useState(deduplication.key || '')
   const [dedupWindow, setDedupWindow] = useState(() => parseTimeWindow(deduplication.time_window || '5m').window)
   const [dedupWindowUnit, setDedupWindowUnit] = useState(() => parseTimeWindow(deduplication.time_window || '5m').unit)
 
+  // Sync local state when store changes (e.g. hydration)
   useEffect(() => {
+    setDedupKey(deduplication.key || '')
     const parsed = parseTimeWindow(deduplication.time_window || '5m')
     setDedupWindow(parsed.window)
     setDedupWindowUnit(parsed.unit)
-  }, [deduplication.time_window])
-
-  const currentFields = useMemo(() => {
-    return signalType ? getOtlpFieldsForSignalType(signalType) : []
-  }, [signalType])
+  }, [deduplication.key, deduplication.time_window])
 
   const dedupFieldOptions = useMemo(() => {
-    return currentFields
+    const fields = signalType ? getOtlpFieldsForSignalType(signalType) : []
+    return fields
       .filter((f) => f.type === 'string' || f.type === 'uint' || f.type === 'int')
-      .map((f) => ({ label: f.name, value: f.name, type: f.type }))
-  }, [currentFields])
+      .map((f) => f.name)
+  }, [signalType])
 
-  const handleDedupToggle = useCallback(() => {
-    const newEnabled = !dedupEnabled
-    setDedupEnabled(newEnabled)
-    if (!newEnabled) {
-      skipDeduplication()
-    } else {
-      setDeduplication({ enabled: true })
-    }
-  }, [dedupEnabled, setDeduplication, skipDeduplication])
+  const handleKeyChange = useCallback(
+    (key: string | null) => {
+      const newKey = key || ''
+      setDedupKey(newKey)
+      setDeduplication({ key: newKey, enabled: newKey !== '' })
+    },
+    [setDeduplication],
+  )
 
-  const handleDedupFieldChange = useCallback((fieldName: string) => {
-    setDeduplication({ enabled: true, key: fieldName })
+  const handleWindowChange = useCallback(
+    (value: number) => {
+      setDedupWindow(value)
+      setDeduplication({ time_window: serializeTimeWindow(value, dedupWindowUnit) })
+    },
+    [setDeduplication, dedupWindowUnit],
+  )
+
+  const handleWindowUnitChange = useCallback(
+    (unit: string) => {
+      setDedupWindowUnit(unit)
+      setDeduplication({ time_window: serializeTimeWindow(dedupWindow, unit) })
+    },
+    [setDeduplication, dedupWindow],
+  )
+
+  const handleDiscard = useCallback(() => {
+    const prev = snapshot.current
+    setDeduplication({ ...prev })
+    setDedupKey(prev.key || '')
+    const parsed = parseTimeWindow(prev.time_window || '5m')
+    setDedupWindow(parsed.window)
+    setDedupWindowUnit(parsed.unit)
   }, [setDeduplication])
-
-  const handleDedupWindowChange = useCallback((value: number) => {
-    setDedupWindow(value)
-    setDeduplication({ time_window: serializeTimeWindow(value, dedupWindowUnit) })
-  }, [setDeduplication, dedupWindowUnit])
-
-  const handleDedupWindowUnitChange = useCallback((unit: string) => {
-    setDedupWindowUnit(unit)
-    setDeduplication({ time_window: serializeTimeWindow(dedupWindow, unit) })
-  }, [setDeduplication, dedupWindow])
 
   const [isSaveSuccess, setIsSaveSuccess] = useState(false)
 
@@ -89,7 +104,9 @@ export function OtlpDeduplicationStep({
   }, [readOnly, isSaveSuccess])
 
   const handleContinue = useCallback(() => {
-    if (!dedupEnabled) {
+    if (dedupKey) {
+      setDeduplication({ enabled: true, key: dedupKey, time_window: serializeTimeWindow(dedupWindow, dedupWindowUnit) })
+    } else {
       skipDeduplication()
     }
     markAsValid()
@@ -101,85 +118,73 @@ export function OtlpDeduplicationStep({
     } else {
       onCompleteStep(StepKeys.OTLP_DEDUPLICATION)
     }
-  }, [dedupEnabled, skipDeduplication, markAsValid, standalone, toggleEditMode, coreStore, onCompleteStandaloneEditing, onCompleteStep])
+  }, [dedupKey, dedupWindow, dedupWindowUnit, setDeduplication, skipDeduplication, markAsValid, standalone, toggleEditMode, coreStore, onCompleteStandaloneEditing, onCompleteStep])
+
+  const handleSkip = useCallback(() => {
+    skipDeduplication()
+    markAsValid()
+    onCompleteStep(StepKeys.OTLP_DEDUPLICATION)
+  }, [skipDeduplication, markAsValid, onCompleteStep])
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="space-y-4 rounded-lg border border-[var(--color-border-neutral-faded)] p-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h4 className="text-sm font-medium text-[var(--color-foreground-neutral)]">Deduplication</h4>
-            <p className="text-xs text-[var(--color-foreground-neutral-faded)] mt-0.5">
-              Deduplicate incoming data by a key field within a time window
-            </p>
-          </div>
-          <button
-            className={[
-              'relative inline-flex h-6 w-11 items-center rounded-full transition-colors',
-              dedupEnabled
-                ? 'bg-[var(--color-foreground-primary)]'
-                : 'bg-[var(--color-border-neutral-faded)]',
-              readOnly ? 'opacity-50 cursor-not-allowed' : '',
-            ].join(' ')}
-            onClick={readOnly ? undefined : handleDedupToggle}
-            disabled={readOnly}
-          >
-            <span
-              className={[
-                'inline-block h-4 w-4 transform rounded-full bg-white transition-transform',
-                dedupEnabled ? 'translate-x-6' : 'translate-x-1',
-              ].join(' ')}
-            />
-          </button>
-        </div>
+      <div className="text-sm text-[var(--color-foreground-neutral-faded)]">
+        The deduplicate key will be used to detect and remove duplicate data in your pipeline.
+      </div>
 
-        {dedupEnabled && (
-          <div className="flex flex-col gap-4 pt-2">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium text-[var(--color-foreground-neutral-faded)]">
-                Deduplication Key
-              </label>
-              <select
-                className="w-full rounded-md border border-[var(--control-border)] bg-[var(--control-bg)] px-3 py-2 text-sm text-[var(--color-foreground-neutral)] focus:border-[var(--control-border-focus)] focus:shadow-[var(--control-shadow-focus)] disabled:opacity-50 disabled:cursor-not-allowed"
-                value={deduplication.key}
-                onChange={(e) => handleDedupFieldChange(e.target.value)}
-                disabled={readOnly}
-              >
-                <option value="">Select a field...</option>
-                {dedupFieldOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label} ({opt.type})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <TimeWindowConfigurator
-              window={dedupWindow}
-              setWindow={handleDedupWindowChange}
-              windowUnit={dedupWindowUnit}
-              setWindowUnit={handleDedupWindowUnitChange}
+      <div className="space-y-4">
+        <Label className="text-lg font-medium text-[var(--color-foreground-neutral)]">Deduplicate Key</Label>
+        <div className="flex gap-2 w-full">
+          <div className="w-[70%]">
+            <SearchableSelect
+              availableOptions={dedupFieldOptions}
+              selectedOption={dedupKey}
+              onSelect={handleKeyChange}
+              placeholder="Enter de-duplicate key"
+              clearable={true}
               readOnly={readOnly}
             />
           </div>
-        )}
+          <div className="w-[30%]" />
+        </div>
       </div>
 
-      <FormActions
-        onSubmit={handleContinue}
-        isLoading={false}
-        isSuccess={isSaveSuccess}
-        disabled={false}
-        standalone={standalone}
+      <TimeWindowConfigurator
+        window={dedupWindow}
+        setWindow={handleWindowChange}
+        windowUnit={dedupWindowUnit}
+        setWindowUnit={handleWindowUnitChange}
         readOnly={readOnly}
-        toggleEditMode={toggleEditMode}
-        pipelineActionState={pipelineActionState}
-        successText="Saved"
-        loadingText="Saving..."
-        regularText={standalone ? 'Save' : 'Continue'}
-        actionType="primary"
-        showLoadingIcon={false}
       />
+
+      <div className="flex gap-4 items-center">
+        <FormActions
+          onSubmit={handleContinue}
+          onDiscard={handleDiscard}
+          isLoading={false}
+          isSuccess={isSaveSuccess}
+          disabled={false}
+          standalone={standalone}
+          readOnly={readOnly}
+          toggleEditMode={toggleEditMode}
+          pipelineActionState={pipelineActionState}
+          onClose={onCompleteStandaloneEditing}
+          successText="Saved"
+          loadingText="Saving..."
+          regularText={standalone ? 'Save' : 'Continue'}
+          actionType="primary"
+          showLoadingIcon={false}
+        />
+        {!standalone && (
+          <Button
+            onClick={handleSkip}
+            variant="tertiary"
+            className="text-[var(--color-foreground-neutral-faded)] hover:text-[var(--color-foreground-neutral)]"
+          >
+            Skip deduplication
+          </Button>
+        )}
+      </div>
     </div>
   )
 }
