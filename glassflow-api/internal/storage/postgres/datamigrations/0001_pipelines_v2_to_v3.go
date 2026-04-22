@@ -137,7 +137,7 @@ func migratePipeline(ctx context.Context, tx pgx.Tx, p v2Pipeline) error {
 	}
 
 	if stateless != nil {
-		if err := upsertStatelessTransformConfig(ctx, tx, p.id, stateless); err != nil {
+		if err := upsertStatelessTransformConfig(ctx, tx, p.id, stateless, srcCfg); err != nil {
 			return err
 		}
 	}
@@ -185,7 +185,15 @@ func upsertSourceSchemaVersions(ctx context.Context, tx pgx.Tx, pipelineID strin
 
 // upsertStatelessTransformConfig populates schema_versions for the transform output
 // and inserts the transformation_configs row.
-func upsertStatelessTransformConfig(ctx context.Context, tx pgx.Tx, pipelineID string, t *v2StatelessTransformation) error {
+func upsertStatelessTransformConfig(ctx context.Context, tx pgx.Tx, pipelineID string, t *v2StatelessTransformation, src v2SourceConfig) error {
+	// source_id may not be stored in the v2 config blob for single-topic pipelines — derive from the stream key
+	sourceID := t.SourceID
+	if sourceID == "" {
+		for k := range src.Streams {
+			sourceID = k
+			break
+		}
+	}
 	outputFields := make([]models.Field, 0, len(t.Config.Transform))
 	for _, tr := range t.Config.Transform {
 		outputFields = append(outputFields, models.Field{Name: tr.OutputName, Type: tr.OutputType})
@@ -217,7 +225,7 @@ func upsertStatelessTransformConfig(ctx context.Context, tx pgx.Tx, pipelineID s
 		VALUES ($1, $2, '1', $3, '1', $4)
 		ON CONFLICT (pipeline_id, source_id, schema_version_id)
 		DO UPDATE SET config = EXCLUDED.config, updated_at = NOW()
-	`, pipelineID, t.SourceID, t.ID, string(configJSON))
+	`, pipelineID, sourceID, t.ID, string(configJSON))
 	if err != nil {
 		return fmt.Errorf("upsert transformation_configs for transform %s: %w", t.ID, err)
 	}
