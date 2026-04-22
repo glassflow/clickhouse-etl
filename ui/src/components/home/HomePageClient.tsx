@@ -230,7 +230,8 @@ export default function HomePageClient() {
     setIsNavigating(true)
 
     try {
-      const importedTopicCount = config.source?.topics?.length || 1
+      const importedTopicCount =
+        (config as any).sources?.length || config.source?.topics?.length || 1
 
       // Reset pipeline state for the imported configuration
       resetForNewPipeline(importedTopicCount)
