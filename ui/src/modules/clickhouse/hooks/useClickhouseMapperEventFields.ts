@@ -74,9 +74,11 @@ export function useClickhouseMapperEventFields({
       if (mappedColumns.length > 0) {
         const fieldTypeMap = new Map(otlpStore.schemaFields.map((f) => [f.name, f.type]))
         const updatedColumns = [...mappedColumns]
+        let hasChanges = false
         updatedColumns.forEach((col, index) => {
           const matchingField = findBestMatchingField(col.name, otlpFieldNames)
           if (matchingField) {
+            hasChanges = true
             updatedColumns[index] = {
               ...col,
               eventField: matchingField,
@@ -84,8 +86,10 @@ export function useClickhouseMapperEventFields({
             }
           }
         })
-        setMappedColumns(updatedColumns)
-        setClickhouseDestination({ ...clickhouseDestination, mapping: updatedColumns })
+        if (hasChanges) {
+          setMappedColumns(updatedColumns)
+          setClickhouseDestination({ ...clickhouseDestination, mapping: updatedColumns })
+        }
       }
       return
     }
@@ -104,15 +108,19 @@ export function useClickhouseMapperEventFields({
         if (clickhouseDestination?.mapping?.some((col: any) => col.eventField)) return
         if (mappedColumns.length > 0 && transformedFields.length > 0) {
           const updatedColumns = [...mappedColumns]
+          let hasChanges = false
           updatedColumns.forEach((col, index) => {
             const matchingField = findBestMatchingField(col.name, transformedFields)
             if (matchingField) {
+              hasChanges = true
               const fieldType = fieldTypeMap.get(matchingField) || 'string'
               updatedColumns[index] = { ...col, eventField: matchingField, jsonType: fieldType }
             }
           })
-          setMappedColumns(updatedColumns)
-          setClickhouseDestination({ ...clickhouseDestination, mapping: updatedColumns })
+          if (hasChanges) {
+            setMappedColumns(updatedColumns)
+            setClickhouseDestination({ ...clickhouseDestination, mapping: updatedColumns })
+          }
         }
       }
       return
@@ -127,9 +135,11 @@ export function useClickhouseMapperEventFields({
       if (clickhouseDestination?.mapping?.some((col: any) => col.eventField)) return
       if (mappedColumns.length > 0 && fields.length > 0) {
         const updatedColumns = [...mappedColumns]
+        let hasChanges = false
         updatedColumns.forEach((col, index) => {
           const matchingField = findBestMatchingField(col.name, fields)
           if (matchingField) {
+            hasChanges = true
             const verifiedType = getVerifiedTypeFromTopic(selectedTopic, matchingField)
             updatedColumns[index] = {
               ...col,
@@ -138,8 +148,10 @@ export function useClickhouseMapperEventFields({
             }
           }
         })
-        setMappedColumns(updatedColumns)
-        setClickhouseDestination({ ...clickhouseDestination, mapping: updatedColumns })
+        if (hasChanges) {
+          setMappedColumns(updatedColumns)
+          setClickhouseDestination({ ...clickhouseDestination, mapping: updatedColumns })
+        }
       }
     }
   }, [
