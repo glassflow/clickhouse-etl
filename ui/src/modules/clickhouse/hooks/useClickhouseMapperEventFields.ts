@@ -13,6 +13,7 @@ import { isOtlpSource } from '@/src/config/source-types'
 
 export interface UseClickhouseMapperEventFieldsParams {
   mode: MappingMode
+  destinationPath: 'create' | 'existing'
   selectedTopic: any
   primaryTopic: any
   secondaryTopic: any
@@ -33,6 +34,7 @@ export interface UseClickhouseMapperEventFieldsParams {
  */
 export function useClickhouseMapperEventFields({
   mode,
+  destinationPath,
   selectedTopic,
   primaryTopic,
   secondaryTopic,
@@ -64,6 +66,10 @@ export function useClickhouseMapperEventFields({
       const otlpFieldNames = otlpStore.schemaFields.map((f) => f.name)
       setEventFields(otlpFieldNames)
 
+      // For the 'create' path, the auto-generate effect in ClickhouseMapper builds columns
+      // from scratch using orderByOptions (these event fields). Auto-mapping here would apply
+      // stale existing-table columns that haven't been cleared by the sync effect yet.
+      if (destinationPath === 'create') return
       if (clickhouseDestination?.mapping?.length > 0) return
       if (mappedColumns.length > 0) {
         const fieldTypeMap = new Map(otlpStore.schemaFields.map((f) => [f.name, f.type]))
@@ -138,6 +144,7 @@ export function useClickhouseMapperEventFields({
     }
   }, [
     mode,
+    destinationPath,
     isOtlp,
     otlpStore.schemaFields,
     selectedEvent?.event,

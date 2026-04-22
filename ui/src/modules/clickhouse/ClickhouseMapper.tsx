@@ -128,6 +128,7 @@ export function ClickhouseMapper({
     mapEventFieldToColumn,
   } = useClickhouseMapperEventFields({
     mode,
+    destinationPath,
     selectedTopic,
     primaryTopic,
     secondaryTopic,
