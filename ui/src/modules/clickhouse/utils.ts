@@ -469,7 +469,7 @@ export const buildInternalPipelineConfig = ({
         },
     // Include join configuration for Kafka multi-topic pipelines; disabled join for all others
     join: isOtlp || topicsConfig.length <= 1
-      ? { type: '', enabled: false, sources: [] }
+      ? { enabled: false }
       : {
           enabled: joinStore.enabled,
           type: joinStore.type || 'temporal',

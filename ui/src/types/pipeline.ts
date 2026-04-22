@@ -205,11 +205,13 @@ export interface Pipeline {
     }
   }
   join: {
-    type: string
+    id?: string
+    type?: string
     enabled: boolean
-    sources: Array<{
+    sources?: Array<{
       source_id: string
-      join_key: string
+      join_key?: string
+      key?: string
       time_window: string
       orientation: string
     }>

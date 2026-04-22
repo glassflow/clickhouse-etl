@@ -146,7 +146,7 @@ export function PipelineResourcesConfigurator({
                 ? { enabled: true, key: otlpStore.deduplication.key, time_window: otlpStore.deduplication.time_window }
                 : { enabled: false },
             },
-            join: { type: '', enabled: false, sources: [] },
+            join: { enabled: false },
             filter: filterStore?.filterConfig?.enabled && filterStore?.expressionString
               ? { enabled: true, expression: filterStore.expressionString }
               : { enabled: false, expression: '' },

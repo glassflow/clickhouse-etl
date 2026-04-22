@@ -304,7 +304,7 @@ export function markStoresValidAfterImport(store: any, config: Pipeline): void {
 
   // OTLP is always single-source; Kafka uses the topics array length
   const topicCount = isOtlpSource(sourceType) ? 1 : (config.source?.topics?.length || 0)
-  if (topicCount < 2 || (config.join?.enabled && config.join?.sources?.length > 0)) {
+  if (topicCount < 2 || (config.join?.enabled && (config.join?.sources?.length ?? 0) > 0)) {
     joinStore.markAsValid()
   }
 

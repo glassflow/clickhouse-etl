@@ -291,7 +291,12 @@ export class V3PipelineAdapter implements PipelineAdapter {
       }
     }
 
-    // 3. Join: join_key -> key; build join.fields from table_mapping
+    // 3. Join: strip to {enabled:false} when disabled to avoid backend validation of empty sources/type
+    if (apiConfig.join && !apiConfig.join.enabled) {
+      apiConfig.join = { enabled: false }
+    }
+
+    // 3b. Join: join_key -> key; build join.fields from table_mapping
     if (apiConfig.join?.enabled && Array.isArray(apiConfig.join.sources)) {
       apiConfig.join.sources.forEach((src: any) => {
         if (src.join_key !== undefined) {
