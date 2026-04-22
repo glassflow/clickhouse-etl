@@ -143,7 +143,7 @@ func migratePipeline(ctx context.Context, tx pgx.Tx, p v2Pipeline) error {
 	}
 
 	if join != nil {
-		if err := upsertJoinConfigs(ctx, tx, p.id, join, srcCfg); err != nil {
+		if err := upsertJoinConfigs(ctx, tx, p.id, join, srcCfg, sinkCfg); err != nil {
 			return err
 		}
 	}
@@ -235,8 +235,21 @@ func upsertStatelessTransformConfig(ctx context.Context, tx pgx.Tx, pipelineID s
 
 // upsertJoinConfigs populates schema_versions for the join output and inserts
 // join_configs rows for each join source.
-func upsertJoinConfigs(ctx context.Context, tx pgx.Tx, pipelineID string, j *v2JoinConfig, src v2SourceConfig) error {
-	outputFields := buildJoinOutputFields(j.Config, src.Streams)
+func upsertJoinConfigs(ctx context.Context, tx pgx.Tx, pipelineID string, j *v2JoinConfig, src v2SourceConfig, sink v2SinkConfig) error {
+	// In v2 the join output rules were not stored in the join config blob —
+	// they are implicitly encoded in sinks.config.sink_mapping. Derive them.
+	rules := j.Config
+	if len(rules) == 0 {
+		for _, m := range sink.SinkMapping {
+			rules = append(rules, models.JoinRule{
+				SourceID:   m.StreamName,
+				SourceName: m.FieldName,
+				OutputName: m.ColumnName,
+			})
+		}
+	}
+
+	outputFields := buildJoinOutputFields(rules, src.Streams)
 	outputFieldsJSON, err := json.Marshal(outputFields)
 	if err != nil {
 		return fmt.Errorf("marshal join output fields: %w", err)
@@ -252,7 +265,7 @@ func upsertJoinConfigs(ctx context.Context, tx pgx.Tx, pipelineID string, j *v2J
 		return fmt.Errorf("upsert schema_versions for join output %s: %w", j.ID, err)
 	}
 
-	configJSON, err := json.Marshal(j.Config)
+	configJSON, err := json.Marshal(rules)
 	if err != nil {
 		return fmt.Errorf("marshal join config: %w", err)
 	}
