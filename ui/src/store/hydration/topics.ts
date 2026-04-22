@@ -277,10 +277,33 @@ export async function hydrateKafkaTopics(pipelineConfig: any): Promise<void> {
     // 5. Set available topics in the store
     useStore.getState().topicsStore.setAvailableTopics(topicsData.topics)
 
+    // Normalise both config shapes into a single topics array.
+    // v3: sources[] at root, each entry is one topic; dedup lives in transforms[].
+    // legacy: source.topics[] with embedded deduplication objects.
+    const legacyTopics: any[] | undefined = pipelineConfig?.source?.topics
+    const v3Sources: any[] | undefined = Array.isArray(pipelineConfig?.sources) ? pipelineConfig.sources : undefined
+    const topicsToHydrate: any[] | undefined = v3Sources
+      ? v3Sources.map((src: any) => {
+          const dedupTransform = (pipelineConfig?.transforms ?? []).find(
+            (t: any) => t.type === 'dedup' && t.source_id === src.source_id,
+          )
+          return {
+            name: src.topic,
+            consumer_group_initial_offset: 'latest',
+            schema: src.schema_fields?.length
+              ? { fields: src.schema_fields.map((f: any) => ({ name: f.name, type: f.type ?? 'string' })) }
+              : undefined,
+            deduplication: dedupTransform
+              ? { enabled: true, id_field: dedupTransform.config?.key ?? '', id_field_type: 'string', time_window: dedupTransform.config?.time_window ?? '1h' }
+              : undefined,
+          }
+        })
+      : legacyTopics
+
     // 6. Set selected topics from backend config with current partition counts
-    if (pipelineConfig?.source?.topics) {
+    if (topicsToHydrate) {
       // First, hydrate all topics
-      pipelineConfig.source.topics.forEach((topicConfig: any, idx: number) => {
+      topicsToHydrate.forEach((topicConfig: any, idx: number) => {
         // Find current partition count from Kafka for this topic
         const currentTopicDetails = detailsData.topicDetails?.find((detail: any) => detail.name === topicConfig.name)
         const currentPartitionCount = currentTopicDetails?.partitionCount || 1
@@ -323,7 +346,7 @@ export async function hydrateKafkaTopics(pipelineConfig: any): Promise<void> {
       // 7. Fetch actual event data from Kafka for each topic (only if not already present)
       // This is needed for deduplication, join, and mapping configurations
       await Promise.all(
-        pipelineConfig.source.topics.map(async (topicConfig: any, idx: number) => {
+        topicsToHydrate.map(async (topicConfig: any, idx: number) => {
           try {
             // Check if topic already has event data
             const currentTopic = useStore.getState().topicsStore.getTopic(idx)
@@ -372,7 +395,7 @@ export async function hydrateKafkaTopics(pipelineConfig: any): Promise<void> {
         }),
       )
       // Set topic count in both topics store and core store
-      const topicCount = pipelineConfig.source.topics.length
+      const topicCount = topicsToHydrate.length
       useStore.getState().topicsStore.setTopicCount(topicCount)
       useStore.getState().coreStore.setTopicCount(topicCount)
     }

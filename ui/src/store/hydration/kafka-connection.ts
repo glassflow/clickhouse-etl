@@ -144,8 +144,11 @@ function mapBackendKafkaConfigToStore(connection_params: any): any {
 }
 
 export function hydrateKafkaConnection(pipelineConfig: any) {
-  if (pipelineConfig?.source?.connection_params) {
-    const kafkaConnection = mapBackendKafkaConfigToStore(pipelineConfig.source.connection_params)
+  // v3 format: sources[] at root — use first source's connection_params
+  const connectionParams =
+    pipelineConfig?.sources?.[0]?.connection_params ?? pipelineConfig?.source?.connection_params
+  if (connectionParams) {
+    const kafkaConnection = mapBackendKafkaConfigToStore(connectionParams)
     useStore.getState().kafkaStore.setKafkaConnection(kafkaConnection)
   }
 }
