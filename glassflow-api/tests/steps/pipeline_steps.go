@@ -348,7 +348,9 @@ func (p *PipelineSteps) preparePipelineConfig(cfg string) (*models.PipelineConfi
 		pc.Sink.NATSConsumerName = models.GetNATSSinkConsumerName(pc.ID)
 	}
 
-	// Update ClickHouse connection params with test container
+	// Update ClickHouse connection params with test container; only fill in
+	// runtime-only fields. Database and Table come from the JSON so scenarios
+	// can point the sink at a non-existent table explicitly.
 	pc.Sink.ClickHouseConnectionParams.Host = "localhost"
 	pc.Sink.ClickHouseConnectionParams.Port, err = p.chContainer.GetPort()
 	if err != nil {
@@ -357,8 +359,6 @@ func (p *PipelineSteps) preparePipelineConfig(cfg string) (*models.PipelineConfi
 
 	pc.Sink.ClickHouseConnectionParams.Username = "default"
 	pc.Sink.ClickHouseConnectionParams.Password = "default"
-	pc.Sink.ClickHouseConnectionParams.Database = p.chDB
-	pc.Sink.ClickHouseConnectionParams.Table = p.chTable
 
 	return &pc, nil
 }
