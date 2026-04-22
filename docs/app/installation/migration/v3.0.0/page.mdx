@@ -1,0 +1,218 @@
+---
+title: 'Migration Guide: v2.11.x to v3.0.0'
+description: 'Migrate from GlassFlow v2.11.x to v3.0.0 (Helm chart v0.5.16). Convert pipelines to the new V3 config format, review inverted filter semantics, rename the OTLP metrics resource field, and update Grafana dashboards.'
+---
+
+import { Callout } from 'nextra/components'
+import { Steps } from 'nextra/components'
+import { Cards } from 'nextra/components'
+import { GitHubIcon, GlobeIcon } from 'nextra/icons'
+import { SlackIcon } from '../../../components/SlackIcon'
+
+# Migration Guide: v2.11.x to v3.0.0
+
+This guide walks through upgrading to GlassFlow v3.0.0 (Helm chart **v0.5.16**). v3.0.0 introduces the Pipeline Config V3 format — existing v2 pipeline JSONs are **not** loaded automatically and must be converted before they can run. It also inverts filter expression semantics and renames a few metrics; ignoring those two steps will silently corrupt your output data or break dashboards. The full v3 schema is documented in the [Pipeline Configuration Reference](/configuration/pipeline-config-reference).
+
+## When This Migration Applies
+
+**This migration applies to every installation upgrading from v2.11.x to v3.0.0.** Unlike the v2.11.x migration, there is no opt-out.
+
+<Callout type="important">
+**You must be on v2.11.x before upgrading to v3.0.0.** The v3.0.0 chart consolidates database migrations 0004–0006 into a single `pipeline_v3` revision that assumes the prior migrations have already been applied. Upgrading directly from v2.10.x or earlier will fail the migration step. If you are on v2.10.x or below, first follow the [v2.10.x to v2.11.x migration guide](/installation/migration/v2.11.0).
+</Callout>
+
+## Breaking Changes at a Glance
+
+Two product-level breaking changes and one observability-level one:
+
+1. **Pipeline Config V3** — the pipeline JSON has been restructured. v2 configs will not load.
+2. **Filter semantics inverted** — a filter expression now **keeps** messages where it evaluates to `true` (previously: dropped them).
+3. **Metrics removed / unified** — `gfm_records_processed_per_second`, `gfm_records_filtered_total`, and `gfm_processor_duration_seconds` are gone or merged. Grafana dashboards that reference them by name will render empty panels.
+
+## Before You Start
+
+- Take a backup of your PostgreSQL database.
+- Export the current pipeline configs (see Step 1 below) — you will need them to recreate the pipelines on v3.
+- If you maintain Grafana dashboards over GlassFlow metrics, identify panels that reference the removed metrics (`gfm_records_processed_per_second`, `gfm_records_filtered_total`, `gfm_processor_duration_seconds`).
+
+## Migration Steps
+
+<Steps>
+
+### 1. Export your current pipeline configs
+
+For each pipeline you want to keep, save its v2 config to disk so you can convert it after the upgrade. The v3 API's `GET /api/v1/pipeline/{id}` returns the v3 shape, so run this against your **v2.11.x** cluster before the helm upgrade:
+
+```bash
+# List current pipelines
+curl -s "${GLASSFLOW_API}/api/v1/pipeline" | jq -r '.[].pipeline_id' > pipelines.txt
+
+# Export each one
+mkdir -p v2-configs
+while read -r pid; do
+  curl -s "${GLASSFLOW_API}/api/v1/pipeline/${pid}" > "v2-configs/${pid}.json"
+done < pipelines.txt
+```
+
+Verify the exports are non-empty and contain `"source"` and `"sink"` fields in the v2 shape.
+
+### 2. Stop all pipelines
+
+In-flight messages at the moment of upgrade would hit a half-reloaded config. Stop every pipeline cleanly:
+
+```bash
+while read -r pid; do
+  curl -s -X POST "${GLASSFLOW_API}/api/v1/pipeline/${pid}/stop"
+done < pipelines.txt
+```
+
+Poll each pipeline's `/health` endpoint until `overall_status` is `Stopped` before proceeding.
+
+### 3. Upgrade the Helm release to v0.5.16
+
+Upgrade the product chart. The operator chart (v0.8.0) is bundled as a dependency and will be upgraded automatically; you do not need to run a separate operator release.
+
+```bash
+helm upgrade <release_name> <chart_reference> -n <namespace> --version 0.5.16 \
+  -f values.yaml
+```
+
+Example (upgrading from the Helm repo):
+
+```bash
+helm upgrade glassflow glassflow/glassflow-etl -n glassflow --version 0.5.16 \
+  -f values.yaml
+```
+
+Watch the `glassflow-api` pod logs during startup — the database migration runs on first boot and should complete within a few seconds. If it fails, do not proceed; see [Rollback](#rollback) below.
+
+### 4. Convert v2 configs to v3 using the migrate-preview API
+
+With the upgraded API up, convert each saved v2 config to v3 using the new `migrate-preview` endpoint. This is a pure transformation — no pipeline is created and no database state is touched:
+
+```bash
+mkdir -p v3-configs
+for f in v2-configs/*.json; do
+  pid=$(basename "$f" .json)
+  curl -s -X POST "${GLASSFLOW_API}/api/v1/pipeline/migrate-preview" \
+    -H 'Content-Type: application/json' \
+    -d @"$f" > "v3-configs/${pid}.json"
+done
+```
+
+Spot-check one of the outputs to confirm the conversion succeeded:
+
+```bash
+jq '.version' v3-configs/<pipeline_id>.json   # → "v3"
+jq '.sources | length' v3-configs/<pipeline_id>.json   # → ≥ 1
+```
+
+The converter handles:
+
+- `source.topics[]` → top-level `sources[]` with per-source `connection_params` and `schema_fields`.
+- Per-topic `dedup`, `filter`, and stateless transforms → unified `transforms[]` array.
+- Join sources with orientation strings → structured `join.left_source` / `join.right_source` with `output_fields`.
+- `sink.table_mapping` / per-source schema field type hints → `sink.mapping` with `column_name` / `column_type`.
+
+### 5. Review and (where necessary) invert filter expressions
+
+<Callout type="warning">
+`migrate-preview` does **not** rewrite filter expressions. You must review every filter transform manually.
+</Callout>
+
+In v2, a filter expression **dropped** messages where it evaluated to `true`. In v3, it **keeps** them. If your v2 filter meant "drop events where `amount > 100`", the equivalent v3 expression is `amount <= 100`.
+
+For each v3 config with a `filter` transform:
+
+```bash
+jq '.transforms[] | select(.type == "filter")' v3-configs/<pipeline_id>.json
+```
+
+Determine whether the original intent was "keep matching" (no change needed) or "drop matching" (negate the expression). Common inversions:
+
+| v2 expression (drop-matching) | v3 expression (keep-matching) |
+|---|---|
+| `amount > 100` | `amount <= 100` |
+| `status == "error"` | `status != "error"` |
+| `user_id == null` | `user_id != null` |
+| `not contains(tag, "test")` | `contains(tag, "test")` |
+
+### 6. Update Grafana dashboards for renamed metrics
+
+Three metrics have changed in this release. Update dashboards and alerting rules accordingly:
+
+| Old metric | Replacement |
+|---|---|
+| `gfm_records_processed_per_second` | `gfm_clickhouse_records_written_per_second` (sink throughput) or `rate(gfm_processor_messages_total[5m])` (per-component throughput) |
+| `gfm_records_filtered_total` | `gfm_processor_messages_total{status="filtered"}` |
+| `gfm_processor_duration_seconds` | `gfm_processing_duration_seconds` (same buckets, new `component` and optional `stage` labels) |
+
+Two new metrics are also available and worth adding to dashboards:
+
+- `gfm_bytes_processed_total{component, direction}` — byte-level throughput per component.
+- `gfm_receiver_request_count` / `gfm_receiver_request_duration_seconds` — OTLP receiver request rate and latency, labeled by `transport` and `status`.
+
+See the [Prometheus Metrics](/configuration/metrics) reference for the full metric set.
+
+### 7. Re-create the pipelines with the v3 configs
+
+Post each v3 config back to the API:
+
+```bash
+for f in v3-configs/*.json; do
+  pid=$(basename "$f" .json)
+  curl -s -X POST "${GLASSFLOW_API}/api/v1/pipeline" \
+    -H 'Content-Type: application/json' \
+    -d @"$f"
+done
+```
+
+<Callout type="info">
+Use the same `pipeline_id` values as the v2 pipelines so that any downstream identifiers (Grafana panels, log queries, alert labels) continue to work unchanged.
+</Callout>
+
+### 8. Start the pipelines and verify
+
+Start each pipeline:
+
+```bash
+while read -r pid; do
+  curl -s -X POST "${GLASSFLOW_API}/api/v1/pipeline/${pid}/resume"
+done < pipelines.txt
+```
+
+Verify each one reaches `Running` status and that data flows end-to-end:
+
+```bash
+while read -r pid; do
+  curl -s "${GLASSFLOW_API}/api/v1/pipeline/${pid}/health" | jq '.overall_status'
+done < pipelines.txt
+```
+
+</Steps>
+
+## After Migration
+
+- **Open the UI** — Confirm you can list, view, and edit pipelines. Edit mode should hydrate existing Kafka and (if used) OTLP configs correctly.
+- **Check ClickHouse row counts** — Confirm each pipeline is writing rows at the expected rate. A silent zero-row regression usually indicates a filter expression that was not inverted correctly.
+- **Check DLQ rates** — Use `gfm_dlq_records_written_total` or the DLQ consume API to confirm no unexpected DLQ traffic. Dedup or filter misconfigurations typically surface here.
+- **Sanity-check dashboards** — Confirm your updated Grafana panels are rendering data; empty panels usually mean a metric name was not updated (step 7).
+
+## Rollback
+
+If the helm upgrade or database migration fails:
+
+- `helm rollback <release_name> <previous_revision> -n <namespace>` rolls the chart back to v0.5.12 (v2.11.x).
+- Restore the PostgreSQL backup you took in [Before You Start](#before-you-start).
+- Start the pipelines again using the v2 configs.
+
+The DB migration is additive (creates new tables; does not modify existing v2 tables), so data loss on rollback is unlikely — but the PG backup is the safe default.
+
+## Getting Help
+
+<Cards>
+  <Cards.Card icon={<SlackIcon />} title="Slack Community" href="https://join.slack.com/t/glassflowhub/shared_invite/zt-349m7lenp-IFeKSGfQwpJfIiQ7oyFFKg" />
+  <Cards.Card icon={<GlobeIcon />} title="Email Support" href="mailto:help@glassflow.dev" />
+  <Cards.Card icon={<GitHubIcon />} title="GitHub Issues" href="https://github.com/glassflow/clickhouse-etl/issues" />
+  <Cards.Card icon={<GitHubIcon />} title="GitHub Discussions" href="https://github.com/glassflow/clickhouse-etl/discussions" />
+</Cards>
