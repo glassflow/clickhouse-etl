@@ -25,6 +25,7 @@ const (
 
 // Transformation represents a pipeline transformation with its type and configuration
 type Transformation struct {
+	ID     string
 	Type   string
 	Config json.RawMessage
 }
@@ -862,7 +863,6 @@ func (s *PostgresStorage) insertClickHouseSink(ctx context.Context, tx pgx.Tx, p
 	sinkConnConfig := models.SinkComponentConfig{
 		ClickHouseConnectionParams: p.Sink.ClickHouseConnectionParams,
 		Batch:                      p.Sink.Batch,
-		SourceID:                   p.Sink.SourceID,
 		Type:                       p.Sink.Type,
 		NATSConsumerName:           p.Sink.NATSConsumerName,
 	}
@@ -890,7 +890,6 @@ func (s *PostgresStorage) updateClickHouseSink(ctx context.Context, tx pgx.Tx, c
 	sinkConnConfig := models.SinkComponentConfig{
 		ClickHouseConnectionParams: p.Sink.ClickHouseConnectionParams,
 		Batch:                      p.Sink.Batch,
-		SourceID:                   p.Sink.SourceID,
 		NATSConsumerName:           p.Sink.NATSConsumerName,
 		Type:                       p.Sink.Type,
 	}
@@ -1309,6 +1308,12 @@ func (s *PostgresStorage) loadConfigsAndSchemaVersionsWithSelection(
 
 		pipelineCfg.SchemaVersions[pipelineCfg.Join.ID] = outputSchema
 	}
+
+	sinkSourceID, err := s.getSinkSourceID(ctx, tx, pipelineCfg.ID)
+	if err != nil {
+		return fmt.Errorf("get sink source ID: %w", err)
+	}
+	pipelineCfg.Sink.SourceID = sinkSourceID
 
 	sinkSourceSchema, found := pipelineCfg.SchemaVersions[pipelineCfg.Sink.SourceID]
 	if !found {
