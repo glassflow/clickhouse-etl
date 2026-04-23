@@ -8,6 +8,8 @@ import (
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/expr-lang/expr/ast"
+	"github.com/expr-lang/expr/parser"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
@@ -90,13 +92,18 @@ func convertSources(v2 pipelineJSONv2) ([]source, error) {
 			sourceID = t.Topic
 		}
 
+		schemaFields := extractSchemaFields(v2.Schema.Fields, sourceID)
+		if v2.StatelessTransformation.Enabled && v2.StatelessTransformation.SourceID == sourceID {
+			schemaFields = supplementFieldsFromTransforms(schemaFields, v2.StatelessTransformation.Config.Transform)
+		}
+
 		s := source{
 			Type:                       v2.Source.Type,
 			SourceID:                   sourceID,
 			Topic:                      t.Topic,
 			ConsumerGroupInitialOffset: t.ConsumerGroupInitialOffset,
 			SchemaVersion:              t.SchemaVersion,
-			SchemaFields:               extractSchemaFields(v2.Schema.Fields, sourceID),
+			SchemaFields:               schemaFields,
 		}
 
 		if t.SchemaRegistry.URL != "" {
@@ -321,4 +328,63 @@ func v2FirstSourceID(v2 pipelineJSONv2) string {
 		return t.ID
 	}
 	return t.Topic
+}
+
+// supplementFieldsFromTransforms adds any source fields referenced in transform
+// expressions that are missing from the declared schema fields. This handles v2
+// pipelines that used undeclared fields as transform inputs without listing them
+// in schema.fields under the source's source_id.
+func supplementFieldsFromTransforms(fields []models.Field, transforms []models.Transform) []models.Field {
+	known := make(map[string]struct{}, len(fields))
+	for _, f := range fields {
+		known[f.Name] = struct{}{}
+	}
+
+	outputType := make(map[string]string, len(transforms))
+	for _, tr := range transforms {
+		outputType[tr.OutputName] = tr.OutputType
+	}
+
+	for _, tr := range transforms {
+		for _, name := range extractExprIdentifiers(tr.Expression) {
+			if _, exists := known[name]; exists {
+				continue
+			}
+			typ, ok := outputType[name]
+			if !ok {
+				typ = tr.OutputType
+			}
+			fields = append(fields, models.Field{Name: name, Type: typ})
+			known[name] = struct{}{}
+		}
+	}
+	return fields
+}
+
+// extractExprIdentifiers parses an expr-lang expression and returns all identifier names.
+func extractExprIdentifiers(expression string) []string {
+	tree, err := parser.Parse(expression)
+	if err != nil {
+		return nil
+	}
+	c := &identifierCollector{seen: make(map[string]struct{})}
+	ast.Walk(&tree.Node, c)
+	return c.names
+}
+
+type identifierCollector struct {
+	seen  map[string]struct{}
+	names []string
+}
+
+func (c *identifierCollector) Visit(node *ast.Node) {
+	ident, ok := (*node).(*ast.IdentifierNode)
+	if !ok {
+		return
+	}
+	if _, dup := c.seen[ident.Value]; dup {
+		return
+	}
+	c.seen[ident.Value] = struct{}{}
+	c.names = append(c.names, ident.Value)
 }
