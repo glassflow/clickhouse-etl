@@ -4,19 +4,12 @@ sidebarTitle: Introduction
 ---
 import { Cards } from 'nextra/components'
 import { FolderOpenIcon, GitHubTipIcon, MenuIcon, GitHubIcon, DiscordIcon, GlobeIcon, MdxIcon, TerminalIcon } from 'nextra/icons'
-
-export function SlackIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="1em" height="1em" fill="currentColor">
-      <path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zM6.313 15.165a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zM8.834 6.313a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zM18.956 8.834a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zM17.688 8.834a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.165 0a2.528 2.528 0 0 1 2.523 2.522v6.312zM15.165 18.956a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zM15.165 17.688a2.527 2.527 0 0 1-2.52-2.523 2.526 2.526 0 0 1 2.52-2.52h6.313A2.527 2.527 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.523h-6.313z"/>
-    </svg>
-  )
-}
+import { SlackIcon } from './components/SlackIcon'
 
 # GlassFlow for ClickHouse ETL Documentation
 
 
-GlassFlow is an open-source streaming ETL for Kafka to Clickhouse streams. It has built-in deduplication, temporal joins, handles late-arriving events with exactly-once guarantees, and scales for high-throughput low-latency workloads on ClickHouse. It reduces the need to use ReplacingMergeTree, FINAL and Joins on ClickHouse.
+GlassFlow is an open-source streaming ETL for multiple data sources to ClickHouse. It has built-in deduplication, temporal joins, handles late-arriving events with exactly-once guarantees, and scales for high-throughput low-latency workloads on ClickHouse. It reduces the need to use ReplacingMergeTree, FINAL and Joins on ClickHouse.
 <br />
 <img src="/assets/clickhouse-etl-introduction.jpg" alt="GlassFlow ClickHouse ETL Introduction" width="800"/>
 
@@ -31,26 +24,26 @@ GlassFlow is an open-source streaming ETL for Kafka to Clickhouse streams. It ha
 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 <div className="flex flex-col gap-4">
 
-### Streaming Deduplication
-- Real-time deduplication of Kafka streams before ingestion into ClickHouse ([Deduplication](/configuration/transformations/deduplication))
+### Deduplication
+- Data deduplication from different sources (i.e. Apache Kafka data streams, OTel traces, logs, metrics, etc.) before ingestion into ClickHouse ([Deduplication](/transformations/deduplication))
 - Configurable time windows up to 7 days for deduplication
 - Simple configuration of deduplication keys and time windows
 - Prevents duplicate data from reaching ClickHouse
 
-### Temporal Stream Joins
-- Join two Kafka streams in real-time ([Join](/configuration/transformations/join))
+### Temporal Joins
+- Join two Kafka streams in real-time ([Join](/transformations/join))
 - Configurable time windows up to 7 days for stream joins
 - Configure join keys and time windows through the UI
 - Simplified join setup process
 - Produce joined streams ready for ClickHouse ingestion
 
 ### Filter
-- Expression-based filtering to drop unwanted events before they reach downstream processing ([Filter](/configuration/transformations/filter))
-- Configure filter expressions at the pipeline level; events that match the expression are dropped, non-matching events continue through the pipeline
+- Expression-based filtering to keep only the events you need before they reach downstream processing ([Filter](/transformations/filter))
+- Configure filter expressions at the pipeline level; events that match the expression pass through the pipeline, non-matching events are dropped
 - Uses the expr language for type-safe, field-based conditions
 
 ### Stateless Transformations
-- Reshape event payloads with expression-based field mappings ([Stateless transformations](/configuration/transformations/stateless-transformation))
+- Reshape event payloads with expression-based field mappings ([Stateless transformations](/transformations/stateless-transformation))
 - Normalize fields, derive new fields, and map nested JSON to a flat schema
 - Each event transformed independently—no stored state; rich expression language with built-in helpers
 
@@ -60,12 +53,18 @@ GlassFlow is an open-source streaming ETL for Kafka to Clickhouse streams. It ha
 - Custom Kubernetes controller for managing pipelines
 - Horizontal scalability
 
-### Built-in Kafka Connector
-- Automatic data extraction from Kafka topics ([Supported Kafka connections](/configuration/supported-kafka-connections))
-- Seamless integration with Kafka clusters
-- No manual data pulling required
-- Supports multiple Kafka topics and partitions
-- Native support for JSON data types including nested JSON and arrays
+### Sources
+- [Kafka Source](/sources/kafka)
+    - Automatic data extraction from Kafka topics ([Supported Kafka connections](/sources/kafka/connections))
+    - Seamless integration with Kafka clusters
+    - No manual data pulling required
+    - Supports multiple Kafka topics and partitions
+    - Native support for JSON data types including nested JSON and arrays
+- [OTLP Source](/sources/otlp)
+    - Direct ingestion of OpenTelemetry logs, traces, and metrics
+    - Supports gRPC and HTTP protocols
+    - Built-in flattening of OTLP protobuf to JSON
+    - Compatible with any OpenTelemetry SDK or Collector
 
 ### Optimized ClickHouse Sink
 - Native ClickHouse connection for maximum performance

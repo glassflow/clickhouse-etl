@@ -1,7 +1,5 @@
 export default {
-    'transformations': '',
-    'pipeline-json-reference': '',
+    'pipeline-config-reference': '',
     'data-format': '',
-    'supported-kafka-connections': '',
     'metrics': '',
 }

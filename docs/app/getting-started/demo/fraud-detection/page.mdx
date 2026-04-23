@@ -1,0 +1,99 @@
+---
+title: 'Fraud Detection'
+description: 'Detect brute-force login attacks using Kafka, GlassFlow, and ClickHouse'
+---
+import { Steps } from 'nextra/components'
+import { Callout } from 'nextra/components'
+
+# Fraud Detection Demo
+
+Detect brute-force login attacks using Kafka, GlassFlow, and ClickHouse. GlassFlow sits between Kafka and ClickHouse: it filters out successful logins, deduplicates retried events by `event_id` (1 h window), and delivers only unique failed logins to ClickHouse. Fraud queries then run directly on clean data.
+
+This demo uses the **Filter** and **Deduplication** transformations together in a single pipeline.
+
+## Prerequisites
+
+- [GlassFlow CLI](/installation/cli) installed
+- Docker running
+- Python 3.10+
+
+## Run the demo
+
+<Steps>
+
+### Start the local environment
+
+```bash
+glassflow up --demo
+```
+
+### Set up credentials
+
+From the `demos/fraud-detection` directory, copy the sample environment file:
+
+```bash
+cd demos/fraud-detection
+cp .env.example .env
+```
+
+`.env.example` contains the default Kafka and ClickHouse credentials used by `glassflow up --demo`. Override these values if your cluster differs.
+
+### Create the Kafka topic and ClickHouse table
+
+```bash
+./scripts/create_topic.sh
+./scripts/create_table.sh
+```
+
+### Create the GlassFlow pipeline
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+.venv/bin/python scripts/create_pipeline.py
+```
+
+<Callout type="info">
+  If the pipeline ID already exists from a previous run, delete it in the GlassFlow UI (or via API) before creating again.
+</Callout>
+
+### Generate and publish sample events
+
+Synthetic login events are produced with [GlassGen](https://github.com/glassflow/glassgen). The schema and generator options live in `glassgen/login_events.json`.
+
+```bash
+.venv/bin/python scripts/generate_login_events.py --output data/login-events.ndjson
+
+./scripts/publish_to_kafka.sh data/login-events.ndjson
+```
+
+### Query for suspicious activity
+
+Wait ~15 seconds for GlassFlow to flush, then run the fraud detection queries:
+
+```bash
+./scripts/run_fraud_queries.sh
+```
+
+The queries detect IPs with a high number of failed login attempts within short time windows (30 s, 5 min, 1 h).
+
+### Clean up
+
+```bash
+glassflow down
+```
+
+</Steps>
+
+## How it works
+
+The pipeline configuration (`glassflow/fraud_detection_pipeline.json`) applies two transformations in order:
+
+1. [**Filter**](/transformations/filter) — keeps only events where `status == 'failed'`, dropping successful logins before they reach ClickHouse
+2. [**Deduplication**](/transformations/deduplication) — removes duplicate events by `event_id` within a 1-hour window, handling producer retries
+
+After these transformations, only unique failed login attempts are written to ClickHouse. The fraud detection SQL queries in `sql/fraud_detection_queries.sql` then aggregate by IP address and time window to flag brute-force patterns.
+
+## Source code
+
+The full demo source is available at [`demos/fraud-detection`](https://github.com/glassflow/clickhouse-etl/tree/main/demos/fraud-detection) in the GlassFlow repository.
