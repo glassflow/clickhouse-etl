@@ -48,9 +48,11 @@ export function validatePipelineConfig(json: unknown): ImportValidationResult {
     errors.push('Missing required field: name')
   }
 
-  // Check for source configuration
-  if (!config.source || typeof config.source !== 'object') {
-    errors.push('Missing required field: source')
+  // Check for source configuration — accept either legacy `source` object or v3 `sources[]`
+  const hasLegacySource = config.source && typeof config.source === 'object'
+  const hasV3Sources = Array.isArray(config.sources) && (config.sources as unknown[]).length > 0
+  if (!hasLegacySource && !hasV3Sources) {
+    errors.push('Missing required field: source (or sources[] for v3 multi-source format)')
     return {
       valid: false,
       errors,
@@ -60,21 +62,51 @@ export function validatePipelineConfig(json: unknown): ImportValidationResult {
     }
   }
 
-  const source = config.source as Record<string, unknown>
-  const sourceType = typeof source.type === 'string' ? source.type : ''
+  // Detect format: new v3 uses sources[] at root; old formats use source.topics[]
+  const isNewFormat = Array.isArray(config.sources) && (config.sources as unknown[]).length > 0
+  const source = (config.source ?? {}) as Record<string, unknown>
+  const sourceType = isNewFormat
+    ? (((config.sources as any[])[0]?.type as string) ?? '')
+    : (typeof source.type === 'string' ? source.type : '')
 
   let topicCount = 0
 
   if (isOtlpSource(sourceType)) {
     // OTLP sources have no connection_params or topics
     topicCount = 1
+  } else if (isNewFormat) {
+    // New v3 format: sources[] at root level, each entry is a Kafka source
+    const sources = config.sources as Array<Record<string, unknown>>
+    topicCount = sources.length
+
+    if (topicCount === 0) {
+      errors.push('At least one source is required in sources[]')
+    } else if (topicCount > 2) {
+      errors.push(`Invalid source count: ${topicCount}. Only 1 or 2 sources are supported`)
+    }
+
+    const firstSource = sources[0]
+    const cp = (firstSource?.connection_params ?? {}) as Record<string, unknown>
+    if (!cp.brokers || !Array.isArray(cp.brokers) || (cp.brokers as unknown[]).length === 0) {
+      errors.push('Missing or empty: sources[0].connection_params.brokers')
+    }
+
+    sources.forEach((src, index) => {
+      if (!src.topic || typeof src.topic !== 'string') {
+        errors.push(`Missing or invalid topic at sources[${index}].topic`)
+      }
+    })
   } else {
-    // Kafka: validate connection_params and topics
+    // Old format: source.connection_params + source.topics[]
+    if (!config.source || typeof config.source !== 'object') {
+      errors.push('Missing required field: source')
+      return { valid: false, errors, warnings, topicCount: 0, pipelineName }
+    }
+
     if (!source.connection_params || typeof source.connection_params !== 'object') {
       errors.push('Missing required field: source.connection_params')
     } else {
       const connectionParams = source.connection_params as Record<string, unknown>
-
       if (!connectionParams.brokers || !Array.isArray(connectionParams.brokers) || connectionParams.brokers.length === 0) {
         errors.push('Missing or empty: source.connection_params.brokers')
       }
@@ -82,13 +114,7 @@ export function validatePipelineConfig(json: unknown): ImportValidationResult {
 
     if (!source.topics || !Array.isArray(source.topics)) {
       errors.push('Missing required field: source.topics (must be an array)')
-      return {
-        valid: false,
-        errors,
-        warnings,
-        topicCount: 0,
-        pipelineName,
-      }
+      return { valid: false, errors, warnings, topicCount: 0, pipelineName }
     }
 
     const topics = source.topics as Array<Record<string, unknown>>
@@ -275,17 +301,29 @@ export function markStoresValidAfterImport(store: any, config: Pipeline): void {
     clickhouseDestinationStore,
   } = store
 
-  const sourceType = config.source?.type ?? ''
+  // Detect format: new v3 uses sources[] at root
+  const isNewFormat = Array.isArray((config as any).sources) && (config as any).sources.length > 0
+  const sourceType = isNewFormat
+    ? (((config as any).sources[0]?.type as string) ?? '')
+    : (config.source?.type ?? '')
 
   if (isOtlpSource(sourceType)) {
     // OTLP: hydrateOtlpSource already calls markAsValid(), but ensure it here too
     otlpStore?.markAsValid()
+  } else if (isNewFormat) {
+    // New v3 format: sources[] with connection_params per source
+    const sources = (config as any).sources as any[]
+    if ((sources[0]?.connection_params?.brokers?.length ?? 0) > 0) {
+      kafkaStore.markAsValid()
+    }
+    if (sources.length > 0) {
+      topicsStore.markAsValid()
+    }
   } else {
-    // Kafka: mark connection and topics stores based on presence of data
+    // Old format: source.connection_params + source.topics[]
     if ((config.source?.connection_params?.brokers?.length ?? 0) > 0) {
       kafkaStore.markAsValid()
     }
-
     if ((config.source?.topics?.length ?? 0) > 0) {
       topicsStore.markAsValid()
     }
@@ -302,8 +340,12 @@ export function markStoresValidAfterImport(store: any, config: Pipeline): void {
   // Mark transformation as valid (optional operation)
   transformationStore.markAsValid()
 
-  // OTLP is always single-source; Kafka uses the topics array length
-  const topicCount = isOtlpSource(sourceType) ? 1 : (config.source?.topics?.length || 0)
+  // OTLP is always single-source; new format uses sources[]; old format uses source.topics[]
+  const topicCount = isOtlpSource(sourceType)
+    ? 1
+    : isNewFormat
+      ? ((config as any).sources?.length || 0)
+      : (config.source?.topics?.length || 0)
   if (topicCount < 2 || (config.join?.enabled && (config.join?.sources?.length ?? 0) > 0)) {
     joinStore.markAsValid()
   }

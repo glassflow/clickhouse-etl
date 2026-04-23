@@ -37,7 +37,7 @@ function mapBackendTopicToStore(topicConfig: any, index: number) {
 }
 
 // Helper to map backend deduplication config to the new deduplication store
-function mapBackendDeduplicationToStore(topicConfig: any, index: number) {
+function mapBackendDeduplicationToStore(topicConfig: any) {
   if (!topicConfig.deduplication) {
     return {
       enabled: false,
@@ -188,115 +188,141 @@ async function waitForKafkaStoreHydration(maxRetries = 5, retryDelayMs = 100): P
 
 export async function hydrateKafkaTopics(pipelineConfig: any): Promise<void> {
   try {
-    // 1. Wait for the Kafka connection to be properly hydrated first
-    await waitForKafkaStoreHydration()
+    // 1. Normalise config shapes into a single topics array FIRST — before any connection checks.
+    // This allows config-only hydration to succeed even when there is no live Kafka connection
+    // (e.g. during pipeline import from a config file).
+    // v3: sources[] at root, each entry is one topic; dedup lives in transforms[].
+    // legacy: source.topics[] with embedded deduplication objects.
+    const legacyTopics: any[] | undefined = pipelineConfig?.source?.topics
+    const v3Sources: any[] | undefined = Array.isArray(pipelineConfig?.sources) ? pipelineConfig.sources : undefined
+    const topicsToHydrate: any[] | undefined = v3Sources
+      ? v3Sources.map((src: any) => {
+          const dedupTransform = (pipelineConfig?.transforms ?? []).find(
+            (t: any) => t.type === 'dedup' && t.source_id === src.source_id,
+          )
+          return {
+            name: src.topic,
+            consumer_group_initial_offset: 'latest',
+            schema: src.schema_fields?.length
+              ? { fields: src.schema_fields.map((f: any) => ({ name: f.name, type: f.type ?? 'string' })) }
+              : undefined,
+            deduplication: dedupTransform
+              ? { enabled: true, id_field: dedupTransform.config?.key ?? '', id_field_type: 'string', time_window: dedupTransform.config?.time_window ?? '1h' }
+              : undefined,
+          }
+        })
+      : legacyTopics
 
-    // 2. Get the Kafka connection from the store (now guaranteed to be hydrated)
-    const kafkaStore = useStore.getState().kafkaStore
+    // 2. Attempt live Kafka operations (topic list, partition counts, event sampling).
+    // These are best-effort: if the kafkaStore isn't fully populated (e.g. import without a
+    // live broker), we skip them and fall back to config-only hydration.
+    let hasLiveConnection = false
+    let detailsData: any = null
+    let requestBody: any = null
 
-    // 3. Build request body with proper auth fields based on auth method
-    const requestBody: any = {
-      servers: kafkaStore.bootstrapServers,
-      securityProtocol: kafkaStore.securityProtocol,
-      authMethod: kafkaStore.authMethod,
+    try {
+      await waitForKafkaStoreHydration()
+
+      const kafkaStore = useStore.getState().kafkaStore
+      requestBody = {
+        servers: kafkaStore.bootstrapServers,
+        securityProtocol: kafkaStore.securityProtocol,
+        authMethod: kafkaStore.authMethod,
+      }
+
+      switch (kafkaStore.authMethod) {
+        case 'SASL/PLAIN':
+          requestBody.username = kafkaStore.saslPlain.username
+          requestBody.password = kafkaStore.saslPlain.password
+          requestBody.consumerGroup = kafkaStore.saslPlain.consumerGroup
+          if (kafkaStore.saslPlain?.truststore?.certificates) {
+            requestBody.certificate = kafkaStore.saslPlain.truststore.certificates
+          }
+          if (kafkaStore.saslPlain?.truststore?.skipTlsVerification) {
+            requestBody.skipTlsVerification = true
+          }
+          break
+        case 'SASL/SCRAM-256':
+          requestBody.username = kafkaStore.saslScram256.username
+          requestBody.password = kafkaStore.saslScram256.password
+          requestBody.consumerGroup = kafkaStore.saslScram256.consumerGroup
+          if (kafkaStore.saslScram256?.truststore?.certificates) {
+            requestBody.certificate = kafkaStore.saslScram256.truststore.certificates
+          }
+          if (kafkaStore.saslScram256?.truststore?.skipTlsVerification) {
+            requestBody.skipTlsVerification = true
+          }
+          break
+        case 'SASL/SCRAM-512':
+          requestBody.username = kafkaStore.saslScram512.username
+          requestBody.password = kafkaStore.saslScram512.password
+          if (kafkaStore.saslScram512?.truststore?.certificates) {
+            requestBody.certificate = kafkaStore.saslScram512.truststore.certificates
+          }
+          if (kafkaStore.saslScram512?.truststore?.skipTlsVerification) {
+            requestBody.skipTlsVerification = true
+          }
+          break
+        case 'SASL/GSSAPI':
+          if (kafkaStore.saslGssapi?.truststore?.certificates) {
+            requestBody.certificate = kafkaStore.saslGssapi.truststore.certificates
+          }
+          if (kafkaStore.saslGssapi?.truststore?.skipTlsVerification) {
+            requestBody.skipTlsVerification = true
+          }
+          break
+        case 'NO_AUTH':
+          if (kafkaStore.noAuth?.truststore?.certificates) {
+            requestBody.certificate = kafkaStore.noAuth.truststore.certificates
+          }
+          if (kafkaStore.noAuth?.truststore?.skipTlsVerification) {
+            requestBody.skipTlsVerification = true
+          }
+          break
+      }
+
+      const [topicsResponse, detailsResponse] = await Promise.all([
+        fetch('/ui-api/kafka/topics', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestBody),
+        }),
+        fetch('/ui-api/kafka/topic-details', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestBody),
+        }),
+      ])
+
+      const topicsData = await topicsResponse.json()
+      if (!topicsData.success) throw new Error(topicsData.error || 'Failed to fetch topics')
+
+      const detailsDataRaw = await detailsResponse.json()
+      if (!detailsDataRaw.success) throw new Error(detailsDataRaw.error || 'Failed to fetch topic details')
+
+      useStore.getState().topicsStore.setAvailableTopics(topicsData.topics)
+      detailsData = detailsDataRaw
+      hasLiveConnection = true
+    } catch {
+      // No live connection available — proceed with config-only hydration below
     }
 
-    // Add auth-specific fields based on the auth method
-    switch (kafkaStore.authMethod) {
-      case 'SASL/PLAIN':
-        requestBody.username = kafkaStore.saslPlain.username
-        requestBody.password = kafkaStore.saslPlain.password
-        requestBody.consumerGroup = kafkaStore.saslPlain.consumerGroup
-        if (kafkaStore.saslPlain?.truststore?.certificates) {
-          requestBody.certificate = kafkaStore.saslPlain.truststore.certificates
-        }
-        if (kafkaStore.saslPlain?.truststore?.skipTlsVerification) {
-          requestBody.skipTlsVerification = true
-        }
-        break
-      case 'SASL/SCRAM-256':
-        requestBody.username = kafkaStore.saslScram256.username
-        requestBody.password = kafkaStore.saslScram256.password
-        requestBody.consumerGroup = kafkaStore.saslScram256.consumerGroup
-        if (kafkaStore.saslScram256?.truststore?.certificates) {
-          requestBody.certificate = kafkaStore.saslScram256.truststore.certificates
-        }
-        if (kafkaStore.saslScram256?.truststore?.skipTlsVerification) {
-          requestBody.skipTlsVerification = true
-        }
-        break
-      case 'SASL/SCRAM-512':
-        requestBody.username = kafkaStore.saslScram512.username
-        requestBody.password = kafkaStore.saslScram512.password
-        if (kafkaStore.saslScram512?.truststore?.certificates) {
-          requestBody.certificate = kafkaStore.saslScram512.truststore.certificates
-        }
-        if (kafkaStore.saslScram512?.truststore?.skipTlsVerification) {
-          requestBody.skipTlsVerification = true
-        }
-        break
-      case 'SASL/GSSAPI':
-        if (kafkaStore.saslGssapi?.truststore?.certificates) {
-          requestBody.certificate = kafkaStore.saslGssapi.truststore.certificates
-        }
-        if (kafkaStore.saslGssapi?.truststore?.skipTlsVerification) {
-          requestBody.skipTlsVerification = true
-        }
-        break
-      case 'NO_AUTH':
-        if (kafkaStore.noAuth?.truststore?.certificates) {
-          requestBody.certificate = kafkaStore.noAuth.truststore.certificates
-        }
-        if (kafkaStore.noAuth?.truststore?.skipTlsVerification) {
-          requestBody.skipTlsVerification = true
-        }
-        break
-      // Add other auth methods as needed
-    }
+    // 3. Set selected topics from config, optionally enriched with live partition counts
+    if (topicsToHydrate) {
+      topicsToHydrate.forEach((topicConfig: any, idx: number) => {
+        const currentPartitionCount =
+          hasLiveConnection && detailsData
+            ? (detailsData.topicDetails?.find((detail: any) => detail.name === topicConfig.name)?.partitionCount || 1)
+            : 1
 
-    // 4. Fetch topics and topic details from the API in parallel
-    const [topicsResponse, detailsResponse] = await Promise.all([
-      fetch('/ui-api/kafka/topics', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody),
-      }),
-      fetch('/ui-api/kafka/topic-details', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody),
-      }),
-    ])
-
-    const topicsData = await topicsResponse.json()
-    if (!topicsData.success) throw new Error(topicsData.error || 'Failed to fetch topics')
-
-    const detailsData = await detailsResponse.json()
-    if (!detailsData.success) throw new Error(detailsData.error || 'Failed to fetch topic details')
-
-    // 5. Set available topics in the store
-    useStore.getState().topicsStore.setAvailableTopics(topicsData.topics)
-
-    // 6. Set selected topics from backend config with current partition counts
-    if (pipelineConfig?.source?.topics) {
-      // First, hydrate all topics
-      pipelineConfig.source.topics.forEach((topicConfig: any, idx: number) => {
-        // Find current partition count from Kafka for this topic
-        const currentTopicDetails = detailsData.topicDetails?.find((detail: any) => detail.name === topicConfig.name)
-        const currentPartitionCount = currentTopicDetails?.partitionCount || 1
-
-        // Check if topic already exists in store (to preserve event data during re-hydration)
         const existingTopic = useStore.getState().topicsStore.getTopic(idx)
         const existingEvent = existingTopic?.selectedEvent?.event
 
-        // Map topic data with current partition count from Kafka (replicas from config only; resources are primary for ingestor replicas)
         const topicState = mapBackendTopicToStore(topicConfig, idx)
         topicState.partitionCount = currentPartitionCount
 
-        // Preserve existing event data if available (prevents clearing on re-hydration)
         if (existingEvent) {
           topicState.selectedEvent.event = existingEvent
-          // Also preserve in events array for JoinConfigurator compatibility
           topicState.events = [
             {
               event: existingEvent,
@@ -308,71 +334,64 @@ export async function hydrateKafkaTopics(pipelineConfig: any): Promise<void> {
 
         useStore.getState().topicsStore.updateTopic(topicState)
 
-        // Map deduplication data to the new separated store
-        // Check if deduplication config already exists (to preserve user changes during re-hydration)
         const existingDeduplicationConfig = useStore.getState().deduplicationStore.getDeduplication(idx)
-
-        // Only update deduplication if it doesn't exist yet, or if we're doing initial hydration
-        // This preserves user's unsaved changes when entering edit mode
         if (!existingDeduplicationConfig || !existingDeduplicationConfig.key) {
-          const deduplicationState = mapBackendDeduplicationToStore(topicConfig, idx)
+          const deduplicationState = mapBackendDeduplicationToStore(topicConfig)
           useStore.getState().deduplicationStore.updateDeduplication(idx, deduplicationState)
         }
       })
 
-      // 7. Fetch actual event data from Kafka for each topic (only if not already present)
-      // This is needed for deduplication, join, and mapping configurations
-      await Promise.all(
-        pipelineConfig.source.topics.map(async (topicConfig: any, idx: number) => {
-          try {
-            // Check if topic already has event data
-            const currentTopic = useStore.getState().topicsStore.getTopic(idx)
-            if (currentTopic?.selectedEvent?.event) {
-              return // Skip fetch if event data already exists
-            }
+      // 4. Fetch event samples from live Kafka (only when connected; errors are non-fatal)
+      if (hasLiveConnection && requestBody) {
+        await Promise.all(
+          topicsToHydrate.map(async (topicConfig: any, idx: number) => {
+            try {
+              const currentTopic = useStore.getState().topicsStore.getTopic(idx)
+              if (currentTopic?.selectedEvent?.event) {
+                return
+              }
 
-            const eventResponse = await fetch('/ui-api/kafka/events', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                ...requestBody,
-                topic: topicConfig.name, // FIX: API expects 'topic', not 'topicName'
-                position: topicConfig.consumer_group_initial_offset || 'latest',
-                format: 'JSON',
-              }),
-            })
+              const eventResponse = await fetch('/ui-api/kafka/events', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  ...requestBody,
+                  topic: topicConfig.name,
+                  position: topicConfig.consumer_group_initial_offset || 'latest',
+                  format: 'JSON',
+                }),
+              })
 
-            const eventData = await eventResponse.json()
+              const eventData = await eventResponse.json()
 
-            if (eventData.success && eventData.event) {
-              // Update the topic with the fetched event
-              const topic = useStore.getState().topicsStore.getTopic(idx)
-              if (topic) {
-                useStore.getState().topicsStore.updateTopic({
-                  ...topic,
-                  selectedEvent: {
-                    topicIndex: idx,
-                    position: topicConfig.consumer_group_initial_offset || 'latest',
-                    event: eventData.event,
-                  },
-                  // FIX: Also populate the events array for JoinConfigurator compatibility
-                  events: [
-                    {
-                      event: eventData.event,
+              if (eventData.success && eventData.event) {
+                const topic = useStore.getState().topicsStore.getTopic(idx)
+                if (topic) {
+                  useStore.getState().topicsStore.updateTopic({
+                    ...topic,
+                    selectedEvent: {
                       topicIndex: idx,
                       position: topicConfig.consumer_group_initial_offset || 'latest',
+                      event: eventData.event,
                     },
-                  ],
-                })
+                    events: [
+                      {
+                        event: eventData.event,
+                        topicIndex: idx,
+                        position: topicConfig.consumer_group_initial_offset || 'latest',
+                      },
+                    ],
+                  })
+                }
               }
+            } catch {
+              // Non-fatal — continue hydration even if event fetch fails
             }
-          } catch (error) {
-            // Don't throw - continue hydration even if event fetch fails
-          }
-        }),
-      )
-      // Set topic count in both topics store and core store
-      const topicCount = pipelineConfig.source.topics.length
+          }),
+        )
+      }
+
+      const topicCount = topicsToHydrate.length
       useStore.getState().topicsStore.setTopicCount(topicCount)
       useStore.getState().coreStore.setTopicCount(topicCount)
     }

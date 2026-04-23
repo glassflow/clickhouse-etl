@@ -11,6 +11,8 @@ interface UseMappingValidationParams {
   mode: MappingMode
   destinationPath?: 'create' | 'existing'
   orderBy?: string
+  /** Fields used as join/dedup keys — warn if any are not mapped to a ClickHouse column */
+  structuralFields?: string[]
 }
 
 interface UseMappingValidationReturn {
@@ -37,6 +39,7 @@ export function useMappingValidation({
   mode,
   destinationPath = 'existing',
   orderBy,
+  structuralFields = [],
 }: UseMappingValidationParams): UseMappingValidationReturn {
   // Validation issues state - updated continuously as mappings change
   const [validationIssues, setValidationIssues] = useState<ValidationIssues>({
@@ -48,6 +51,7 @@ export function useMappingValidation({
     missingTypeMappings: [],
     duplicateDestinationColumns: [],
     orderByInvalid: false,
+    unmappedStructuralFields: [],
   })
 
   // Continuously validate mappings to update validation issues in real-time
@@ -61,6 +65,7 @@ export function useMappingValidation({
       missingTypeMappings: [],
       duplicateDestinationColumns: [],
       orderByInvalid: false,
+      unmappedStructuralFields: [],
     }
 
     if (mappedColumns.length === 0) {
@@ -129,6 +134,11 @@ export function useMappingValidation({
     issues.incompatibleTypeMappings = invalidMappings
     issues.missingTypeMappings = missingTypeMappings
 
+    // Structural fields (join/dedup keys) that are not mapped to any ClickHouse column
+    issues.unmappedStructuralFields = structuralFields.filter(
+      (field) => !mappedColumns.some((col) => col.eventField === field),
+    )
+
     setValidationIssues(issues)
   }, [
     tableSchema.columns,
@@ -139,6 +149,7 @@ export function useMappingValidation({
     mode,
     destinationPath,
     orderBy,
+    structuralFields,
   ])
 
   /**
@@ -267,6 +278,18 @@ export function useMappingValidation({
         title: 'Extra Fields Detected',
         message: `Some incoming event fields will not be mapped to table columns. Unmapped fields will be dropped during processing. Do you want to continue with deployment?
         Unmapped fields: ${issues.extraEventFields.join(', ')}`,
+        okButtonText: 'Continue',
+        cancelButtonText: 'Cancel',
+      }
+    }
+
+    // 7. Structural fields (join/dedup keys) not mapped to ClickHouse (info)
+    if (issues.unmappedStructuralFields.length > 0) {
+      return {
+        type: 'warning',
+        canProceed: true,
+        title: 'Join/Dedup Keys Not Mapped to ClickHouse',
+        message: `The following fields are used as join or deduplication keys but are not mapped to any ClickHouse column. They will not be written to the sink table:\n\n${issues.unmappedStructuralFields.join(', ')}\n\nYou can map them in the field mapper above if you want them in the output table. Continue with deployment?`,
         okButtonText: 'Continue',
         cancelButtonText: 'Cancel',
       }

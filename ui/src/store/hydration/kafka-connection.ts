@@ -27,12 +27,12 @@ function mapBackendKafkaConfigToStore(connection_params: any): any {
                       : // Fallback: check deprecated skip_auth field for backward compatibility
                         Boolean(connection_params.skip_auth)
                         ? 'NO_AUTH'
-                        : ''
+                        : 'NO_AUTH'
 
   return {
     // base values
     authMethod,
-    securityProtocol: connection_params.protocol || '',
+    securityProtocol: connection_params.protocol || 'PLAINTEXT',
     bootstrapServers: (connection_params.brokers || []).join(', '),
 
     // sasl connection types
@@ -144,8 +144,11 @@ function mapBackendKafkaConfigToStore(connection_params: any): any {
 }
 
 export function hydrateKafkaConnection(pipelineConfig: any) {
-  if (pipelineConfig?.source?.connection_params) {
-    const kafkaConnection = mapBackendKafkaConfigToStore(pipelineConfig.source.connection_params)
+  // v3 format: sources[] at root — use first source's connection_params
+  const connectionParams =
+    pipelineConfig?.sources?.[0]?.connection_params ?? pipelineConfig?.source?.connection_params
+  if (connectionParams) {
+    const kafkaConnection = mapBackendKafkaConfigToStore(connectionParams)
     useStore.getState().kafkaStore.setKafkaConnection(kafkaConnection)
   }
 }

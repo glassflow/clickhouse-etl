@@ -295,8 +295,12 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
     }
   }
 
-  // Determine source type from pipeline API response (available before hydration)
-  const isOtlp = isOtlpSource(pipeline.source?.type || '')
+  // Detect OTLP from either old format (source.type) or v3 format (sources[0].type)
+  const rawSources = (pipeline as any).sources
+  const detectedSourceType = pipeline.source?.type
+    || (Array.isArray(rawSources) && rawSources.length > 0 ? rawSources[0]?.type : '')
+    || ''
+  const isOtlp = isOtlpSource(detectedSourceType)
 
   // Section selection highlighting - determine which overview card should be highlighted
   const isSourceSelected = isOtlp ? activeSection === 'otlp-source' : isSourceStep(activeStep)

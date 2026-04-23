@@ -259,80 +259,6 @@ export const buildInternalPipelineConfig = ({
         })
     : []
 
-  // Collect all field_names that are already in the mapping
-  const mappedFieldNames = new Set(tableMappings.map((m: any) => `${m.source_id}:${m.field_name}`))
-
-  // Add deduplication keys to mapping if they're not already included
-  // These entries have empty column_name and column_type because they're not mapped to ClickHouse,
-  // but the backend needs to know they're part of the Kafka schema
-  selectedTopics.forEach((topic: any, topicIndex: number) => {
-    const deduplicationConfig = deduplicationStore?.getDeduplication?.(topicIndex)
-    if (deduplicationConfig?.enabled && deduplicationConfig?.key) {
-      const dedupKey = deduplicationConfig.key
-      const topicName = topic.name
-      const fieldKey = `${topicName}:${dedupKey}`
-
-      // Only add if not already in the mapping
-      if (!mappedFieldNames.has(fieldKey)) {
-        tableMappings.push({
-          source_id: topicName,
-          field_name: dedupKey,
-          column_name: '',
-          column_type: '',
-        })
-        mappedFieldNames.add(fieldKey)
-      }
-    }
-  })
-
-  // Add join keys to mapping if they're not already included
-  // These entries have empty column_name and column_type because they're not mapped to ClickHouse,
-  // but the backend needs to know they're part of the Kafka schema
-  if (joinStore?.enabled && joinStore?.streams?.length > 0) {
-    joinStore.streams.forEach((stream: any) => {
-      if (stream.joinKey) {
-        const topicName = stream.topicName || stream.streamId
-        const fieldKey = `${topicName}:${stream.joinKey}`
-
-        // Only add if not already in the mapping
-        if (!mappedFieldNames.has(fieldKey)) {
-          tableMappings.push({
-            source_id: topicName,
-            field_name: stream.joinKey,
-            column_name: '',
-            column_type: '',
-          })
-          mappedFieldNames.add(fieldKey)
-        }
-      }
-    })
-  }
-
-  // Add filter fields to mapping if they're not already included
-  // These entries have empty column_name and column_type because they're not mapped to ClickHouse,
-  // but the backend needs to know they're part of the Kafka schema
-  if (filterStore?.filterConfig?.enabled && filterStore?.filterConfig?.root) {
-    const filterFields = extractFilterFields(filterStore.filterConfig.root)
-    // For OTLP there are no Kafka topics; use the OTLP source id instead.
-    // For single-topic Kafka pipelines, use the first topic name.
-    const topicName = isOtlp ? (otlpStore?.sourceId || 'source') : selectedTopics[0]?.name
-
-    filterFields.forEach((fieldName: string) => {
-      const fieldKey = `${topicName}:${fieldName}`
-
-      // Only add if not already in the mapping
-      if (!mappedFieldNames.has(fieldKey)) {
-        tableMappings.push({
-          source_id: topicName,
-          field_name: fieldName,
-          column_name: '',
-          column_type: '',
-        })
-        mappedFieldNames.add(fieldKey)
-      }
-    })
-  }
-
   // Normalize Kafka broker hosts when running inside Docker
   const runtimeEnv = getRuntimeEnv()
   const inDocker = runtimeEnv?.NEXT_PUBLIC_IN_DOCKER === 'true' || process.env.NEXT_PUBLIC_IN_DOCKER === 'true'
@@ -661,15 +587,27 @@ export const generateApiConfig = ({
     //    so any adapter can hydrate into it, but generation always targets the current backend API.
     const adapter = getPipelineAdapter(LATEST_PIPELINE_VERSION)
 
-    // 3. Inject pipeline_resources so the adapter can convert it to the correct wire format
-    //    (v3-next converts ingestor/transform/sink → resources.sources[]/transform[]/sink).
-    const internalWithResources =
+    // 3. Enrich internalConfig with pipeline_resources so the V3 adapter can translate
+    // them into resources.sources[] / resources.transform[] in the output.
+    // For legacy adapters (V1/V2) that don't handle this translation, we fall back to
+    // merging pipeline_resources as a top-level key after generation.
+    const enrichedConfig =
       pipeline_resources && typeof pipeline_resources === 'object' && Object.keys(pipeline_resources).length > 0
         ? { ...internalConfig, pipeline_resources }
         : internalConfig
 
     // 4. Generate the external API configuration
-    return adapter.generate(internalWithResources)
+    const apiConfig = adapter.generate(enrichedConfig)
+
+    // 5. Legacy fallback: V1/V2 adapters don't translate pipeline_resources internally
+    if (
+      pipeline_resources &&
+      Object.keys(pipeline_resources).length > 0 &&
+      adapter.version !== 'v3'
+    ) {
+      return { ...apiConfig, pipeline_resources }
+    }
+    return apiConfig
   } catch (error) {
     structuredLogger.error('Error generating API config', { error: error instanceof Error ? error.message : String(error) })
     return { error: 'Failed to generate API configuration' }

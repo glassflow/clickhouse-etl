@@ -113,6 +113,8 @@ export interface ValidationIssues {
   duplicateDestinationColumns: string[]
   /** True when order-by column is missing or invalid (create path) */
   orderByInvalid: boolean
+  /** Fields used as join/dedup keys that are not mapped to any ClickHouse column (warning) */
+  unmappedStructuralFields: string[]
 }
 
 /**
