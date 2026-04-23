@@ -1,3 +1,0 @@
-ALTER TABLE data_migrations
-    ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'applied',
-    ADD COLUMN IF NOT EXISTS error  TEXT;
