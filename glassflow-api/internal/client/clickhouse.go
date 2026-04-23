@@ -3,7 +3,6 @@ package client
 import (
 	"context"
 	"crypto/tls"
-	"encoding/base64"
 	"fmt"
 	"time"
 
@@ -42,7 +41,7 @@ func NewClickHouseClient(
 		host:                 cfg.Host,
 		port:                 cfg.Port,
 		username:             cfg.Username,
-		password:             decodeBase64Password(cfg.Password),
+		password:             cfg.Password,
 		database:             cfg.Database,
 		tableName:            cfg.Table,
 		secure:               cfg.Secure,
@@ -146,15 +145,4 @@ func (c *ClickHouseClient) AsyncInsert(
 	args ...any,
 ) error {
 	return c.conn.AsyncInsert(ctx, query, wait, args...)
-}
-
-// decodeBase64Password returns the base64-decoded password if p is valid standard
-// base64, otherwise returns p unchanged. This handles v2 pipelines that stored
-// the ClickHouse password base64-encoded; v3 stores it as plaintext.
-func decodeBase64Password(p string) string {
-	decoded, err := base64.StdEncoding.DecodeString(p)
-	if err != nil {
-		return p
-	}
-	return string(decoded)
 }

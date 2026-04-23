@@ -2,6 +2,7 @@ package datamigrations
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -187,6 +188,10 @@ func migratePipeline(ctx context.Context, tx pgx.Tx, p v2Pipeline) error {
 	}
 
 	if err := markPipelineV3(ctx, tx, p.id); err != nil {
+		return err
+	}
+
+	if err := decodeClickHousePassword(ctx, tx, p.sinkID); err != nil {
 		return err
 	}
 
@@ -421,6 +426,55 @@ func upsertSinkConfig(
 	}
 
 	return nil
+}
+
+// decodeClickHousePassword base64-decodes the ClickHouse password stored in
+// connections.config for the given sink. V2 pipelines stored the password as
+// base64(plaintext); v3 stores it as plaintext (or encrypted by the API layer).
+// This is safe to call on v2 connections because they are never encrypted.
+func decodeClickHousePassword(ctx context.Context, tx pgx.Tx, sinkID string) error {
+	var connID string
+	err := tx.QueryRow(ctx, `SELECT connection_id FROM sinks WHERE id = $1::uuid`, sinkID).Scan(&connID)
+	if err == pgx.ErrNoRows {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("get sink connection_id for %s: %w", sinkID, err)
+	}
+
+	var raw []byte
+	err = tx.QueryRow(ctx, `SELECT config FROM connections WHERE id = $1::uuid`, connID).Scan(&raw)
+	if err != nil {
+		return fmt.Errorf("get connection config %s: %w", connID, err)
+	}
+
+	// Use a minimal struct to avoid overwriting unrelated fields.
+	var cfg struct {
+		ClickHouseConnectionParams struct {
+			Password string `json:"password"`
+		} `json:"clickhouse_connection_params"`
+	}
+	if err := json.Unmarshal(raw, &cfg); err != nil {
+		return fmt.Errorf("unmarshal connection config %s: %w", connID, err)
+	}
+
+	pw := cfg.ClickHouseConnectionParams.Password
+	if pw == "" {
+		return nil
+	}
+
+	decoded, err := base64.StdEncoding.DecodeString(pw)
+	if err != nil {
+		return nil // already plaintext
+	}
+
+	// jsonb_set replaces only the nested password key, leaving all other fields intact.
+	_, err = tx.Exec(ctx, `
+		UPDATE connections
+		SET config = jsonb_set(config, '{clickhouse_connection_params,password}', to_jsonb($1::text))
+		WHERE id = $2::uuid
+	`, string(decoded), connID)
+	return err
 }
 
 func markPipelineV3(ctx context.Context, tx pgx.Tx, pipelineID string) error {
