@@ -145,7 +145,7 @@ type dedupConfigV2 struct {
 
 type joinSourceV2 struct {
 	SourceID    string              `json:"source_id"`
-	Key         string              `json:"key"`
+	Key         string              `json:"join_key"`
 	Window      models.JSONDuration `json:"time_window"`
 	Orientation string              `json:"orientation"`
 }
