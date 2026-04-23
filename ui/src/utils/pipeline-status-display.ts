@@ -3,6 +3,7 @@ import { PipelineStatus } from '@/src/types/pipeline'
 export type PipelineStatusBadgeVariant = 'success' | 'warning' | 'secondary' | 'error' | 'default'
 
 const STATUS_LABELS: Record<string, string> = {
+  starting: 'Starting...',
   active: 'Active',
   pausing: 'Pausing...',
   paused: 'Paused',
@@ -28,6 +29,7 @@ export function getPipelineStatusVariant(status: PipelineStatus): PipelineStatus
   switch (status) {
     case 'active':
       return 'success'
+    case 'starting':
     case 'paused':
     case 'pausing':
     case 'resuming':
@@ -49,6 +51,8 @@ export function getPipelineStatusVariant(status: PipelineStatus): PipelineStatus
  */
 export function getPipelineStatusAccessibilityText(status: PipelineStatus): string {
   switch (status) {
+    case 'starting':
+      return 'Pipeline is starting'
     case 'active':
       return 'Pipeline is active'
     case 'pausing':

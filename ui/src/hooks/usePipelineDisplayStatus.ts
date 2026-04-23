@@ -51,6 +51,7 @@ function getVariantForStatus(status: PipelineStatus): StatusVariant {
   switch (status) {
     case 'active':
       return 'success'
+    case 'starting':
     case 'paused':
     case 'pausing':
     case 'resuming':
@@ -72,6 +73,8 @@ function getVariantForStatus(status: PipelineStatus): StatusVariant {
  */
 function getLabelForStatus(status: PipelineStatus): string {
   switch (status) {
+    case 'starting':
+      return 'Starting...'
     case 'active':
       return 'Active'
     case 'pausing':
