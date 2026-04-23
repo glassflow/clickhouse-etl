@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 
 	"github.com/expr-lang/expr/ast"
 	"github.com/expr-lang/expr/parser"
@@ -74,9 +75,39 @@ func migrateV2ToV3(ctx context.Context, tx pgx.Tx) error {
 	}
 
 	for _, p := range pipelines {
-		if err := migratePipeline(ctx, tx, p); err != nil {
-			return fmt.Errorf("pipeline %s: %w", p.id, err)
+		if err := migratePipelineWithSavepoint(ctx, tx, p); err != nil {
+			slog.ErrorContext(ctx, "pipeline migration failed — skipping",
+				"pipeline_id", p.id,
+				"error", err.Error(),
+			)
 		}
+	}
+
+	return nil
+}
+
+func migratePipelineWithSavepoint(ctx context.Context, tx pgx.Tx, p v2Pipeline) error {
+	savepointName := "sp_migrate_" + p.id
+	// Postgres savepoint names must be valid identifiers — replace hyphens.
+	for i, c := range savepointName {
+		if c == '-' {
+			savepointName = savepointName[:i] + "_" + savepointName[i+1:]
+		}
+	}
+
+	if _, err := tx.Exec(ctx, "SAVEPOINT "+savepointName); err != nil {
+		return fmt.Errorf("create savepoint: %w", err)
+	}
+
+	if err := migratePipeline(ctx, tx, p); err != nil {
+		if _, rbErr := tx.Exec(ctx, "ROLLBACK TO SAVEPOINT "+savepointName); rbErr != nil {
+			return fmt.Errorf("rollback savepoint: %w (original: %w)", rbErr, err)
+		}
+		return fmt.Errorf("pipeline %s: %w", p.id, err)
+	}
+
+	if _, err := tx.Exec(ctx, "RELEASE SAVEPOINT "+savepointName); err != nil {
+		return fmt.Errorf("release savepoint: %w", err)
 	}
 
 	return nil
