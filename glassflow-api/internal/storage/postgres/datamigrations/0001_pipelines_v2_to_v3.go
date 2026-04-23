@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/expr-lang/expr/ast"
+	"github.com/expr-lang/expr/parser"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
@@ -132,7 +134,7 @@ func migratePipeline(ctx context.Context, tx pgx.Tx, p v2Pipeline) error {
 		return err
 	}
 
-	if err := upsertSourceSchemaVersions(ctx, tx, p.id, srcCfg); err != nil {
+	if err := upsertSourceSchemaVersions(ctx, tx, p.id, srcCfg, stateless); err != nil {
 		return err
 	}
 
@@ -161,9 +163,15 @@ func migratePipeline(ctx context.Context, tx pgx.Tx, p v2Pipeline) error {
 }
 
 // upsertSourceSchemaVersions populates schema_versions for each Kafka topic.
-func upsertSourceSchemaVersions(ctx context.Context, tx pgx.Tx, pipelineID string, src v2SourceConfig) error {
+// If a stateless transform is present, any source fields referenced in transform
+// expressions but missing from the stored stream schema are added using the
+// transform's output type — handling v2 pipelines that allowed undeclared fields.
+func upsertSourceSchemaVersions(ctx context.Context, tx pgx.Tx, pipelineID string, src v2SourceConfig, stateless *v2StatelessTransformation) error {
 	for sourceID, stream := range src.Streams {
 		fields := toSchemaFields(stream.Fields)
+		if stateless != nil && stateless.Enabled {
+			fields = supplementFieldsFromTransform(fields, stateless.Config.Transform)
+		}
 		fieldsJSON, err := json.Marshal(fields)
 		if err != nil {
 			return fmt.Errorf("marshal schema fields for source %s: %w", sourceID, err)
@@ -181,6 +189,74 @@ func upsertSourceSchemaVersions(ctx context.Context, tx pgx.Tx, pipelineID strin
 	}
 
 	return nil
+}
+
+// supplementFieldsFromTransform adds any source fields referenced in transform
+// expressions that are not already present in fields. The type is taken from the
+// matching transform output (best-effort; covers the common case where the input
+// and output types are the same, e.g. pass-throughs and arithmetic on int fields).
+func supplementFieldsFromTransform(fields []models.Field, transforms []models.Transform) []models.Field {
+	known := make(map[string]struct{}, len(fields))
+	for _, f := range fields {
+		known[f.Name] = struct{}{}
+	}
+
+	// Build output_name → output_type for quick lookup.
+	outputType := make(map[string]string, len(transforms))
+	for _, tr := range transforms {
+		outputType[tr.OutputName] = tr.OutputType
+	}
+
+	for _, tr := range transforms {
+		for _, name := range extractIdentifiers(tr.Expression) {
+			if _, exists := known[name]; exists {
+				continue
+			}
+			// Only add the field if we can find an output type to use as the source type.
+			typ, ok := outputType[name]
+			if !ok {
+				// No matching output — use the output type of this transform as a fallback.
+				typ = tr.OutputType
+			}
+			fields = append(fields, models.Field{Name: name, Type: typ})
+			known[name] = struct{}{}
+		}
+	}
+
+	return fields
+}
+
+// identifierCollector implements ast.Visitor to collect identifier names.
+type identifierCollector struct {
+	seen  map[string]struct{}
+	names []string
+}
+
+func (c *identifierCollector) Visit(node *ast.Node) {
+	ident, ok := (*node).(*ast.IdentifierNode)
+	if !ok {
+		return
+	}
+	if _, dup := c.seen[ident.Value]; dup {
+		return
+	}
+	c.seen[ident.Value] = struct{}{}
+	c.names = append(c.names, ident.Value)
+}
+
+// extractIdentifiers parses an expr-lang expression and returns the names of all
+// identifier nodes (variable references).
+func extractIdentifiers(expression string) []string {
+	tree, err := parser.Parse(expression)
+	if err != nil {
+		// If the expression can't be parsed, return nothing — the v3 validator
+		// will catch the error at edit/create time with a clearer message.
+		return nil
+	}
+
+	c := &identifierCollector{seen: make(map[string]struct{})}
+	ast.Walk(&tree.Node, c)
+	return c.names
 }
 
 // upsertStatelessTransformConfig populates schema_versions for the transform output
