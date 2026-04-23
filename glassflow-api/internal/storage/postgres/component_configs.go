@@ -281,7 +281,7 @@ func (s *PostgresStorage) getTransformationSourceID(ctx context.Context, tx pgx.
 	`, pipelineID, transformationID).Scan(&sourceID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return "", models.ErrRecordNotFound
+			return "", fmt.Errorf("no transformation_configs row for pipeline=%q transformation_id=%q: %w", pipelineID, transformationID, models.ErrRecordNotFound)
 		}
 		return "", fmt.Errorf("get transformation source_id: %w", err)
 	}
