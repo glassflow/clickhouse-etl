@@ -3,7 +3,6 @@
 import React, { useEffect } from 'react'
 import { ChevronDownIcon } from '@heroicons/react/24/outline'
 import { structuredLogger } from '@/src/observability'
-import { stepsMetadata } from '@/src/config/constants'
 import { getStepDescriptor } from '@/src/config/step-registry'
 import { StepKeys } from '@/src/config/constants'
 import { useRouter } from 'next/navigation'
@@ -146,7 +145,6 @@ function PipelineWizard() {
   const renderStepComponent = (
     instance: StepInstance,
     stepComponentsMap: Record<string, React.ComponentType<any>>,
-    stepsMeta: typeof stepsMetadata,
     onNext: () => void,
     validateStepFn: (step: string, data: unknown) => { success: boolean; errors: any },
   ) => {
@@ -169,7 +167,6 @@ function PipelineWizard() {
         stepKey === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2
       return (
         <StepComponent
-          steps={stepsMeta}
           onCompleteStep={onNext}
           validate={validateStepFn}
           currentStep={stepKey}
@@ -192,7 +189,7 @@ function PipelineWizard() {
       return <StepComponent onCompleteStep={onNext} />
     }
 
-    return <StepComponent steps={stepsMeta} onCompleteStep={onNext} validate={validateStepFn} />
+    return <StepComponent onCompleteStep={onNext} validate={validateStepFn} />
   }
 
   return (
@@ -222,7 +219,7 @@ function PipelineWizard() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {renderStepComponent(currentActiveInstance, stepComponents, stepsMetadata, handleNext, validateStep)}
+                {renderStepComponent(currentActiveInstance, stepComponents, handleNext, validateStep)}
               </CardContent>
             </Card>
           )}
