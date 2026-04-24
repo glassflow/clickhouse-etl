@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { devtools } from 'zustand/middleware'
+import { devtools, subscribeWithSelector } from 'zustand/middleware'
 import {
   OperationsSelectedType,
   DeduplicationConfigType,
@@ -45,9 +45,10 @@ interface Store
   clearAllUserData: () => void
 }
 
-// Wrap your store with devtools middleware
+// Wrap your store with devtools + subscribeWithSelector middleware
 const useActualStore = create<Store>()(
   devtools(
+    subscribeWithSelector(
     (set, get, store) => ({
       ...createKafkaSlice(set, get, store),
       ...createClickhouseConnectionSlice(set, get, store),
@@ -156,6 +157,7 @@ const useActualStore = create<Store>()(
         state.coreStore.clearSaveHistory()
       },
     }),
+    ),
     {
       name: 'app-clickhouse-pivot-store', // unique name for the store in DevTools
       enabled: process.env.NODE_ENV !== 'production', // only enable in development
