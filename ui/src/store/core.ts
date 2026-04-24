@@ -268,7 +268,7 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
       }))
       Cookies.set('isDirty', 'false', { expires: 1 })
     },
-    setApiConfig: (config: any) =>
+    setApiConfig: (config: Partial<Pipeline>) =>
       set((state) => ({
         coreStore: { ...state.coreStore, apiConfig: config },
       })),

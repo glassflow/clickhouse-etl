@@ -17,10 +17,11 @@ export function ObservabilityProvider({ children }: ObservabilityProviderProps) 
     // Initialize observability when the app mounts
     initializeObservability()
     // Wire cross-slice store effects (subscribe-based, called once at startup)
-    wireCrossSliceEffects()
+    const unsubscribeCrossSlice = wireCrossSliceEffects()
 
     // Cleanup function to shutdown observability
     return () => {
+      unsubscribeCrossSlice()
       shutdownObservability().catch((error) => {
         console.error('[Observability] Error during shutdown:', error)
       })
