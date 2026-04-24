@@ -38,7 +38,7 @@ export function CreatePipelineModal({ open, onClose, aiEnabled = false }: Create
       label: 'Wizard',
       description: 'Step-by-step guided pipeline setup',
       icon: <WorkflowIcon size={24} />,
-      href: '/home',
+      href: '/',
     },
     {
       id: 'canvas',
