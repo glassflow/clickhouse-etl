@@ -175,5 +175,8 @@ const useStoreWithMocks = create<Store>()(
 
 export const useStore = useActualStore
 
+/** Full store state type — use this for service functions that receive the whole store snapshot */
+export type RootStoreState = Store
+
 // NOTE: uncomment this to use mocks in development
 // export const useStore = process.env.NODE_ENV === 'production' ? useActualStore : useStoreWithMocks

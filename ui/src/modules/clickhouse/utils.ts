@@ -6,6 +6,7 @@ import { InternalPipelineConfig } from '@/src/types/pipeline'
 import { getPipelineAdapter } from '@/src/modules/pipeline-adapters/factory'
 import { LATEST_PIPELINE_VERSION } from '@/src/config/pipeline-versions'
 import { isOtlpSource } from '@/src/config/source-types'
+import { normalizeFieldType, valueToFieldType, jsonTypeToClickHouseType } from '@/src/utils/type-conversion'
 
 const encodeBase64 = (password: string) => {
   return password ? Buffer.from(password).toString('base64') : undefined
@@ -614,36 +615,6 @@ export const generateApiConfig = ({
   }
 }
 
-// Helper function to infer JSON type (simplified to basic types)
-export function inferJsonType(value: any): string {
-  if (value === null) return 'null'
-  if (value === undefined) return 'undefined'
-
-  const type = typeof value
-
-  if (type === 'number') {
-    // All integers (positive or negative) → 'int'
-    // All floating point numbers → 'float'
-    if (Number.isInteger(value)) {
-      // For numbers outside safe integer range, use string
-      if (value > Number.MAX_SAFE_INTEGER || value < Number.MIN_SAFE_INTEGER) {
-        return 'string'
-      }
-      return 'int'
-    }
-    return 'float'
-  }
-
-  if (type === 'boolean') return 'bool'
-
-  if (type === 'string') return 'string'
-
-  if (Array.isArray(value)) return 'array'
-
-  // For objects, return bytes (will be serialized to JSON string)
-  return 'bytes'
-}
-
 // Helper function to find best matching field
 export const findBestMatchingField = (columnName: string, fields: string[]): string | undefined => {
   // Normalize by removing underscores, dots, and lowercasing
@@ -696,7 +667,7 @@ export const getFieldType = (data: any, fieldPath: string): string => {
   if (value === undefined || value === null) {
     return 'string' // Default type for undefined/null values
   }
-  return inferJsonType(value)
+  return valueToFieldType(value)
 }
 
 /**
@@ -812,16 +783,6 @@ export function isTypeCompatible(sourceType: string | undefined, clickhouseType:
 }
 
 /**
- * Returns a default ClickHouse type for a given JSON/Kafka type (first compatible type).
- * Used when auto-generating mapping rows for the create-table path.
- */
-export function getDefaultClickHouseType(jsonType: string): string {
-  if (!jsonType) return 'String'
-  const compatible = TYPE_COMPATIBILITY_MAP[jsonType.toLowerCase()]
-  return compatible?.[0] ?? 'String'
-}
-
-/**
  * Validates column mappings for compatibility between source and destination types
  * @param mappings Array of column mappings to validate
  * @returns An object containing valid and invalid mappings
@@ -915,7 +876,7 @@ export function buildInitialMappingFromEventFields(
 ): TableColumn[] {
   return eventFields.map((field) => {
     const jsonType = getJsonType(field) || 'string'
-    const chType = getDefaultClickHouseType(jsonType)
+    const chType = jsonTypeToClickHouseType(normalizeFieldType(jsonType))
     return {
       name: field,
       type: chType,

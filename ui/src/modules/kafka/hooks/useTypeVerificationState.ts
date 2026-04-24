@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { extractEventFields } from '@/src/utils/common.client'
-import { inferJsonType, getNestedValue } from '@/src/modules/clickhouse/utils'
+import { getNestedValue } from '@/src/modules/clickhouse/utils'
+import { valueToFieldType } from '@/src/utils/type-conversion'
 import type { FieldTypeInfo } from '@/src/modules/kafka/types'
 
 interface SchemaField {
@@ -40,7 +41,7 @@ export function useTypeVerificationState({ eventData, topic }: UseTypeVerificati
 
     const inferredTypeInfo: FieldTypeInfo[] = inferredFields.map((fieldName) => {
       const value = getNestedValue(eventData, fieldName)
-      const inferredType = inferJsonType(value) || 'string'
+      const inferredType = valueToFieldType(value) || 'string'
       const existingField = existingSchemaMap.get(fieldName)
       const userType = existingField?.userType || existingField?.type || inferredType
 

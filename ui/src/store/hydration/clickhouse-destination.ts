@@ -1,6 +1,7 @@
 import { useStore } from '../index'
 import { structuredLogger } from '@/src/observability'
 import { parseGoDuration } from '@/src/utils/duration'
+import { clickHouseTypeToJsonType } from '@/src/utils/type-conversion'
 
 // Helper: Map backend config to your store's destination shape
 // schemaFields is optional and used for V2 format where mapping is in schema.fields instead of sink.table_mapping
@@ -62,7 +63,7 @@ function mapBackendClickhouseDestinationToStore(sink: any, schemaFields?: any[],
     type: m.column_type || '',
     eventField: m.field_name || m.eventField || '',
     sourceTopic: m.source_id || '',
-    jsonType: mapClickHouseTypeToJsonType(m.column_type || ''),
+    jsonType: clickHouseTypeToJsonType(m.column_type || ''),
     isNullable: (m.column_type || '').includes('Nullable'),
   }))
 
@@ -82,27 +83,6 @@ function mapBackendClickhouseDestinationToStore(sink: any, schemaFields?: any[],
     engine: isDeployedPipeline ? undefined : sink.engine,
     orderBy: isDeployedPipeline ? undefined : sink.order_by,
   }
-}
-
-// Best-effort mapping from ClickHouse type to JSON type used by UI
-function mapClickHouseTypeToJsonType(clickhouseType: string): string {
-  const t = (clickhouseType || '').toLowerCase()
-  if (!t) return ''
-
-  // Remove wrappers like Nullable(...) and LowCardinality(...)
-  const unwrapped = t.replace(/nullable\((.*)\)/, '$1').replace(/lowcardinality\((.*)\)/, '$1')
-
-  if (unwrapped.startsWith('string') || unwrapped.startsWith('fixedstring') || unwrapped.includes('uuid'))
-    return 'string'
-  if (unwrapped.startsWith('bool') || unwrapped === 'boolean') return 'bool'
-  if (unwrapped.startsWith('u')) return 'uint'
-  if (unwrapped.startsWith('int')) return 'int'
-  if (unwrapped.startsWith('float') || unwrapped.startsWith('decimal')) return 'float'
-  if (unwrapped.startsWith('date') || unwrapped.startsWith('datetime')) return 'string'
-  if (unwrapped.startsWith('array')) return 'array'
-  if (unwrapped.startsWith('map')) return 'map'
-
-  return 'string'
 }
 
 export async function hydrateClickhouseDestination(pipelineConfig: any) {
@@ -247,7 +227,7 @@ export async function hydrateClickhouseDestination(pipelineConfig: any) {
     const columnType = col.type || (col as any).column_type || ''
 
     // Derive a best-effort jsonType from ClickHouse type if event-derived inference is unavailable
-    const derivedJsonType = mapClickHouseTypeToJsonType(columnType)
+    const derivedJsonType = clickHouseTypeToJsonType(columnType)
 
     return {
       // UI mapping shape expected by ClickhouseMapper / FieldColumnMapper

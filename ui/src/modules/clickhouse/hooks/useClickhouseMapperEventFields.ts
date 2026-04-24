@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
-  inferJsonType,
   findBestMatchingField,
   getNestedValue,
   getVerifiedTypeFromTopic,
 } from '../utils'
+import { valueToFieldType } from '@/src/utils/type-conversion'
 import { extractEventFields } from '@/src/utils/common.client'
 import type { TableColumn } from '../types'
 import type { MappingMode } from '../types'
@@ -144,7 +144,7 @@ export function useClickhouseMapperEventFields({
             updatedColumns[index] = {
               ...col,
               eventField: matchingField,
-              jsonType: verifiedType || inferJsonType(getNestedValue(data, matchingField)),
+              jsonType: verifiedType || valueToFieldType(getNestedValue(data, matchingField)),
             }
           }
         })
@@ -224,7 +224,7 @@ export function useClickhouseMapperEventFields({
         const topicForSchema = source === 'primary' ? primaryTopic : secondaryTopic
         const verifiedType = getVerifiedTypeFromTopic(topicForSchema, matchingField)
         const jsonType =
-          verifiedType || inferJsonType(getNestedValue(sourceData, matchingField)) || 'string'
+          verifiedType || valueToFieldType(getNestedValue(sourceData, matchingField)) || 'string'
         updatedColumns[index] = {
           ...col,
           eventField: matchingField,
@@ -278,7 +278,7 @@ export function useClickhouseMapperEventFields({
           }
           if (!eventData) return col
           const value = getNestedValue(eventData, col.eventField)
-          const inferred = inferJsonType(value)
+          const inferred = valueToFieldType(value)
           if (inferred) {
             changed = true
             return { ...col, jsonType: inferred }
@@ -318,7 +318,7 @@ export function useClickhouseMapperEventFields({
           return { ...col, jsonType: verifiedType }
         }
         const value = sourceData ? getNestedValue(sourceData, col.eventField) : undefined
-        const inferred = inferJsonType(value)
+        const inferred = valueToFieldType(value)
         if (inferred) {
           changed = true
           return { ...col, jsonType: inferred }
@@ -371,7 +371,7 @@ export function useClickhouseMapperEventFields({
         const topicForSchema = source === 'primary' ? primaryTopic : secondaryTopic
         const verifiedType = getVerifiedTypeFromTopic(topicForSchema, matchingField)
         const jsonType =
-          verifiedType || inferJsonType(getNestedValue(sourceData, matchingField)) || 'string'
+          verifiedType || valueToFieldType(getNestedValue(sourceData, matchingField)) || 'string'
         updatedColumns[index] = {
           ...col,
           eventField: matchingField,
@@ -454,7 +454,7 @@ export function useClickhouseMapperEventFields({
               updatedColumns[index] = {
                 ...col,
                 eventField: matchingField,
-                jsonType: verifiedType || inferJsonType(getNestedValue(eventData, matchingField)),
+                jsonType: verifiedType || valueToFieldType(getNestedValue(eventData, matchingField)),
               }
               hasChanges = true
             }
@@ -477,7 +477,7 @@ export function useClickhouseMapperEventFields({
           const topicForSchema = source === 'primary' ? primaryTopic : secondaryTopic
           const verifiedType = getVerifiedTypeFromTopic(topicForSchema, matchingField)
           const jsonType =
-            verifiedType || inferJsonType(getNestedValue(sourceData, matchingField)) || 'string'
+            verifiedType || valueToFieldType(getNestedValue(sourceData, matchingField)) || 'string'
           updatedColumns[index] = {
             ...col,
             eventField: matchingField,
@@ -539,7 +539,7 @@ export function useClickhouseMapperEventFields({
           } else {
             const fieldValue = eventField ? getNestedValue(eventData, eventField) : undefined
             inferredType = eventField
-              ? inferJsonType(fieldValue)
+              ? valueToFieldType(fieldValue)
               : (updatedColumns[index].jsonType ?? 'string')
           }
         } else {
@@ -558,7 +558,7 @@ export function useClickhouseMapperEventFields({
             const data = sourceEventData ?? sourceData
             const fieldValue = data ? getNestedValue(data, eventField) : undefined
             inferredType = eventField
-              ? inferJsonType(fieldValue)
+              ? valueToFieldType(fieldValue)
               : (updatedColumns[index].jsonType ?? 'string')
           }
         }

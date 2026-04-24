@@ -3,7 +3,8 @@
 import { useMemo } from 'react'
 import { TransformationField } from '@/src/store/transformation.store'
 import { extractEventFields, type SchemaField } from '@/src/utils/common.client'
-import { inferJsonType, getNestedValue } from '@/src/modules/clickhouse/utils'
+import { getNestedValue } from '@/src/modules/clickhouse/utils'
+import { valueToFieldType } from '@/src/utils/type-conversion'
 
 export interface AvailableField {
   name: string
@@ -50,7 +51,7 @@ export function useAvailableFields(
       const fieldNames = extractEventFields(effectiveEventData)
       return fieldNames.map((fieldName) => ({
         name: fieldName,
-        type: inferJsonType(getNestedValue(effectiveEventData, fieldName)),
+        type: valueToFieldType(getNestedValue(effectiveEventData, fieldName)),
       }))
     }
 
