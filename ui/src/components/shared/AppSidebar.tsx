@@ -61,9 +61,11 @@ function HelpMenu() {
 
   return (
     <div className="relative">
-      <button
+      <Button
+        variant="ghost"
+        size="sm"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 w-full px-3 py-2 rounded-md body-3 text-[var(--color-foreground-neutral-faded)] hover:text-[var(--color-foreground-neutral)] hover:bg-[var(--interactive-hover-bg)] transition-colors"
+        className="flex items-center gap-2 w-full justify-start px-3 body-3"
         aria-expanded={isOpen}
         aria-label="Help menu"
       >
@@ -72,14 +74,14 @@ function HelpMenu() {
           className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
         />
         Help
-      </button>
+      </Button>
 
       {isOpen && (
         <div className="absolute bottom-full left-0 mb-1 w-48 bg-[var(--color-background-elevation-raised-faded-2)] surface-gradient-border rounded-md shadow-lg py-1 z-50">
           <a
             href="https://docs.glassflow.dev/"
             target="_blank"
-            rel="noopener"
+            rel="noopener noreferrer"
             className="flex items-center gap-2 px-3 py-2 caption-1 text-[var(--color-foreground-neutral)] hover:bg-[var(--color-background-elevation-raised-faded)] transition-colors"
             onClick={() => setIsOpen(false)}
           >
@@ -89,7 +91,7 @@ function HelpMenu() {
           <a
             href="https://www.glassflow.dev/contact"
             target="_blank"
-            rel="noopener"
+            rel="noopener noreferrer"
             className="flex items-center gap-2 px-3 py-2 caption-1 text-[var(--color-foreground-neutral)] hover:bg-[var(--color-background-elevation-raised-faded)] transition-colors"
             onClick={() => setIsOpen(false)}
           >
@@ -99,7 +101,7 @@ function HelpMenu() {
           <a
             href="https://github.com/glassflow/clickhouse-etl/issues"
             target="_blank"
-            rel="noopener"
+            rel="noopener noreferrer"
             className="flex items-center gap-2 px-3 py-2 caption-1 text-[var(--color-foreground-neutral)] hover:bg-[var(--color-background-elevation-raised-faded)] transition-colors"
             onClick={() => setIsOpen(false)}
           >

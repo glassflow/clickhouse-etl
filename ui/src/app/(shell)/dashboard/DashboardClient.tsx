@@ -41,7 +41,7 @@ function StatCard({ label, value, icon, accent = 'default' }: StatCardProps) {
         {icon}
       </span>
       <div className="flex flex-col gap-0.5">
-        <span className="title-4 font-semibold text-[var(--text-primary)]">{value}</span>
+        <span className="title-3 text-[var(--text-primary)]">{value}</span>
         <span className="caption-1 text-[var(--text-secondary)]">{label}</span>
       </div>
     </Card>

@@ -43,8 +43,14 @@ export default async function DashboardPage() {
 
   const stats = {
     total: pipelines.length,
-    running: pipelines.filter((p) => (p.status as string) === 'running' || (p.status as string) === 'active').length,
-    error: pipelines.filter((p) => (p.status as string) === 'error' || (p.status as string) === 'failed').length,
+    running: pipelines.filter((p) => {
+      const s = (p.status as string | undefined)?.toLowerCase()
+      return s === 'running' || s === 'active'
+    }).length,
+    error: pipelines.filter((p) => {
+      const s = (p.status as string | undefined)?.toLowerCase()
+      return s === 'error' || s === 'failed'
+    }).length,
   }
 
   return (
