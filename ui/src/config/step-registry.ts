@@ -44,7 +44,6 @@ export type SectionKey =
  * All fields that were previously scattered across stepsMetadata, componentsMap,
  * sidebarStepConfig, and STEP_RENDERER_CONFIG are consolidated here.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export interface StepDescriptor {
   /** The unique step key — matches a value in the StepKeys enum. */
   key: StepKeys
@@ -57,11 +56,19 @@ export interface StepDescriptor {
   title: string
 
   /**
-   * React component rendered when this step is active.
-   * `null` for steps that have no standalone panel (deploy, review).
+   * Component rendered in the pipeline-detail edit panel when this step is selected.
+   * `null` for steps that have no standalone edit panel (review, deploy).
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   component: ComponentType<any> | null
+
+  /**
+   * Component rendered in the pipeline-creation wizard when this step is active.
+   * Falls back to `component` when absent. Set this when a step should render in
+   * the wizard but not expose an edit panel (e.g. REVIEW_CONFIGURATION).
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  wizardComponent?: ComponentType<any>
 
   /**
    * Optional guard evaluated at render time.
@@ -288,7 +295,8 @@ export const STEP_REGISTRY: StepDescriptor[] = [
     title: 'Review',
     sidebarTitle: 'Review & Deploy',
     description: 'Review and deploy',
-    component: ReviewConfiguration,
+    component: null,
+    wizardComponent: ReviewConfiguration,
     sectionKey: 'review',
     sidebarParent: null,
     dependsOn: [StepKeys.PIPELINE_RESOURCES],
@@ -344,12 +352,17 @@ export function getStepDescriptor(key: StepKeys): StepDescriptor | undefined {
 
 /**
  * Derive `componentsMap` — a Record<StepKeys, ComponentType> — from the
- * registry.  Steps with `component: null` are omitted.
+ * registry for wizard use.  For each step the effective component is
+ * `wizardComponent ?? component`; steps where both are `null` / `undefined`
+ * are omitted.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function buildComponentsMap(): Partial<Record<StepKeys, ComponentType<any>>> {
   return Object.fromEntries(
-    STEP_REGISTRY.filter((d) => d.component !== null).map((d) => [d.key, d.component!]),
+    STEP_REGISTRY.flatMap((d) => {
+      const effective = d.wizardComponent ?? d.component
+      return effective !== null && effective !== undefined ? [[d.key, effective]] : []
+    }),
   ) as Partial<Record<StepKeys, ComponentType<any>>>
 }
 
