@@ -114,10 +114,9 @@ function HelpMenu() {
 
 type AppSidebarProps = {
   onCreateClick?: () => void
-  aiEnabled?: boolean
 }
 
-export function AppSidebar({ onCreateClick, aiEnabled = false }: AppSidebarProps) {
+export function AppSidebar({ onCreateClick }: AppSidebarProps) {
   const pathname = usePathname()
   const runtimeEnv = getRuntimeEnv()
   const isAuthEnabled = runtimeEnv?.NEXT_PUBLIC_AUTH0_ENABLED === 'true'
