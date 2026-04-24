@@ -78,26 +78,14 @@ export const createTopicsSlice: StateCreator<TopicsSlice> = (set, get) => ({
     getTopic: (index: number) => get().topicsStore.topics[index],
     getEvent: (index: number, eventIndex: number) => get().topicsStore.topics[index]?.events?.[eventIndex],
 
-    // New method to invalidate dependent state when topic changes
+    // New method to invalidate dependent state when topic changes.
+    // Cross-slice side effects (join, deduplication) are handled by wireCrossSliceEffects()
+    // in cross-slice-effects.ts, which subscribes to topics changes via the root store.
     invalidateTopicDependentState: (index: number) => {
       const topic = get().topicsStore.topics[index]
       if (!topic) return
 
-      // Clear join store as well - access from the root store object
-      // We need to cast to any to access the joinStore from another slice
-      const store = get() as any
-      if (store.joinStore) {
-        store.joinStore.setEnabled(false)
-        store.joinStore.setType('')
-        store.joinStore.setStreams([])
-      }
-
-      // Invalidate deduplication store for this topic index
-      if (store.deduplicationStore) {
-        store.deduplicationStore.invalidateDeduplication(index)
-      }
-
-      // Then update the topic to remove dependent state
+      // Update the topic to remove dependent state
       set((state) => {
         // Keep only these properties, remove all others
         const cleanedTopic = {

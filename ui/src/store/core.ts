@@ -13,7 +13,7 @@ import { hydrateFilter } from './hydration/filter'
 import { hydrateTransformation } from './hydration/transformation'
 import { hydrateResources } from './hydration/resources'
 import { hydrateOtlpSource } from './hydration/otlp-source'
-import { isOtlpSource } from '@/src/config/source-types'
+import { isOtlpSource, SourceType } from '@/src/config/source-types'
 
 // Helper function to compute operation type from topicCount + deduplication + join state
 // This is used for backward compatibility (analytics, display, etc.)
@@ -121,7 +121,7 @@ interface CoreStore extends CoreStoreProps {
   hydrateFromConfig: (config: PipelineConfigForHydration) => Promise<void>
   resetToInitial: () => void
   discardChanges: () => void
-  enterCreateMode: () => void
+  enterCreateMode: (sourceType?: SourceType | string) => void
   enterEditMode: (config: Pipeline) => void
   enterViewMode: (config: Pipeline) => Promise<void>
   isDirtyComparedToBase: () => boolean
@@ -215,10 +215,12 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
         return ''
       }
 
-      // Access other stores through the root store
-      // We need to cast to access other slices since we're in a slice creator
+      // Access other slices via the root store instance to avoid `get() as any` casts.
+      // Lazy require avoids a circular import at module-evaluation time (index imports core).
       try {
-        const rootState = get() as any
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { useStore } = require('./index') as typeof import('./index')
+        const rootState = useStore.getState()
         const deduplicationConfigs = rootState.deduplicationStore?.deduplicationConfigs || {}
         const hasJoin = rootState.joinStore?.enabled || false
 
@@ -376,7 +378,7 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
         state.coreStore.resetToInitial()
       }
     },
-    enterCreateMode: () => {
+    enterCreateMode: (sourceType: SourceType | string = SourceType.KAFKA) => {
       const currentState = get()
       const previousMode = currentState.coreStore.mode
 
@@ -384,6 +386,7 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
         coreStore: {
           ...state.coreStore,
           ...initialCoreStore,
+          sourceType,
           mode: 'create',
           baseConfig: undefined,
           lastSavedConfig: undefined,
