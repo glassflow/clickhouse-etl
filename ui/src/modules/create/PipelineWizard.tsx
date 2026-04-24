@@ -4,6 +4,7 @@ import React, { useEffect } from 'react'
 import { ChevronDownIcon } from '@heroicons/react/24/outline'
 import { structuredLogger } from '@/src/observability'
 import { stepsMetadata } from '@/src/config/constants'
+import { getStepDescriptor } from '@/src/config/step-registry'
 import { StepKeys } from '@/src/config/constants'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/src/components/ui/card'
@@ -122,7 +123,7 @@ function PipelineWizard() {
 
   const getStepTitle = (instance: StepInstance) => {
     const stepKey = instance.key
-    const step = stepsMetadata[stepKey]
+    const step = getStepDescriptor(stepKey)
     const topics = topicsStore?.topics || {}
 
     if (stepKey === StepKeys.TOPIC_SELECTION_1 || stepKey === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1) {
@@ -217,7 +218,7 @@ function PipelineWizard() {
                   </div>
                 </CardTitle>
                 <CardDescription className="subtitle-3">
-                  {stepsMetadata[currentActiveInstance.key]?.description || ''}
+                  {getStepDescriptor(currentActiveInstance.key)?.description || ''}
                 </CardDescription>
               </CardHeader>
               <CardContent>

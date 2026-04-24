@@ -1,22 +1,11 @@
+import React from 'react'
 import { StepKeys } from '@/src/config/constants'
-import { KafkaConnectionContainer } from '../kafka/KafkaConnectionContainer'
 import { structuredLogger } from '@/src/observability'
-import { KafkaTopicSelector } from '../kafka/KafkaTopicSelector'
-import { KafkaTypeVerification } from '../kafka/KafkaTypeVerification'
-import { DeduplicationConfigurator } from '../deduplication/DeduplicationConfigurator'
-import { FilterConfigurator } from '../filter/FilterConfigurator'
-import { TransformationConfigurator } from '../transformation/TransformationConfigurator'
-import { ClickhouseConnectionContainer } from '../clickhouse/ClickhouseConnectionContainer'
-import { ClickhouseMapper } from '../clickhouse/ClickhouseMapper'
-import { ReviewConfiguration } from '../review/ReviewConfiguration'
-import { PipelineResourcesConfigurator } from '../resources/PipelineResourcesConfigurator'
-import { JoinConfigurator } from '../join/JoinConfigurator'
-import { OtlpSignalTypeStep } from '../otlp/components/OtlpSignalTypeStep'
-import { OtlpDeduplicationStep } from '../otlp/components/OtlpDeduplicationStep'
 import { OperationKeys } from '@/src/config/constants'
 import { isOtlpSource } from '@/src/config/source-types'
 import type { SidebarStep } from './WizardSidebar'
 import { isPreviewModeEnabled, isFiltersEnabled, isTransformationsEnabled } from '@/src/config/feature-flags'
+import { buildComponentsMap, buildSidebarStepConfig } from '@/src/config/step-registry'
 
 /** Unique step occurrence in the wizard journey; used for instance-based navigation. */
 export interface StepInstance {
@@ -31,76 +20,9 @@ export { getStepIcon, stepIcons, type StepIconComponent } from './wizard-step-ic
 // Sidebar step configuration for display in the wizard sidebar
 // Maps step keys to display titles and hierarchy information
 // Icons are defined separately in wizard-step-icons.tsx
-const sidebarStepConfig: Record<StepKeys, Omit<SidebarStep, 'id' | 'key'>> = {
-  [StepKeys.KAFKA_CONNECTION]: {
-    title: 'Kafka Connection',
-    parent: null,
-  },
-  [StepKeys.TOPIC_SELECTION_1]: {
-    title: 'Select Topic',
-    parent: null,
-  },
-  [StepKeys.TOPIC_SELECTION_2]: {
-    title: 'Select Right Topic',
-    parent: null,
-  },
-  [StepKeys.KAFKA_TYPE_VERIFICATION]: {
-    title: 'Verify Field Types',
-    parent: null,
-  },
-  [StepKeys.DEDUPLICATION_CONFIGURATOR]: {
-    title: 'Deduplicate',
-    parent: StepKeys.KAFKA_TYPE_VERIFICATION, // substep of type verification
-  },
-  [StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1]: {
-    title: 'Select Left Topic',
-    parent: null,
-  },
-  [StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2]: {
-    title: 'Select Right Topic',
-    parent: null,
-  },
-  [StepKeys.JOIN_CONFIGURATOR]: {
-    title: 'Join Configuration',
-    parent: null,
-  },
-  [StepKeys.FILTER_CONFIGURATOR]: {
-    title: 'Filter',
-    parent: StepKeys.KAFKA_TYPE_VERIFICATION, // substep of type verification (only for single topic)
-  },
-  [StepKeys.TRANSFORMATION_CONFIGURATOR]: {
-    title: 'Transform',
-    parent: StepKeys.KAFKA_TYPE_VERIFICATION, // substep of type verification
-  },
-  [StepKeys.CLICKHOUSE_CONNECTION]: {
-    title: 'ClickHouse Connection',
-    parent: null,
-  },
-  [StepKeys.CLICKHOUSE_MAPPER]: {
-    title: 'Mapping',
-    parent: null,
-  },
-  [StepKeys.PIPELINE_RESOURCES]: {
-    title: 'Pipeline Resources',
-    parent: null,
-  },
-  [StepKeys.REVIEW_CONFIGURATION]: {
-    title: 'Review & Deploy',
-    parent: null,
-  },
-  [StepKeys.DEPLOY_PIPELINE]: {
-    title: 'Deploy Pipeline',
-    parent: null,
-  },
-  [StepKeys.OTLP_SIGNAL_TYPE]: {
-    title: 'Select Signal Type',
-    parent: null,
-  },
-  [StepKeys.OTLP_DEDUPLICATION]: {
-    title: 'Deduplication',
-    parent: StepKeys.OTLP_SIGNAL_TYPE,
-  },
-}
+// Derived from STEP_REGISTRY — edit src/config/step-registry.ts to change per-step values.
+const sidebarStepConfig: Record<StepKeys, Omit<SidebarStep, 'id' | 'key'>> =
+  buildSidebarStepConfig() as Record<StepKeys, Omit<SidebarStep, 'id' | 'key'>>
 
 // Legacy journeys kept for backward compatibility
 // These are now functions to support conditional review step based on preview mode
@@ -552,24 +474,10 @@ export const getWizardSidebarSteps = (topicCount: number | undefined): SidebarSt
   }
 }
 
-export const componentsMap = {
-  [StepKeys.KAFKA_CONNECTION]: KafkaConnectionContainer,
-  [StepKeys.TOPIC_SELECTION_1]: KafkaTopicSelector,
-  [StepKeys.TOPIC_SELECTION_2]: KafkaTopicSelector,
-  [StepKeys.KAFKA_TYPE_VERIFICATION]: KafkaTypeVerification,
-  [StepKeys.DEDUPLICATION_CONFIGURATOR]: DeduplicationConfigurator,
-  [StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1]: KafkaTopicSelector,
-  [StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2]: KafkaTopicSelector,
-  [StepKeys.FILTER_CONFIGURATOR]: FilterConfigurator,
-  [StepKeys.TRANSFORMATION_CONFIGURATOR]: TransformationConfigurator,
-  [StepKeys.JOIN_CONFIGURATOR]: JoinConfigurator,
-  [StepKeys.CLICKHOUSE_CONNECTION]: ClickhouseConnectionContainer,
-  [StepKeys.CLICKHOUSE_MAPPER]: ClickhouseMapper,
-  [StepKeys.PIPELINE_RESOURCES]: PipelineResourcesConfigurator,
-  [StepKeys.REVIEW_CONFIGURATION]: ReviewConfiguration,
-  [StepKeys.OTLP_SIGNAL_TYPE]: OtlpSignalTypeStep,
-  [StepKeys.OTLP_DEDUPLICATION]: OtlpDeduplicationStep,
-}
+// Derived from STEP_REGISTRY — edit src/config/step-registry.ts to change per-step values.
+// Steps with component: null (e.g. DEPLOY_PIPELINE) are intentionally excluded.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const componentsMap: Partial<Record<StepKeys, React.ComponentType<any>>> = buildComponentsMap()
 
 // Helper function to convert journey array to component map
 const getJourneyComponents = (journey: StepKeys[]): Record<string, React.ComponentType<any>> => {

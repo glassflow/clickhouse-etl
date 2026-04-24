@@ -27,6 +27,7 @@ export default defineConfig({
       'modules/resources/**/*.{test,spec}.{ts,tsx}',
       'store/**/*.{test,spec}.{ts,tsx}',
       'utils/**/*.{test,spec}.{ts,tsx}',
+      'config/**/*.{test,spec}.{ts,tsx}',
     ],
     exclude: ['node_modules', '.next'],
   },
