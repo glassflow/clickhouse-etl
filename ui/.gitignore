@@ -60,5 +60,6 @@ dev/docker-observability
 dev/automation-scripts
 
 
-#ide 
+#ide
 .idea
+.worktrees/
