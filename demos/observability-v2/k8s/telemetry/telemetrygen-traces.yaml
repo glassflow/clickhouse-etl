@@ -7,13 +7,27 @@ spec:
   template:
     spec:
       containers:
-        - name: telemetrygen
+        - name: telemetrygen-ok
           image: ghcr.io/open-telemetry/opentelemetry-collector-contrib/telemetrygen:latest
           args:
             - traces
             - --otlp-endpoint=otel-opentelemetry-collector.otel.svc.cluster.local:4317
             - --otlp-insecure
             - --duration=50m
-            - --rate=50
+            - --rate=45
+            - --status-code=Ok
+            - --otlp-attributes=user_email="alice@example.com"
+            - --otlp-attributes=demo_ssn="000-00-0000"
+        - name: telemetrygen-error
+          image: ghcr.io/open-telemetry/opentelemetry-collector-contrib/telemetrygen:latest
+          args:
+            - traces
+            - --otlp-endpoint=otel-opentelemetry-collector.otel.svc.cluster.local:4317
+            - --otlp-insecure
+            - --duration=50m
+            - --rate=5
+            - --status-code=Error
+            - --otlp-attributes=user_email="bob@example.com"
+            - --otlp-attributes=demo_ssn="999-99-9999"
       restartPolicy: Never
   backoffLimit: 0

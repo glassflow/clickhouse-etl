@@ -1,4 +1,5 @@
-storageClassName: standard
+global:
+  storageClassName: standard
 
 clickhouse:
   enabled: true
@@ -10,8 +11,7 @@ clickhouse:
       cpu: "200m"
       memory: "512Mi"
   auth:
-    otelUserName: otel
-    otelUserPassword: password
+    otelUserPassword: otelcollectorpass
     appUserPassword: hyperdx
 
 hyperdx:

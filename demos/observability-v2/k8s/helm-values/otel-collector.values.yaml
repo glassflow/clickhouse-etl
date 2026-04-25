@@ -20,20 +20,33 @@ config:
     memory_limiter:
       limit_mib: 128
       check_interval: 1s
+    # Compliance-style redaction before GlassFlow (literal / attribute-level; not GlassFlow expr replace()).
+    transform/redact:
+      error_mode: ignore
+      trace_statements:
+        - context: resource
+          statements:
+            - set(attributes["user_email"], "[REDACTED]") where attributes["user_email"] != nil
+            - set(attributes["demo_ssn"], "[REDACTED]") where attributes["demo_ssn"] != nil
+        - context: span
+          statements:
+            - set(attributes["user_email"], "[REDACTED]") where attributes["user_email"] != nil
+            - set(attributes["demo_ssn"], "[REDACTED]") where attributes["demo_ssn"] != nil
+    # Keep all error traces; probabilistic ~10% of the rest (see GUIDE.md).
+    tail_sampling:
+      decision_wait: 5s
+      num_traces: 50000
+      policies:
+        - name: keep-errors
+          type: status_code
+          status_code:
+            status_codes: [ERROR]
+        - name: keep-10pct-ok
+          type: probabilistic
+          probabilistic:
+            sampling_percentage: 10
 
   exporters:
-    otlp/glassflow-logs:
-      endpoint: "glassflow-otlp-receiver.glassflow.svc.cluster.local:4317"
-      tls:
-        insecure: true
-      headers:
-        x-glassflow-pipeline-id: "otlp-logs"
-    otlp/glassflow-metrics:
-      endpoint: "glassflow-otlp-receiver.glassflow.svc.cluster.local:4317"
-      tls:
-        insecure: true
-      headers:
-        x-glassflow-pipeline-id: "otlp-metrics"
     otlp/glassflow-traces:
       endpoint: "glassflow-otlp-receiver.glassflow.svc.cluster.local:4317"
       tls:
@@ -43,17 +56,9 @@ config:
 
   service:
     pipelines:
-      logs:
-        receivers: [otlp]
-        processors: [memory_limiter, batch]
-        exporters: [otlp/glassflow-logs]
-      metrics:
-        receivers: [otlp]
-        processors: [memory_limiter, batch]
-        exporters: [otlp/glassflow-metrics]
       traces:
         receivers: [otlp]
-        processors: [memory_limiter, batch]
+        processors: [memory_limiter, transform/redact, tail_sampling, batch]
         exporters: [otlp/glassflow-traces]
 
 resources:
