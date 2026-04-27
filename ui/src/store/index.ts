@@ -20,6 +20,7 @@ import { createCoreSlice, CoreSlice } from './core'
 import { createNotificationsSlice, NotificationsSlice } from './notifications.store'
 import { createResourcesSlice, ResourcesSlice } from './resources.store'
 import { createOtlpSlice, OtlpSlice } from './otlp.store'
+import { createCanvasSlice, CanvasSlice } from './canvas.store'
 import Cookies from 'js-cookie'
 
 interface Store
@@ -35,7 +36,8 @@ interface Store
     CoreSlice,
     NotificationsSlice,
     ResourcesSlice,
-    OtlpSlice {
+    OtlpSlice,
+    CanvasSlice {
   // Global reset function that can reset all slices
   resetAllPipelineState: (topicCount: number, force?: boolean) => void
 
@@ -63,6 +65,7 @@ const useActualStore = create<Store>()(
       ...createNotificationsSlice(set, get, store),
       ...createResourcesSlice(set, get, store),
       ...createOtlpSlice(set, get, store),
+      ...createCanvasSlice(set, get, store),
 
       // Global reset function that resets all slices
       resetAllPipelineState: (topicCount: number, force = false) => {
