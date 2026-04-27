@@ -137,10 +137,11 @@ export function KafkaConnectionContainer({
   }, [connectionResult, standalone])
 
   const handleSaveToLibrary = async (name: string) => {
+    if (!connectionFormValues) throw new Error('No connection data to save')
     const res = await fetch('/ui-api/library/connections/kafka', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, config: connectionFormValues ?? {} }),
+      body: JSON.stringify({ name, config: connectionFormValues }),
     })
     if (!res.ok) {
       const body = await res.json().catch(() => ({}))

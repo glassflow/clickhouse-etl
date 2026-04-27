@@ -1,14 +1,13 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import { useStore } from '@/src/store'
-import { CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline'
 import { useClickhouseConnection } from '@/src/hooks/useClickhouseConnection'
 import { StepKeys } from '@/src/config/constants'
 import { ClickhouseConnectionFormManager } from './components/ClickhouseConnectionFormManager'
 import { ClickhouseConnectionFormType } from '@/src/scheme/clickhouse.scheme'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
-import ActionStatusMessage from '@/src/components/shared/ActionStatusMessage'
+import type { PipelineActionState } from '@/src/hooks/usePipelineActions'
 import { SaveToLibraryPrompt } from '@/src/components/common/SaveToLibraryPrompt'
 import { UseSavedConnectionChips } from '@/src/components/common/UseSavedConnectionChips'
 
@@ -25,7 +24,7 @@ export function ClickhouseConnectionContainer({
   standalone?: boolean
   readOnly?: boolean
   toggleEditMode?: () => void
-  pipelineActionState?: any
+  pipelineActionState?: PipelineActionState
 }) {
   const [clearErrorMessage, setClearErrorMessage] = useState(false)
   const [showSavePrompt, setShowSavePrompt] = useState(false)
@@ -157,10 +156,11 @@ export function ClickhouseConnectionContainer({
   }, [connectionStatus, standalone])
 
   const handleSaveToLibrary = async (name: string) => {
+    if (!connectionFormValues) throw new Error('No connection data to save')
     const res = await fetch('/ui-api/library/connections/clickhouse', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, config: connectionFormValues ?? {} }),
+      body: JSON.stringify({ name, config: connectionFormValues }),
     })
     if (!res.ok) {
       const body = await res.json().catch(() => ({}))

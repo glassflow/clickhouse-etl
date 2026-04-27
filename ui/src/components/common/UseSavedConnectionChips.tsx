@@ -16,6 +16,7 @@ interface UseSavedConnectionChipsProps {
 
 export function UseSavedConnectionChips({ connectionType, onSelect }: UseSavedConnectionChipsProps) {
   const [connections, setConnections] = useState<SavedConnection[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const endpoint = connectionType === 'kafka'
@@ -26,9 +27,10 @@ export function UseSavedConnectionChips({ connectionType, onSelect }: UseSavedCo
       .then((res) => res.ok ? res.json() : [])
       .then((data: SavedConnection[]) => setConnections(Array.isArray(data) ? data : []))
       .catch(() => setConnections([]))
+      .finally(() => setLoading(false))
   }, [connectionType])
 
-  if (connections.length === 0) return null
+  if (loading || connections.length === 0) return null
 
   return (
     <div className="flex flex-wrap gap-2 items-center mb-4">

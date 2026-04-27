@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Card } from '@/src/components/ui/card'
 import { Button } from '@/src/components/ui/button'
 import { Badge } from '@/src/components/ui/badge'
+import { Input } from '@/src/components/ui/input'
 import dynamic from 'next/dynamic'
 
 const FlushDLQModal = dynamic(
@@ -29,7 +30,7 @@ export function DLQViewer({ pipelineId }: DLQViewerProps) {
   const [showPurgeModal, setShowPurgeModal] = useState(false)
   const [actionMsg, setActionMsg] = useState<string | null>(null)
 
-  const fetchState = async () => {
+  const fetchState = useCallback(async () => {
     try {
       const res = await fetch(`/ui-api/pipeline/${pipelineId}/dlq/state`)
       const data = await res.json()
@@ -43,9 +44,9 @@ export function DLQViewer({ pipelineId }: DLQViewerProps) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [pipelineId])
 
-  useEffect(() => { fetchState() }, [pipelineId])
+  useEffect(() => { fetchState() }, [fetchState])
 
   const handleConsume = async () => {
     setConsuming(true)
@@ -68,9 +69,14 @@ export function DLQViewer({ pipelineId }: DLQViewerProps) {
 
   const handlePurge = async () => {
     try {
-      await fetch(`/ui-api/pipeline/${pipelineId}/dlq/purge`, { method: 'DELETE' })
-      setActionMsg('Error queue cleared.')
-      fetchState()
+      const res = await fetch(`/ui-api/pipeline/${pipelineId}/dlq/purge`, { method: 'DELETE' })
+      if (res.ok) {
+        setActionMsg('Error queue cleared.')
+        fetchState()
+      } else {
+        const data = await res.json().catch(() => ({}))
+        setActionMsg(data?.error ?? 'Purge failed')
+      }
     } catch {
       setActionMsg('Purge failed')
     }
@@ -105,13 +111,13 @@ export function DLQViewer({ pipelineId }: DLQViewerProps) {
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-2">
             <label className="caption-1 text-[var(--text-secondary)] shrink-0">Batch size</label>
-            <input
+            <Input
               type="number"
               min={1}
               max={1000}
               value={batchSize}
               onChange={(e) => setBatchSize(Math.max(1, parseInt(e.target.value) || 100))}
-              className="w-20 h-7 px-2 text-sm rounded border border-[var(--surface-border)] bg-[var(--surface-bg)] text-[var(--text-primary)]"
+              className="w-20 h-7"
             />
             <Button variant="secondary" size="sm" onClick={handleConsume} loading={consuming} loadingText="Consuming…">
               Consume
