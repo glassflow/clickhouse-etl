@@ -178,6 +178,86 @@ describe('KafkaSourceAdapter', () => {
     })
   })
 
+  describe('toWireSource — SASL/SCRAM-512', () => {
+    function scram512Store(): SourceAdapterStoreState {
+      return makeStore({
+        kafkaStore: {
+          authMethod: 'SASL/SCRAM-512',
+          securityProtocol: 'SASL_PLAINTEXT',
+          bootstrapServers: 'broker:9092',
+          saslScram512: {
+            username: 'scram512-user',
+            password: 'scram512-pass',
+            truststore: { certificates: '', skipTlsVerification: false },
+          },
+        },
+      })
+    }
+
+    it('sets mechanism to SCRAM-SHA-512', () => {
+      const src = adapter.toWireSource(scram512Store()).source as any
+      expect(src.connection_params.mechanism).toBe('SCRAM-SHA-512')
+    })
+
+    it('sets username and password from saslScram512', () => {
+      const src = adapter.toWireSource(scram512Store()).source as any
+      expect(src.connection_params.username).toBe('scram512-user')
+      expect(src.connection_params.password).toBe('scram512-pass')
+    })
+
+    it('does NOT use saslScram256 fields', () => {
+      const store = makeStore({
+        kafkaStore: {
+          authMethod: 'SASL/SCRAM-512',
+          securityProtocol: 'SASL_PLAINTEXT',
+          bootstrapServers: 'broker:9092',
+          saslScram256: { username: 'wrong-user', password: 'wrong-pass', truststore: { certificates: '', skipTlsVerification: false } },
+          saslScram512: { username: 'correct-user', password: 'correct-pass', truststore: { certificates: '', skipTlsVerification: false } },
+        },
+      })
+      const src = adapter.toWireSource(store).source as any
+      expect(src.connection_params.username).toBe('correct-user')
+    })
+  })
+
+  describe('toWireSource — mTLS', () => {
+    function mtlsStore(overrides?: { clientCert?: string; clientKey?: string; password?: string }): SourceAdapterStoreState {
+      return makeStore({
+        kafkaStore: {
+          authMethod: 'mTLS',
+          securityProtocol: 'SSL',
+          bootstrapServers: 'broker:9093',
+          mtls: {
+            clientCert: overrides?.clientCert ?? 'BEGIN CERTIFICATE',
+            clientKey: overrides?.clientKey ?? 'BEGIN PRIVATE KEY',
+            password: overrides?.password ?? 'mtls-pwd',
+          },
+        },
+      })
+    }
+
+    it('sets mechanism to MTLS', () => {
+      const src = adapter.toWireSource(mtlsStore()).source as any
+      expect(src.connection_params.mechanism).toBe('MTLS')
+    })
+
+    it('encodes client_cert as base64', () => {
+      const src = adapter.toWireSource(mtlsStore({ clientCert: 'my-cert' })).source as any
+      expect(src.connection_params.client_cert).toBe(Buffer.from('my-cert').toString('base64'))
+    })
+
+    it('encodes client_key as base64', () => {
+      const src = adapter.toWireSource(mtlsStore({ clientKey: 'my-key' })).source as any
+      expect(src.connection_params.client_key).toBe(Buffer.from('my-key').toString('base64'))
+    })
+
+    it('does not include username or password in connection_params', () => {
+      const src = adapter.toWireSource(mtlsStore()).source as any
+      expect(src.connection_params.username).toBeUndefined()
+      expect(src.connection_params.password).toBeUndefined()
+    })
+  })
+
   describe('toWireSource — SASL/GSSAPI', () => {
     function gssapiStore(): SourceAdapterStoreState {
       return makeStore({

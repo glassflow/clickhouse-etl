@@ -6,6 +6,7 @@
  */
 
 import { StepKeys } from '@/src/config/constants'
+import { SourceType } from '@/src/config/source-types'
 import type {
   SourceAdapter,
   SourceAdapterStoreState,
@@ -13,18 +14,35 @@ import type {
   AdapterDispatch,
 } from '@/src/types/adapters'
 
-export class OtlpSourceAdapter implements SourceAdapter {
-  readonly type: string
+// Local shapes for the store fields this adapter reads.
+interface OtlpStoreShape {
+  signalType?: string | null
+  sourceId?: string
+  deduplication?: {
+    enabled?: boolean
+    key?: string
+    time_window?: string
+  }
+}
 
-  constructor(signalType: string) {
+interface CoreStoreShape {
+  sourceType?: string
+}
+
+export class OtlpSourceAdapter implements SourceAdapter {
+  readonly type: 'otlp.logs' | 'otlp.traces' | 'otlp.metrics'
+  readonly supportsJoin = false
+  readonly supportsSingleTopicFeatures = false
+
+  constructor(signalType: 'otlp.logs' | 'otlp.traces' | 'otlp.metrics') {
     this.type = signalType
   }
 
   toWireSource(storeState: SourceAdapterStoreState): SourceWireResult {
-    const otlpStore = storeState.otlpStore as any
-    const coreStore = storeState.coreStore as any
+    const otlpStore = storeState.otlpStore as OtlpStoreShape
+    const coreStore = storeState.coreStore as CoreStoreShape
 
-    const signalType: string = otlpStore?.signalType ?? coreStore?.sourceType ?? 'otlp.logs'
+    const signalType: string = otlpStore?.signalType ?? coreStore?.sourceType ?? SourceType.OTLP_LOGS
     const sourceId: string = otlpStore?.sourceId ?? ''
     const dedup = otlpStore?.deduplication
 

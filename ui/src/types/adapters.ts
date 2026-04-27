@@ -29,7 +29,19 @@ export interface AdapterDispatch {
 }
 
 export interface SourceAdapter {
-  readonly type: string
+  readonly type: 'kafka' | 'otlp.logs' | 'otlp.traces' | 'otlp.metrics'
+
+  /**
+   * Whether this source supports the join section.
+   * OTLP: false. Kafka single-topic: false. Kafka two-topic: true.
+   */
+  readonly supportsJoin: boolean
+
+  /**
+   * Whether filter and transformation sections are applicable for this source.
+   * OTLP: false. Kafka single-topic: true. Kafka multi-topic: false.
+   */
+  readonly supportsSingleTopicFeatures: boolean
 
   /**
    * Convert store state into the `source` section of InternalPipelineConfig.

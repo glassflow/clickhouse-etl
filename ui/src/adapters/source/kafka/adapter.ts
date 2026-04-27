@@ -17,16 +17,81 @@ import type {
 const encodeBase64 = (value: string): string | undefined =>
   value ? Buffer.from(value).toString('base64') : undefined
 
+// Local shape for the Kafka store fields this adapter reads.
+// Mirrors the fields in KafkaStore / KafkaStoreProps without importing the entire slice.
+interface KafkaStoreShape {
+  authMethod?: string
+  securityProtocol?: string
+  bootstrapServers?: string
+  saslPlain?: { username?: string; password?: string; truststore?: { certificates?: string; skipTlsVerification?: boolean } }
+  saslScram256?: { username?: string; password?: string; truststore?: { certificates?: string; skipTlsVerification?: boolean } }
+  saslScram512?: { username?: string; password?: string; truststore?: { certificates?: string; skipTlsVerification?: boolean } }
+  saslGssapi?: { kerberosPrincipal?: string; serviceName?: string; kerberosRealm?: string; kerberosKeytab?: string; krb5Config?: string; truststore?: { certificates?: string; skipTlsVerification?: boolean } }
+  noAuth?: { truststore?: { certificates?: string; skipTlsVerification?: boolean } }
+  mtls?: { clientCert?: string; clientKey?: string; password?: string }
+}
+
+// Local shape for the topics store as passed by callers (array of selected topics).
+interface TopicsStoreShape {
+  selectedTopics?: TopicShape[]
+}
+
+interface TopicShape {
+  name?: string
+  initialOffset?: string
+  replicas?: number
+  schema?: { fields?: SchemaFieldShape[] }
+  selectedEvent?: { event?: Record<string, unknown> }
+}
+
+interface SchemaFieldShape {
+  name?: string
+  type?: string
+  userType?: string
+  isRemoved?: boolean
+}
+
+// Local shape for the deduplication store.
+interface DeduplicationStoreShape {
+  getDeduplication?: (topicIndex: number) => DeduplicationConfigShape | null | undefined
+}
+
+interface DeduplicationConfigShape {
+  enabled?: boolean
+  key?: string
+  keyType?: string
+  window?: number
+  unit?: string
+}
+
+// Local shape for the core store fields this adapter reads.
+interface CoreStoreShape {
+  sourceType?: string
+}
+
 export class KafkaSourceAdapter implements SourceAdapter {
   readonly type = SourceType.KAFKA
 
-  toWireSource(storeState: SourceAdapterStoreState): SourceWireResult {
-    const kafkaStore = storeState.kafkaStore as any
-    const topicsStore = storeState.topicsStore as any
-    const deduplicationStore = storeState.deduplicationStore as any
-    const coreStore = storeState.coreStore as any
+  /**
+   * supportsJoin depends on topic count — computed at wire time, not statically.
+   * Per the interface contract, adapter-level flags return the static default;
+   * the dynamic value is reflected in SourceWireResult returned by toWireSource.
+   */
+  get supportsJoin(): boolean {
+    return false
+  }
 
-    const selectedTopics: any[] = topicsStore?.selectedTopics ?? []
+  get supportsSingleTopicFeatures(): boolean {
+    return true
+  }
+
+  toWireSource(storeState: SourceAdapterStoreState): SourceWireResult {
+    const kafkaStore = storeState.kafkaStore as KafkaStoreShape
+    const topicsStore = storeState.topicsStore as TopicsStoreShape
+    const deduplicationStore = storeState.deduplicationStore as DeduplicationStoreShape
+    const _coreStore = storeState.coreStore as CoreStoreShape
+
+    const selectedTopics: TopicShape[] = topicsStore?.selectedTopics ?? []
     const authMethod: string = kafkaStore?.authMethod ?? 'NO_AUTH'
     const securityProtocol: string = kafkaStore?.securityProtocol ?? 'PLAINTEXT'
     const isTLSEnabled = securityProtocol === 'SASL_SSL' || securityProtocol === 'SSL'
@@ -84,6 +149,13 @@ export class KafkaSourceAdapter implements SourceAdapter {
       if (isTLSEnabled && kafkaStore?.saslGssapi?.truststore?.certificates) {
         connectionParams.root_ca = encodeBase64(kafkaStore.saslGssapi.truststore.certificates)
       }
+    } else if (authMethod === 'mTLS') {
+      if (kafkaStore?.mtls?.clientCert) {
+        connectionParams.client_cert = encodeBase64(kafkaStore.mtls.clientCert)
+      }
+      if (kafkaStore?.mtls?.clientKey) {
+        connectionParams.client_key = encodeBase64(kafkaStore.mtls.clientKey)
+      }
     } else if (authMethod === 'NO_AUTH' && isTLSEnabled) {
       if (kafkaStore?.noAuth?.truststore?.certificates) {
         connectionParams.root_ca = encodeBase64(kafkaStore.noAuth.truststore.certificates)
@@ -91,7 +163,7 @@ export class KafkaSourceAdapter implements SourceAdapter {
     }
 
     // Build topics config
-    const topicsConfig = selectedTopics.map((topic: any, topicIndex: number) => {
+    const topicsConfig = selectedTopics.map((topic: TopicShape, topicIndex: number) => {
       const deduplicationConfig = deduplicationStore?.getDeduplication?.(topicIndex) ?? null
 
       let eventData: Record<string, unknown> = {}
@@ -101,10 +173,10 @@ export class KafkaSourceAdapter implements SourceAdapter {
       }
 
       const schemaFields =
-        topic.schema?.fields?.length > 0
+        topic.schema?.fields && topic.schema.fields.length > 0
           ? topic.schema.fields
-              .filter((f: any) => !f.isRemoved)
-              .map((f: any) => ({ name: f.name, type: f.userType ?? f.type ?? 'string' }))
+              .filter((f: SchemaFieldShape) => !f.isRemoved)
+              .map((f: SchemaFieldShape) => ({ name: f.name, type: f.userType ?? f.type ?? 'string' }))
           : Object.keys(eventData).map((k) => ({ name: k, type: 'string' }))
 
       return {
