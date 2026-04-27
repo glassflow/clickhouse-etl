@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { KafkaSourceAdapter } from './adapter'
 import type { AdapterDispatch, SourceAdapterStoreState } from '@/src/types/adapters'
 
@@ -352,13 +352,13 @@ describe('KafkaSourceAdapter', () => {
     })
   })
 
-  describe('fromWireSourceAsync — roundtrip', () => {
+  describe('fromWireSource — roundtrip', () => {
     it('calls both hydration callbacks in sequence', async () => {
       const calls: string[] = []
       const hydrateKafkaConnection = vi.fn(() => { calls.push('connection') })
       const hydrateTopics = vi.fn(async () => { calls.push('topics') })
 
-      await adapter.fromWireSourceAsync({}, { hydrateKafkaConnection, hydrateTopics })
+      await adapter.fromWireSource({}, { hydrateKafkaConnection, hydrateTopics })
 
       expect(calls).toEqual(['connection', 'topics'])
     })

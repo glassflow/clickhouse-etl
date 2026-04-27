@@ -32,7 +32,7 @@ interface CoreStoreShape {
 export class OtlpSourceAdapter implements SourceAdapter {
   readonly type: 'otlp.logs' | 'otlp.traces' | 'otlp.metrics'
   readonly supportsJoin = false
-  readonly supportsSingleTopicFeatures = false
+  readonly supportsSingleTopicFeatures = true
 
   constructor(signalType: 'otlp.logs' | 'otlp.traces' | 'otlp.metrics') {
     this.type = signalType

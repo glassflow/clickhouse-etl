@@ -39,7 +39,7 @@ export interface SourceAdapter {
 
   /**
    * Whether filter and transformation sections are applicable for this source.
-   * OTLP: false. Kafka single-topic: true. Kafka multi-topic: false.
+   * OTLP: true. Kafka single-topic: true. Kafka multi-topic: false.
    */
   readonly supportsSingleTopicFeatures: boolean
 

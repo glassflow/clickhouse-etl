@@ -64,11 +64,6 @@ interface DeduplicationConfigShape {
   unit?: string
 }
 
-// Local shape for the core store fields this adapter reads.
-interface CoreStoreShape {
-  sourceType?: string
-}
-
 export class KafkaSourceAdapter implements SourceAdapter {
   readonly type = SourceType.KAFKA
 
@@ -89,7 +84,6 @@ export class KafkaSourceAdapter implements SourceAdapter {
     const kafkaStore = storeState.kafkaStore as KafkaStoreShape
     const topicsStore = storeState.topicsStore as TopicsStoreShape
     const deduplicationStore = storeState.deduplicationStore as DeduplicationStoreShape
-    const _coreStore = storeState.coreStore as CoreStoreShape
 
     const selectedTopics: TopicShape[] = topicsStore?.selectedTopics ?? []
     const authMethod: string = kafkaStore?.authMethod ?? 'NO_AUTH'
@@ -109,6 +103,8 @@ export class KafkaSourceAdapter implements SourceAdapter {
         skipTlsVerification = kafkaStore?.saslGssapi?.truststore?.skipTlsVerification ?? false
       } else if (authMethod === 'NO_AUTH') {
         skipTlsVerification = kafkaStore?.noAuth?.truststore?.skipTlsVerification ?? false
+      } else if (authMethod === 'mTLS') {
+        skipTlsVerification = false // mTLS inherently requires valid TLS; skipping verification is not applicable
       }
     }
 
@@ -215,17 +211,7 @@ export class KafkaSourceAdapter implements SourceAdapter {
     }
   }
 
-  fromWireSource(wire: unknown, dispatch: AdapterDispatch): void {
-    if (dispatch.hydrateKafkaConnection) {
-      dispatch.hydrateKafkaConnection(wire)
-    }
-    if (dispatch.hydrateTopics) {
-      // hydrateTopics is async but fromWireSource callers can await the returned promise
-      void dispatch.hydrateTopics(wire)
-    }
-  }
-
-  async fromWireSourceAsync(wire: unknown, dispatch: AdapterDispatch): Promise<void> {
+  async fromWireSource(wire: unknown, dispatch: AdapterDispatch): Promise<void> {
     if (dispatch.hydrateKafkaConnection) {
       dispatch.hydrateKafkaConnection(wire)
     }
