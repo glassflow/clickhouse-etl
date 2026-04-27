@@ -32,9 +32,13 @@ export function getEffectiveSchema(state: RootStoreState): SchemaField[] {
   }
 
   // --- Transformation output (single topic with active transform) ---
+  // Guard: skip transform branch for join pipelines — join fields come from the join branch below.
+  // Without this guard, stale transform state from a previous single-topic pipeline would silence
+  // the join schema when the user switches to two topics.
+  const isJoin = joinStore.enabled && joinStore.streams.length >= 2
   const { transformationConfig } = transformationStore
   const isTransformActive =
-    transformationConfig.enabled && transformationConfig.fields.length > 0
+    !isJoin && transformationConfig.enabled && transformationConfig.fields.length > 0
 
   if (isTransformActive) {
     const outputFields: SchemaField[] = transformationConfig.fields
@@ -50,7 +54,7 @@ export function getEffectiveSchema(state: RootStoreState): SchemaField[] {
   }
 
   // --- Join (two topics) ---
-  if (joinStore.enabled && joinStore.streams.length >= 2) {
+  if (isJoin) {
     const topicIndices = [0, 1]
     const merged: SchemaField[] = []
     const seen = new Set<string>()

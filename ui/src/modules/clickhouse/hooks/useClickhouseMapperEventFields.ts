@@ -420,11 +420,12 @@ export function useClickhouseMapperEventFields({
     let hasChanges = false
 
     if (mode === 'single') {
-      if (isOtlp && otlpStore.schemaFields.length > 0) {
-        const otlpFieldNames = otlpStore.schemaFields.map((f) => f.name)
-        const fieldTypeMap = new Map(otlpStore.schemaFields.map((f) => [f.name, f.type]))
+      if (isOtlp) {
+        const schemaFields = getEffectiveSchema(useStore.getState())
+        const fieldNames = schemaFields.map((f) => f.name)
+        const fieldTypeMap = new Map(schemaFields.map((f) => [f.name, f.type]))
         updatedColumns.forEach((col, index) => {
-          const matchingField = findBestMatchingField(col.name, otlpFieldNames)
+          const matchingField = findBestMatchingField(col.name, fieldNames)
           if (matchingField) {
             updatedColumns[index] = {
               ...col,
