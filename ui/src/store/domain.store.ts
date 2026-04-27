@@ -66,8 +66,7 @@ export interface DomainStoreActions {
 
   /**
    * Derives the wire format from the domain.
-   * Replaces `coreStore.apiConfig` as the single source of truth for what goes to the backend.
-   * @deprecated `coreStore.apiConfig` — use `domainStore.toWireFormat()` instead.
+   * This replaces `coreStore.apiConfig` (now deprecated) as the canonical wire format source.
    */
   toWireFormat: () => InternalPipelineConfig
 
@@ -254,7 +253,6 @@ export const createDomainSlice: StateCreator<DomainSlice> = (set, get) => ({
         transformationStore,
         clickhouseConnectionStore,
         clickhouseDestinationStore,
-        resourcesStore,
         otlpStore,
       } = root
 

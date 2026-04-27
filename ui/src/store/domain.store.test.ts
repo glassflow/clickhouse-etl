@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { create } from 'zustand'
-import { createDomainSlice, DomainSlice, initialDomain } from './domain.store'
+import { createDomainSlice, DomainSlice } from './domain.store'
 import type { PipelineDomain, SourceConfig, SinkConfig, ResourceConfig } from '@/src/types/pipeline-domain'
 import type { SchemaField } from '@/src/types/schema'
 
