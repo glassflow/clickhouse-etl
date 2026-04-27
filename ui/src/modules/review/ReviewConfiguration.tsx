@@ -42,7 +42,14 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
   const isOtlp = getSourceAdapter(coreStore.sourceType).type !== 'kafka'
     || getSourceAdapter(otlpStore.signalType ?? '').type !== 'kafka'
     || (otlpStore.sourceId !== '' && otlpStore.schemaFields.length > 0)
-  const { apiConfig, pipelineId, setPipelineId, pipelineName, pipelineVersion } = coreStore
+  const { apiConfig: legacyApiConfig, pipelineId, setPipelineId, pipelineName, pipelineVersion } = coreStore
+  // A6: prefer domainStore.toWireFormat() when the domain has been populated;
+  // fall back to the legacy coreStore.apiConfig during migration.
+  const { domainStore } = useStore()
+  const isDomainPopulated = domainStore.domain.name !== '' || domainStore.domain.sources.length > 0
+  const apiConfig = isDomainPopulated
+    ? domainStore.toWireFormat()
+    : legacyApiConfig
   const { clickhouseConnection } = clickhouseConnectionStore
   const { clickhouseDestination } = clickhouseDestinationStore
   const router = useRouter()

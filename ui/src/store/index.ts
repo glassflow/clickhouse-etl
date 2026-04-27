@@ -21,6 +21,8 @@ import { createNotificationsSlice, NotificationsSlice } from './notifications.st
 import { createResourcesSlice, ResourcesSlice } from './resources.store'
 import { createOtlpSlice, OtlpSlice } from './otlp.store'
 import { createCanvasSlice, CanvasSlice } from './canvas.store'
+import { createDomainSlice, DomainSlice } from './domain.store'
+import { createDeploymentSlice, DeploymentSlice } from './deployment.store'
 import Cookies from 'js-cookie'
 
 interface Store
@@ -37,7 +39,9 @@ interface Store
     NotificationsSlice,
     ResourcesSlice,
     OtlpSlice,
-    CanvasSlice {
+    CanvasSlice,
+    DomainSlice,
+    DeploymentSlice {
   // Global reset function that can reset all slices
   resetAllPipelineState: (topicCount: number, force?: boolean) => void
 
@@ -66,6 +70,8 @@ const useActualStore = create<Store>()(
       ...createResourcesSlice(set, get, store),
       ...createOtlpSlice(set, get, store),
       ...createCanvasSlice(set, get, store),
+      ...createDomainSlice(set, get, store),
+      ...createDeploymentSlice(set, get, store),
 
       // Global reset function that resets all slices
       resetAllPipelineState: (topicCount: number, force = false) => {
@@ -86,6 +92,8 @@ const useActualStore = create<Store>()(
           state.stepsStore.resetStepsStore()
           state.resourcesStore.resetResources()
           state.otlpStore.resetOtlpStore()
+          state.domainStore.reset()
+          state.deploymentStore.reset()
 
           // Reset core store with new topic count
           state.coreStore.enterCreateMode()
@@ -153,6 +161,8 @@ const useActualStore = create<Store>()(
         state.stepsStore.resetStepsStore()
         state.resourcesStore.resetResources()
         state.otlpStore.resetOtlpStore()
+        state.domainStore.reset()
+        state.deploymentStore.reset()
         state.coreStore.enterCreateMode()
 
         // Clear cookies and local storage

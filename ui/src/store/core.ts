@@ -91,6 +91,10 @@ interface CoreStoreProps {
   analyticsConsent: boolean
   consentAnswered: boolean
   isDirty: boolean
+  /**
+   * @deprecated Use `domainStore.toWireFormat()` instead.
+   * Kept for backward compatibility during the A6 migration.
+   */
   apiConfig: Partial<Pipeline>
   // New mode-related fields
   mode: StoreMode
@@ -198,6 +202,20 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
           },
         },
       }))
+      // Keep domainStore.sources length in sync with the wizard topicCount.
+      // domainStore.syncFromSlices() will be called after topics are actually hydrated;
+      // this is just an early guard so domainStore.domain.sources.length is never stale.
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { useStore } = require('./index') as typeof import('./index')
+        const rootState = useStore.getState()
+        // Only sync if sources count is mismatched (avoid unnecessary writes)
+        if (rootState.domainStore.domain.sources.length !== topicCount && topicCount > 0) {
+          rootState.domainStore.syncFromSlices()
+        }
+      } catch {
+        // Store not yet initialised — ignore
+      }
     },
     setPipelineVersion: (version: string | undefined) =>
       set((state) => ({

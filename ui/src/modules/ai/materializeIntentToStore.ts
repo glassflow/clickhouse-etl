@@ -14,6 +14,7 @@ import { structuredLogger } from '@/src/observability'
 import { generatePipelineId } from '@/src/utils/common.client'
 import type { PipelineIntentModel } from './types'
 import type { CanvasSourceType } from '@/src/store/canvas.store'
+import type { PipelineDomain, SourceConfig, SinkConfig, ResourceConfig } from '@/src/types/pipeline-domain'
 
 export interface MaterializationResult {
   success: boolean
@@ -88,6 +89,17 @@ async function materializeToCanvas(intent: PipelineIntentModel): Promise<Materia
     structuredLogger.warn('AI materialization (canvas): failed', { error: msg })
   }
 
+  // ── Build PipelineDomain directly from intent and push to domainStore ──
+  try {
+    const domain = buildDomainFromIntent(intent)
+    store.domainStore.setDomain(domain)
+    sectionsHydrated.push('domain-set')
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    errors.push({ section: 'domain', error: msg })
+    structuredLogger.warn('AI materialization (canvas): domain setDomain failed', { error: msg })
+  }
+
   const hash = computeMaterializationHash(intent)
 
   return {
@@ -95,6 +107,70 @@ async function materializeToCanvas(intent: PipelineIntentModel): Promise<Materia
     sectionsHydrated,
     errors,
     materializationHash: hash,
+  }
+}
+
+/**
+ * Builds a PipelineDomain from a PipelineIntentModel (canvas lane).
+ * Passwords are never included — they live only in MaterializationPasswords.
+ */
+function buildDomainFromIntent(intent: PipelineIntentModel): PipelineDomain {
+  const sourceType = resolveCanvasSourceType(intent)
+  const isOtlp = sourceType !== 'kafka'
+
+  const sources: SourceConfig[] = isOtlp
+    ? [
+        {
+          type: sourceType as 'otlp.logs' | 'otlp.traces' | 'otlp.metrics',
+          id: intent.otlp?.endpoint ?? '',
+          connectionConfig: {
+            endpoint: intent.otlp?.endpoint ?? '',
+            protocol: intent.otlp?.protocol ?? 'grpc',
+          },
+          schemaFields: [],
+        },
+      ]
+    : (intent.topics ?? []).map((t) => ({
+        type: 'kafka' as const,
+        id: t.topicName ?? '',
+        connectionConfig: {
+          bootstrapServers: intent.kafka?.bootstrapServers ?? '',
+          authMethod: intent.kafka?.authMethod ?? 'NO_AUTH',
+          securityProtocol: intent.kafka?.securityProtocol ?? 'PLAINTEXT',
+        },
+        schemaFields: [],
+      }))
+
+  const sink: SinkConfig = {
+    type: 'clickhouse',
+    connectionConfig: {
+      host: intent.clickhouse?.host ?? '',
+      database: intent.clickhouse?.database ?? '',
+      username: intent.clickhouse?.username ?? 'default',
+      secure: intent.clickhouse?.useSSL ?? true,
+      skip_certificate_verification: intent.clickhouse?.skipCertificateVerification ?? false,
+    },
+    tableMapping: (intent.destination?.columnMappings ?? []).map((m) => ({
+      sourceField: m.sourceField,
+      targetColumn: m.targetColumn,
+      columnType: m.targetType ?? 'String',
+    })),
+  }
+
+  const resources: ResourceConfig = {
+    maxBatchSize: 1000,
+    maxDelayTime: '1m',
+  }
+
+  return {
+    id: undefined,
+    name: intent.topics?.[0]?.topicName
+      ? `${intent.topics[0].topicName}-to-${intent.destination?.tableName ?? 'destination'}`
+      : 'ai-pipeline',
+    sources,
+    transforms: [],
+    sink,
+    resources,
   }
 }
 
@@ -211,7 +287,21 @@ async function materializeToWizard(
     }
   }
 
-  // ── 4. Compute materialization hash for stale detection ──
+  // ── 4. Sync domain model from wizard slices ──
+  // After all hydrations complete, update domainStore so the domain model
+  // reflects what was materialized. This keeps A6 domain state in sync with
+  // the wizard lane without requiring individual slices to know about the domain.
+  try {
+    const freshStore = useStore.getState()
+    freshStore.domainStore.syncFromSlices()
+    sectionsHydrated.push('domain-sync')
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    structuredLogger.warn('AI materialization: domain syncFromSlices failed', { error: msg })
+    // Non-fatal — wizard still works without domain sync
+  }
+
+  // ── 5. Compute materialization hash for stale detection ──
   const hash = computeMaterializationHash(intent)
 
   return {
