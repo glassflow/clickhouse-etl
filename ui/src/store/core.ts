@@ -86,7 +86,12 @@ interface CoreStoreProps {
   topicCount: number // Primary: number of topics (1 or 2)
   sourceType: string // 'kafka' | 'otlp' — determines which source UI to render
   operationsSelected: OperationsSelectedType // Computed/derived for backward compatibility
-  pipelineVersion: string | undefined // Track the version of the pipeline config
+  /**
+   * Config schema version string (e.g. "2.0") — passed in API save/update calls.
+   * This is design-time metadata, not a runtime counter.
+   * Runtime deployment version (integer counter) lives in `deploymentStore.version`.
+   */
+  pipelineVersion: string | undefined
   outboundEventPreview: OutboundEventPreviewType
   analyticsConsent: boolean
   consentAnswered: boolean

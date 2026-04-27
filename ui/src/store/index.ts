@@ -23,6 +23,7 @@ import { createOtlpSlice, OtlpSlice } from './otlp.store'
 import { createCanvasSlice, CanvasSlice } from './canvas.store'
 import { createDomainSlice, DomainSlice } from './domain.store'
 import { createDeploymentSlice, DeploymentSlice } from './deployment.store'
+import { createRuntimeSlice, RuntimeSlice } from './runtime.store'
 import Cookies from 'js-cookie'
 
 interface Store
@@ -41,7 +42,8 @@ interface Store
     OtlpSlice,
     CanvasSlice,
     DomainSlice,
-    DeploymentSlice {
+    DeploymentSlice,
+    RuntimeSlice {
   // Global reset function that can reset all slices
   resetAllPipelineState: (topicCount: number, force?: boolean) => void
 
@@ -72,6 +74,7 @@ const useActualStore = create<Store>()(
       ...createCanvasSlice(set, get, store),
       ...createDomainSlice(set, get, store),
       ...createDeploymentSlice(set, get, store),
+      ...createRuntimeSlice(set, get, store),
 
       // Global reset function that resets all slices
       resetAllPipelineState: (topicCount: number, force = false) => {
