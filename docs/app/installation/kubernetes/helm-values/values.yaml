@@ -100,20 +100,11 @@ ui:
     targetPort: 8080
 
   # Environment variables for the UI service
-  # DATABASE_URL connects the UI library feature (saved Kafka/ClickHouse connections) to
-  # the in-cluster PostgreSQL instance provisioned by the postgresql section below.
-  # The service name follows the Helm release name: {{ .Release.Name }}-postgresql.
-  # If your release is named "glassflow" (the default): glassflow-postgresql:5432.
-  #
-  # For production, use an existing Kubernetes Secret instead of a plaintext value:
-  #   - name: DATABASE_URL
-  #     valueFrom:
-  #       secretKeyRef:
-  #         name: glassflow-ui-db
-  #         key: url
-  env:
-    - name: DATABASE_URL
-      value: "postgresql://glassflow:glassflow123@glassflow-postgresql:5432/glassflow"
+  # DATABASE_URL is injected automatically by the chart from the glassflow-postgresql secret
+  # when postgresql.enabled=true (or from global.postgres.* for external instances).
+  # You do not need to set it manually here.
+  # Use ui.env only for additional overrides (e.g. NEXT_PUBLIC_API_URL for custom domains).
+  env: []
 
 # =============================================================================
 # POSTGRESQL CONFIGURATION
