@@ -100,7 +100,12 @@ export const createDomainSlice: StateCreator<DomainSlice> = (set, get) => ({
 
     setDomain: (domain: PipelineDomain) =>
       set((state) => ({
-        domainStore: { ...state.domainStore, domain, isDirty: true },
+        domainStore: {
+          ...state.domainStore,
+          // Auto-assign a stable ID if not provided, so toWireFormat is idempotent
+          domain: domain.id !== undefined ? domain : { ...domain, id: uuidv4() },
+          isDirty: true,
+        },
       })),
 
     updateSources: (sources: SourceConfig[]) =>
@@ -149,7 +154,8 @@ export const createDomainSlice: StateCreator<DomainSlice> = (set, get) => ({
     toWireFormat: (): InternalPipelineConfig => {
       const { domain } = get().domainStore
 
-      // Resolve pipeline ID — generate a stable one if absent
+      // ID is always set by setDomain (auto-assigns UUID if absent); fall back for domains
+      // set via updateSources/updateSink paths before setDomain was called.
       const pipelineId = domain.id ?? uuidv4()
 
       // ── Source ──
@@ -340,6 +346,8 @@ export const createDomainSlice: StateCreator<DomainSlice> = (set, get) => ({
       const dc = clickhouseConnection?.directConnection ?? {}
 
       const tableMapping = (clickhouseDestination?.mapping ?? [])
+        // Exclude _metadata fields — clickhouseDestinationStore internally tracks virtual
+        // metadata columns (prefixed _metadata) that are not real schema mappings.
         .filter((m: Record<string, unknown>) => m.eventField && !String(m.eventField).startsWith('_metadata'))
         .map((m: Record<string, unknown>) => ({
           sourceField: m.eventField as string,
@@ -420,8 +428,7 @@ export const createDomainSlice: StateCreator<DomainSlice> = (set, get) => ({
         errors.push('Pipeline name is required')
       }
 
-      if (!domain.id && domain.id !== undefined) {
-        // undefined means not-yet-assigned (ok); empty string is invalid
+      if (domain.id === '') {
         errors.push('Pipeline ID must not be empty when set')
       }
 
