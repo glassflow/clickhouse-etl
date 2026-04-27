@@ -4,7 +4,11 @@ import { useStore } from '@/src/store/index'
 import { registerTransformPlugin } from '../registry'
 import type { TransformPlugin, WireTransformConfig } from '../registry'
 
-/** Wire shape for join configuration */
+/** Wire shape for join configuration.
+ * NOTE (A6): `type` here is the plugin discriminant ('join'). The join algorithm
+ * ('temporal', etc.) is carried as `joinType`. When A6 replaces buildInternalPipelineConfig
+ * with toWireFormat(), ensure the backend join.type field maps to `joinType`, not `type`.
+ */
 export interface WireJoinConfig extends WireTransformConfig {
   type: 'join'
   enabled: boolean

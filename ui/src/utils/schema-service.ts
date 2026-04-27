@@ -4,8 +4,8 @@ import { getSourceAdapter } from '@/src/adapters/source'
 import { getOtlpFieldsForSignalType } from '@/src/modules/otlp/constants'
 import { normalizeFieldType } from '@/src/utils/type-conversion'
 import { isFieldComplete } from '@/src/store/transformation.store'
-import { getTransformPlugin } from '@/src/adapters/transform/registry'
-import type { TransformType } from '@/src/adapters/transform/registry'
+import { getTransformPlugin } from '@/src/adapters/transform'
+import type { TransformType } from '@/src/adapters/transform'
 
 /**
  * Plugin-registry-based schema computation.

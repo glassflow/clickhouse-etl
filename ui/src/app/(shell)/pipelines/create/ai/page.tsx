@@ -6,7 +6,7 @@ import { ChevronLeftIcon } from '@heroicons/react/24/outline'
 import { Layers, Wand2 } from 'lucide-react'
 import { Button } from '@/src/components/ui/button'
 import { materializeIntentToStore, type MaterializationPasswords } from '@/src/modules/ai/materializeIntentToStore'
-import type { PipelineIntentModel, ChatMessage, IntentApiRequest, IntentApiResponse } from '@/src/modules/ai/types'
+import type { PipelineIntentModel, ChatMessage, IntentApiRequest, IntentApiResponse, DeepPartial } from '@/src/modules/ai/types'
 
 // ─── Session state ────────────────────────────────────────────────────────────
 
@@ -174,13 +174,10 @@ export default function CreatePipelineWithAiPage() {
       {/* Page header */}
       <div className="flex items-center justify-between pt-6 pb-4 shrink-0">
         <h1 className="title-2 text-[var(--text-primary)]">AI Pipeline Builder</h1>
-        <button
-          onClick={() => router.push('/')}
-          className="flex items-center gap-1.5 body-3 text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors border border-[var(--surface-border)] rounded-lg px-3 h-8 shadow-sm bg-[var(--surface-bg)]"
-        >
-          <ChevronLeftIcon className="w-4 h-4" />
+        <Button variant="outline" size="sm" onClick={() => router.push('/')}>
+          <ChevronLeftIcon className="w-4 h-4 mr-1" />
           Back to pipelines
-        </button>
+        </Button>
       </div>
 
       {/* Main card */}
@@ -283,7 +280,8 @@ export default function CreatePipelineWithAiPage() {
                 variant="outline"
                 size="sm"
                 onClick={handleOpenInCanvas}
-                disabled={status === 'materializing'}
+                loading={status === 'materializing'}
+                loadingText="Opening canvas…"
               >
                 <Layers className="w-3.5 h-3.5 mr-1.5" />
                 Open in Canvas
@@ -303,8 +301,6 @@ export default function CreatePipelineWithAiPage() {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-type DeepPartial<T> = { [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P] }
 
 function mergeIntentDelta(
   base: PipelineIntentModel | null,
