@@ -1,16 +1,27 @@
-import { db } from './index'
-import fs from 'fs'
 import path from 'path'
 
-export async function runMigrations() {
-  const migDir = path.join(process.cwd(), 'src/lib/db/migrations')
-  const files = fs.readdirSync(migDir).sort()
-  for (const file of files) {
-    if (!file.endsWith('.sql')) continue
-    const sql = fs.readFileSync(path.join(migDir, file), 'utf-8')
-    // Cast needed: execute() is available on both PG and SQLite drizzle instances at runtime
-    // but is not in the shared union type surface — this is an intentional escape hatch
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (db as unknown as { execute: (sql: string) => Promise<void> }).execute(sql)
+const MIGRATIONS_FOLDER = path.join(process.cwd(), 'src/lib/db/migrations')
+
+export async function runMigrations(): Promise<void> {
+  if (process.env.DATABASE_URL) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const pg = require('postgres')
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { drizzle } = require('drizzle-orm/postgres-js')
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { migrate } = require('drizzle-orm/postgres-js/migrator')
+    const client = pg(process.env.DATABASE_URL)
+    await migrate(drizzle(client), { migrationsFolder: MIGRATIONS_FOLDER })
+    await client.end()
+  } else {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const Database = require('better-sqlite3')
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { drizzle } = require('drizzle-orm/better-sqlite3')
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { migrate } = require('drizzle-orm/better-sqlite3/migrator')
+    const sqlite = new Database('.library.db')
+    migrate(drizzle(sqlite), { migrationsFolder: MIGRATIONS_FOLDER })
+    sqlite.close()
   }
 }
