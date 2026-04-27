@@ -181,6 +181,7 @@ export const buildInternalPipelineConfig = ({
         type: 'json',
         fields: schemaFields,
       },
+      // TODO A6: replace with plugin.toWireFormat() — deduplicationPlugin.toWireFormat(deduplicationConfig)
       deduplication:
         // Enable deduplication if:
         // 1. Deduplication is properly configured (enabled and has a key), AND
@@ -299,6 +300,7 @@ export const buildInternalPipelineConfig = ({
     name: pipelineName,
     source: finalSource,
     // Include join configuration for Kafka multi-topic pipelines; disabled join for all others
+    // TODO A6: replace with plugin.toWireFormat() — joinPlugin.toWireFormat(joinPluginConfig)
     join: !wireSource.supportsJoin
       ? { enabled: false }
       : {
@@ -374,6 +376,7 @@ export const buildInternalPipelineConfig = ({
     } as any, // Type assertion to bypass strict checks on conditional properties for now
     // Include filter configuration for single-topic and OTLP pipelines
     // Filter is not available for multi-topic (join) journeys
+    // TODO A6: replace with plugin.toWireFormat() — filterPlugin.toWireFormat(filterPluginConfig)
     ...(wireSource.supportsSingleTopicFeatures
       ? filterStore?.filterConfig?.enabled && filterStore?.expressionString
         ? {
@@ -391,6 +394,7 @@ export const buildInternalPipelineConfig = ({
       : {}),
     // Include transformation configuration for single-topic and OTLP pipelines
     // Transformation is not available for multi-topic (join) journeys
+    // TODO A6: replace with plugin.toWireFormat() — statelessPlugin.toWireFormat(transformationConfig)
     ...(wireSource.supportsSingleTopicFeatures
       ? transformationStore?.transformationConfig?.enabled &&
         transformationStore?.transformationConfig?.fields?.length > 0

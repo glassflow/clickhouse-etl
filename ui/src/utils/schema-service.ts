@@ -4,6 +4,27 @@ import { getSourceAdapter } from '@/src/adapters/source'
 import { getOtlpFieldsForSignalType } from '@/src/modules/otlp/constants'
 import { normalizeFieldType } from '@/src/utils/type-conversion'
 import { isFieldComplete } from '@/src/store/transformation.store'
+import { getTransformPlugin } from '@/src/adapters/transform/registry'
+import type { TransformType } from '@/src/adapters/transform/registry'
+
+/**
+ * Plugin-registry-based schema computation.
+ *
+ * Applies each active transform plugin in order, threading the schema through
+ * `getOutputSchema`. This is the A5 entry point — A6 will wire store-based
+ * `getEffectiveSchema` through this path as well.
+ *
+ * @param baseSchema  Starting schema (e.g. from source topics)
+ * @param activeTransforms  Ordered list of active transforms with their configs
+ */
+export function getEffectiveSchemaFromPlugins(
+  baseSchema: SchemaField[],
+  activeTransforms: Array<{ type: TransformType; config: unknown }>,
+): SchemaField[] {
+  return activeTransforms.reduce((schema, { type, config }) => {
+    return getTransformPlugin(type).getOutputSchema(schema, config)
+  }, baseSchema)
+}
 
 /**
  * Derives the effective source schema from current store state.
