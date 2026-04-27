@@ -3,6 +3,9 @@ import { NextConfig } from 'next'
 const config: NextConfig = {
   reactStrictMode: true,
   output: 'standalone',
+  // Prevent webpack from bundling native modules and DB drivers.
+  // These are resolved from node_modules at runtime; standalone output includes them automatically.
+  serverExternalPackages: ['better-sqlite3', 'postgres'],
   images: {
     remotePatterns: [
       { protocol: 'http', hostname: 'localhost', pathname: '/**' },

@@ -89,6 +89,11 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 # Copy public folder (static assets)
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
+# Copy DB migration SQL files so runMigrations() can find them at runtime.
+# Path matches the MIGRATIONS_FOLDER constant in src/lib/db/migrate.ts:
+#   path.join(process.cwd(), 'src/lib/db/migrations') => /app/src/lib/db/migrations
+COPY --from=builder --chown=nextjs:nodejs /app/src/lib/db/migrations ./src/lib/db/migrations
+
 # Copy startup script for runtime environment variable injection
 COPY --chown=nextjs:nodejs startup.sh /app/startup.sh
 RUN chmod +x /app/startup.sh
