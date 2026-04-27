@@ -11,7 +11,6 @@ export function canvasToPipelineConfig(canvas: CanvasState): InternalPipelineCon
 
   // Find source node type
   const sourceNode = nodes.find((n) => n.id === 'source')
-  const sinkNode = nodes.find((n) => n.id === 'sink')
   const dedupNode = nodes.find((n) => n.id === 'dedup')
   const filterNode = nodes.find((n) => n.id === 'filter')
   const transformNode = nodes.find((n) => n.id === 'transform')
