@@ -89,3 +89,12 @@ ALTER TABLE transformations
 UPDATE transformations t SET pipeline_id = p.id
 FROM pipelines p
 WHERE t.id = ANY(p.transformation_ids);
+
+-- Create data_migrations tracking table
+CREATE TABLE data_migrations (
+    version    TEXT        PRIMARY KEY,
+    name       TEXT        NOT NULL,
+    status     TEXT        NOT NULL DEFAULT 'applied',
+    error      TEXT,
+    applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
