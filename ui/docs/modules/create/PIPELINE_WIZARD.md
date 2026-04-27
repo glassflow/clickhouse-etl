@@ -16,7 +16,8 @@ This document describes the wizard UI, step model, navigation state, and **resum
 | `src/modules/create/hooks/useStepValidationStatus.ts`  | Hook to get validation status for any step from corresponding store. Maps step keys to store validation states.                                                                                       |
 | `src/modules/create/hooks/useWizardSmartNavigation.ts` | Hook for smart continue and sidebar navigation logic. Handles resume-to-last-editing, blocking step detection, and completed step pruning.                                                            |
 | `src/store/steps.store.ts`                             | Wizard navigation state: `activeStepId`, `completedStepIds`, `resumeStepId`; actions to set/clear resume and prune completed steps.                                                                   |
-| `src/config/constants.ts`                              | `StepKeys`, `stepsMetadata` (titles, descriptions).                                                                                                                                                   |
+| `src/config/step-registry.ts`                          | Single source of truth for all wizard steps: `STEP_REGISTRY` (array of `StepDescriptor`), `buildComponentsMap()`, `buildSidebarStepConfig()`, `getStepDescriptor(key)`. Adding a step means editing only this file. |
+| `src/config/constants.ts`                              | `StepKeys` enum (step key strings). No longer contains step metadata — titles, descriptions, sidebar hierarchy, and components all live in `step-registry.ts`.                                        |
 
 ## Step Model
 
@@ -28,7 +29,7 @@ This document describes the wizard UI, step model, navigation state, and **resum
 
 ### Step keys and components
 
-Step components are mapped in `utils.ts` (`componentsMap` / `getWizardJourneySteps`). Examples: `KAFKA_CONNECTION` → KafkaConnectionContainer, `TOPIC_SELECTION_1`/`TOPIC_SELECTION_2` → KafkaTopicSelector, `CLICKHOUSE_MAPPER` → ClickhouseMapper, `REVIEW_CONFIGURATION` → ReviewConfiguration. The wizard renders only the **current** step (by `activeStepId`); there is no draft persistence—unsaved form state on a step can be lost when navigating away.
+Step components are defined in `src/config/step-registry.ts` as the `component` (and optional `wizardComponent`) fields of each `StepDescriptor`. `utils.ts` derives `componentsMap` by calling `buildComponentsMap()` from the registry — do not edit `componentsMap` directly. `buildSidebarStepConfig()` similarly derives the sidebar display config. Examples: `KAFKA_CONNECTION` → KafkaConnectionContainer, `TOPIC_SELECTION_1`/`TOPIC_SELECTION_2` → KafkaTopicSelector, `CLICKHOUSE_MAPPER` → ClickhouseMapper, `REVIEW_CONFIGURATION` → ReviewConfiguration (via `wizardComponent`). The wizard renders only the **current** step (by `activeStepId`); there is no draft persistence—unsaved form state on a step can be lost when navigating away.
 
 ## Navigation State (`stepsStore`)
 
@@ -141,6 +142,8 @@ const { handleSmartContinue, handleSidebarNavigation, findBlockingStep } = useWi
 ## Related
 
 - Steps store: `src/store/steps.store.ts`
-- Journey and step keys: `src/config/constants.ts` (`StepKeys`, `stepsMetadata`), `src/modules/create/utils.ts`
+- Step keys: `src/config/constants.ts` (`StepKeys` enum)
+- Step registry (titles, descriptions, components, sidebar hierarchy, guards, dependencies): `src/config/step-registry.ts` (`STEP_REGISTRY`, `StepDescriptor`)
+- Journey builders and `componentsMap`: `src/modules/create/utils.ts` — derives both from the registry via `buildComponentsMap()` and `buildSidebarStepConfig()`
 - Validation engine (used by step components to mark valid/invalidated): `src/store/state-machine/validation-engine.ts`
 - Docs index: [docs/README.md](../../README.md)
