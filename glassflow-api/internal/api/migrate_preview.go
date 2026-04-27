@@ -93,7 +93,7 @@ func convertSources(v2 pipelineJSONv2) ([]source, error) {
 		}
 
 		schemaFields := extractSchemaFields(v2.Schema.Fields, sourceID)
-		if v2.StatelessTransformation.Enabled && v2.StatelessTransformation.SourceID == sourceID {
+		if v2.StatelessTransformation.Enabled {
 			schemaFields = supplementFieldsFromTransforms(schemaFields, v2.StatelessTransformation.Config.Transform)
 		}
 

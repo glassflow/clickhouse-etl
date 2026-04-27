@@ -160,17 +160,26 @@ func (s *PostgresStorage) GetPipelines(ctx context.Context) ([]models.PipelineCo
 
 		data, err := s.buildPipelineData(ctx, &row)
 		if err != nil {
-			return nil, err
+			s.logger.ErrorContext(ctx, "failed to build pipeline data",
+				slog.String("pipeline_id", row.pipelineID),
+				slog.String("error", err.Error()))
+			continue
 		}
 
 		cfg, err := s.reconstructPipelineFromData(ctx, data)
 		if err != nil {
-			return nil, fmt.Errorf("reconstruct pipeline config: %w", err)
+			s.logger.ErrorContext(ctx, "failed to reconstruct pipeline config",
+				slog.String("pipeline_id", row.pipelineID),
+				slog.String("error", err.Error()))
+			continue
 		}
 
 		err = s.loadConfigsAndSchemaVersions(ctx, cfg)
 		if err != nil {
-			return nil, fmt.Errorf("load configs and schema versions: %w", err)
+			s.logger.ErrorContext(ctx, "failed to load configs and schema versions for the pipeline",
+				slog.String("pipeline_id", row.pipelineID),
+				slog.String("error", err.Error()))
+			continue
 		}
 
 		pipelines = append(pipelines, *cfg)

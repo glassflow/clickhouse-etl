@@ -1,0 +1,450 @@
+---
+title: 'Filter'
+description: 'Learn how filtering works in GlassFlow and how to configure filter expressions'
+---
+import { Callout, Tabs } from 'nextra/components'
+
+# Filter
+
+The **Filter** transformation allows you to selectively keep events based on configurable expressions. Events where the filter expression evaluates to `true` **pass through** and continue to be processed. Events where the expression evaluates to `false` are **dropped** and not processed further.
+
+<Callout type="warning">
+  **Breaking change:** In versions previous to 3.0.0, the filter expression defined a **drop** condition — events matching the expression were discarded. Starting with the current release, the filter expression defines a **keep** condition — events matching the expression pass through. If you are upgrading, you need to invert your existing filter expressions (for example, change `status == 'error'` to `status != 'error'` if your intent was to drop errors).
+</Callout>
+
+## How It Works
+
+Filtering in GlassFlow runs in the **Transform stage** (Stage 3), the same stage as deduplication and stateless transformations. Events are read from NATS JetStream and evaluated against the filter expression before deduplication or stateless transforms run. The filter uses expression-based evaluation to determine whether an event should continue through the pipeline.
+
+### Internal Process
+
+1. **Event Reception**: Events are read from NATS JetStream (after the Ingestor stage)
+2. **Expression Evaluation**: Each event is evaluated against the configured filter expression
+3. **Filtering Decision**:
+   - If the expression evaluates to `true`, the event **passes through** to the rest of the pipeline
+   - If the expression evaluates to `false`, the event is **dropped** and not processed further
+4. **Processing**: Only events where the expression evaluated to `true` continue through the pipeline (deduplication, stateless transformations, join, sink)
+
+### Expression Language
+
+GlassFlow uses the [expr](https://github.com/expr-lang/expr) expression language for filter expressions. This provides a simple, safe way to evaluate conditions on your event data.
+
+**Key Features:**
+- Field-based evaluation using event field names
+- Support for common comparison operators (`==`, `!=`, `>`, `<`, `>=`, `<=`)
+- Logical operators (`and`, `or`, `not`)
+- Type-safe evaluation based on field types
+
+## Configuration
+
+Filter is configured at the pipeline level. The `expression` field defines the **keep condition**: events for which the expression evaluates to `true` pass through, and events for which it evaluates to `false` are discarded.
+
+<Tabs items={['YAML', 'JSON', 'Web UI']} defaultIndex="2" storageKey="config_format">
+  <Tabs.Tab>
+    ```yaml
+    transforms:
+      - type: filter
+        source_id: user-events
+        config:
+          expression: "age > 18 and status == 'active'"
+    ```
+    Refer to the [Pipeline Configuration Reference](/configuration/pipeline-config-reference#filter-configuration) for more details.
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```json
+    {
+      "transforms": [
+        {
+          "type": "filter",
+          "source_id": "user-events",
+          "config": {
+            "expression": "age > 18 and status == 'active'"
+          }
+        }
+      ]
+    }
+    ```
+    Refer to the [Pipeline Configuration Reference](/configuration/pipeline-config-reference#filter-configuration) for more details.
+  </Tabs.Tab>
+  <Tabs.Tab>
+    <img alt="Filter Configuration" src="/assets/ui_filter_configuration.png" />
+  </Tabs.Tab>
+</Tabs>
+
+### Expression Syntax
+
+Filter expressions use field names from your event schema and support the following operations:
+
+#### Comparison Operators
+
+- `==` - Equality
+- `!=` - Inequality
+- `>` - Greater than
+- `<` - Less than
+- `>=` - Greater than or equal
+- `<=` - Less than or equal
+
+#### Logical Operators
+
+- `and` - Logical AND
+- `or` - Logical OR
+- `not` - Logical NOT
+
+#### Examples
+
+<Callout type="info">
+  The filter expression defines the **keep condition**. When the expression evaluates to `true`, the event passes through. When it evaluates to `false`, the event is dropped. Write your expression to match the events you want to **keep**.
+</Callout>
+
+**Keep only events where `status` equals `'active'` (string comparison):**
+<Tabs items={['YAML', 'JSON', 'Web UI']} defaultIndex="2" storageKey="config_format">
+  <Tabs.Tab>
+    ```yaml
+    transforms:
+      - type: filter
+        source_id: user-events
+        config:
+          expression: "status == 'active'"
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```json
+    {
+      "transforms": [
+        {
+          "type": "filter",
+          "source_id": "user-events",
+          "config": {
+            "expression": "status == 'active'"
+          }
+        }
+      ]
+    }
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    <img alt="String Comparison" src="/assets/ui_filter_string_comparison.png" />
+  </Tabs.Tab>
+</Tabs>
+
+**Keep only events where `age` is greater than 18 (numeric comparison):**
+<Tabs items={['YAML', 'JSON', 'Web UI']} defaultIndex="2" storageKey="config_format">
+  <Tabs.Tab>
+    ```yaml
+    transforms:
+      - type: filter
+        source_id: user-events
+        config:
+          expression: "age > 18"
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```json
+    {
+      "transforms": [
+        {
+          "type": "filter",
+          "source_id": "user-events",
+          "config": {
+            "expression": "age > 18"
+          }
+        }
+      ]
+    }
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    <img alt="Numeric Comparison" src="/assets/ui_filter_numeric_comparison.png" />
+  </Tabs.Tab>
+</Tabs>
+
+**Keep only events where `is_premium` is `true` (boolean field):**
+<Tabs items={['YAML', 'JSON', 'Web UI']} defaultIndex="2" storageKey="config_format">
+  <Tabs.Tab>
+    ```yaml
+    transforms:
+      - type: filter
+        source_id: user-events
+        config:
+          expression: "is_premium == true"
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```json
+    {
+      "transforms": [
+        {
+          "type": "filter",
+          "source_id": "user-events",
+          "config": {
+            "expression": "is_premium == true"
+          }
+        }
+      ]
+    }
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    <img alt="Boolean Field" src="/assets/ui_filter_boolean_field.png" />
+  </Tabs.Tab>
+</Tabs>
+
+**Keep only events matching multiple conditions with AND:**
+<Tabs items={['YAML', 'JSON', 'Web UI']} defaultIndex="2" storageKey="config_format">
+  <Tabs.Tab>
+    ```yaml
+    transforms:
+      - type: filter
+        source_id: user-events
+        config:
+          expression: "age > 18 and status == 'active'"
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```json
+    {
+      "transforms": [
+        {
+          "type": "filter",
+          "source_id": "user-events",
+          "config": {
+            "expression": "age > 18 and status == 'active'"
+          }
+        }
+      ]
+    }
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    <img alt="Multiple Conditions with AND" src="/assets/ui_filter_multiple_conditions_with_and.png" />
+  </Tabs.Tab>
+</Tabs>
+
+**Keep events matching any condition with OR:**
+<Tabs items={['YAML', 'JSON', 'Web UI']} defaultIndex="2" storageKey="config_format">
+  <Tabs.Tab>
+    ```yaml
+    transforms:
+      - type: filter
+        source_id: user-events
+        config:
+          expression: "status == 'active' or status == 'pending'"
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```json
+    {
+      "transforms": [
+        {
+          "type": "filter",
+          "source_id": "user-events",
+          "config": {
+            "expression": "status == 'active' or status == 'pending'"
+          }
+        }
+      ]
+    }
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    <img alt="Multiple Conditions with OR" src="/assets/ui_filter_multiple_conditions_with_or.png" />
+  </Tabs.Tab>
+</Tabs>
+
+**Keep events matching a complex expression with parentheses:**
+<Tabs items={['YAML', 'JSON', 'Web UI']} defaultIndex="2" storageKey="config_format">
+  <Tabs.Tab>
+    ```yaml
+    transforms:
+      - type: filter
+        source_id: user-events
+        config:
+          expression: "(age > 18 and age < 65) or is_student == true"
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```json
+    {
+      "transforms": [
+        {
+          "type": "filter",
+          "source_id": "user-events",
+          "config": {
+            "expression": "(age > 18 and age < 65) or is_student == true"
+          }
+        }
+      ]
+    }
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    <img alt="Complex Expression with Parentheses" src="/assets/ui_filter_complex_expression_with_parentheses.png" />
+  </Tabs.Tab>
+</Tabs>
+
+**Keep only events using nested field access:**
+<Tabs items={['YAML', 'JSON', 'Web UI']} defaultIndex="2" storageKey="config_format">
+  <Tabs.Tab>
+    ```yaml
+    transforms:
+      - type: filter
+        source_id: user-events
+        config:
+          expression: "user.age > 18"
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```json
+    {
+      "transforms": [
+        {
+          "type": "filter",
+          "source_id": "user-events",
+          "config": {
+            "expression": "user.age > 18"
+          }
+        }
+      ]
+    }
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    <img alt="Nested Field Access" src="/assets/ui_filter_nested_field_access.png" />
+  </Tabs.Tab>
+</Tabs>
+
+## Best Practices
+
+### Expression Design
+
+- **Write keep conditions**: The expression defines what to keep. For example, to keep only active users, write `status == 'active'`.
+- **Keep expressions simple**: Complex expressions can be harder to maintain and debug
+- **Use parentheses**: Explicitly group conditions with parentheses for clarity
+- **Test expressions**: Validate filter expressions before deploying to production
+
+### Field Names
+
+- **Use exact field names**: Field names in expressions must match exactly with your event schema
+- **Case sensitivity**: Field names are case-sensitive
+- **Nested fields**: Use dot notation for nested fields (e.g., `user.age`)
+
+### Type Safety
+
+- **Match field types**: Ensure comparison values match the field types in your schema
+- **String literals**: Use single quotes for string literals in expressions
+- **Numeric values**: Use numeric literals without quotes for numeric comparisons
+- **Boolean values**: Use `true` or `false` (lowercase) for boolean comparisons
+
+## Example Configuration
+
+Here's a complete example of a pipeline with filtering enabled. In this example, only events where `age > 18` **and** `status == 'active'` **pass through** to ClickHouse. Events that do not meet both conditions are dropped.
+
+<Tabs items={['YAML', 'JSON']} storageKey="config_format">
+  <Tabs.Tab>
+    ```yaml
+    version: v3
+    pipeline_id: filtered-pipeline
+    name: Filtered Events Pipeline
+    sources:
+      - type: kafka
+        source_id: user-events
+        connection_params:
+          brokers:
+            - "kafka:9092"
+          protocol: PLAINTEXT
+          mechanism: NO_AUTH
+        topic: user-events
+        consumer_group_initial_offset: latest
+        schema_fields:
+          - name: age
+            type: int
+          - name: status
+            type: string
+    transforms:
+      - type: filter
+        source_id: user-events
+        config:
+          expression: "age > 18 and status == 'active'"
+    sink:
+      type: clickhouse
+      connection_params:
+        host: clickhouse.example.com
+        port: "9000"
+        database: default
+        username: default
+        password: mysecret
+        secure: false
+      table: active_users
+      max_batch_size: 1000
+      max_delay_time: 1s
+      mapping:
+        - name: age
+          column_name: age
+          column_type: Int32
+        - name: status
+          column_name: status
+          column_type: String
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```json
+    {
+      "version": "v3",
+      "pipeline_id": "filtered-pipeline",
+      "name": "Filtered Events Pipeline",
+      "sources": [
+        {
+          "type": "kafka",
+          "source_id": "user-events",
+          "connection_params": {
+            "brokers": ["kafka:9092"],
+            "protocol": "PLAINTEXT",
+            "mechanism": "NO_AUTH"
+          },
+          "topic": "user-events",
+          "consumer_group_initial_offset": "latest",
+          "schema_fields": [
+            {"name": "age", "type": "int"},
+            {"name": "status", "type": "string"}
+          ]
+        }
+      ],
+      "transforms": [
+        {
+          "type": "filter",
+          "source_id": "user-events",
+          "config": {
+            "expression": "age > 18 and status == 'active'"
+          }
+        }
+      ],
+      "sink": {
+        "type": "clickhouse",
+        "connection_params": {
+          "host": "clickhouse.example.com",
+          "port": "9000",
+          "database": "default",
+          "username": "default",
+          "password": "mysecret",
+          "secure": false
+        },
+        "table": "active_users",
+        "max_batch_size": 1000,
+        "max_delay_time": "1s",
+        "mapping": [
+          {"name": "age", "column_name": "age", "column_type": "Int32"},
+          {"name": "status", "column_name": "status", "column_type": "String"}
+        ]
+      }
+    }
+    ```
+  </Tabs.Tab>
+</Tabs>
+
+## Related Documentation
+
+- [Data Flow - Transform Stage](/architecture/data-flow#stage-3-transformations-optional)
+- [Pipeline Configuration Reference - Filter Configuration](/configuration/pipeline-config-reference#filter-configuration)
+- [Transformations Overview](/transformations)
+- [expr Language Documentation](https://github.com/expr-lang/expr)
+

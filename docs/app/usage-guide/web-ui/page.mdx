@@ -19,18 +19,18 @@ When using the GlassFlow CLI, the web interface is available at `http://localhos
 The web interface supports four main pipeline types:
 
 1. **Deduplicate** - Remove duplicate records based on specified keys
-2. **Join** - Combine data from multiple Kafka topics
+2. **Join** - Combine data from multiple Kafka sources
 3. **Deduplicate and Join** - Both deduplication and joining in a single pipeline
-4. **Single Topic** - Ingest, filter, transform, and deduplicate data from a single Kafka topic
+4. **Single Source** - Ingest, filter, transform, and deduplicate data from a single source
 
 ![Pipeline Types](/assets/ui_home.png)
 
 
 ## Creating a Pipeline
 
-### Creating a Single Topic Pipeline
+### Creating a Single Source Pipeline
 
-This section walks through creating a pipeline that ingests, filters, transforms, and deduplicates records from a single Kafka topic.
+This section walks through creating a pipeline that ingests, filters, transforms, and deduplicates records from a single source. The example below uses a Kafka source.
 <Steps>
 #### Setup Kafka Connection
 
@@ -105,14 +105,14 @@ The system will:
 
 This step is optional. Skip it if you do not need to filter records before they reach ClickHouse.
 
-Toggle the filter on to define a condition that identifies records to drop. Records that match the expression are excluded from the pipeline; records that do not match are passed through.
+Toggle the filter on to define a condition that identifies records to keep. Records that match the expression pass through the pipeline; records that do not match are dropped.
 
 **Filter Configuration**
 
-- **Filter Expression**: Enter a JSON-based condition that describes the records you want to drop
-  - Example: `{"status": "aborted"}` drops every record where `status` equals `"cancelled"`
+- **Filter Expression**: Enter a JSON-based condition that describes the records you want to keep
+  - Example: `{"status": "active"}` keeps every record where `status` equals `"active"`
   - Conditions can reference any field present in the topic schema
-  - Only records that match the expression are dropped; all others continue downstream
+  - Only records that match the expression pass through; all others are dropped
 
 ![Filter Configuration](/assets/ui_filter_config.png)
 
@@ -162,13 +162,13 @@ Configure the destination table and field mappings:
 **Batch Configuration**
 
 - **Max Batch Size**: Maximum number of records per batch (default: 1000)
-- **Max Delay Time**: Maximum time to wait before flushing batch (default: 1s)
+- **Max Delay Time**: Maximum time to wait before flushing batch (default: 60s)
 
 **Field Mapping**
 
 Map source fields to ClickHouse columns:
 
-- **Source Field**: The field from your Kafka topic
+- **Source Field**: The field from your data source
 - **Data Type**: The incoming data type extracted from previous configuration
 - **Destination Column**: The corresponding ClickHouse column name and type loaded from the database
 
@@ -183,7 +183,7 @@ Set the replica counts and CPU/memory limits for each pipeline component. The de
 For each component — **Ingestor**, **Transform**, and **Sink** — you can configure:
 
 - **Replicas**: Number of parallel instances. More replicas increase throughput for that stage.
-  - Ingestor replicas must not exceed the Kafka topic's partition count
+  - For Kafka sources, ingestor replicas must not exceed the topic's partition count
   - Transform replicas cannot be changed after pipeline creation when deduplication is enabled
 - **CPU Request / Limit**: CPU allocated to each replica (millicores)
 - **Memory Request / Limit**: RAM allocated to each replica
@@ -201,9 +201,9 @@ For each component — **Ingestor**, **Transform**, and **Sink** — you can con
 
 </Steps>
 
-### Creating a Multi-Topic Pipeline
+### Creating a Multi-Source Pipeline
 
-This section covers creating pipelines that combine data from multiple Kafka topics.
+This section covers creating pipelines that combine data from multiple Kafka sources.
 <Steps>
 
 #### Setup Multiple Kafka Connections
@@ -296,7 +296,7 @@ Every pipeline moves through a defined set of states. Understanding these states
 | State | Type | Description |
 |-------|------|-------------|
 | `Created` | Stable | The pipeline configuration has been saved but the pipeline has never been started. No Kubernetes workloads are running. |
-| `Running` | Stable | The pipeline is actively consuming from Kafka, processing data, and writing to ClickHouse. |
+| `Running` | Stable | The pipeline is actively consuming from its source, processing data, and writing to ClickHouse. |
 | `Stopping` | Transitional | A stop has been requested. The pipeline is draining in-flight messages from the queue before scaling down to zero replicas. |
 | `Stopped` | Stable | The pipeline has scaled down to zero replicas. No data is being processed. Configuration is preserved and the pipeline can be resumed or deleted. |
 | `Resuming` | Transitional | A resume has been requested. Kubernetes workloads are scaling back up. The pipeline transitions to `Running` once all components are healthy. |
@@ -353,10 +353,10 @@ Every pipeline moves through a defined set of states. Understanding these states
 ### Getting Help
 
 - Check the pipeline logs for detailed error messages
-- Review the [Pipeline JSON Reference](/configuration/pipeline-json-reference) documentation
+- Review the [Pipeline Configuration Reference](/configuration/pipeline-config-reference) documentation
 - Consult the [FAQ](/faq) for common solutions
 
 ## Next Steps
 
-- Explore the [Pipeline JSON Reference](/configuration/pipeline-json-reference) documentation for detailed configuration options
+- Explore the [Pipeline Configuration Reference](/configuration/pipeline-config-reference) documentation for detailed configuration options
 - Learn about [monitoring and observability](/usage-guide#verifying-data-flow) for your pipelines

@@ -2,168 +2,70 @@
 title: 'Kubernetes Components'
 description: 'Understanding the core components that make up GlassFlow in Kubernetes'
 ---
+import { Callout } from 'nextra/components'
 
 # Kubernetes Components
 
-GlassFlow consists of the following components running as Kubernetes pods in the `glassflow` namespace:
+GlassFlow runs in the `glassflow` namespace and deploys shared infrastructure alongside per-pipeline workloads.
 
-## Core Application Pods
+## Shared Components
 
-### 1. GlassFlow API
-- **Pod Name**: `glassflow-api-*`
-- **Purpose**: Core ETL engine that provides an API and orchestrates the pipeline.
-- **Features**:
-  - Interface to the UI and python client for pipeline management.
-  - Provides CRUD operations and REST API for Pipeline.
+These components are deployed once and shared across all pipelines.
 
-### 2. GlassFlow UI
-- **Pod Name**: `glassflow-ui-*`
-- **Purpose**: Web-based user interface for pipeline management.
-- **Features**:
-  - Intuitive pipeline configuration.
-  - Real-time monitoring.
-  - User-friendly interface for managing data operations.
-  - Responsive web interface.
+### Core
 
-### 3. GlassFlow Controller Manager
-- **Pod Name**: `glassflow-controller-manager-*`
-- **Purpose**: Kubernetes operator that manages GlassFlow custom resources.
-- **Features**:
-  - Watches for pipeline custom resources.
-  - Manages pipeline lifecycle.
-  - Handles scaling and updates.
-  - Integrates with Kubernetes API server.
+| Pod name | Kind | Purpose |
+|----------|------|---------|
+| `glassflow-api-*` | Deployment | REST API for pipeline CRUD, orchestration, and integration with the UI and Python SDK |
+| `glassflow-ui-*` | Deployment | Web interface for pipeline configuration and real-time monitoring |
+| `glassflow-controller-manager-*` | Deployment | Kubernetes operator that watches Pipeline CRDs and manages their lifecycle, scaling, and updates |
+| `glassflow-postgresql-*` | StatefulSet | PostgreSQL database for storing pipeline configuration |
 
-### 4. GlassFlow Postgres
-- **Pod Name**: `glassflow-postgresql-*`
-- **Purpose**: PostgreSQL database for storing pipeline configuration.
+### Messaging (NATS)
 
-## NATS Cluster
+| Pod name | Kind | Purpose |
+|----------|------|---------|
+| `glassflow-nats-{0..N}` | StatefulSet | NATS JetStream cluster (3 or 5 nodes) providing persistent messaging, high availability, and automatic failover between pipeline stages |
+| `glassflow-nats-box-*` | Deployment | Utility container with NATS CLI tools for debugging and cluster administration |
 
-### 5. NATS Server Cluster
-- **Pod Names**: `glassflow-nats-0`, `glassflow-nats-1`, `glassflow-nats-2`, `glassflow-nats-3`, `glassflow-nats-4`
-- **Purpose**: Distributed message broker and key-value store.
-- **Features**:
-  - JetStream enabled for persistent messaging.
-  - High-performance message delivery.
-  - Clustering for high availability.
-  - Automatic failover capabilities.
-  - 5-node cluster for redundancy.
+### OTLP Receiver
 
-### 6. NATS Box
-- **Pod Name**: `glassflow-nats-box-*`
-- **Purpose**: NATS utility container for debugging and management.
-- **Features**:
-  - NATS CLI tools.
-  - Debugging capabilities.
-  - Cluster monitoring utilities.
-  - Administrative functions.
+| Pod name | Kind | Purpose |
+|----------|------|---------|
+| `glassflow-otlp-receiver-*` | Deployment | Accepts OpenTelemetry logs, traces, and metrics over gRPC (4317) and HTTP (4318). Flattens OTLP protobuf to JSON and routes data to the correct pipeline via the `x-glassflow-pipeline-id` header. Deployed once and shared across all OTLP pipelines. Only deployed when at least one pipeline uses an OTLP source. |
 
-## Monitoring and Observability
+### Observability
 
-### 7. OpenTelemetry Collector
-- **Pod Name**: `glassflow-otel-collector-*`
-- **Purpose**: Collects, processes, and exports telemetry data.
-- **Features**:
-  - Metrics collection.
-  - Log aggregation.
-  - Export to monitoring backends.
-  - Provides promentheus metrics on `/metrics` endpoint at port `9090`.
+| Pod name | Kind | Purpose |
+|----------|------|---------|
+| `glassflow-otel-collector-*` | Deployment | Collects metrics and logs from pipeline components; exposes Prometheus metrics on `/metrics` port `9090` |
+| `glassflow-prometheus-nats-exporter-*` | Deployment | Exports NATS server and JetStream metrics for Prometheus |
 
-### 8. Prometheus NATS Exporter
-- **Pod Name**: `glassflow-prometheus-nats-exporter-*`
-- **Purpose**: Exports NATS metrics for Prometheus monitoring.
-- **Features**:
-  - NATS server metrics.
-  - JetStream statistics.
-  - Connection monitoring.
-  - Performance metrics.
+### Custom Resources
 
-## Custom Resources
-
-### 9. Pipeline Custom Resource Definition (CRD)
-- **CRD Name**: `pipelines.etl.glassflow.io`
-- **Purpose**: Defines the schema for pipeline resources in Kubernetes.
-- **Features**:
-  - Declarative pipeline configuration.
-  - Kubernetes-native pipeline management.
-  - Integration with controller manager.
-  - Version-controlled pipeline definitions.
+| CRD name | Purpose |
+|----------|---------|
+| `pipelines.etl.glassflow.io` | Declarative Pipeline resource managed by the controller — defines sources, transforms, join, sink, and scaling for each pipeline |
 
 ## Per-Pipeline Resources
 
-### 10. Pipeline-Specific Namespaces
-- **Namespace Pattern**: `pipeline-{pipeline-name}-{unique-id}`
-- **Example**: `pipeline-load-pipeline-1-7c8e`
-- **Purpose**: Isolates each pipeline's resources for better management and security.
+Each pipeline runs in its own namespace (`pipeline-{pipeline-name}-{unique-id}`) to isolate resources and security boundaries.
 
-### 11. Ingestor StatefulSet
-- **StatefulSet Name**: `ingestor-{partition-id}`
-- **Purpose**: Consumes data from external sources (Kafka, etc.).
-- **Features**:
-  - Horizontal scaling (5 replicas in example).
-  - Partition-based processing.
-  - Fault tolerance with multiple replicas.
+| Workload | Kind | Name pattern | Purpose |
+|----------|------|--------------|---------|
+| Ingestor | StatefulSet | `ingestor-{replica-id}` | Consumes data from the configured source (Kafka or OTLP) and publishes to NATS JetStream. Scales horizontally. |
+| Transform | StatefulSet | `dedup-{replica-id}` | Runs filter (expr), deduplication (BadgerDB), and stateless transformations (expr) in order. Each capability activates only when configured. Scales horizontally. |
+| Sink | StatefulSet | `sink-{replica-id}` | Batches messages from NATS JetStream and writes to ClickHouse with retry logic and connection pooling. Scales horizontally. |
 
-### 12. Transformation StatefulSet
-- **StatefulSet Name**: `dedup-{partition-id}`
-- **Purpose**: Component to deal with transforming, filtering and deduplicating data.
-- **Features**:
-  - Horizontal scaling (5 replicas in example).
-  - If deduplication is enabled, uses BadgerDB for deduplication in disk and memory.
-  - If filter is enabled, uses expr to filter data.
-  - If stateless transformation is enabled, uses expr to transform data.
+<Callout type="info">
+  For guidance on replica counts and resource values, see the [Scaling Guide](/installation/kubernetes/scaling).
+</Callout>
 
-### 13. Sink StatefulSet
-- **StatefulSet Name**: `sink-{partition-id}`
-- **Purpose**: Writes processed data to ClickHouse.
-- **Features**:
-  - Horizontal scaling (5 replicas in example).
-  - Handles final data persistence.
-  - Error handling and retry logic.
-  - Connection pooling for efficiency.
+## Infrastructure
 
-## Namespace and Resources
-
-### GlassFlow Namespace
-- **Namespace**: `glassflow`
-- **Purpose**: Isolates GlassFlow components from other Kubernetes workloads.
-- **Features**:
-  - Resource isolation.
-  - Network policies.
-  - RBAC configuration.
-  - Resource quotas.
-
-## High Availability Features
-
-### NATS Clustering
-- **Cluster Size**: 3/5 nodes
-- **Benefits**:
-  - Fault tolerance.
-  - Load distribution.
-  - Automatic failover.
-  - Data replication.
-
-## Resource Management
-
-### Resource Requests and Limits
-- Each pod has defined CPU and memory requests/limits.
-- NATS cluster uses persistent volumes for data storage.
-- Monitoring components have minimal resource requirements.
-
-### Storage
-- **NATS Data**: Persistent volumes for JetStream storage.
-- **Logs**: Persistent volumes for application logs.
-- **Configuration**: ConfigMaps and Secrets for configuration management.
-
-## Networking
-
-### Service Discovery
-- Internal service communication via Kubernetes DNS.
-- NATS cluster communication via headless services.
-- External access via LoadBalancer or Ingress.
-
-### Security
-- RBAC policies for component access.
-- Network policies for traffic isolation.
-- TLS encryption for NATS cluster communication.
+| Area | Details |
+|------|---------|
+| **Namespace** | All shared components run in the `glassflow` namespace with dedicated RBAC, network policies, and resource quotas |
+| **High availability** | NATS cluster (3 or 5 nodes) provides fault tolerance, automatic failover, and data replication |
+| **Storage** | Persistent volumes for NATS JetStream data and application logs; ConfigMaps and Secrets for configuration |
+| **Networking** | Internal communication via Kubernetes DNS; NATS cluster via headless services; external access via LoadBalancer or Ingress; TLS encryption for NATS cluster traffic |

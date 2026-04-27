@@ -2,7 +2,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: telemetrygen-traces
-  namespace: otel
+  namespace: glassflow
 spec:
   template:
     spec:
@@ -12,9 +12,11 @@ spec:
           image: ghcr.io/open-telemetry/opentelemetry-collector-contrib/telemetrygen:latest
           args:
             - traces
-            - --otlp-endpoint=opentelemetry-collector.otel.svc.cluster.local:4317
+            - '--otlp-header=x-glassflow-pipeline-id="otlp-traces"'
+            - --otlp-endpoint=glassflow-otlp-receiver.glassflow.svc.cluster.local:4317
             - --otlp-insecure
             - --duration=50m
             - --rate=50
+            - --batch-size=1000
 
 

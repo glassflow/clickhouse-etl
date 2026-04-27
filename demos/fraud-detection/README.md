@@ -26,7 +26,7 @@ Copy the sample environment file to `.env` (Git ignores `.env`, so each clone st
 cp .env.example .env
 ```
 
-`.env.example` contains the default Kafka and ClickHouse users and passwords used by `glassflow up --demo`. Override these values if your cluster differs. Values are used as-is by the shell scripts; `create_pipeline.py` base64-encodes only the ClickHouse password in the JSON sent to the API, because the ClickHouse sink expects that field in base64.
+`.env.example` contains the default Kafka and ClickHouse users and passwords used by `glassflow up --demo`. Override these values if your cluster differs. Values are used as-is by the shell scripts and `create_pipeline.py`.
 
 ### 3. Create the Kafka topic and ClickHouse table
 
