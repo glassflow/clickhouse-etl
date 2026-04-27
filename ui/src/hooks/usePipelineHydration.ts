@@ -19,7 +19,7 @@ import { useStore } from '@/src/store'
 import { getPipelineAdapter } from '@/src/modules/pipeline-adapters/factory'
 import type { Pipeline } from '@/src/types/pipeline'
 import { structuredLogger } from '@/src/observability'
-import { isOtlpSource } from '@/src/config/source-types'
+import { getSourceAdapter } from '@/src/adapters/source'
 
 const HYDRATION_CACHE_KEY = 'lastHydratedPipeline'
 
@@ -56,7 +56,8 @@ export function verifyStoreData(pipeline?: Pipeline | null): { hasValidData: boo
   const state = useStore.getState()
   const sourceType = pipeline?.source?.type || state.coreStore.sourceType
 
-  if (isOtlpSource(sourceType)) {
+  const sourceAdapter = getSourceAdapter(sourceType)
+  if (sourceAdapter.type !== 'kafka') {
     // For OTLP pipelines: valid if signalType has been hydrated
     const hasSignalType = !!state.otlpStore.signalType
     return hasSignalType

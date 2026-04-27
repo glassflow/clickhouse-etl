@@ -10,7 +10,7 @@ import { getEffectiveSchema } from '@/src/utils/schema-service'
 import type { TableColumn } from '../types'
 import type { MappingMode } from '../types'
 import { useStore } from '@/src/store'
-import { isOtlpSource } from '@/src/config/source-types'
+import { getSourceAdapter } from '@/src/adapters/source'
 
 export interface UseClickhouseMapperEventFieldsParams {
   mode: MappingMode
@@ -46,7 +46,7 @@ export function useClickhouseMapperEventFields({
   setClickhouseDestination,
 }: UseClickhouseMapperEventFieldsParams) {
   const { coreStore, otlpStore } = useStore()
-  const isOtlp = isOtlpSource(coreStore.sourceType)
+  const isOtlp = getSourceAdapter(coreStore.sourceType).type !== 'kafka'
 
   const selectedEvent = selectedTopic?.selectedEvent
 

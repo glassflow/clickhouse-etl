@@ -8,7 +8,7 @@ import { StepKeys } from '@/src/config/constants'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/src/components/ui/card'
 import { validateStep } from '@/src/scheme/validators'
-import { isOtlpSource } from '@/src/config/source-types'
+import { getSourceAdapter } from '@/src/adapters/source'
 import { useStore } from '@/src/store'
 import {
   getWizardJourneyInstances,
@@ -26,7 +26,7 @@ function PipelineWizard() {
 
   // If no topic count is selected, redirect to home (OTLP pipelines skip this check)
   useEffect(() => {
-    if (isOtlpSource(sourceType)) {
+    if (getSourceAdapter(sourceType).type !== 'kafka') {
       return // OTLP pipelines don't need topicCount validation
     }
     if (!topicCount || topicCount < 1 || topicCount > 2) {
@@ -42,7 +42,7 @@ function PipelineWizard() {
   )
   const sidebarSteps = React.useMemo(
     () => {
-      if (isOtlpSource(sourceType)) {
+      if (getSourceAdapter(sourceType).type !== 'kafka') {
         return getSidebarStepsFromInstances(currentJourney, 1)
       }
       return topicCount && topicCount >= 1 && topicCount <= 2

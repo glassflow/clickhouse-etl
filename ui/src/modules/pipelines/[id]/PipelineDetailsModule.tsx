@@ -20,7 +20,7 @@ import { KafkaConnectionSection } from './sections/KafkaConnectionSection'
 import { OtlpSourceSection } from './sections/OtlpSourceSection'
 import { ClickhouseConnectionSection } from './sections/ClickhouseConnectionSection'
 import { ChevronRight } from 'lucide-react'
-import { isOtlpSource } from '@/src/config/source-types'
+import { getSourceAdapter } from '@/src/adapters/source'
 import PipelineTagsModal from '@/src/modules/pipelines/components/PipelineTagsModal'
 import { handleApiError } from '@/src/notifications/api-error-handler'
 import { notify } from '@/src/notifications'
@@ -300,7 +300,7 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
   const detectedSourceType = pipeline.source?.type
     || (Array.isArray(rawSources) && rawSources.length > 0 ? rawSources[0]?.type : '')
     || ''
-  const isOtlp = isOtlpSource(detectedSourceType)
+  const isOtlp = getSourceAdapter(detectedSourceType).type !== 'kafka'
 
   // Section selection highlighting - determine which overview card should be highlighted
   const isSourceSelected = isOtlp ? activeSection === 'otlp-source' : isSourceStep(activeStep)

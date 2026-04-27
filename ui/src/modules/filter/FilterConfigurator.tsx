@@ -18,7 +18,7 @@ import {
   getAllRules,
 } from './utils'
 import { validateFilterExpression, FilterValidationField } from '@/src/api/pipeline-api'
-import { isOtlpSource } from '@/src/config/source-types'
+import { getSourceAdapter } from '@/src/adapters/source'
 
 export interface FilterConfiguratorProps {
   onCompleteStep: (stepName: string) => void
@@ -51,7 +51,7 @@ export function FilterConfigurator({
 
   // Extract available fields from schema or event (use effective type: userType || type for overrides)
   const availableFields = useMemo((): Array<{ name: string; type: string }> => {
-    if (isOtlpSource(coreStore.sourceType)) {
+    if (getSourceAdapter(coreStore.sourceType).type !== 'kafka') {
       return otlpStore.schemaFields.map((f) => ({ name: f.name, type: f.type }))
     }
 

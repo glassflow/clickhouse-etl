@@ -2,7 +2,7 @@ import React from 'react'
 import { StepKeys } from '@/src/config/constants'
 import { structuredLogger } from '@/src/observability'
 import { OperationKeys } from '@/src/config/constants'
-import { isOtlpSource } from '@/src/config/source-types'
+import { getSourceAdapter } from '@/src/adapters/source'
 import type { SidebarStep } from './WizardSidebar'
 import { isPreviewModeEnabled, isFiltersEnabled, isTransformationsEnabled } from '@/src/config/feature-flags'
 import { buildComponentsMap, buildSidebarStepConfig } from '@/src/config/step-registry'
@@ -238,7 +238,7 @@ export function getWizardJourneyInstances(
   topicCount: number | undefined,
   sourceType?: string,
 ): StepInstance[] {
-  if (sourceType && isOtlpSource(sourceType)) {
+  if (sourceType && getSourceAdapter(sourceType).type !== 'kafka') {
     return getOtlpJourneyInstances()
   }
   if (!topicCount || topicCount < 1 || topicCount > 2) {
@@ -496,7 +496,7 @@ export const getWizardJourneySteps = (
   topicCount: number | undefined,
   sourceType?: string,
 ): Record<string, React.ComponentType<any>> => {
-  if (sourceType && isOtlpSource(sourceType)) {
+  if (sourceType && getSourceAdapter(sourceType).type !== 'kafka') {
     return getJourneyComponents(getOtlpJourney())
   }
   if (!topicCount || topicCount < 1 || topicCount > 2) {

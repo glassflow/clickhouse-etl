@@ -13,7 +13,8 @@ import { hydrateFilter } from './hydration/filter'
 import { hydrateTransformation } from './hydration/transformation'
 import { hydrateResources } from './hydration/resources'
 import { hydrateOtlpSource } from './hydration/otlp-source'
-import { isOtlpSource, SourceType } from '@/src/config/source-types'
+import { SourceType } from '@/src/config/source-types'
+import { getSourceAdapter } from '@/src/adapters/source'
 
 // Helper function to compute operation type from topicCount + deduplication + join state
 // This is used for backward compatibility (analytics, display, etc.)
@@ -566,7 +567,7 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
           case 'all': {
             const cfg = config as any
             const sourceType: string = cfg.sources?.[0]?.type ?? cfg.source?.type ?? ''
-            if (sourceType && isOtlpSource(sourceType)) {
+            if (sourceType && getSourceAdapter(sourceType).type !== 'kafka') {
               hydrateOtlpSource(config)
             } else {
               hydrateKafkaConnection(config)

@@ -4,7 +4,7 @@ import { useStore } from '@/src/store'
 import { structuredLogger } from '@/src/observability'
 import { EventDataFormat } from '@/src/config/constants'
 import { kafkaApiClient } from '@/src/services/kafka-api-client'
-import { isOtlpSource } from '@/src/config/source-types'
+import { getSourceAdapter } from '@/src/adapters/source'
 
 interface PreloadRequirements {
   needsTopicEvents: boolean
@@ -86,7 +86,7 @@ export function useStepDataPreloader(stepKey: StepKeys, pipeline: any) {
       case StepKeys.CLICKHOUSE_MAPPER: {
         // OTLP pipelines use schema fields from otlpStore — no Kafka topics to preload
         const sourceType = useStore.getState().coreStore.sourceType
-        if (isOtlpSource(sourceType)) {
+        if (getSourceAdapter(sourceType).type !== 'kafka') {
           return { needsTopicEvents: false, topicIndices: [], description: '' }
         }
         // Schema mapping needs all source topic events
@@ -100,7 +100,7 @@ export function useStepDataPreloader(stepKey: StepKeys, pipeline: any) {
       case StepKeys.FILTER_CONFIGURATOR: {
         // OTLP pipelines use schema fields from otlpStore — no Kafka topics to preload
         const sourceTypeFilter = useStore.getState().coreStore.sourceType
-        if (isOtlpSource(sourceTypeFilter)) {
+        if (getSourceAdapter(sourceTypeFilter).type !== 'kafka') {
           return { needsTopicEvents: false, topicIndices: [], description: '' }
         }
         // Filter needs topic event for field schema

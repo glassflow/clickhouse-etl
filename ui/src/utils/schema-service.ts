@@ -1,6 +1,6 @@
 import type { SchemaField, InternalFieldType } from '@/src/types/schema'
 import type { RootStoreState } from '@/src/store/index'
-import { isOtlpSource } from '@/src/config/source-types'
+import { getSourceAdapter } from '@/src/adapters/source'
 import { getOtlpFieldsForSignalType } from '@/src/modules/otlp/constants'
 import { normalizeFieldType } from '@/src/utils/type-conversion'
 import { isFieldComplete } from '@/src/store/transformation.store'
@@ -18,7 +18,7 @@ export function getEffectiveSchema(state: RootStoreState): SchemaField[] {
   const { coreStore, otlpStore, topicsStore, transformationStore, joinStore } = state
 
   // --- OTLP source ---
-  if (isOtlpSource(coreStore.sourceType)) {
+  if (getSourceAdapter(coreStore.sourceType).type !== 'kafka') {
     const otlpFields = otlpStore.schemaFields.length > 0
       ? otlpStore.schemaFields
       : getOtlpFieldsForSignalType(otlpStore.signalType ?? coreStore.sourceType)

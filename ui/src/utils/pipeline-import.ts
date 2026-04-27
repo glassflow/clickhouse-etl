@@ -6,7 +6,7 @@
  */
 
 import type { Pipeline } from '@/src/types/pipeline'
-import { isOtlpSource } from '@/src/config/source-types'
+import { getSourceAdapter } from '@/src/adapters/source'
 import yaml from 'js-yaml'
 
 export type ConfigFormat = 'json' | 'yaml'
@@ -71,7 +71,7 @@ export function validatePipelineConfig(json: unknown): ImportValidationResult {
 
   let topicCount = 0
 
-  if (isOtlpSource(sourceType)) {
+  if (getSourceAdapter(sourceType).type !== 'kafka') {
     // OTLP sources have no connection_params or topics
     topicCount = 1
   } else if (isNewFormat) {
@@ -307,7 +307,7 @@ export function markStoresValidAfterImport(store: any, config: Pipeline): void {
     ? (((config as any).sources[0]?.type as string) ?? '')
     : (config.source?.type ?? '')
 
-  if (isOtlpSource(sourceType)) {
+  if (getSourceAdapter(sourceType).type !== 'kafka') {
     // OTLP: hydrateOtlpSource already calls markAsValid(), but ensure it here too
     otlpStore?.markAsValid()
   } else if (isNewFormat) {
@@ -341,7 +341,7 @@ export function markStoresValidAfterImport(store: any, config: Pipeline): void {
   transformationStore.markAsValid()
 
   // OTLP is always single-source; new format uses sources[]; old format uses source.topics[]
-  const topicCount = isOtlpSource(sourceType)
+  const topicCount = getSourceAdapter(sourceType).type !== 'kafka'
     ? 1
     : isNewFormat
       ? ((config as any).sources?.length || 0)
