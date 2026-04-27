@@ -6,6 +6,7 @@ import {
 } from '../utils'
 import { valueToFieldType } from '@/src/utils/type-conversion'
 import { extractEventFields } from '@/src/utils/common.client'
+import { getEffectiveSchema } from '@/src/utils/schema-service'
 import type { TableColumn } from '../types'
 import type { MappingMode } from '../types'
 import { useStore } from '@/src/store'
@@ -61,10 +62,12 @@ export function useClickhouseMapperEventFields({
   useEffect(() => {
     if (mode !== 'single') return
 
-    // OTLP: use predefined schema fields instead of sampling a Kafka event
-    if (isOtlp && otlpStore.schemaFields.length > 0) {
-      const otlpFieldNames = otlpStore.schemaFields.map((f) => f.name)
-      setEventFields(otlpFieldNames)
+    // OTLP: use canonical schema from SchemaService instead of sampling a Kafka event
+    if (isOtlp) {
+      const schemaFields = getEffectiveSchema(useStore.getState())
+      if (schemaFields.length === 0) return
+      const fieldNames = schemaFields.map((f) => f.name)
+      setEventFields(fieldNames)
 
       // For the 'create' path, the auto-generate effect in ClickhouseMapper builds columns
       // from scratch using orderByOptions (these event fields). Auto-mapping here would apply
@@ -72,11 +75,11 @@ export function useClickhouseMapperEventFields({
       if (destinationPath === 'create') return
       if (clickhouseDestination?.mapping?.some((col: any) => col.eventField)) return
       if (mappedColumns.length > 0) {
-        const fieldTypeMap = new Map(otlpStore.schemaFields.map((f) => [f.name, f.type]))
+        const fieldTypeMap = new Map(schemaFields.map((f) => [f.name, f.type]))
         const updatedColumns = [...mappedColumns]
         let hasChanges = false
         updatedColumns.forEach((col, index) => {
-          const matchingField = findBestMatchingField(col.name, otlpFieldNames)
+          const matchingField = findBestMatchingField(col.name, fieldNames)
           if (matchingField) {
             hasChanges = true
             updatedColumns[index] = {
