@@ -7,6 +7,7 @@ import { z } from 'zod'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogOverlay,
@@ -154,6 +155,9 @@ export function ClickHouseConnectionFormModal({
           <DialogTitle className="modal-title title-4 text-[var(--text-primary)]">
             {isEdit ? 'Edit ClickHouse Connection' : 'Save ClickHouse Connection'}
           </DialogTitle>
+          <DialogDescription className="modal-description sr-only">
+            {isEdit ? 'Edit the saved ClickHouse connection details.' : 'Fill in the details to save a new ClickHouse connection.'}
+          </DialogDescription>
         </DialogHeader>
 
         <Form {...form}>

@@ -7,6 +7,7 @@ import { z } from 'zod'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogOverlay,
@@ -140,6 +141,9 @@ export function KafkaConnectionFormModal({
           <DialogTitle className="modal-title title-4 text-[var(--text-primary)]">
             {isEdit ? 'Edit Kafka Connection' : 'Save Kafka Connection'}
           </DialogTitle>
+          <DialogDescription className="modal-description sr-only">
+            {isEdit ? 'Edit the saved Kafka connection details.' : 'Fill in the details to save a new Kafka connection.'}
+          </DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
