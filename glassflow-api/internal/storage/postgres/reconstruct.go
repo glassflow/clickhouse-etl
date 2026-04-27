@@ -122,12 +122,6 @@ func reconstructKafkaConfig(data *pipelineData) (zero models.IngestorComponentCo
 	if err := json.Unmarshal(data.kafkaConn, &cfg); err != nil {
 		return zero, fmt.Errorf("unmarshal kafka connection config: %w", err)
 	}
-	// ConsumerGroupName was not stored in v2 pipelines — derive it from the pipeline ID.
-	for i := range cfg.KafkaTopics {
-		if cfg.KafkaTopics[i].ConsumerGroupName == "" {
-			cfg.KafkaTopics[i].ConsumerGroupName = models.GetKafkaConsumerGroupName(data.pipelineID)
-		}
-	}
 	return cfg, nil
 }
 

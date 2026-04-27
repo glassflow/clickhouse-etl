@@ -144,8 +144,8 @@ func NewPool(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
 		return nil, fmt.Errorf("parse postgres config: %w", err)
 	}
 
-	config.MaxConns = 5
-	config.MinConns = 0
+	config.MaxConns = 1
+	config.MinConns = 1
 	config.MaxConnLifetime = 5 * time.Minute
 	config.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeExec
 	config.ConnConfig.RuntimeParams = map[string]string{

@@ -192,40 +192,17 @@ func buildResources(p models.PipelineConfig) resources {
 	}
 
 	if tr := p.PipelineResources.Transform; tr != nil {
-		dedupSources := dedupSourceIDSet(p)
 		for _, sourceID := range transformResourceSourceIDs(p) {
-			var storage *models.StorageConfig
-			if _, hasDedup := dedupSources[sourceID]; hasDedup {
-				storage = tr.Storage
-			}
 			out.Transform = append(out.Transform, transformResources{
 				SourceID: sourceID,
 				Replicas: tr.Replicas,
 				Requests: tr.Requests,
 				Limits:   tr.Limits,
-				Storage:  storage,
+				Storage:  tr.Storage,
 			})
 		}
 	}
 	return out
-}
-
-// dedupSourceIDSet returns the set of source IDs that have dedup enabled.
-func dedupSourceIDSet(p models.PipelineConfig) map[string]struct{} {
-	ids := make(map[string]struct{})
-	for _, t := range p.Ingestor.KafkaTopics {
-		if t.Deduplication.Enabled {
-			sourceID := t.ID
-			if sourceID == "" {
-				sourceID = t.Name
-			}
-			ids[sourceID] = struct{}{}
-		}
-	}
-	if p.SourceType.IsOTLP() && p.OTLPSource.Deduplication.Enabled {
-		ids[p.OTLPSource.ID] = struct{}{}
-	}
-	return ids
 }
 
 // transformResourceSourceIDs returns the source_ids that should carry a

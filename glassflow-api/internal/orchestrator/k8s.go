@@ -399,8 +399,6 @@ func (k *K8sOrchestrator) ResumePipeline(ctx context.Context, pipelineID string,
 	}
 
 	// Update the pipeline config secret so components receive the latest config on resume.
-	// This is especially important after a v2→v3 migration where the secret still holds
-	// the old v2 pipeline.json.
 	if err = k.updatePipelineConfigSecret(ctx, pipelineCfg); err != nil {
 		k.log.ErrorContext(ctx, "failed to update pipeline config secret on resume", "pipeline_id", pipelineID, "error", err)
 		return fmt.Errorf("update pipeline config secret: %w", err)
