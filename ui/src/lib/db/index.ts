@@ -28,5 +28,21 @@ function createDb(): PostgresJsDatabase<Schema> {
   return drizzleSqlite(sqlite, { schema }) as unknown as PostgresJsDatabase<Schema>
 }
 
-export const db: PostgresJsDatabase<Schema> = createDb()
+// Lazy singleton — defers createDb() until the first request-time property access.
+// Calling createDb() at module load would trigger require('better-sqlite3') during
+// `next build`'s static analysis pass, crashing the build when the native binding
+// isn't compiled for the current Node version (or DATABASE_URL isn't set).
+let _instance: PostgresJsDatabase<Schema> | null = null
+
+function getInstance(): PostgresJsDatabase<Schema> {
+  if (!_instance) _instance = createDb()
+  return _instance
+}
+
+export const db: PostgresJsDatabase<Schema> = new Proxy({} as PostgresJsDatabase<Schema>, {
+  get(_target, prop) {
+    return (getInstance() as unknown as Record<string | symbol, unknown>)[prop]
+  },
+})
+
 export type DbClient = PostgresJsDatabase<Schema>
