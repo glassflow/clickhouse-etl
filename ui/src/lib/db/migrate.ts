@@ -11,8 +11,11 @@ export async function runMigrations(): Promise<void> {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { migrate } = require('drizzle-orm/postgres-js/migrator')
     const client = pg(process.env.DATABASE_URL)
-    await migrate(drizzle(client), { migrationsFolder: MIGRATIONS_FOLDER })
-    await client.end()
+    try {
+      await migrate(drizzle(client), { migrationsFolder: MIGRATIONS_FOLDER })
+    } finally {
+      await client.end()
+    }
   } else {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const Database = require('better-sqlite3')
