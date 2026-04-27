@@ -19,7 +19,7 @@ export function ClickHouseSinkNode({ data, selected }: NodeProps) {
       className={[
         'min-w-[160px] p-3 flex flex-col gap-1.5 cursor-pointer',
         nodeData.disabled ? 'opacity-40 pointer-events-none' : '',
-        selected ? 'ring-2 ring-[var(--color-brand-primary)]' : '',
+        selected ? 'card-dark-selected' : '',
       ]
         .filter(Boolean)
         .join(' ')}
