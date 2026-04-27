@@ -9,6 +9,8 @@ import { ClickhouseConnectionFormManager } from './components/ClickhouseConnecti
 import { ClickhouseConnectionFormType } from '@/src/scheme/clickhouse.scheme'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 import ActionStatusMessage from '@/src/components/shared/ActionStatusMessage'
+import { SaveToLibraryPrompt } from '@/src/components/common/SaveToLibraryPrompt'
+import { UseSavedConnectionChips } from '@/src/components/common/UseSavedConnectionChips'
 
 export function ClickhouseConnectionContainer({
   onCompleteStep,
@@ -26,6 +28,9 @@ export function ClickhouseConnectionContainer({
   pipelineActionState?: any
 }) {
   const [clearErrorMessage, setClearErrorMessage] = useState(false)
+  const [showSavePrompt, setShowSavePrompt] = useState(false)
+  const [prefillKey, setPrefillKey] = useState(0)
+  const [prefillValues, setPrefillValues] = useState<ClickhouseConnectionFormType | null>(null)
   const { clickhouseConnectionStore } = useStore()
   const analytics = useJourneyAnalytics()
 
@@ -144,6 +149,30 @@ export function ClickhouseConnectionContainer({
     }
   }
 
+  // Show save prompt on successful test (wizard mode only)
+  useEffect(() => {
+    if (connectionStatus === 'success' && !standalone) {
+      setShowSavePrompt(true)
+    }
+  }, [connectionStatus, standalone])
+
+  const handleSaveToLibrary = async (name: string) => {
+    const res = await fetch('/ui-api/library/connections/clickhouse', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, config: connectionFormValues ?? {} }),
+    })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      throw new Error(body?.error ?? 'Failed to save connection')
+    }
+  }
+
+  const handleChipSelect = (config: Record<string, unknown>) => {
+    setPrefillValues(config as unknown as ClickhouseConnectionFormType)
+    setPrefillKey((k) => k + 1)
+  }
+
   const handleDiscardConnectionChange = () => {
     // Clear any error messages when discarding changes
     // Reset connection status to clear any error states
@@ -158,7 +187,11 @@ export function ClickhouseConnectionContainer({
 
   return (
     <>
+      {!readOnly && (
+        <UseSavedConnectionChips connectionType="clickhouse" onSelect={handleChipSelect} />
+      )}
       <ClickhouseConnectionFormManager
+        key={prefillKey}
         onTestConnection={handleTestConnection}
         onDiscardConnectionChange={handleDiscardConnectionChange}
         isConnecting={isLoading}
@@ -171,26 +204,25 @@ export function ClickhouseConnectionContainer({
         }
         readOnly={readOnly}
         standalone={standalone}
-        initialValues={initialValues}
-        host={directConnection?.host || ''}
-        httpPort={directConnection?.httpPort || ''}
-        username={directConnection?.username || ''}
-        password={directConnection?.password || ''}
-        nativePort={directConnection?.nativePort || ''}
-        useSSL={directConnection?.useSSL ?? true}
-        skipCertificateVerification={directConnection?.skipCertificateVerification ?? true}
+        initialValues={prefillValues ?? initialValues}
+        host={(prefillValues?.directConnection?.host ?? directConnection?.host) || ''}
+        httpPort={(prefillValues?.directConnection?.httpPort ?? directConnection?.httpPort) || ''}
+        username={(prefillValues?.directConnection?.username ?? directConnection?.username) || ''}
+        password={(prefillValues?.directConnection?.password ?? directConnection?.password) || ''}
+        nativePort={(prefillValues?.directConnection?.nativePort ?? directConnection?.nativePort) || ''}
+        useSSL={prefillValues?.directConnection?.useSSL ?? directConnection?.useSSL ?? true}
+        skipCertificateVerification={prefillValues?.directConnection?.skipCertificateVerification ?? directConnection?.skipCertificateVerification ?? true}
         toggleEditMode={toggleEditMode}
         pipelineActionState={pipelineActionState}
         onClose={onCompleteStandaloneEditing}
       />
-
-      {/* {connectionStatus === 'success' && !clearErrorMessage && (
-        <ActionStatusMessage message="Successfully connected to ClickHouse!" success={true} />
+      {showSavePrompt && (
+        <SaveToLibraryPrompt
+          connectionType="clickhouse"
+          onSave={handleSaveToLibrary}
+          onDismiss={() => setShowSavePrompt(false)}
+        />
       )}
-
-      {connectionStatus === 'error' && !clearErrorMessage && (
-        <ActionStatusMessage message={connectionError || 'Connection failed'} success={false} />
-      )} */}
     </>
   )
 }
