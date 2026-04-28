@@ -98,3 +98,18 @@ curl -v http://localhost:8081/api/v1/pipeline \
 ## Configuration
 
 Components are configured via environment variables (envconfig pattern). PostgreSQL stores persistent pipeline config. NATS KV is used for runtime metadata (legacy).
+
+## Domain context
+
+For glossary, architecture diagrams, customer personas, and cross-repo workflows see the shared context repo (sibling directory):
+
+```
+../glassflow-agent-context/
+  domain/glossary.md              # Key terms and definitions
+  domain/data-model.md            # Core data structures
+  domain/deployment-topology.md   # How components fit together in prod
+  projects/clickhouse-etl/        # Architecture, local-dev, gotchas
+  workflows/linear-tickets.md     # Ticket → branch → PR flow
+```
+
+Load these on demand when doing design work, writing PR descriptions, or when domain terminology is ambiguous. Don't load them for routine code tasks.
