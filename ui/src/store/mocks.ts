@@ -383,7 +383,7 @@ const mockDeduplicationStore = {
   },
   // Mock actions
   updateDeduplication: () => {},
-  invalidateDeduplication: () => {},
+  invalidateDeduplication: (_idx: number) => {},
   getDeduplication: (index: number) =>
     mockDeduplicationStore.deduplicationConfigs[
       index.toString() as keyof typeof mockDeduplicationStore.deduplicationConfigs

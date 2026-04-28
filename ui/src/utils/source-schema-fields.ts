@@ -1,4 +1,4 @@
-import { isOtlpSource } from '@/src/config/source-types'
+import { getSourceAdapter } from '@/src/adapters/source'
 
 interface SchemaField {
   name: string
@@ -16,7 +16,7 @@ export function getSourceSchemaFields(
   topicSchemaFields: SchemaField[] | undefined,
   topicEvent: Record<string, unknown> | null,
 ): SchemaField[] {
-  if (isOtlpSource(sourceType)) {
+  if (getSourceAdapter(sourceType).type !== 'kafka') {
     return otlpSchemaFields
   }
 

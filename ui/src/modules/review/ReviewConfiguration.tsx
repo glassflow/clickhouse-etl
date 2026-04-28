@@ -9,7 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/src/components/ui/ta
 import yaml from 'js-yaml'
 import { useRouter } from 'next/navigation'
 import { generateApiConfig, getMappingType } from '../clickhouse/utils'
-import { isOtlpSource, getOtlpSignalLabel } from '@/src/config/source-types'
+import { getOtlpSignalLabel } from '@/src/config/source-types'
+import { getSourceAdapter } from '@/src/adapters/source'
 import { ReviewConfigurationProps } from './types'
 import { ClickhouseDestinationPreview } from './ClickhouseDestinationPreview'
 import { ClickhouseConnectionPreview } from './ClickhouseConnectionPreview'
@@ -38,10 +39,17 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
   // Detect OTLP source using multiple signals — coreStore.sourceType can be unreliable
   // because enterCreateMode() resets it to 'kafka'. Check otlpStore.signalType (set by
   // the OtlpSignalTypeStep) and otlpStore.sourceId (set on the home page) as fallbacks.
-  const isOtlp = isOtlpSource(coreStore.sourceType)
-    || isOtlpSource(otlpStore.signalType ?? '')
+  const isOtlp = getSourceAdapter(coreStore.sourceType).type !== 'kafka'
+    || getSourceAdapter(otlpStore.signalType ?? '').type !== 'kafka'
     || (otlpStore.sourceId !== '' && otlpStore.schemaFields.length > 0)
-  const { apiConfig, pipelineId, setPipelineId, pipelineName, pipelineVersion } = coreStore
+  const { apiConfig: legacyApiConfig, pipelineId, setPipelineId, pipelineName, pipelineVersion } = coreStore
+  // A6: prefer domainStore.toWireFormat() when the domain has been populated;
+  // fall back to the legacy coreStore.apiConfig during migration.
+  const { domainStore } = useStore()
+  const isDomainPopulated = domainStore.domain.name !== '' || domainStore.domain.sources.length > 0
+  const apiConfig = isDomainPopulated
+    ? domainStore.toWireFormat()
+    : legacyApiConfig
   const { clickhouseConnection } = clickhouseConnectionStore
   const { clickhouseDestination } = clickhouseDestinationStore
   const router = useRouter()

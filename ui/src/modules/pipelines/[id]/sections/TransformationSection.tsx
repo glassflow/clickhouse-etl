@@ -10,7 +10,7 @@ import {
   type TransformationValidation,
 } from './transformation'
 import { PipelineResourcesSection } from './PipelineResourcesSection'
-import { isOtlpSource } from '@/src/config/source-types'
+import { getSourceAdapter } from '@/src/adapters/source'
 import { isFiltersEnabled } from '@/src/config/feature-flags'
 import { FilterCard, TransformationCard } from './transformation/cards'
 import DoubleColumnCard from '../DoubleColumnCard'
@@ -114,7 +114,7 @@ function TransformationSection({ pipeline, onStepClick, disabled, validation, ac
 
   // Detect OTLP source — check store first, fall back to raw pipeline config
   const sourceType = coreStore.sourceType || pipeline?.source?.type || ''
-  const isOtlp = isOtlpSource(sourceType)
+  const isOtlp = getSourceAdapter(sourceType).type !== 'kafka'
 
   // Determine which case to render
   let sectionContent = null

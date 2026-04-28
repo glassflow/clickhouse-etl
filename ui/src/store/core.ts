@@ -13,7 +13,8 @@ import { hydrateFilter } from './hydration/filter'
 import { hydrateTransformation } from './hydration/transformation'
 import { hydrateResources } from './hydration/resources'
 import { hydrateOtlpSource } from './hydration/otlp-source'
-import { isOtlpSource } from '@/src/config/source-types'
+import { SourceType } from '@/src/config/source-types'
+import { getSourceAdapter } from '@/src/adapters/source'
 
 // Helper function to compute operation type from topicCount + deduplication + join state
 // This is used for backward compatibility (analytics, display, etc.)
@@ -85,11 +86,20 @@ interface CoreStoreProps {
   topicCount: number // Primary: number of topics (1 or 2)
   sourceType: string // 'kafka' | 'otlp' — determines which source UI to render
   operationsSelected: OperationsSelectedType // Computed/derived for backward compatibility
-  pipelineVersion: string | undefined // Track the version of the pipeline config
+  /**
+   * Config schema version string (e.g. "2.0") — passed in API save/update calls.
+   * This is design-time metadata, not a runtime counter.
+   * Runtime deployment version (integer counter) lives in `deploymentStore.version`.
+   */
+  pipelineVersion: string | undefined
   outboundEventPreview: OutboundEventPreviewType
   analyticsConsent: boolean
   consentAnswered: boolean
   isDirty: boolean
+  /**
+   * @deprecated Use `domainStore.toWireFormat()` instead.
+   * Kept for backward compatibility during the A6 migration.
+   */
   apiConfig: Partial<Pipeline>
   // New mode-related fields
   mode: StoreMode
@@ -121,7 +131,7 @@ interface CoreStore extends CoreStoreProps {
   hydrateFromConfig: (config: PipelineConfigForHydration) => Promise<void>
   resetToInitial: () => void
   discardChanges: () => void
-  enterCreateMode: () => void
+  enterCreateMode: (sourceType?: SourceType | string) => void
   enterEditMode: (config: Pipeline) => void
   enterViewMode: (config: Pipeline) => Promise<void>
   isDirtyComparedToBase: () => boolean
@@ -197,6 +207,20 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
           },
         },
       }))
+      // Keep domainStore.sources length in sync with the wizard topicCount.
+      // domainStore.syncFromSlices() will be called after topics are actually hydrated;
+      // this is just an early guard so domainStore.domain.sources.length is never stale.
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { useStore } = require('./index') as typeof import('./index')
+        const rootState = useStore.getState()
+        // Only sync if sources count is mismatched (avoid unnecessary writes)
+        if (rootState.domainStore.domain.sources.length !== topicCount && topicCount > 0) {
+          rootState.domainStore.syncFromSlices()
+        }
+      } catch {
+        // Store not yet initialised — ignore
+      }
     },
     setPipelineVersion: (version: string | undefined) =>
       set((state) => ({
@@ -215,10 +239,12 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
         return ''
       }
 
-      // Access other stores through the root store
-      // We need to cast to access other slices since we're in a slice creator
+      // Access other slices via the root store instance to avoid `get() as any` casts.
+      // Lazy require avoids a circular import at module-evaluation time (index imports core).
       try {
-        const rootState = get() as any
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { useStore } = require('./index') as typeof import('./index')
+        const rootState = useStore.getState()
         const deduplicationConfigs = rootState.deduplicationStore?.deduplicationConfigs || {}
         const hasJoin = rootState.joinStore?.enabled || false
 
@@ -266,7 +292,7 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
       }))
       Cookies.set('isDirty', 'false', { expires: 1 })
     },
-    setApiConfig: (config: any) =>
+    setApiConfig: (config: Partial<Pipeline>) =>
       set((state) => ({
         coreStore: { ...state.coreStore, apiConfig: config },
       })),
@@ -376,7 +402,7 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
         state.coreStore.resetToInitial()
       }
     },
-    enterCreateMode: () => {
+    enterCreateMode: (sourceType: SourceType | string = SourceType.KAFKA) => {
       const currentState = get()
       const previousMode = currentState.coreStore.mode
 
@@ -384,6 +410,7 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
         coreStore: {
           ...state.coreStore,
           ...initialCoreStore,
+          sourceType,
           mode: 'create',
           baseConfig: undefined,
           lastSavedConfig: undefined,
@@ -563,7 +590,7 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
           case 'all': {
             const cfg = config as any
             const sourceType: string = cfg.sources?.[0]?.type ?? cfg.source?.type ?? ''
-            if (sourceType && isOtlpSource(sourceType)) {
+            if (sourceType && getSourceAdapter(sourceType).type !== 'kafka') {
               hydrateOtlpSource(config)
             } else {
               hydrateKafkaConnection(config)

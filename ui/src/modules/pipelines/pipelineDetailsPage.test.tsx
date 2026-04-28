@@ -1,7 +1,7 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import PipelinePage from '@/src/app/pipelines/[id]/page'
+import PipelinePage from '@/src/app/(shell)/pipelines/[id]/page'
 import { createMockPipeline } from './[id]/__tests__/test-helpers'
 import { getPipeline } from '@/src/api/pipeline-api'
 import { isAuthEnabled } from '@/src/utils/auth-config.server'

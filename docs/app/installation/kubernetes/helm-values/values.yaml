@@ -100,13 +100,62 @@ ui:
     targetPort: 8080
 
   # Environment variables for the UI service
-  # Supported variables:
-  # - NEXT_PUBLIC_API_URL: API URL for the application
-  # Example:
-  # env:
-  #   - name: NEXT_PUBLIC_API_URL
-  #     value: "http://{{ .Release.Name }}-api.{{ .Release.Namespace }}.svc.cluster.local:8080"
+  # DATABASE_URL is injected automatically by the chart from the glassflow-postgresql secret
+  # when postgresql.enabled=true (or from global.postgres.* for external instances).
+  # You do not need to set it manually here.
+  # Use ui.env only for additional overrides (e.g. NEXT_PUBLIC_API_URL for custom domains).
   env: []
+
+# =============================================================================
+# POSTGRESQL CONFIGURATION
+# =============================================================================
+# PostgreSQL instance used by the UI to persist saved connections (the Library feature).
+# By default a single-node Postgres pod is deployed inside the cluster.
+# Set enabled: false and supply global.postgres.connection_url to use an external instance.
+postgresql:
+  enabled: true
+
+  image:
+    repository: postgres
+    tag: "17-alpine"
+    pullPolicy: IfNotPresent
+
+  replicaCount: 1
+
+  auth:
+    enabled: true
+    database: "glassflow"
+    sslmode: "disable"
+    username: "glassflow"
+    # IMPORTANT: change before deploying to production.
+    # For production prefer auth.existingSecret to avoid storing credentials in values.yaml.
+    password: "glassflow123"
+    existingSecret:
+      enabled: false
+      name: ""
+      keys:
+        usernameKey: username
+        passwordKey: password
+        databaseKey: database
+
+  service:
+    type: ClusterIP
+    port: 5432
+
+  persistence:
+    enabled: true
+    # PVC size for PostgreSQL data — scale based on the number of saved connections
+    size: 10Gi
+    # Leave empty to use the cluster default StorageClass
+    storageClass: ""
+
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
 
 # =============================================================================
 # GLASSFLOW OPERATOR CONFIGURATION

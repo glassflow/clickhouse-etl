@@ -1,841 +1,295 @@
 # Architecture Overview
 
-## Executive Summary
+## What this app does
 
-The ClickHouse ETL UI is a modern Next.js 16 application that provides a comprehensive interface for configuring and managing data pipelines between Kafka and ClickHouse. The application follows a modular architecture with clear separation of concerns, using Zustand for state management, React Hook Form for form handling, and Zod for validation.
+GlassFlow ClickHouse ETL UI is a Next.js 16 application for configuring and managing real-time data pipelines between Kafka (or OTLP) sources and ClickHouse. It provides three creation paths — a step-by-step wizard, a visual canvas editor, and an AI-assisted flow — and a library for reusing saved connections and schemas.
 
-## Technology Stack
+---
 
-### Core Framework
+## Tech stack
 
-- **Next.js 16.0.10** - React framework with App Router
-- **React 19.2.3** - UI library
-- **TypeScript 5.8.3** - Type safety
+| Technology | Role |
+|---|---|
+| Next.js 16 (App Router) | Framework; server components by default, `'use client'` for hooks/DOM |
+| React 19 | UI library |
+| TypeScript 5.8 (strict) | Type safety; types inferred from Zod schemas |
+| Zustand 5 | Client-side state — slice pattern, devtools, subscribeWithSelector |
+| React Hook Form 7 + Zod 3 | Schema-first forms; Manager/Renderer split |
+| Radix UI + shadcn/ui | Accessible component primitives |
+| Tailwind CSS 4 | Layout/spacing only; colors via CSS tokens, never hardcoded |
+| Drizzle ORM | Type-safe DB queries (Postgres/SQLite) |
+| `@xyflow/react` | Visual pipeline canvas |
+| KafkaJS 2 | Kafka client in API routes |
+| `@clickhouse/client` 1 | ClickHouse client in API routes |
+| Vitest 2 | Unit and component tests |
+| Auth0 (optional) | Authentication — gated by `AUTH_ENABLED` env var |
 
-### State Management
+---
 
-- **Zustand 5.0.5** - Lightweight state management with slice pattern
-- **React Hook Form 7.55.0** - Form state management
-- **Zod 3.24.2** - Schema validation
+## Route structure
 
-### UI Components
+All interactive pages live under two route groups:
 
-- **Radix UI** - Accessible component primitives (Dialog, Select, Tabs, etc.)
-- **Tailwind CSS 4.1.3** - Utility-first CSS framework
-- **shadcn/ui** - Component library built on Radix UI
-- **Heroicons** - Icon library
-- **Lucide React** - Additional icons
+### `app/(shell)/` — authenticated app shell
 
-### Data Integration
-
-- **KafkaJS 2.2.4** - Kafka client library
-- **@clickhouse/client 1.11.0** - ClickHouse client
-- **Axios 1.8.4** - HTTP client
-
-### Development Tools
-
-- **ESLint** - Code linting
-- **Prettier** - Code formatting
-- **TypeScript ESLint** - TypeScript-specific linting
-
-## Application Architecture
-
-### High-Level Structure
+Wrapped by `ShellLayoutClient` (sidebar nav, header). All routes check `isAuthEnabled()` and redirect to `/` if the user is unauthenticated.
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    Next.js App Router                   │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐   │
-│  │   Pages      │  │   API Routes │  │    Proxy      │   │
-│  └──────────────┘  └──────────────┘  └──────────────┘   │
-└─────────────────────────────────────────────────────────┘
-                           │
-        ┌─────────────────-┼─────────────────┐
-        │                  │                 │
-┌───────▼──────-┐  ┌───────▼──────┐  ┌───────▼──────┐
-│   Modules     │  │  Components  │  │    Store     │
-│  (Features)   │  │   (UI)       │  │  (State)     │
-└───────┬───────┘  └──────┬─────-─┘  └───────┬──────┘
-        │                 │                  │
-        └─────────────────┼─────────────────-┘
-                          │
-        ┌─────────────────┼─────────────────┐
-        │                 │                 │
-┌───────▼──────┐  ┌───────▼──────┐  ┌───────▼──────┐
-│   Services   │  │     Hooks    │  │     API      │
-│  (Business)  │  │  (Reusable)  │  │  (Client)    │
-└──────────────┘  └──────────────┘  └──────────────┘
+(shell)/
+├── home/                  # Pipeline list (HomePageClient + PipelinesPageClient)
+├── pipelines/
+│   ├── page.tsx           # Pipelines table — PipelinesPageClient
+│   ├── [id]/page.tsx      # Pipeline details — PipelineDetailsModule
+│   ├── create/page.tsx    # Wizard — PipelineWizard ('use client')
+│   └── create/ai/page.tsx # AI-assisted creation — AiChatPanel + AiIntentSummary
+│   └── logs/              # Pipeline log viewer
+├── canvas/page.tsx        # Visual canvas editor — CanvasView + CanvasDeployButton
+├── library/page.tsx       # Connection/schema library — LibraryClient
+├── observability/
+│   ├── page.tsx           # Observability index (coming soon placeholder)
+│   └── [id]/page.tsx      # Per-pipeline health, DLQ, notification channel config
+└── dashboard/page.tsx     # Dashboard — DashboardClient
 ```
 
-### Directory Structure
+### `app/(main)/` — public / utility pages
 
 ```
-src/
-├── proxy.ts                   # Next.js 16 request proxy (auth/matcher)
-├── app/                       # Next.js App Router pages
-│   ├── error.tsx              # Segment error boundary
-│   ├── global-error.tsx       # Root layout error boundary
-│   ├── not-found.tsx          # App 404
-│   ├── loading.tsx            # Root loading UI
-│   ├── home/                  # Home page
-│   ├── pipelines/             # Pipeline management pages
-│   │   ├── loading.tsx        # Pipelines segment loading
-│   │   ├── [id]/              # Pipeline details page
-│   │   │   ├── error.tsx      # Pipeline segment error
-│   │   │   ├── not-found.tsx  # Pipeline 404
-│   │   │   └── loading.tsx   # Pipeline details loading
-│   │   ├── create/            # Pipeline creation page
-│   │   └── logs/              # Pipeline logs page
-│   └── ui-api/                # API routes (Next.js API)
-│       ├── pipeline/          # Pipeline CRUD operations
-│       ├── kafka/             # Kafka operations
-│       ├── clickhouse/        # ClickHouse operations
-│       ├── filter/            # Filter validation
-│       ├── platform/          # Platform detection
-│       └── healthz/           # Health checks
-│
-├── components/                # Reusable UI components
-│   ├── auth/                  # Authentication components
-│   ├── common/                # Common UI components
-│   ├── home/                  # Home page components
-│   ├── providers/             # Context providers
-│   ├── shared/                # Shared components
-│   └── ui/                    # Base UI components (shadcn)
-│
-├── modules/                   # Feature modules
-│   ├── clickhouse/            # ClickHouse configuration
-│   ├── create/                # Pipeline creation wizard
-│   ├── deduplication/         # Deduplication configuration
-│   ├── filter/                # Filter configuration (NEW)
-│   ├── join/                  # Join operation configuration
-│   ├── kafka/                 # Kafka connection & topics
-│   ├── pipeline-adapters/     # Pipeline version adapters (NEW)
-│   ├── pipelines/             # Pipeline management
-│   ├── review/                # Configuration review
-│   └── transformation/        # Transformation configuration (NEW)
-│
-├── store/                     # Zustand state management
-│   ├── hydration/             # State hydration from API
-│   │   ├── filter.ts          # Filter hydration (NEW)
-│   │   └── transformation.ts  # Transformation hydration (NEW)
-│   ├── state-machine/         # Validation & dependency graph
-│   └── *.store.ts             # Store slices
-│
-├── analytics/                 # Analytics & event tracking (NEW)
-│   ├── eventManager.ts        # Core analytics manager
-│   ├── eventDictionary.ts     # Event definitions
-│   ├── journeyTracker.ts      # User journey tracking
-│   └── eventCatalog.ts        # Event catalog
-│
-├── observability/             # Observability & telemetry (NEW)
-│   ├── logger.ts              # Structured logging
-│   ├── metrics.ts             # Metrics collection
-│   ├── config.ts              # Observability config
-│   └── resource.ts            # Resource attributes
-│
-├── notifications/             # Notification system (NEW)
-│   ├── notify.ts              # Core notification API
-│   ├── channels/              # Notification channels (banner, toast, modal, inline)
-│   └── messages/              # Predefined message templates
-│
-├── hooks/                     # Custom React hooks
-├── lib/                       # Core libraries & clients
-├── api/                       # API client functions
-├── services/                  # Business logic services
-├── scheme/                    # Zod validation schemas
-├── types/                     # TypeScript type definitions
-├── utils/                     # Utility functions
-└── config/                    # Configuration constants
+(main)/
+├── welcome/               # Landing page
+├── notifications/settings/# Notification preferences
+├── test-health/           # Health check dev page
+├── test-pipeline-health/  # Pipeline health dev page
+└── dev/components/        # Design system component playground
 ```
 
-## Core Architectural Patterns
+### `app/ui-api/` — API routes (Next.js Route Handlers)
 
-### 1. State Management Pattern
-
-The application uses **Zustand with slice pattern** for state management:
-
-- **Slice-based Architecture**: Each domain (Kafka, ClickHouse, Topics, etc.) has its own store slice
-- **Centralized Store**: All slices are combined into a single store via composition
-- **Hydration Pattern**: State is hydrated from API responses using dedicated hydration functions
-- **Mode-based State**: Supports three modes: `create`, `edit`, and `view`
-
-**Store Slices:**
-
-- `kafka.store.ts` - Kafka connection configuration
-- `topics.store.ts` - Kafka topics management
-- `clickhouse-connection.store.ts` - ClickHouse connection
-- `clickhouse-destination.store.ts` - ClickHouse destination config
-- `deduplication.store.ts` - Deduplication configuration
-- `join.store.ts` - Join operation configuration
-- `filter.store.ts` - Filter configuration (NEW)
-- `transformation.store.ts` - Transformation configuration (NEW)
-- `steps.store.ts` - Wizard step management
-- `core.ts` - Core pipeline state (ID, name, mode, etc.)
-
-### 2. Module Pattern
-
-Features are organized into **self-contained modules**:
-
-- Each module contains its own components, types, and utilities
-- Modules communicate through the centralized store
-- Clear boundaries between features
-
-**Key Modules:**
-
-- **Kafka Module**: Connection setup, topic selection, event preview, type verification
-- **ClickHouse Module**: Connection, destination selection, field mapping
-- **Deduplication Module**: Key selection, time window configuration
-- **Filter Module** (NEW): Query builder for filtering events with arithmetic expressions
-- **Transformation Module** (NEW): Field transformations (passthrough, computed functions)
-- **Join Module**: Stream configuration, join key definition
-- **Pipelines Module**: List, details, actions (start/stop/edit/pause/resume/terminate), DLQ management
-- **Pipeline Adapters Module** (NEW): Version adapters for pipeline config (V1, V2)
-
-### 3. Form Management Pattern
-
-**React Hook Form + Zod** for form handling:
-
-- **Schema-driven Validation**: Zod schemas define form structure and validation rules
-- **Type-safe Forms**: TypeScript types inferred from Zod schemas
-- **Dynamic Forms**: Form configuration objects drive form rendering
-- **Multi-step Forms**: Wizard pattern for complex multi-step configurations
-
-### 4. API Client Pattern
-
-**Layered API Architecture**:
+Server-only proxy layer to the Go backend. All backend calls go through here — no direct backend calls from the client.
 
 ```
-UI Components
-    ↓
-Custom Hooks (useFetchKafkaTopics, useClickhouseConnection)
-    ↓
-API Client Functions (pipeline-api.ts, health.ts)
-    ↓
-Next.js API Routes (/ui-api/*)
-    ↓
-Backend API (glassflow-api)
+ui-api/
+├── pipeline/              # CRUD, pause/resume/stop/terminate, SSE status stream
+├── pipeline/[id]/dlq/     # DLQ state, consume, purge
+├── kafka/                 # Test connection, topics, topic details, events
+├── clickhouse/            # Test connection, databases, tables, schema, create/alter/drop table
+├── filter/validate        # Filter expression validation
+├── transform/expression/evaluate  # Transform expression evaluation
+├── library/               # connections (kafka/clickhouse), schemas, folders — CRUD
+├── notifications/         # Notification CRUD, bulk read/delete, channel config, severity mappings
+├── platform/              # Platform detection
+├── healthz/               # Health check
+└── mock/                  # Mock endpoints for local dev (mirrors real routes)
 ```
 
-### 5. Client Factory Pattern
+---
 
-**Kafka Client Factory** for handling different authentication methods:
+## Store architecture
 
-- **Interface-based**: `IKafkaClient` interface abstracts client implementation
-- **Factory Method**: `KafkaClientFactory.createClient()` determines client type
-- **Gateway Pattern**: Kerberos uses Go-based gateway service
-- **KafkaJS**: Standard auth methods use KafkaJS library
+Single Zustand store composed from slices in `src/store/index.ts`. Access via `const { xStore } = useStore()`.
 
-### 6. Pipeline Adapter Pattern (NEW)
+### Pipeline wizard slices (original)
 
-**Version Adapters** for handling different pipeline configuration versions:
+| Slice | Responsibility |
+|---|---|
+| `coreStore` (`core.ts`) | Pipeline ID, name, mode (create/edit/view), sourceType, topicCount, dirty flag, save history |
+| `kafkaStore` | Kafka connection config: brokers, auth method, security protocol, credential fields |
+| `topicsStore` | Selected topics, per-topic schema fields, initial offsets, sample events |
+| `deduplicationStore` | Per-topic deduplication config (key, key type, time window) |
+| `joinStore` | Join type, stream configs, join keys |
+| `filterStore` | Filter expression string, parsed filter config |
+| `transformationStore` | Stateless field transformation config, expression string |
+| `clickhouseConnectionStore` | ClickHouse connection params (host, ports, credentials, SSL) |
+| `clickhouseDestinationStore` | Target database/table, field mappings, batch settings |
+| `stepsStore` | Active wizard step, step completion/validation states |
+| `resourcesStore` | K8s resource quotas (CPU, memory requests/limits) |
+| `otlpStore` | OTLP source config: signal type, endpoint, deduplication |
+| `notificationsStore` | In-app notification list, unread count |
 
-- **Adapter Interface**: `PipelineAdapter` interface for version-specific logic
-- **Factory Method**: `getPipelineAdapter(version)` returns appropriate adapter
-- **Version Support**: V1 (legacy) and V2 (current) adapters
-- **Migration**: Automatic conversion between versions when loading pipelines
+### New slices (sprint-1)
 
-## Data Flow
+| Slice | Responsibility |
+|---|---|
+| `canvasStore` (`canvas.store.ts`) | ReactFlow nodes/edges, active node ID, per-node configs, source type. `initDefaultPipeline(sourceType)` seeds the default graph. |
+| `domainStore` (`domain.store.ts`) | Canonical `PipelineDomain` model — the single source of truth for all three creation lanes (wizard, canvas, AI). `syncFromSlices()` bridges from wizard slices; `toWireFormat()` derives `InternalPipelineConfig`; `getSchema()` threads active transforms through the plugin registry. |
+| `deploymentStore` (`deployment.store.ts`) | Runtime deployment state: `pipeline_status`, `version`, timestamps. Separate from design-time config in `domainStore`. |
+| `runtimeStore` (`runtime.store.ts`) | Reserved for observability metrics (throughput, lag, error rate). Will be populated by the `/observability` SSE stream in a future sprint. Currently a no-op. |
+| `otlpStore` | OTLP source config (signal type, endpoint, schema fields, deduplication) |
 
-### Pipeline Creation Flow
+### Hydration rule
 
-```
-1. User selects operation type (ingest-only, deduplication, join, deduplication-joining)
-   ↓
-2. Store updates: coreStore.setOperationsSelected()
-   ↓
-3. Wizard determines journey steps based on operation
-   ↓
-4. User completes each step:
-   - Kafka Connection → kafkaStore
-   - Topic Selection → topicsStore
-   - Kafka Type Verification → topicsStore (schema validation)
-   - Filter Configuration → filterStore (if applicable) (NEW)
-   - Transformation Configuration → transformationStore (if applicable) (NEW)
-   - Deduplication → deduplicationStore (if applicable)
-   - Join Config → joinStore (if applicable)
-   - ClickHouse Connection → clickhouseConnectionStore
-   - ClickHouse Destination → clickhouseDestinationStore
-   ↓
-5. Review step: All store slices combined into Pipeline config
-   ↓
-6. API call: POST /pipeline/create
-   ↓
-7. Store reset or navigation to pipeline details
-```
+Never write to slices directly from raw backend data. Use:
 
-### Pipeline Edit Flow
+- `coreStore.hydrateFromConfig(config)` — full pipeline hydration on load/edit
+- `hydrateSection(section, config)` — partial section hydration
+- `domainStore.syncFromSlices()` — derive `PipelineDomain` from current wizard slices after any hydration
 
-```
-1. User navigates to pipeline details page
-   ↓
-2. API call: GET /pipeline/{id}
-   ↓
-3. Pipeline adapter converts config to current version (if needed)
-   ↓
-4. Store hydration:
-   - coreStore.enterEditMode(config)
-   - hydrateKafkaConnection(config)
-   - hydrateKafkaTopics(config)
-   - hydrateFilterConfiguration(config) (NEW)
-   - hydrateTransformationConfiguration(config) (NEW)
-   - hydrateClickhouseConnection(config)
-   - hydrateClickhouseDestination(config)
-   - hydrateJoinConfiguration(config)
-   ↓
-5. User edits configuration
-   ↓
-6. Store marked as dirty: coreStore.markAsDirty()
-   ↓
-7. User saves: POST /pipeline/{id}/edit
-   ↓
-8. Store updated: coreStore.markAsClean()
-```
-
-## Pipeline Operation Types
-
-The application supports four main pipeline operation types:
-
-1. **Ingest-Only** (`ingest-only`)
-   - Single topic ingestion
-   - No deduplication
-   - Direct mapping to ClickHouse
-
-2. **Deduplication** (`deduplication`)
-   - Single topic with deduplication
-   - Time-window based duplicate detection
-   - Key field selection
-
-3. **Joining** (`joining`)
-   - Two topics joined together
-   - Temporal join with time window
-   - Left/right join orientation
-
-4. **Deduplication-Joining** (`deduplication-joining`)
-   - Two topics with deduplication on both
-   - Combined deduplication and join operations
-
-## Key Architectural Decisions
-
-### 1. Next.js App Router
-
-- **Rationale**: Modern Next.js routing with server components support
-- **Benefits**: Better performance, improved SEO, simplified routing
-
-### 2. Zustand over Redux
-
-- **Rationale**: Simpler API, less boilerplate, better TypeScript support
-- **Benefits**: Easier to learn, smaller bundle size, flexible patterns
-
-### 3. Slice Pattern for State
-
-- **Rationale**: Better organization, easier testing, clear boundaries
-- **Benefits**: Modular state, independent slices, easier maintenance
-
-### 4. Zod for Validation
-
-- **Rationale**: Type-safe schemas, runtime validation, TypeScript inference
-- **Benefits**: Single source of truth, type safety, better DX
-
-### 5. Factory Pattern for Kafka Client
-
-- **Rationale**: Different auth methods require different implementations
-- **Benefits**: Extensible, testable, clear separation of concerns
-
-### 6. Hydration Pattern
-
-- **Rationale**: Separate hydration logic from store slices
-- **Benefits**: Reusable, testable, clear data transformation
-
-### 7. Pipeline Adapter Pattern (NEW)
-
-- **Rationale**: Support multiple pipeline configuration versions
-- **Benefits**: Backward compatibility, gradual migration, version management
-
-## Component Architecture
-
-### Component Hierarchy
-
-```
-RootLayout
-├── ThemeProvider
-├── AnalyticsProvider
-├── HealthCheckProvider
-├── PlatformProvider
-├── NotificationProvider
-├── AuthProvider
-├── Header
-└── Page Content
-    └── Feature Components
-        └── Module Components
-            └── UI Components
-```
-
-### Component Types
-
-1. **Page Components** (`app/*/page.tsx`)
-   - Next.js route components
-   - Minimal logic, mostly composition
-
-2. **Module Components** (`modules/*/`)
-   - Feature-specific components
-   - Business logic included
-   - Connected to store
-
-3. **UI Components** (`components/ui/`)
-   - Reusable, presentational components
-   - No business logic
-   - Based on shadcn/ui
-
-4. **Shared Components** (`components/shared/`)
-   - Common UI patterns
-   - Used across multiple features
-
-## State Management Details
-
-### Store Structure
+### Global store actions
 
 ```typescript
-interface Store {
-  // Kafka slice
-  kafkaStore: KafkaSlice
+resetAllPipelineState(topicCount, force?)  // full or partial reset
+resetForNewPipeline(topicCount)            // full reset + cookie/history clear
+resetFormValidationStates()                // reset validation without losing data
+clearAllUserData()                         // nuclear reset
+```
 
-  // Topics slice
-  topicsStore: TopicsSlice
+---
 
-  // ClickHouse slices
-  clickhouseConnectionStore: ClickhouseConnectionSlice
-  clickhouseDestinationStore: ClickhouseDestinationSlice
+## Component hierarchy
 
-  // Operation slices
-  deduplicationStore: DeduplicationSlice
-  joinStore: JoinSlice
-  filterStore: FilterSlice // NEW
-  transformationStore: TransformationSlice // NEW
+```
+src/components/ui/        ← shadcn/Radix primitives; own all visual state via variant props
+src/components/common/    ← domain-neutral patterns used in 2+ places
+src/components/shared/    ← app-wide layout, ShellLayoutClient, ThemeProvider, header
+src/modules/*/components/ ← feature-specific components with domain logic
+```
 
-  // Core slice
-  coreStore: CoreSlice
+**Layer rules:**
 
-  // Steps slice
-  stepsStore: StepsSlice
+- `ui/`: extend only for token alignment; never break Radix behavior. Visual state = `variant` prop, not `className`.
+- `common/` and `shared/`: consume primitives via `variant`; `className` is for layout (padding, margin, width, flex/grid) only.
+- New reusable patterns go to `common/` before graduating to a module.
+- `modules/` can only write to the store — never reach across module boundaries directly.
 
-  // Global actions
-  resetAllPipelineState: (topicCount: number, force?: boolean) => void
-  resetForNewPipeline: (topicCount: number) => void
-  resetFormValidationStates: () => void
-  clearAllUserData: () => void
+**Root provider stack** (in `app/layout.tsx`):
+
+```
+ThemeProvider (dark, enableSystem=false)
+  ObservabilityProvider
+    AnalyticsProvider
+      HealthCheckProvider
+        PlatformProvider
+          NotificationProvider
+            AuthProvider
+              ShellLayoutClient (sidebar + header, shell routes only)
+```
+
+---
+
+## Adapter layer
+
+`src/adapters/` decouples store state from wire formats. Two adapter families:
+
+### Source adapters (`src/adapters/source/`)
+
+| File | Purpose |
+|---|---|
+| `source/index.ts` | Factory: `getSourceAdapter(sourceType)` returns `KafkaSourceAdapter` or `OtlpSourceAdapter` |
+| `source/kafka/adapter.ts` | `toWireSource()` — builds the `source` section of `InternalPipelineConfig` from store state; `fromWireSource()` — dispatches back to hydration callbacks |
+| `source/otlp/adapter.ts` | Same interface for OTLP (logs/traces/metrics) |
+
+`SourceAdapter` interface contract:
+- `toWireSource(storeState)` — pure, no side effects
+- `fromWireSource(wire, dispatch)` — hydration callbacks only, no direct store writes
+- `getTopicStepKeys()` — returns which wizard `StepKeys` are active for this source
+
+### Transform plugins (`src/adapters/transform/`)
+
+Plugin registry pattern. Each transform type (`deduplication`, `join`, `filter`, `stateless`) implements `TransformPlugin<TConfig>`:
+
+```typescript
+interface TransformPlugin<TConfig> {
+  readonly type: TransformType
+  readonly enabled: boolean
+  getInputSchema(upstream: SchemaField[]): SchemaField[]
+  getOutputSchema(input: SchemaField[], config: TConfig): SchemaField[]
+  validate(config: TConfig): { valid: boolean; errors: string[] }
+  toWireFormat(config: TConfig): WireTransformConfig
+  fromWireFormat(wire: WireTransformConfig): TConfig
 }
 ```
 
-### State Modes
-
-The application supports three operational modes:
-
-1. **Create Mode**: Creating a new pipeline
-   - Empty state
-   - Wizard flow
-   - No base config
-
-2. **Edit Mode**: Editing existing pipeline
-   - Hydrated from API
-   - Base config stored
-   - Dirty state tracking
-   - Can discard changes
-
-3. **View Mode**: Read-only view
-   - Hydrated from API
-   - No editing allowed
-   - Display only
-
-### Dependency Graph
-
-The application uses a **dependency graph** to manage state dependencies:
-
-- **Nodes**: Store slices and wizard steps
-- **Edges**: Dependencies between nodes
-- **Validation**: Ensures dependent data is valid before proceeding
-- **Reset Logic**: Cascading resets based on dependencies
-
-## API Architecture
-
-### API Layer Structure
-
-1. **API Client Functions** (`src/api/`)
-   - `pipeline-api.ts` - Pipeline CRUD operations
-   - `pipeline-health.ts` - Pipeline health checks
-   - `pipeline-mock.ts` - Mock API for development
-   - `health.ts` - Health check endpoints
-   - `platform-api.ts` - Platform detection
-
-2. **Next.js API Routes** (`src/app/ui-api/`)
-   - Proxy to backend API
-   - Environment-specific configuration
-   - Error handling
-   - Mock endpoints for development
-
-3. **Services** (`src/services/`)
-   - `kafka-service.ts` - Kafka business logic
-   - `clickhouse-service.ts` - ClickHouse business logic
-   - `pipeline-state-manager.ts` - Pipeline state management
-   - `pipeline-status-manager.ts` - Pipeline status tracking
-   - `kafka-api-client.ts` - Kafka API client wrapper
-
-### API Endpoints
-
-#### Pipeline Operations
-
-- `GET /ui-api/pipeline` - List all pipelines
-- `POST /ui-api/pipeline` - Create new pipeline
-- `GET /ui-api/pipeline/[id]` - Get pipeline details
-- `POST /ui-api/pipeline/[id]/edit` - Edit pipeline
-- `POST /ui-api/pipeline/[id]/pause` - Pause pipeline
-- `POST /ui-api/pipeline/[id]/resume` - Resume pipeline
-- `POST /ui-api/pipeline/[id]/stop` - Stop pipeline
-- `POST /ui-api/pipeline/[id]/terminate` - Terminate pipeline
-- `GET /ui-api/pipeline/[id]/health` - Get pipeline health
-- `GET /ui-api/pipeline/[id]/metadata` - Get pipeline metadata
-
-#### DLQ Operations
-
-- `GET /ui-api/pipeline/[id]/dlq/state` - Get DLQ state
-- `POST /ui-api/pipeline/[id]/dlq/consume` - Consume from DLQ
-- `POST /ui-api/pipeline/[id]/dlq/purge` - Purge DLQ
-
-#### Kafka Operations
-
-- `GET /ui-api/kafka` - Test Kafka connection
-- `GET /ui-api/kafka/topics` - List Kafka topics
-- `GET /ui-api/kafka/topic-details` - Get topic details
-- `GET /ui-api/kafka/events` - Get sample events from topic
-
-#### ClickHouse Operations
-
-- `POST /ui-api/clickhouse/test-connection` - Test ClickHouse connection
-- `GET /ui-api/clickhouse/databases` - List databases
-- `GET /ui-api/clickhouse/tables` - List tables
-- `GET /ui-api/clickhouse/schema` - Get table schema
-- `GET /ui-api/pipeline/[id]/clickhouse/metrics-from-config` - Get metrics from config
-
-#### Filter Operations
-
-- `POST /ui-api/filter/validate` - Validate filter expression
-
-#### Platform & Health
-
-- `GET /ui-api/platform` - Get platform information
-- `GET /ui-api/healthz` - Health check
-
-### Error Handling
-
-- **Route-level boundaries**: `app/error.tsx` (segment errors), `app/global-error.tsx` (root layout failures), `app/not-found.tsx` (404). Pipeline segment uses `app/pipelines/[id]/error.tsx` and `app/pipelines/[id]/not-found.tsx`; pipeline detail page calls `notFound()` on 404 for correct HTTP status.
-- **Loading UI**: `app/loading.tsx`, `app/pipelines/loading.tsx`, and `app/pipelines/[id]/loading.tsx` provide segment loading states during navigation.
-- **Structured Errors**: Consistent error format across API; route handlers use typed `catch (error: unknown)` and `axios.isAxiosError()` where applicable.
-- **Notification System**: User-friendly error messages via notification channels
-- **Retry Logic**: Automatic retries for transient failures
-- **API Error Handler**: Centralized error handling in `notifications/api-error-handler.ts`
-
-## Backend API Architecture
-
-The frontend communicates with the **glassflow-api** backend service (Go-based):
-
-### Backend Components
-
-1. **API Layer** (`glassflow-api/internal/api/`)
-   - REST API handlers
-   - Request/response processing
-   - Middleware (auth, logging, error handling)
-
-2. **Core Services** (`glassflow-api/internal/service/`)
-   - Pipeline management
-   - Configuration processing
-   - State management
-
-3. **Components** (`glassflow-api/internal/component/`)
-   - Ingestor (Kafka consumer)
-   - Join (temporal joins)
-   - Sink (ClickHouse writer)
-   - Deduplication service
-
-4. **Storage** (`glassflow-api/internal/storage/`)
-   - Pipeline configuration storage
-   - State persistence
-
-5. **Orchestration** (`glassflow-api/internal/orchestrator/`)
-   - Docker-based execution
-   - Kubernetes-based execution
-
-6. **DLQ Management** (`glassflow-api/internal/dlq/`)
-   - Dead Letter Queue handling
-   - Failed message management
-
-7. **Filter Engine** (`glassflow-api/internal/filter/`)
-   - Expression validation
-   - Filter execution
-
-8. **Transformer** (`glassflow-api/internal/transformer/`)
-   - Data transformation logic
-   - Expression evaluation
-
-## Analytics & Observability
-
-### Analytics System (NEW)
-
-**Purpose**: Track user interactions and journey through the application
-
-**Components**:
-
-- `eventManager.ts` - Core analytics manager with event tracking
-- `eventDictionary.ts` - Centralized event definitions
-- `journeyTracker.ts` - User journey tracking helpers
-- `eventCatalog.ts` - Event catalog for documentation
-
-**Features**:
-
-- User journey tracking
-- Operation tracking (create, edit, view)
-- Step-by-step wizard tracking
-- Event-based analytics
-- Configurable analytics (can be disabled)
-
-### Observability System (NEW)
-
-**Purpose**: Structured logging and metrics collection compatible with OpenTelemetry
-
-**Components**:
-
-- `logger.ts` - Structured logging with OpenTelemetry compatibility
-- `metrics.ts` - Metrics collection and recording
-- `config.ts` - Observability configuration
-- `resource.ts` - Resource attribute building
-- `semconv.ts` - Semantic conventions
-
-**Features**:
-
-- Structured logging
-- Metrics collection
-- OpenTelemetry compatibility
-- Configurable OTLP endpoint
-- Resource attribute tracking
-
-## Notification System (NEW)
-
-**Purpose**: Centralized user notification system with multiple channels
-
-**Components**:
-
-- `notify.ts` - Core notification API
-- `channels/` - Notification channels:
-  - `banner.tsx` - Banner notifications
-  - `toast.tsx` - Toast notifications
-  - `modal.tsx` - Modal notifications
-  - `inline.tsx` - Inline alerts
-- `messages/` - Predefined message templates:
-  - `pipeline.ts` - Pipeline-related messages
-  - `kafka.ts` - Kafka-related messages
-  - `clickhouse.ts` - ClickHouse-related messages
-  - `validation.ts` - Validation messages
-  - `dlq.ts` - DLQ-related messages
-  - And more...
-
-**Features**:
-
-- Multiple notification channels
-- Predefined message templates
-- Type-safe notification API
-- Context-aware messages
-- Error handling integration
-
-## Security Architecture
-
-### Authentication
-
-- **Auth0 Integration**: Optional authentication via Auth0
-- **Environment-based**: Can be disabled via environment variable
-- **Proxy**: Request interception via Next.js 16 proxy (`src/proxy.ts`); route protection and auth checks remain in pages and API routes.
-
-### Data Security
-
-- **No Client-side Secrets**: Sensitive data never exposed to client
-- **API Proxy**: All backend calls go through Next.js API routes
-- **HTTPS Only**: Production requires HTTPS
-- **Certificate Validation**: Configurable certificate verification
-
-## Performance Considerations
-
-### Optimization Strategies
-
-1. **Code Splitting**: Next.js automatic code splitting
-2. **Lazy Loading**: Dynamic imports for heavy components
-3. **Memoization**: React.memo, useMemo, useCallback
-4. **State Optimization**: Selective store subscriptions
-5. **Image Optimization**: Next.js Image component
-
-### Caching Strategy
-
-- **Event Caching**: Kafka events cached to avoid repeated fetches
-- **Schema Caching**: ClickHouse schemas cached
-- **Topic Caching**: Available topics cached
-- **Browser Cache**: Static assets cached
-
-## Testing Strategy
-
-**Note**: Currently, the project has **no test files**. This is a significant gap that should be addressed.
-
-### Recommended Testing Approach
-
-1. **Unit Tests**: Store slices, utilities, validators
-2. **Integration Tests**: API clients, services
-3. **Component Tests**: React components with React Testing Library
-4. **E2E Tests**: Critical user flows with Playwright/Cypress
-
-## Deployment Architecture
-
-### Build Process
-
-1. **Development**: `pnpm dev` - Next.js dev server
-2. **Build**: `pnpm build` - Production build
-3. **Start**: `pnpm start` - Production server
-
-### Docker Deployment
-
-- **Multi-stage Build**: Optimized Docker image
-- **Alpine-based**: Minimal image size
-- **Environment Variables**: Runtime configuration
-- **Health Checks**: Built-in health check endpoints
-
-## System Invariants
-
-### State Invariants
-
-1. **Single Source of Truth**: All pipeline state is stored in Zustand store
-2. **Immutable Updates**: Store updates create new state objects
-3. **Mode Consistency**: Only one mode (create/edit/view) active at a time
-4. **Dirty State Tracking**: Changes are tracked via `isDirty` flag in core store
-5. **Validation State**: Each store slice maintains its own validation state
-
-### Data Flow Invariants
-
-1. **Unidirectional Flow**: Data flows from API → Store → Components
-2. **Hydration Completeness**: All store slices must be hydrated when entering edit mode
-3. **Operation Type Consistency**: Operation type determines available wizard steps
-4. **Dependency Validation**: Dependent steps cannot be completed before dependencies
-
-### API Invariants
-
-1. **Proxy Pattern**: All backend calls go through Next.js API routes
-2. **Error Handling**: All API errors are caught and converted to notifications
-3. **Version Compatibility**: Pipeline adapters ensure version compatibility
-4. **Idempotency**: Pipeline operations (pause/resume/stop) are idempotent
-
-## Service Responsibilities
-
-### Frontend Services
-
-1. **Kafka Service** (`kafka-service.ts`)
-   - Kafka connection management
-   - Topic listing and details
-   - Event fetching and preview
-   - Connection testing
-
-2. **ClickHouse Service** (`clickhouse-service.ts`)
-   - ClickHouse connection management
-   - Database and table listing
-   - Schema fetching
-   - Connection testing
-
-3. **Pipeline State Manager** (`pipeline-state-manager.ts`)
-   - Pipeline state synchronization
-   - Status polling
-   - State transitions
-
-4. **Pipeline Status Manager** (`pipeline-status-manager.ts`)
-   - Status tracking
-   - Health monitoring
-   - Status updates
-
-### Backend Services (glassflow-api)
-
-1. **Pipeline Service**
-   - Pipeline CRUD operations
-   - Configuration validation
-   - State management
-
-2. **Ingestor Service**
-   - Kafka consumer management
-   - Message ingestion
-   - Offset management
-
-3. **Deduplication Service**
-   - Duplicate detection
-   - Time-window management
-   - Key-based deduplication
-
-4. **Join Service**
-   - Temporal join execution
-   - Stream synchronization
-   - Join result management
-
-5. **Sink Service**
-   - ClickHouse writing
-   - Batch management
-   - Error handling
-
-6. **DLQ Service**
-   - Failed message management
-   - DLQ consumption
-   - DLQ purging
-
-7. **Filter Service**
-   - Expression validation
-   - Filter execution
-   - Expression parsing
-
-8. **Transformer Service**
-   - Data transformation
-   - Expression evaluation
-   - Function execution
-
-## Dependencies
-
-### External Dependencies
-
-1. **Kafka Cluster**
-   - Message source
-   - Topic management
-   - Consumer groups
-
-2. **ClickHouse Database**
-   - Data destination
-   - Table management
-   - Query execution
-
-3. **Backend API** (glassflow-api)
-   - Pipeline management
-   - Configuration processing
-   - Execution orchestration
-
-4. **Auth0** (optional)
-   - Authentication
-   - User management
-
-5. **OTLP Endpoint** (optional)
-   - Observability data export
-   - Metrics and logs
-
-### Internal Dependencies
-
-1. **Store Slices**: Depend on each other via dependency graph
-2. **Modules**: Depend on store slices and shared components
-3. **API Routes**: Depend on backend API configuration
-4. **Services**: Depend on API clients and store
-
-## Future Architecture Considerations
-
-1. **Server Components**: Continue leveraging server components where possible; error/not-found boundaries, loading.tsx, and Suspense for navigation hooks are in place.
-2. **Server Actions**: Mutations currently use Route Handlers; Server Actions may be adopted for selected forms (e.g. pipeline create/edit) for progressive enhancement and simpler wiring.
-3. **Streaming**: Consider streaming for large data sets
-4. **Real-time Updates**: WebSocket support for live pipeline status (SSE used for pipeline status streaming)
-5. **Offline Support**: Service worker for offline functionality
-6. **Micro-frontends**: Consider if application grows significantly
-7. **Enhanced Analytics**: More detailed user behavior tracking
-8. **Performance Monitoring**: Real-time performance metrics
-9. **A/B Testing**: Framework for feature experimentation
+Plugins are self-registering on import (`src/adapters/transform/index.ts` side-effects). `getTransformPlugin(type)` retrieves from registry. `domainStore.getSchema()` chains plugins to compute the effective output schema for the whole transform pipeline.
+
+---
+
+## Persistence layer
+
+`src/lib/db/` — Drizzle ORM, env-based driver selection.
+
+**Schema** (`src/lib/db/schema.ts`) — `ui_library` Postgres schema:
+
+| Table | Columns |
+|---|---|
+| `folders` | `id`, `name`, `parent_id` (self-ref), `created_at` |
+| `kafka_connections` | `id`, `name`, `description`, `folder_id`, `tags (jsonb)`, `config (jsonb: KafkaConfig)`, timestamps |
+| `clickhouse_connections` | `id`, `name`, `description`, `folder_id`, `tags (jsonb)`, `config (jsonb: ClickHouseConfig)`, timestamps |
+| `schemas` | `id`, `name`, `description`, `folder_id`, `tags (jsonb)`, `fields (jsonb: SchemaField[])`, timestamps |
+
+**Driver selection** (`src/lib/db/index.ts`):
+
+- `DATABASE_URL` set → Postgres via `postgres-js`
+- Not set → SQLite via `better-sqlite3` (`.library.db` in project root) — local dev only
+
+Both drivers are accessed through the same Drizzle query builder interface. Migration: `src/lib/db/migrate.ts` + `migrations/0001_initial.sql`. Library CRUD is exposed via `ui-api/library/` routes.
+
+---
+
+## Key conventions
+
+- **No hardcoded colors.** Use CSS tokens: `text-[var(--text-primary)]`, `bg-[var(--surface-bg)]`. No hex, no `rgba()`, no raw Tailwind color utilities.
+- **Variant props, not class names.** `<Button variant="primary">`, `<Card variant="dark">`. `className` on wrappers = layout only.
+- **Strict TypeScript.** No `any`. Types inferred from Zod schemas. `'use client'` only for hooks/DOM APIs.
+- **Server components by default.** Auth checks, data fetching, and env var reads happen server-side.
+- **Dark-only.** `ThemeProvider` sets `defaultTheme="dark"` with `enableSystem=false`. No light-theme branches.
+- **No inline `style={{}}` on overlay/modal primitives.** Use `modal-overlay` class; tokens apply automatically.
+- **Forms are schema-first.** Manager owns `useForm` + Zod schema. Renderer receives `control`. `<FormMessage>` handles all error display.
+- **All backend calls via `ui-api/`.** No direct backend calls from client code.
+- **`schema-service.ts` is at `src/utils/schema-service.ts`** — not `src/services/`. It delegates schema computation to the transform plugin registry.
+
+---
+
+## Testing
+
+Vitest 2 (`pnpm test` / `pnpm test:run`). Tests co-located with source files.
+
+**Coverage areas:**
+
+| Area | Test files |
+|---|---|
+| Store slices | `src/store/deduplication.store.test.ts`, `domain.store.test.ts` |
+| Adapters | `src/adapters/source/kafka/adapter.test.ts`, `otlp/adapter.test.ts`, `transform/transform-plugins.test.ts` |
+| Lib utilities | `src/lib/__tests__/` — circuit-breaker, consumer-tracker, DB schema, Kafka client factory/gateway, retry logic |
+| Module components | `src/modules/create/`, `deduplication/`, `filter/`, `join/`, `kafka/`, `pipelines/` — hooks, utils, component tests |
+| Utils | `src/utils/` — common, duration, schema-service, type-conversion, pipeline-status-display |
+| Config | `src/config/step-registry.test.ts` |
+| Hooks | `src/hooks/usePipelineDetailsData.test.ts` |
+| Services | `src/services/__tests__/kafka-service.test.ts` |
+| Smoke | `src/test/setup.smoke.test.ts` |
+
+Run all tests:
+```bash
+pnpm test:run
+```
+
+---
+
+## Where to look for X
+
+| What | Where |
+|---|---|
+| Pipeline creation wizard | `src/modules/create/`, `src/app/(shell)/pipelines/create/` |
+| Visual canvas editor | `src/modules/canvas/`, `src/app/(shell)/canvas/`, `src/store/canvas.store.ts` |
+| AI-assisted creation | `src/modules/ai/`, `src/app/(shell)/pipelines/create/ai/`, `src/store/ai-session.store.ts` |
+| Connection/schema library UI | `src/modules/library/`, `src/app/(shell)/library/` |
+| Library API routes | `src/app/ui-api/library/` |
+| Library DB schema | `src/lib/db/schema.ts` |
+| Canonical pipeline domain model | `src/types/pipeline-domain.ts`, `src/store/domain.store.ts` |
+| Wire format (InternalPipelineConfig) | `src/types/pipeline.ts` |
+| Source adapters (Kafka/OTLP) | `src/adapters/source/` |
+| Transform plugins | `src/adapters/transform/` |
+| Effective schema computation | `src/utils/schema-service.ts` |
+| Pipeline details page | `src/modules/pipelines/[id]/`, `src/app/(shell)/pipelines/[id]/` |
+| Observability / DLQ | `src/modules/observability/`, `src/app/(shell)/observability/` |
+| All store slices | `src/store/` |
+| Store hydration functions | `src/store/hydration/` |
+| Zustand store composition | `src/store/index.ts` |
+| UI primitives (Button, Card, Badge, etc.) | `src/components/ui/` |
+| CSS design tokens | `src/themes/base.css`, `src/themes/theme.css` |
+| Typography / animation utilities | `src/app/styles/typography.css`, `src/app/styles/animations.css` |
+| API routes (all) | `src/app/ui-api/` |
+| Backend service clients | `src/services/` |
+| Kafka client factory | `src/lib/kafka-client-factory.ts` |
+| Pipeline version adapters (V1/V2/V3) | `src/modules/pipeline-adapters/` |
+| Notification system | `src/notifications/`, `src/store/notifications.store.ts` |
+| Analytics | `src/analytics/` |
+| OpenTelemetry observability | `src/observability/` |

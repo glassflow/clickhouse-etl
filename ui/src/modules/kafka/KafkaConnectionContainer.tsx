@@ -12,6 +12,8 @@ import { KafkaFormDefaultValues } from '@/src/config/kafka-connection-form-confi
 import type { Pipeline } from '@/src/types/pipeline'
 import type { PipelineActionState } from '@/src/hooks/usePipelineActions'
 import { useKafkaConnectionSave } from '@/src/modules/kafka/hooks/useKafkaConnectionSave'
+import { SaveToLibraryPrompt } from '@/src/components/common/SaveToLibraryPrompt'
+import { UseSavedConnectionChips } from '@/src/components/common/UseSavedConnectionChips'
 
 export interface KafkaConnectionContainerProps {
   steps?: Record<string, { key?: string; title?: string; description?: string }>
@@ -36,6 +38,9 @@ export function KafkaConnectionContainer({
   pipeline,
 }: KafkaConnectionContainerProps) {
   const [clearErrorMessage, setClearErrorMessage] = useState(false)
+  const [showSavePrompt, setShowSavePrompt] = useState(false)
+  const [prefillKey, setPrefillKey] = useState(0)
+  const [prefillValues, setPrefillValues] = useState<KafkaConnectionFormType | null>(null)
   const { kafkaStore, topicsStore, coreStore } = useStore()
   const { topicCount } = coreStore
   const {
@@ -124,6 +129,31 @@ export function KafkaConnectionContainer({
     }
   }, [connectionResult, connectionFormValues, isConnectingFromHook, analytics.kafka])
 
+  // Show save prompt on successful test (wizard mode only)
+  useEffect(() => {
+    if (connectionResult?.success && !standalone) {
+      setShowSavePrompt(true)
+    }
+  }, [connectionResult, standalone])
+
+  const handleSaveToLibrary = async (name: string) => {
+    if (!connectionFormValues) throw new Error('No connection data to save')
+    const res = await fetch('/ui-api/library/connections/kafka', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, config: connectionFormValues }),
+    })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      throw new Error(body?.error ?? 'Failed to save connection')
+    }
+  }
+
+  const handleChipSelect = (config: Record<string, unknown>) => {
+    setPrefillValues(config as unknown as KafkaConnectionFormType)
+    setPrefillKey((k) => k + 1)
+  }
+
   const handleTestConnection = async (values: KafkaConnectionFormType) => {
     // Track attempt to test connection
     analytics.kafka.started({
@@ -167,14 +197,18 @@ export function KafkaConnectionContainer({
 
   return (
     <>
+      {!readOnly && (
+        <UseSavedConnectionChips connectionType="kafka" onSelect={handleChipSelect} />
+      )}
       <KafkaConnectionFormManager
+        key={prefillKey}
         onTestConnection={handleTestConnection}
         onDiscardConnectionChange={handleDiscardConnectionChange}
         isConnecting={isConnectingFromHook}
         connectionResult={connectionResult}
         readOnly={readOnly}
         standalone={standalone}
-        initialValues={initialValues}
+        initialValues={prefillValues ?? initialValues}
         authMethod={authMethod}
         securityProtocol={securityProtocol}
         bootstrapServers={bootstrapServers}
@@ -182,9 +216,13 @@ export function KafkaConnectionContainer({
         pipelineActionState={pipelineActionState}
         onClose={onCompleteStandaloneEditing}
       />
-      {/* {connectionResult && !clearErrorMessage && (
-        <ActionStatusMessage message={connectionResult.message} success={connectionResult.success} />
-      )} */}
+      {showSavePrompt && (
+        <SaveToLibraryPrompt
+          connectionType="kafka"
+          onSave={handleSaveToLibrary}
+          onDismiss={() => setShowSavePrompt(false)}
+        />
+      )}
     </>
   )
 }

@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { initializeObservability, shutdownObservability } from '@/src/observability'
+import { wireCrossSliceEffects } from '@/src/store/cross-slice-effects'
 
 interface ObservabilityProviderProps {
   children: React.ReactNode
@@ -15,9 +16,12 @@ export function ObservabilityProvider({ children }: ObservabilityProviderProps) 
   useEffect(() => {
     // Initialize observability when the app mounts
     initializeObservability()
+    // Wire cross-slice store effects (subscribe-based, called once at startup)
+    const unsubscribeCrossSlice = wireCrossSliceEffects()
 
     // Cleanup function to shutdown observability
     return () => {
+      unsubscribeCrossSlice()
       shutdownObservability().catch((error) => {
         console.error('[Observability] Error during shutdown:', error)
       })

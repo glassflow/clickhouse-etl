@@ -17,7 +17,7 @@ import { downloadFailedConfig } from '@/src/utils/pipeline-download'
 import type { StepBaseProps } from '@/src/modules/pipelines/[id]/step-renderer/stepProps'
 import { DestinationErrorBlock } from '@/src/modules/clickhouse/components/DestinationErrorBlock'
 import type { DownloadFormat } from '@/src/components/common/DownloadFormatModal'
-import { isOtlpSource } from '@/src/config/source-types'
+import { getSourceAdapter } from '@/src/adapters/source'
 
 export function PipelineResourcesConfigurator({
   onCompleteStep,
@@ -47,7 +47,7 @@ export function PipelineResourcesConfigurator({
   const [deployError, setDeployError] = useState<string | null>(null)
   const [failedDeploymentConfig, setFailedDeploymentConfig] = useState<any>(null)
 
-  const isOtlp = isOtlpSource(coreStore?.sourceType || 'kafka')
+  const isOtlp = getSourceAdapter(coreStore?.sourceType || 'kafka').type !== 'kafka'
   const hasJoin = joinStore?.enabled === true
   const topics = topicsStore?.topics ? Object.values(topicsStore.topics) : []
   const hasTopicDedup = topics.some(

@@ -1,5 +1,7 @@
 import { useStore } from '../index'
 import { structuredLogger } from '@/src/observability'
+import { parseGoDuration } from '@/src/utils/duration'
+import { clickHouseTypeToJsonType } from '@/src/utils/type-conversion'
 
 // Helper: Map backend config to your store's destination shape
 // schemaFields is optional and used for V2 format where mapping is in schema.fields instead of sink.table_mapping
@@ -11,43 +13,21 @@ function mapBackendClickhouseDestinationToStore(sink: any, schemaFields?: any[],
 
   if (sink.max_delay_time) {
     if (typeof sink.max_delay_time === 'string') {
-      const timeWindow = sink.max_delay_time
+      const totalMs = parseGoDuration(sink.max_delay_time)
+      const totalSeconds = totalMs / 1000
 
-      // Parse complex Go duration format like "55h0m0s", "1h30m", "2d12h", etc.
-      // Go duration format can have multiple units like "72h30m45s"
-      const matches = timeWindow.match(/(?:(\d+)d)?(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?/)
-
-      if (matches) {
-        const days = parseInt(matches[1] || '0')
-        const hours = parseInt(matches[2] || '0')
-        const minutes = parseInt(matches[3] || '0')
-        const seconds = parseInt(matches[4] || '0')
-
-        // Convert to total seconds for easier calculation
-        const totalSeconds = days * 86400 + hours * 3600 + minutes * 60 + seconds
-
-        // Normalize to the largest appropriate unit for UI display
-        if (totalSeconds >= 86400 && totalSeconds % 86400 === 0) {
-          // Exact days
-          maxDelayTime = Math.round(totalSeconds / 86400)
-          maxDelayTimeUnit = 'd'
-        } else if (totalSeconds >= 3600 && totalSeconds % 3600 === 0) {
-          // Exact hours
-          maxDelayTime = Math.round(totalSeconds / 3600)
-          maxDelayTimeUnit = 'h'
-        } else if (totalSeconds >= 3600) {
-          // More than an hour but not exact hours - convert to hours anyway
-          maxDelayTime = Math.round(totalSeconds / 3600)
-          maxDelayTimeUnit = 'h'
-        } else if (totalSeconds >= 60) {
-          // 1 minute or more - use minutes
-          maxDelayTime = Math.round(totalSeconds / 60)
-          maxDelayTimeUnit = 'm'
-        } else {
-          // Less than 1 minute - use seconds
-          maxDelayTime = totalSeconds
-          maxDelayTimeUnit = 's'
-        }
+      if (totalSeconds >= 86400 && totalSeconds % 86400 === 0) {
+        maxDelayTime = Math.round(totalSeconds / 86400)
+        maxDelayTimeUnit = 'd'
+      } else if (totalSeconds >= 3600) {
+        maxDelayTime = Math.round(totalSeconds / 3600)
+        maxDelayTimeUnit = 'h'
+      } else if (totalSeconds >= 60) {
+        maxDelayTime = Math.round(totalSeconds / 60)
+        maxDelayTimeUnit = 'm'
+      } else {
+        maxDelayTime = totalSeconds
+        maxDelayTimeUnit = 's'
       }
     } else if (typeof sink.max_delay_time === 'number') {
       maxDelayTime = sink.max_delay_time
@@ -83,7 +63,7 @@ function mapBackendClickhouseDestinationToStore(sink: any, schemaFields?: any[],
     type: m.column_type || '',
     eventField: m.field_name || m.eventField || '',
     sourceTopic: m.source_id || '',
-    jsonType: mapClickHouseTypeToJsonType(m.column_type || ''),
+    jsonType: clickHouseTypeToJsonType(m.column_type || ''),
     isNullable: (m.column_type || '').includes('Nullable'),
   }))
 
@@ -103,27 +83,6 @@ function mapBackendClickhouseDestinationToStore(sink: any, schemaFields?: any[],
     engine: isDeployedPipeline ? undefined : sink.engine,
     orderBy: isDeployedPipeline ? undefined : sink.order_by,
   }
-}
-
-// Best-effort mapping from ClickHouse type to JSON type used by UI
-function mapClickHouseTypeToJsonType(clickhouseType: string): string {
-  const t = (clickhouseType || '').toLowerCase()
-  if (!t) return ''
-
-  // Remove wrappers like Nullable(...) and LowCardinality(...)
-  const unwrapped = t.replace(/nullable\((.*)\)/, '$1').replace(/lowcardinality\((.*)\)/, '$1')
-
-  if (unwrapped.startsWith('string') || unwrapped.startsWith('fixedstring') || unwrapped.includes('uuid'))
-    return 'string'
-  if (unwrapped.startsWith('bool') || unwrapped === 'boolean') return 'bool'
-  if (unwrapped.startsWith('u')) return 'uint'
-  if (unwrapped.startsWith('int')) return 'int'
-  if (unwrapped.startsWith('float') || unwrapped.startsWith('decimal')) return 'float'
-  if (unwrapped.startsWith('date') || unwrapped.startsWith('datetime')) return 'string'
-  if (unwrapped.startsWith('array')) return 'array'
-  if (unwrapped.startsWith('map')) return 'map'
-
-  return 'string'
 }
 
 export async function hydrateClickhouseDestination(pipelineConfig: any) {
@@ -268,7 +227,7 @@ export async function hydrateClickhouseDestination(pipelineConfig: any) {
     const columnType = col.type || (col as any).column_type || ''
 
     // Derive a best-effort jsonType from ClickHouse type if event-derived inference is unavailable
-    const derivedJsonType = mapClickHouseTypeToJsonType(columnType)
+    const derivedJsonType = clickHouseTypeToJsonType(columnType)
 
     return {
       // UI mapping shape expected by ClickhouseMapper / FieldColumnMapper

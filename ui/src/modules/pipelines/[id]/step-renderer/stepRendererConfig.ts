@@ -1,24 +1,12 @@
 import { StepKeys } from '@/src/config/constants'
-import {
-  KafkaConnectionContainer,
-  KafkaTopicSelector,
-  DeduplicationConfigurator,
-  ClickhouseConnectionContainer,
-  ClickhouseMapper,
-} from '@/src/modules'
-import { KafkaTypeVerification } from '@/src/modules/kafka/KafkaTypeVerification'
-import { JoinConfigurator } from '@/src/modules/join/JoinConfigurator'
-import { FilterConfigurator } from '@/src/modules/filter/FilterConfigurator'
-import { TransformationConfigurator } from '@/src/modules/transformation/TransformationConfigurator'
-import { PipelineResourcesConfigurator } from '@/src/modules/resources/PipelineResourcesConfigurator'
-import { OtlpDeduplicationStep } from '@/src/modules/otlp/components/OtlpDeduplicationStep'
-import { isFiltersEnabled } from '@/src/config/feature-flags'
+import { STEP_REGISTRY } from '@/src/config/step-registry'
 import type { ComponentType } from 'react'
 
 /**
  * Configuration for each step in the step renderer
  */
 export interface StepConfig {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   component: ComponentType<any>
   title: string
   description: string
@@ -30,85 +18,30 @@ export interface StepConfig {
 
 /**
  * Step renderer configuration map
- * Maps StepKeys to their component, title, and description
+ * Maps StepKeys to their component, title, and description.
+ * Derived from STEP_REGISTRY — edit src/config/step-registry.ts to change per-step values.
+ *
+ * Steps with no standalone panel (REVIEW_CONFIGURATION, DEPLOY_PIPELINE, OTLP_SIGNAL_TYPE)
+ * have `component: null` in the registry and map to `undefined` here.
  */
-export const STEP_RENDERER_CONFIG: Record<StepKeys, StepConfig | undefined> = {
-  [StepKeys.KAFKA_CONNECTION]: {
-    component: KafkaConnectionContainer,
-    title: 'Kafka Connection',
-    description: 'Configure your Kafka connection settings',
-  },
-  [StepKeys.TOPIC_SELECTION_1]: {
-    component: KafkaTopicSelector,
-    title: 'Kafka Topic Selection',
-    description: 'Select the Kafka topic to use',
-  },
-  [StepKeys.TOPIC_SELECTION_2]: {
-    component: KafkaTopicSelector,
-    title: 'Kafka Topic Selection',
-    description: 'Select the Kafka topic to use',
-  },
-  [StepKeys.DEDUPLICATION_CONFIGURATOR]: {
-    component: DeduplicationConfigurator,
-    title: 'Deduplication',
-    description: 'Configure deduplication settings',
-  },
-  [StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1]: {
-    component: KafkaTopicSelector,
-    title: 'Topic Deduplication',
-    description: 'Configure topic deduplication settings',
-  },
-  [StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2]: {
-    component: KafkaTopicSelector,
-    title: 'Topic Deduplication',
-    description: 'Configure topic deduplication settings',
-  },
-  [StepKeys.JOIN_CONFIGURATOR]: {
-    component: JoinConfigurator,
-    title: 'Join Configuration',
-    description: 'Configure join settings',
-  },
-  [StepKeys.FILTER_CONFIGURATOR]: {
-    component: FilterConfigurator,
-    title: 'Filter Configuration',
-    description: 'Define filter conditions for events',
-    guard: isFiltersEnabled,
-  },
-  [StepKeys.TRANSFORMATION_CONFIGURATOR]: {
-    component: TransformationConfigurator,
-    title: 'Define Transformations',
-    description: 'Transform event fields using functions or pass them through unchanged.',
-  },
-  [StepKeys.CLICKHOUSE_CONNECTION]: {
-    component: ClickhouseConnectionContainer,
-    title: 'ClickHouse Connection',
-    description: 'Configure your ClickHouse connection settings',
-  },
-  [StepKeys.CLICKHOUSE_MAPPER]: {
-    component: ClickhouseMapper,
-    title: 'ClickHouse Mapping',
-    description: 'Configure ClickHouse table mapping',
-  },
-  [StepKeys.PIPELINE_RESOURCES]: {
-    component: PipelineResourcesConfigurator,
-    title: 'Pipeline Resources',
-    description: 'Configure CPU, memory, and storage for each pipeline component',
-  },
-  [StepKeys.KAFKA_TYPE_VERIFICATION]: {
-    component: KafkaTypeVerification,
-    title: 'Verify Field Types',
-    description: 'Review and adjust the inferred data types for Kafka event fields.',
-  },
-  [StepKeys.OTLP_DEDUPLICATION]: {
-    component: OtlpDeduplicationStep,
-    title: 'OTLP Deduplication',
-    description: 'Configure deduplication settings for OTLP data',
-  },
-  // Steps used in wizard flow (not in StandaloneStepRenderer)
-  [StepKeys.REVIEW_CONFIGURATION]: undefined,
-  [StepKeys.DEPLOY_PIPELINE]: undefined,
-  [StepKeys.OTLP_SIGNAL_TYPE]: undefined,
-}
+export const STEP_RENDERER_CONFIG: Record<StepKeys, StepConfig | undefined> = (() => {
+  const map = {} as Record<StepKeys, StepConfig | undefined>
+
+  for (const descriptor of STEP_REGISTRY) {
+    if (descriptor.component === null) {
+      map[descriptor.key] = undefined
+    } else {
+      map[descriptor.key] = {
+        component: descriptor.component,
+        title: descriptor.editTitle ?? descriptor.title,
+        description: descriptor.description ?? '',
+        ...(descriptor.guard ? { guard: descriptor.guard } : {}),
+      }
+    }
+  }
+
+  return map
+})()
 
 /**
  * Get step configuration by step key
@@ -117,11 +50,11 @@ export const STEP_RENDERER_CONFIG: Record<StepKeys, StepConfig | undefined> = {
 export function getStepConfig(stepKey: StepKeys): StepConfig | undefined {
   const config = STEP_RENDERER_CONFIG[stepKey]
   if (!config) return undefined
-  
+
   // Check guard if present
   if (config.guard && !config.guard()) {
     return undefined
   }
-  
+
   return config
 }

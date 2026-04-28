@@ -1,10 +1,7 @@
-import { Suspense } from 'react'
 import type { Metadata } from 'next'
 import ThemeProvider from '@/src/components/shared/ThemeProvider'
 import { Inter, Archivo } from 'next/font/google'
 import './globals.css'
-import { Header } from '../components/shared/Header'
-import { HeaderWrapper } from '../components/shared/HeaderWrapper'
 import { AnalyticsProvider } from '@/src/components/providers/AnalyticsProvider'
 import { HealthCheckProvider } from '@/src/components/providers/HealthCheckProvider'
 import { PlatformProvider } from '@/src/contexts/PlatformContext'
@@ -29,8 +26,8 @@ const archivo = Archivo({
 })
 
 export const metadata: Metadata = {
-  title: 'Glassflow Create Pipeline',
-  description: 'Create a new pipeline with ready-to-use data operations',
+  title: 'Glassflow',
+  description: 'Real-time data pipeline platform',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -53,19 +50,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <PlatformProvider>
                   <NotificationProvider>
                     <AuthProvider>
-                      <HeaderWrapper>
-                        <Suspense fallback={<header className="w-full shrink-0 h-14 bg-[var(--elevated-background)]" aria-hidden />}>
-                          <Header />
-                        </Suspense>
-                      </HeaderWrapper>
-                      <main className="flex flex-col w-full px-4 sm:px-8 lg:px-20 py-4 sm:py-8 overflow-x-hidden overflow-y-auto">
-                        <div className="grow container mx-auto px-4 sm:px-0">{children}</div>
-                      </main>
-                      <footer className="w-full px-4 sm:px-8 lg:px-20 py-4 sm:py-6 shrink-0">
-                        <div className="grow container mx-auto px-4 sm:px-0 flex gap-6 flex-wrap items-center justify-center">
-                          {/* <GlobalFooter /> */}
-                        </div>
-                      </footer>
+                      {children}
                       <Toaster />
                       <NotificationsPanel />
                     </AuthProvider>

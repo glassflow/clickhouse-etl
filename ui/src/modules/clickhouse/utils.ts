@@ -5,11 +5,8 @@ import { structuredLogger } from '@/src/observability'
 import { InternalPipelineConfig } from '@/src/types/pipeline'
 import { getPipelineAdapter } from '@/src/modules/pipeline-adapters/factory'
 import { LATEST_PIPELINE_VERSION } from '@/src/config/pipeline-versions'
-import { isOtlpSource } from '@/src/config/source-types'
-
-const encodeBase64 = (password: string) => {
-  return password ? Buffer.from(password).toString('base64') : undefined
-}
+import { normalizeFieldType, valueToFieldType, jsonTypeToClickHouseType } from '@/src/utils/type-conversion'
+import { getSourceAdapter } from '@/src/adapters/source'
 
 /**
  * Recursively extracts all field names used in a filter tree
@@ -126,8 +123,16 @@ export const buildInternalPipelineConfig = ({
     setPipelineId(finalPipelineId)
   }
 
-  // Detect OTLP source — no Kafka topics, different source structure
-  const isOtlp = !!(coreStore?.sourceType && isOtlpSource(coreStore.sourceType))
+  // Resolve source adapter — single branch point for Kafka vs OTLP differences
+  const sourceAdapter = getSourceAdapter(coreStore?.sourceType)
+  const wireSource = sourceAdapter.toWireSource({
+    kafkaStore,
+    topicsStore: { selectedTopics },
+    deduplicationStore,
+    coreStore,
+    otlpStore,
+  })
+  const isOtlp = !wireSource.supportsJoin && wireSource.supportsSingleTopicFeatures && sourceAdapter.type !== 'kafka'
 
   const mapping = clickhouseDestination?.mapping || []
 
@@ -176,6 +181,7 @@ export const buildInternalPipelineConfig = ({
         type: 'json',
         fields: schemaFields,
       },
+      // TODO A6: replace with plugin.toWireFormat() — deduplicationPlugin.toWireFormat(deduplicationConfig)
       deduplication:
         // Enable deduplication if:
         // 1. Deduplication is properly configured (enabled and has a key), AND
@@ -259,7 +265,8 @@ export const buildInternalPipelineConfig = ({
         })
     : []
 
-  // Normalize Kafka broker hosts when running inside Docker
+  // Normalize Kafka broker hosts when running inside Docker.
+  // Applied post-adapter to keep the adapter free of environment concerns.
   const runtimeEnv = getRuntimeEnv()
   const inDocker = runtimeEnv?.NEXT_PUBLIC_IN_DOCKER === 'true' || process.env.NEXT_PUBLIC_IN_DOCKER === 'true'
 
@@ -273,128 +280,28 @@ export const buildInternalPipelineConfig = ({
     return broker
   }
 
-  // Build the complete API config
-  // Extract skipTlsVerification from the appropriate truststore based on auth method
-  let skipTlsVerification = false
-  const authMethod = kafkaStore?.authMethod
-  const securityProtocol = kafkaStore?.securityProtocol || 'PLAINTEXT'
-  const isTLSEnabled = securityProtocol === 'SASL_SSL' || securityProtocol === 'SSL'
-
-  if (isTLSEnabled) {
-    if (authMethod === 'SASL/PLAIN' && kafkaStore?.saslPlain?.truststore) {
-      skipTlsVerification = kafkaStore.saslPlain.truststore.skipTlsVerification ?? false
-    } else if (authMethod === 'SASL/SCRAM-256' && kafkaStore?.saslScram256?.truststore) {
-      skipTlsVerification = kafkaStore.saslScram256.truststore.skipTlsVerification ?? false
-    } else if (authMethod === 'SASL/SCRAM-512' && kafkaStore?.saslScram512?.truststore) {
-      skipTlsVerification = kafkaStore.saslScram512.truststore.skipTlsVerification ?? false
-    } else if (authMethod === 'SASL/GSSAPI' && kafkaStore?.saslGssapi?.truststore) {
-      skipTlsVerification = kafkaStore.saslGssapi.truststore.skipTlsVerification ?? false
-    } else if (authMethod === 'NO_AUTH' && kafkaStore?.noAuth?.truststore) {
-      skipTlsVerification = kafkaStore.noAuth.truststore.skipTlsVerification ?? false
-    }
-  }
-
-  // Determine mechanism value based on auth method
-  let mechanism = ''
-  if (authMethod === 'NO_AUTH') {
-    mechanism = 'NO_AUTH'
-  } else if (authMethod === 'SASL/PLAIN') {
-    mechanism = 'PLAIN'
-  } else if (authMethod === 'SASL/SCRAM-256') {
-    mechanism = 'SCRAM-SHA-256'
-  } else if (authMethod === 'SASL/SCRAM-512') {
-    mechanism = 'SCRAM-SHA-512'
-  } else if (authMethod === 'SASL/GSSAPI') {
-    mechanism = 'GSSAPI'
-  }
-
-  const connectionParams: any = {
-    brokers: (kafkaStore?.bootstrapServers?.split(',') || []).map((b: string) => normalizeBroker(b.trim())),
-    protocol: securityProtocol,
-    skip_auth: authMethod === 'NO_AUTH', // true for NO_AUTH, false for others
-    // sasl_tls_enable: isTLSEnabled,
-    mechanism: mechanism || 'NO_AUTH', // Ensure mechanism is always a string, default to NO_AUTH
-  }
-
-  // Only include skip_tls_verification when TLS is enabled
-  if (isTLSEnabled) {
-    connectionParams.skip_tls_verification = skipTlsVerification
-  }
-
-  // Add authentication parameters based on auth method
-  // Mechanism is already set in base connection_params, only add auth-specific fields
-  if (authMethod === 'SASL/PLAIN') {
-    connectionParams.username = kafkaStore.saslPlain?.username
-    connectionParams.password = kafkaStore.saslPlain?.password
-
-    // Add SSL certificate from truststore if using SSL/TLS
-    if (isTLSEnabled) {
-      const truststoreCert = kafkaStore.saslPlain?.truststore?.certificates
-      if (truststoreCert) {
-        connectionParams.root_ca = encodeBase64(truststoreCert)
+  // Apply Docker broker normalization to Kafka connection params if present
+  const finalSource = (() => {
+    const src = wireSource.source as any
+    if (src?.connection_params?.brokers && Array.isArray(src.connection_params.brokers)) {
+      return {
+        ...src,
+        connection_params: {
+          ...src.connection_params,
+          brokers: src.connection_params.brokers.map((b: string) => normalizeBroker(b)),
+        },
       }
     }
-  } else if (authMethod === 'SASL/SCRAM-256' || authMethod === 'SASL/SCRAM-512') {
-    const scramConfig = authMethod === 'SASL/SCRAM-256' ? kafkaStore.saslScram256 : kafkaStore.saslScram512
-    connectionParams.username = scramConfig?.username
-    connectionParams.password = scramConfig?.password
-
-    // Add SSL certificate from truststore if using SSL/TLS
-    if (isTLSEnabled) {
-      const truststoreCert = scramConfig?.truststore?.certificates
-      if (truststoreCert) {
-        connectionParams.root_ca = encodeBase64(truststoreCert)
-      }
-    }
-  } else if (authMethod === 'SASL/GSSAPI') {
-    // Backend expects these field names for Kerberos
-    connectionParams.username = kafkaStore.saslGssapi?.kerberosPrincipal
-    connectionParams.kerberos_service_name = kafkaStore.saslGssapi?.serviceName
-    connectionParams.kerberos_realm = kafkaStore.saslGssapi?.kerberosRealm
-    connectionParams.kerberos_keytab = kafkaStore.saslGssapi?.kerberosKeytab
-    connectionParams.kerberos_config = kafkaStore.saslGssapi?.krb5Config
-
-    // Add SSL certificate from truststore if using SSL/TLS
-    if (isTLSEnabled) {
-      const truststoreCert = kafkaStore.saslGssapi?.truststore?.certificates
-      if (truststoreCert) {
-        connectionParams.root_ca = encodeBase64(truststoreCert)
-      }
-    }
-  } else if (authMethod === 'NO_AUTH' && isTLSEnabled) {
-    // Handle NO_AUTH with SSL/TLS certificate
-    const truststoreCert = kafkaStore.noAuth?.truststore?.certificates
-    if (truststoreCert) {
-      connectionParams.root_ca = encodeBase64(truststoreCert)
-    }
-  }
+    return src
+  })()
 
   const config: InternalPipelineConfig = {
     pipeline_id: finalPipelineId,
     name: pipelineName,
-    source: isOtlp
-      ? {
-          // OTLP source: no Kafka topics or connection params
-          type: otlpStore?.signalType || coreStore?.sourceType || 'otlp',
-          id: otlpStore?.sourceId || '',
-          ...(otlpStore?.deduplication?.enabled
-            ? {
-                deduplication: {
-                  enabled: true,
-                  key: otlpStore.deduplication.key,
-                  time_window: otlpStore.deduplication.time_window,
-                },
-              }
-            : {}),
-        }
-      : {
-          type: 'kafka',
-          provider: 'custom', // Or determine from connection details
-          connection_params: connectionParams as KafkaConnectionParams,
-          topics: topicsConfig,
-        },
+    source: finalSource,
     // Include join configuration for Kafka multi-topic pipelines; disabled join for all others
-    join: isOtlp || topicsConfig.length <= 1
+    // TODO A6: replace with plugin.toWireFormat() — joinPlugin.toWireFormat(joinPluginConfig)
+    join: !wireSource.supportsJoin
       ? { enabled: false }
       : {
           enabled: joinStore.enabled,
@@ -469,7 +376,8 @@ export const buildInternalPipelineConfig = ({
     } as any, // Type assertion to bypass strict checks on conditional properties for now
     // Include filter configuration for single-topic and OTLP pipelines
     // Filter is not available for multi-topic (join) journeys
-    ...(topicsConfig.length === 1 || isOtlp
+    // TODO A6: replace with plugin.toWireFormat() — filterPlugin.toWireFormat(filterPluginConfig)
+    ...(wireSource.supportsSingleTopicFeatures
       ? filterStore?.filterConfig?.enabled && filterStore?.expressionString
         ? {
             filter: {
@@ -486,7 +394,8 @@ export const buildInternalPipelineConfig = ({
       : {}),
     // Include transformation configuration for single-topic and OTLP pipelines
     // Transformation is not available for multi-topic (join) journeys
-    ...(topicsConfig.length === 1 || isOtlp
+    // TODO A6: replace with plugin.toWireFormat() — statelessPlugin.toWireFormat(transformationConfig)
+    ...(wireSource.supportsSingleTopicFeatures
       ? transformationStore?.transformationConfig?.enabled &&
         transformationStore?.transformationConfig?.fields?.length > 0
         ? {
@@ -614,36 +523,6 @@ export const generateApiConfig = ({
   }
 }
 
-// Helper function to infer JSON type (simplified to basic types)
-export function inferJsonType(value: any): string {
-  if (value === null) return 'null'
-  if (value === undefined) return 'undefined'
-
-  const type = typeof value
-
-  if (type === 'number') {
-    // All integers (positive or negative) → 'int'
-    // All floating point numbers → 'float'
-    if (Number.isInteger(value)) {
-      // For numbers outside safe integer range, use string
-      if (value > Number.MAX_SAFE_INTEGER || value < Number.MIN_SAFE_INTEGER) {
-        return 'string'
-      }
-      return 'int'
-    }
-    return 'float'
-  }
-
-  if (type === 'boolean') return 'bool'
-
-  if (type === 'string') return 'string'
-
-  if (Array.isArray(value)) return 'array'
-
-  // For objects, return bytes (will be serialized to JSON string)
-  return 'bytes'
-}
-
 // Helper function to find best matching field
 export const findBestMatchingField = (columnName: string, fields: string[]): string | undefined => {
   // Normalize by removing underscores, dots, and lowercasing
@@ -696,7 +575,7 @@ export const getFieldType = (data: any, fieldPath: string): string => {
   if (value === undefined || value === null) {
     return 'string' // Default type for undefined/null values
   }
-  return inferJsonType(value)
+  return valueToFieldType(value)
 }
 
 /**
@@ -812,16 +691,6 @@ export function isTypeCompatible(sourceType: string | undefined, clickhouseType:
 }
 
 /**
- * Returns a default ClickHouse type for a given JSON/Kafka type (first compatible type).
- * Used when auto-generating mapping rows for the create-table path.
- */
-export function getDefaultClickHouseType(jsonType: string): string {
-  if (!jsonType) return 'String'
-  const compatible = TYPE_COMPATIBILITY_MAP[jsonType.toLowerCase()]
-  return compatible?.[0] ?? 'String'
-}
-
-/**
  * Validates column mappings for compatibility between source and destination types
  * @param mappings Array of column mappings to validate
  * @returns An object containing valid and invalid mappings
@@ -915,7 +784,7 @@ export function buildInitialMappingFromEventFields(
 ): TableColumn[] {
   return eventFields.map((field) => {
     const jsonType = getJsonType(field) || 'string'
-    const chType = getDefaultClickHouseType(jsonType)
+    const chType = jsonTypeToClickHouseType(normalizeFieldType(jsonType))
     return {
       name: field,
       type: chType,

@@ -9,7 +9,7 @@ import { BatchDelaySelector } from './components/BatchDelaySelector'
 import FormActions from '@/src/components/shared/FormActions'
 import { DestinationErrorBlock } from './components/DestinationErrorBlock'
 import { StepKeys } from '@/src/config/constants'
-import { isOtlpSource } from '@/src/config/source-types'
+import { getSourceAdapter } from '@/src/adapters/source'
 
 import { useStore } from '@/src/store'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
@@ -58,7 +58,7 @@ export function ClickhouseMapper({
     joinStore,
     deduplicationStore,
   } = useStore()
-  const isOtlp = isOtlpSource(coreStore.sourceType)
+  const isOtlp = getSourceAdapter(coreStore.sourceType).type !== 'kafka'
   const analytics = useJourneyAnalytics()
   const { clickhouseDestination, setClickhouseDestination, updateClickhouseDestinationDraft } =
     clickhouseDestinationStore

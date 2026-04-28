@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { devtools } from 'zustand/middleware'
+import { devtools, subscribeWithSelector } from 'zustand/middleware'
 import {
   OperationsSelectedType,
   DeduplicationConfigType,
@@ -20,6 +20,10 @@ import { createCoreSlice, CoreSlice } from './core'
 import { createNotificationsSlice, NotificationsSlice } from './notifications.store'
 import { createResourcesSlice, ResourcesSlice } from './resources.store'
 import { createOtlpSlice, OtlpSlice } from './otlp.store'
+import { createCanvasSlice, CanvasSlice } from './canvas.store'
+import { createDomainSlice, DomainSlice } from './domain.store'
+import { createDeploymentSlice, DeploymentSlice } from './deployment.store'
+import { createRuntimeSlice, RuntimeSlice } from './runtime.store'
 import Cookies from 'js-cookie'
 
 interface Store
@@ -35,7 +39,11 @@ interface Store
     CoreSlice,
     NotificationsSlice,
     ResourcesSlice,
-    OtlpSlice {
+    OtlpSlice,
+    CanvasSlice,
+    DomainSlice,
+    DeploymentSlice,
+    RuntimeSlice {
   // Global reset function that can reset all slices
   resetAllPipelineState: (topicCount: number, force?: boolean) => void
 
@@ -45,9 +53,10 @@ interface Store
   clearAllUserData: () => void
 }
 
-// Wrap your store with devtools middleware
+// Wrap your store with devtools + subscribeWithSelector middleware
 const useActualStore = create<Store>()(
   devtools(
+    subscribeWithSelector(
     (set, get, store) => ({
       ...createKafkaSlice(set, get, store),
       ...createClickhouseConnectionSlice(set, get, store),
@@ -62,6 +71,10 @@ const useActualStore = create<Store>()(
       ...createNotificationsSlice(set, get, store),
       ...createResourcesSlice(set, get, store),
       ...createOtlpSlice(set, get, store),
+      ...createCanvasSlice(set, get, store),
+      ...createDomainSlice(set, get, store),
+      ...createDeploymentSlice(set, get, store),
+      ...createRuntimeSlice(set, get, store),
 
       // Global reset function that resets all slices
       resetAllPipelineState: (topicCount: number, force = false) => {
@@ -82,6 +95,8 @@ const useActualStore = create<Store>()(
           state.stepsStore.resetStepsStore()
           state.resourcesStore.resetResources()
           state.otlpStore.resetOtlpStore()
+          state.domainStore.reset()
+          state.deploymentStore.reset()
 
           // Reset core store with new topic count
           state.coreStore.enterCreateMode()
@@ -149,6 +164,8 @@ const useActualStore = create<Store>()(
         state.stepsStore.resetStepsStore()
         state.resourcesStore.resetResources()
         state.otlpStore.resetOtlpStore()
+        state.domainStore.reset()
+        state.deploymentStore.reset()
         state.coreStore.enterCreateMode()
 
         // Clear cookies and local storage
@@ -156,6 +173,7 @@ const useActualStore = create<Store>()(
         state.coreStore.clearSaveHistory()
       },
     }),
+    ),
     {
       name: 'app-clickhouse-pivot-store', // unique name for the store in DevTools
       enabled: process.env.NODE_ENV !== 'production', // only enable in development
@@ -172,6 +190,9 @@ const useStoreWithMocks = create<Store>()(
 )
 
 export const useStore = useActualStore
+
+/** Full store state type — use this for service functions that receive the whole store snapshot */
+export type RootStoreState = Store
 
 // NOTE: uncomment this to use mocks in development
 // export const useStore = process.env.NODE_ENV === 'production' ? useActualStore : useStoreWithMocks

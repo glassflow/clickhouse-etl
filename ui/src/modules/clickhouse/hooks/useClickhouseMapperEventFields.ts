@@ -1,15 +1,16 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
-  inferJsonType,
   findBestMatchingField,
   getNestedValue,
   getVerifiedTypeFromTopic,
 } from '../utils'
+import { valueToFieldType } from '@/src/utils/type-conversion'
 import { extractEventFields } from '@/src/utils/common.client'
+import { getEffectiveSchema } from '@/src/utils/schema-service'
 import type { TableColumn } from '../types'
 import type { MappingMode } from '../types'
 import { useStore } from '@/src/store'
-import { isOtlpSource } from '@/src/config/source-types'
+import { getSourceAdapter } from '@/src/adapters/source'
 
 export interface UseClickhouseMapperEventFieldsParams {
   mode: MappingMode
@@ -45,7 +46,7 @@ export function useClickhouseMapperEventFields({
   setClickhouseDestination,
 }: UseClickhouseMapperEventFieldsParams) {
   const { coreStore, otlpStore } = useStore()
-  const isOtlp = isOtlpSource(coreStore.sourceType)
+  const isOtlp = getSourceAdapter(coreStore.sourceType).type !== 'kafka'
 
   const selectedEvent = selectedTopic?.selectedEvent
 
@@ -61,10 +62,12 @@ export function useClickhouseMapperEventFields({
   useEffect(() => {
     if (mode !== 'single') return
 
-    // OTLP: use predefined schema fields instead of sampling a Kafka event
-    if (isOtlp && otlpStore.schemaFields.length > 0) {
-      const otlpFieldNames = otlpStore.schemaFields.map((f) => f.name)
-      setEventFields(otlpFieldNames)
+    // OTLP: use canonical schema from SchemaService instead of sampling a Kafka event
+    if (isOtlp) {
+      const schemaFields = getEffectiveSchema(useStore.getState())
+      if (schemaFields.length === 0) return
+      const fieldNames = schemaFields.map((f) => f.name)
+      setEventFields(fieldNames)
 
       // For the 'create' path, the auto-generate effect in ClickhouseMapper builds columns
       // from scratch using orderByOptions (these event fields). Auto-mapping here would apply
@@ -72,11 +75,11 @@ export function useClickhouseMapperEventFields({
       if (destinationPath === 'create') return
       if (clickhouseDestination?.mapping?.some((col: any) => col.eventField)) return
       if (mappedColumns.length > 0) {
-        const fieldTypeMap = new Map(otlpStore.schemaFields.map((f) => [f.name, f.type]))
+        const fieldTypeMap = new Map(schemaFields.map((f) => [f.name, f.type]))
         const updatedColumns = [...mappedColumns]
         let hasChanges = false
         updatedColumns.forEach((col, index) => {
-          const matchingField = findBestMatchingField(col.name, otlpFieldNames)
+          const matchingField = findBestMatchingField(col.name, fieldNames)
           if (matchingField) {
             hasChanges = true
             updatedColumns[index] = {
@@ -144,7 +147,7 @@ export function useClickhouseMapperEventFields({
             updatedColumns[index] = {
               ...col,
               eventField: matchingField,
-              jsonType: verifiedType || inferJsonType(getNestedValue(data, matchingField)),
+              jsonType: verifiedType || valueToFieldType(getNestedValue(data, matchingField)),
             }
           }
         })
@@ -224,7 +227,7 @@ export function useClickhouseMapperEventFields({
         const topicForSchema = source === 'primary' ? primaryTopic : secondaryTopic
         const verifiedType = getVerifiedTypeFromTopic(topicForSchema, matchingField)
         const jsonType =
-          verifiedType || inferJsonType(getNestedValue(sourceData, matchingField)) || 'string'
+          verifiedType || valueToFieldType(getNestedValue(sourceData, matchingField)) || 'string'
         updatedColumns[index] = {
           ...col,
           eventField: matchingField,
@@ -278,7 +281,7 @@ export function useClickhouseMapperEventFields({
           }
           if (!eventData) return col
           const value = getNestedValue(eventData, col.eventField)
-          const inferred = inferJsonType(value)
+          const inferred = valueToFieldType(value)
           if (inferred) {
             changed = true
             return { ...col, jsonType: inferred }
@@ -318,7 +321,7 @@ export function useClickhouseMapperEventFields({
           return { ...col, jsonType: verifiedType }
         }
         const value = sourceData ? getNestedValue(sourceData, col.eventField) : undefined
-        const inferred = inferJsonType(value)
+        const inferred = valueToFieldType(value)
         if (inferred) {
           changed = true
           return { ...col, jsonType: inferred }
@@ -371,7 +374,7 @@ export function useClickhouseMapperEventFields({
         const topicForSchema = source === 'primary' ? primaryTopic : secondaryTopic
         const verifiedType = getVerifiedTypeFromTopic(topicForSchema, matchingField)
         const jsonType =
-          verifiedType || inferJsonType(getNestedValue(sourceData, matchingField)) || 'string'
+          verifiedType || valueToFieldType(getNestedValue(sourceData, matchingField)) || 'string'
         updatedColumns[index] = {
           ...col,
           eventField: matchingField,
@@ -417,11 +420,12 @@ export function useClickhouseMapperEventFields({
     let hasChanges = false
 
     if (mode === 'single') {
-      if (isOtlp && otlpStore.schemaFields.length > 0) {
-        const otlpFieldNames = otlpStore.schemaFields.map((f) => f.name)
-        const fieldTypeMap = new Map(otlpStore.schemaFields.map((f) => [f.name, f.type]))
+      if (isOtlp) {
+        const schemaFields = getEffectiveSchema(useStore.getState())
+        const fieldNames = schemaFields.map((f) => f.name)
+        const fieldTypeMap = new Map(schemaFields.map((f) => [f.name, f.type]))
         updatedColumns.forEach((col, index) => {
-          const matchingField = findBestMatchingField(col.name, otlpFieldNames)
+          const matchingField = findBestMatchingField(col.name, fieldNames)
           if (matchingField) {
             updatedColumns[index] = {
               ...col,
@@ -454,7 +458,7 @@ export function useClickhouseMapperEventFields({
               updatedColumns[index] = {
                 ...col,
                 eventField: matchingField,
-                jsonType: verifiedType || inferJsonType(getNestedValue(eventData, matchingField)),
+                jsonType: verifiedType || valueToFieldType(getNestedValue(eventData, matchingField)),
               }
               hasChanges = true
             }
@@ -477,7 +481,7 @@ export function useClickhouseMapperEventFields({
           const topicForSchema = source === 'primary' ? primaryTopic : secondaryTopic
           const verifiedType = getVerifiedTypeFromTopic(topicForSchema, matchingField)
           const jsonType =
-            verifiedType || inferJsonType(getNestedValue(sourceData, matchingField)) || 'string'
+            verifiedType || valueToFieldType(getNestedValue(sourceData, matchingField)) || 'string'
           updatedColumns[index] = {
             ...col,
             eventField: matchingField,
@@ -539,7 +543,7 @@ export function useClickhouseMapperEventFields({
           } else {
             const fieldValue = eventField ? getNestedValue(eventData, eventField) : undefined
             inferredType = eventField
-              ? inferJsonType(fieldValue)
+              ? valueToFieldType(fieldValue)
               : (updatedColumns[index].jsonType ?? 'string')
           }
         } else {
@@ -558,7 +562,7 @@ export function useClickhouseMapperEventFields({
             const data = sourceEventData ?? sourceData
             const fieldValue = data ? getNestedValue(data, eventField) : undefined
             inferredType = eventField
-              ? inferJsonType(fieldValue)
+              ? valueToFieldType(fieldValue)
               : (updatedColumns[index].jsonType ?? 'string')
           }
         }

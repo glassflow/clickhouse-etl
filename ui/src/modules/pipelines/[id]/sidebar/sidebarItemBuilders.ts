@@ -1,7 +1,7 @@
 import { StepKeys } from '@/src/config/constants'
 import { Pipeline } from '@/src/types/pipeline'
 import { isFiltersEnabled } from '@/src/config/feature-flags'
-import { isOtlpSource } from '@/src/config/source-types'
+import { getSourceAdapter } from '@/src/adapters/source'
 
 /**
  * Section types for the sidebar
@@ -47,7 +47,7 @@ function getPipelineSourceType(pipeline: Pipeline): string {
 function getPipelineTopics(pipeline: Pipeline): any[] {
   const v3Sources = (pipeline as any).sources
   if (Array.isArray(v3Sources) && v3Sources.length > 0) {
-    return v3Sources.filter((s: any) => !isOtlpSource(s.type || ''))
+    return v3Sources.filter((s: any) => getSourceAdapter(s.type || '').type === 'kafka')
   }
   return pipeline?.source?.topics || []
 }
@@ -60,7 +60,7 @@ function getPipelineTransforms(pipeline: Pipeline): any[] {
  * Get source section items (Kafka connection and topics, or OTLP source)
  */
 export function getSourceItems(pipeline: Pipeline): SidebarItem[] {
-  if (isOtlpSource(getPipelineSourceType(pipeline))) {
+  if (getSourceAdapter(getPipelineSourceType(pipeline)).type !== 'kafka') {
     const transforms = getPipelineTransforms(pipeline)
     const hasOtlpDedup = pipeline?.source?.deduplication?.enabled === true
       || transforms.some((t: any) => t.type === 'dedup')

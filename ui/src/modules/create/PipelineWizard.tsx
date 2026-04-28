@@ -3,12 +3,12 @@
 import React, { useEffect } from 'react'
 import { ChevronDownIcon } from '@heroicons/react/24/outline'
 import { structuredLogger } from '@/src/observability'
-import { stepsMetadata } from '@/src/config/constants'
+import { getStepDescriptor } from '@/src/config/step-registry'
 import { StepKeys } from '@/src/config/constants'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/src/components/ui/card'
 import { validateStep } from '@/src/scheme/validators'
-import { isOtlpSource } from '@/src/config/source-types'
+import { getSourceAdapter } from '@/src/adapters/source'
 import { useStore } from '@/src/store'
 import {
   getWizardJourneyInstances,
@@ -26,7 +26,7 @@ function PipelineWizard() {
 
   // If no topic count is selected, redirect to home (OTLP pipelines skip this check)
   useEffect(() => {
-    if (isOtlpSource(sourceType)) {
+    if (getSourceAdapter(sourceType).type !== 'kafka') {
       return // OTLP pipelines don't need topicCount validation
     }
     if (!topicCount || topicCount < 1 || topicCount > 2) {
@@ -42,7 +42,7 @@ function PipelineWizard() {
   )
   const sidebarSteps = React.useMemo(
     () => {
-      if (isOtlpSource(sourceType)) {
+      if (getSourceAdapter(sourceType).type !== 'kafka') {
         return getSidebarStepsFromInstances(currentJourney, 1)
       }
       return topicCount && topicCount >= 1 && topicCount <= 2
@@ -122,7 +122,7 @@ function PipelineWizard() {
 
   const getStepTitle = (instance: StepInstance) => {
     const stepKey = instance.key
-    const step = stepsMetadata[stepKey]
+    const step = getStepDescriptor(stepKey)
     const topics = topicsStore?.topics || {}
 
     if (stepKey === StepKeys.TOPIC_SELECTION_1 || stepKey === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1) {
@@ -145,7 +145,6 @@ function PipelineWizard() {
   const renderStepComponent = (
     instance: StepInstance,
     stepComponentsMap: Record<string, React.ComponentType<any>>,
-    stepsMeta: typeof stepsMetadata,
     onNext: () => void,
     validateStepFn: (step: string, data: unknown) => { success: boolean; errors: any },
   ) => {
@@ -168,7 +167,6 @@ function PipelineWizard() {
         stepKey === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_2
       return (
         <StepComponent
-          steps={stepsMeta}
           onCompleteStep={onNext}
           validate={validateStepFn}
           currentStep={stepKey}
@@ -191,7 +189,7 @@ function PipelineWizard() {
       return <StepComponent onCompleteStep={onNext} />
     }
 
-    return <StepComponent steps={stepsMeta} onCompleteStep={onNext} validate={validateStepFn} />
+    return <StepComponent onCompleteStep={onNext} validate={validateStepFn} />
   }
 
   return (
@@ -217,11 +215,11 @@ function PipelineWizard() {
                   </div>
                 </CardTitle>
                 <CardDescription className="subtitle-3">
-                  {stepsMetadata[currentActiveInstance.key]?.description || ''}
+                  {getStepDescriptor(currentActiveInstance.key)?.description || ''}
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {renderStepComponent(currentActiveInstance, stepComponents, stepsMetadata, handleNext, validateStep)}
+                {renderStepComponent(currentActiveInstance, stepComponents, handleNext, validateStep)}
               </CardContent>
             </Card>
           )}
