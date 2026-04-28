@@ -7,6 +7,10 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 import { useSchemaRegistryState } from '@/src/modules/kafka/hooks/useSchemaRegistryState'
 import { isRegistrySchema } from '@/src/modules/kafka/utils/schemaSource'
 
+interface EventWithMeta {
+  _metadata?: { rawBase64?: string }
+}
+
 interface RegistrySchemaPanelProps {
   topicName: string
   topicIndex: number
@@ -41,7 +45,7 @@ export function RegistrySchemaPanel({ topicName, topicIndex, readOnly, liveEvent
   // All hooks before conditional returns
   const lastAttemptedRawBase64 = useRef<string | null>(null)
   const rawBase64 =
-    (liveEvent as any)?._metadata?.rawBase64 ?? topic?.selectedEvent?.event?._metadata?.rawBase64
+    (liveEvent as EventWithMeta)?._metadata?.rawBase64 ?? topic?.selectedEvent?.event?._metadata?.rawBase64
 
   useEffect(() => {
     if (!rawBase64 || rawBase64 === lastAttemptedRawBase64.current) return
