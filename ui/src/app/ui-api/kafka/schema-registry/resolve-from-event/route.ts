@@ -103,17 +103,27 @@ export async function POST(request: Request) {
       schemaData.schemaType === 'AVRO' ||
       (!schemaData.schemaType && parsedSchema.type === 'record' && Array.isArray(parsedSchema.fields))
     if (isAvroSchema) {
-      try {
-        const avroType = avsc.Type.forSchema(parsedSchema, { wrapUnions: 'auto' })
-        const rawBytes = Buffer.from(rawBase64, 'base64')
-        // Confluent wire format: skip 5-byte header (magic byte + 4-byte schema ID)
-        const avroPayload = rawBytes.subarray(5)
-        decodedEvent = avroType.fromBuffer(avroPayload) as Record<string, unknown>
-      } catch (decodeErr) {
-        structuredLogger.warn('Avro decode failed', {
-          schemaId,
-          error: decodeErr instanceof Error ? decodeErr.message : String(decodeErr),
-        })
+      const rawBytes = Buffer.from(rawBase64, 'base64')
+      // Confluent wire format: skip 5-byte header (magic byte + 4-byte schema ID)
+      const avroPayload = rawBytes.subarray(5)
+      // Try decoding with two strategies; avsc union wrapping varies by schema
+      const decodeStrategies = [
+        () => avsc.Type.forSchema(parsedSchema, { wrapUnions: 'auto' }).fromBuffer(avroPayload),
+        () => avsc.Type.forSchema(parsedSchema).fromBuffer(avroPayload),
+      ]
+      for (const decode of decodeStrategies) {
+        try {
+          decodedEvent = decode() as Record<string, unknown>
+          break
+        } catch {
+          // try next strategy
+        }
+      }
+      if (!decodedEvent) {
+        structuredLogger.warn('Avro decode failed for all strategies', { schemaId })
+        // Fallback: build a synthetic event from the schema fields so downstream
+        // steps have real field names instead of the Avro error envelope
+        decodedEvent = Object.fromEntries(fields.map((f) => [f.name, null]))
       }
     }
 
