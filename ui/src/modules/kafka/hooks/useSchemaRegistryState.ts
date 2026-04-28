@@ -9,6 +9,7 @@ export interface AutoResolved {
   subject?: string
   version?: number
   fields: Array<{ name: string; type: string }>
+  decodedEvent?: Record<string, unknown>
 }
 
 export interface SchemaRegistryStateHook {
@@ -187,6 +188,34 @@ export function useSchemaRegistryState(topicName: string, topicIndex: number): S
           }
           setSchemaFieldCount(data.fields.length)
           setSchemaLoaded(true)
+
+          // Decode the Avro event if raw bytes are available (non-fatal)
+          const rawBase64 = topic?.selectedEvent?.event?._metadata?.rawBase64
+          if (rawBase64 && topic?.selectedEvent?.event?._encoding === 'avro-confluent') {
+            fetch('/ui-api/kafka/schema-registry/resolve-from-event', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ...authBody, rawBase64 }),
+            })
+              .then((r) => r.json())
+              .then((decodeData) => {
+                if (decodeData.success && decodeData.decodedEvent) {
+                  const latestTopic = topicsStore.getTopic(topicIndex)
+                  if (latestTopic?.selectedEvent) {
+                    topicsStore.updateTopic({
+                      ...latestTopic,
+                      selectedEvent: {
+                        ...latestTopic.selectedEvent,
+                        event: { ...decodeData.decodedEvent, _metadata: latestTopic.selectedEvent.event?._metadata },
+                      },
+                    })
+                  }
+                }
+              })
+              .catch(() => {
+                // Non-fatal — display remains without decoded event
+              })
+          }
         } else {
           setSchemaError(data.error || 'Failed to load schema')
         }
@@ -221,7 +250,27 @@ export function useSchemaRegistryState(topicName: string, topicIndex: number): S
         })
         const data = await response.json()
         if (data.success && data.fields?.length > 0) {
-          setAutoResolved({ schemaId: data.schemaId, subject: data.subject, version: data.version, fields: data.fields })
+          setAutoResolved({
+            schemaId: data.schemaId,
+            subject: data.subject,
+            version: data.version,
+            fields: data.fields,
+            decodedEvent: data.decodedEvent,
+          })
+          // Write decoded event into the store immediately so all downstream steps
+          // see the actual event data instead of the Avro error envelope
+          if (data.decodedEvent) {
+            const topic = topicsStore.getTopic(topicIndex)
+            if (topic?.selectedEvent) {
+              topicsStore.updateTopic({
+                ...topic,
+                selectedEvent: {
+                  ...topic.selectedEvent,
+                  event: { ...data.decodedEvent, _metadata: topic.selectedEvent.event?._metadata },
+                },
+              })
+            }
+          }
         } else {
           setAutoResolved(null)
         }
@@ -232,7 +281,7 @@ export function useSchemaRegistryState(topicName: string, topicIndex: number): S
         setAutoResolutionAttempted(true)
       }
     },
-    [schemaRegistry], // eslint-disable-line react-hooks/exhaustive-deps
+    [schemaRegistry, topicIndex, topicsStore], // eslint-disable-line react-hooks/exhaustive-deps
   )
 
   const applyAutoResolved = useCallback(() => {
