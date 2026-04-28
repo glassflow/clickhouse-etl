@@ -159,8 +159,7 @@ function EventManager({
             <div className="rounded-md border border-[var(--color-border-warning)] bg-[var(--color-background-warning-faded)] px-4 py-3 text-sm space-y-1">
               <p className="font-medium text-[var(--color-foreground-warning)]">Avro-encoded event (schema ID {(currentEvent!.event as any)._schemaId})</p>
               <p className="text-[var(--color-foreground-warning-faded)]">
-                This topic uses Confluent Avro encoding. The raw event cannot be displayed directly.
-                Use the Schema Registry panel below to load the schema for this topic.
+                This topic uses Confluent Avro encoding. Connect a Schema Registry to automatically decode and preview events.
               </p>
             </div>
           ) : (

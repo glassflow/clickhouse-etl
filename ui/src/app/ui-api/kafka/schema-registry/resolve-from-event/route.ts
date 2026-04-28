@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import avsc from 'avsc'
 import { buildRegistryAuthHeaders } from '../_auth'
 import { structuredLogger } from '@/src/observability'
 
@@ -96,6 +97,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'No fields found in schema' })
     }
 
+    // Attempt to decode the Avro event bytes using the fetched schema (non-fatal)
+    let decodedEvent: Record<string, unknown> | undefined
+    const isAvroSchema =
+      schemaData.schemaType === 'AVRO' ||
+      (!schemaData.schemaType && parsedSchema.type === 'record' && Array.isArray(parsedSchema.fields))
+    if (isAvroSchema) {
+      try {
+        const avroType = avsc.Type.forSchema(parsedSchema, { wrapUnions: 'auto' })
+        const rawBytes = Buffer.from(rawBase64, 'base64')
+        // Confluent wire format: skip 5-byte header (magic byte + 4-byte schema ID)
+        const avroPayload = rawBytes.subarray(5)
+        decodedEvent = avroType.fromBuffer(avroPayload) as Record<string, unknown>
+      } catch (decodeErr) {
+        structuredLogger.warn('Avro decode failed', {
+          schemaId,
+          error: decodeErr instanceof Error ? decodeErr.message : String(decodeErr),
+        })
+      }
+    }
+
     // Attempt to resolve subject/version for this schema ID (non-fatal)
     let subject: string | undefined
     let version: number | undefined
@@ -112,7 +133,7 @@ export async function POST(request: Request) {
       // Non-fatal — subject/version is informational only
     }
 
-    return NextResponse.json({ success: true, schemaId, subject, version, fields })
+    return NextResponse.json({ success: true, schemaId, subject, version, fields, decodedEvent })
   } catch (error) {
     structuredLogger.error('Schema registry resolve-from-event failed', {
       error: error instanceof Error ? error.message : String(error),
