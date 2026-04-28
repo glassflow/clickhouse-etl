@@ -69,12 +69,25 @@ func newDefaultIngestorComponentResources(replicas *int64) *ComponentResources {
 	}
 }
 
+// defaultNATSMaxMsgs returns the default stream message limit for a pipeline.
+// It is set to 8× the sink batch size (2× MaxAckPending) so the stream can buffer
+// enough messages for the slowest consumer without starving it.
+// Both 0 and -1 mean unlimited in NATS; we always return a positive value here.
+func defaultNATSMaxMsgs(sinkBatchSize int) int64 {
+	if sinkBatchSize > 0 {
+		return int64(sinkBatchSize) * 8
+	}
+	// Fallback: should not happen since batch size is validated before resources are created.
+	return 500_000
+}
+
 func NewDefaultPipelineResources(cfg *PipelineConfig) PipelineResources {
 	r := PipelineResources{
 		Nats: &NatsResources{
 			Stream: &NatsStreamResources{
 				MaxAge:   getEnvOrDefault("NATS_MAX_STREAM_AGE", "24h"),
 				MaxBytes: getEnvOrDefault("NATS_MAX_STREAM_BYTES", "0"),
+				MaxMsgs:  defaultNATSMaxMsgs(cfg.Sink.Batch.MaxBatchSize),
 			},
 		},
 		Sink: &ComponentResources{
@@ -138,6 +151,9 @@ type NatsResources struct {
 type NatsStreamResources struct {
 	MaxAge   string `json:"maxAge,omitempty"`
 	MaxBytes string `json:"maxBytes,omitempty"`
+	// MaxMsgs is the maximum number of messages per stream. Both 0 and -1 mean unlimited in NATS;
+	// omitting this field (zero value) means use the operator default.
+	MaxMsgs int64 `json:"maxMsgs,omitempty"`
 }
 
 type IngestorResources struct {
@@ -180,6 +196,7 @@ func NewPipelineResourcesWithPolicy(cfg *PipelineConfig, resources PipelineResou
 var PipelineResourcesImmutable = []string{
 	"nats/stream/maxAge",
 	"nats/stream/maxBytes",
+	"nats/stream/maxMsgs",
 	"transform/storage/size",
 }
 
@@ -218,6 +235,9 @@ func validateNatsResources(n *NatsResources) error {
 		if _, err := ParseNATSMaxBytesQuantity(n.Stream.MaxBytes); err != nil {
 			return fmt.Errorf("invalid nats stream maxBytes %q: %w", n.Stream.MaxBytes, err)
 		}
+	}
+	if n.Stream.MaxMsgs < -1 {
+		return fmt.Errorf("invalid nats stream maxMsgs %d: must be -1 (unlimited), 0 (operator default), or a positive value", n.Stream.MaxMsgs)
 	}
 	return nil
 }

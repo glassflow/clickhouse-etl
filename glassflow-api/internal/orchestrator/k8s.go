@@ -703,6 +703,9 @@ func toOperatorNatsResources(n *models.NatsResources) (*operator.NatsResources, 
 			}
 			stream.MaxBytes = maxBytes
 		}
+		if n.Stream.MaxMsgs != 0 {
+			stream.MaxMsgs = n.Stream.MaxMsgs
+		}
 		res.Stream = stream
 	}
 	return res, nil
