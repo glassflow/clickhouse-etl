@@ -13,7 +13,6 @@ import useGetIndex from '@/src/modules/kafka/useGetIndex'
 import { useKafkaTopicSelectorState } from '@/src/modules/kafka/hooks/useKafkaTopicSelectorState'
 import { useTopicSelectorTopics } from '@/src/modules/kafka/hooks/useTopicSelectorTopics'
 import TopicChangeConfirmationModal from '@/src/modules/kafka/components/TopicChangeConfirmationModal'
-import { SchemaSourceSelector } from '@/src/modules/kafka/components/SchemaSourceSelector'
 
 export function KafkaTopicSelector({
   steps,
@@ -29,7 +28,7 @@ export function KafkaTopicSelector({
   pipelineActionState,
   onCompleteStandaloneEditing,
 }: TopicSelectorProps) {
-  const { topicsStore, coreStore, kafkaStore } = useStore()
+  const { topicsStore, coreStore } = useStore()
   const validationEngine = useValidationEngine()
   const getIndex = useGetIndex(currentStep || '')
   const index = getIndex()
@@ -245,15 +244,8 @@ export function KafkaTopicSelector({
     )
   }
 
-  const renderSchemaSourceSection = () => {
-    if (!kafkaStore.schemaRegistry?.enabled) return null
-
-    return (
-      <div className="mt-4">
-        <SchemaSourceSelector topicName={topicName} topicIndex={index} readOnly={readOnly} liveEvent={event} />
-      </div>
-    )
-  }
+  // TODO: replace with RegistrySchemaPanel once implemented
+  const renderSchemaSourceSection = () => null
 
   return (
     <div className="space-y-6 w-full">
