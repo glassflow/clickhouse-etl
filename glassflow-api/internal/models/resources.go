@@ -69,12 +69,25 @@ func newDefaultIngestorComponentResources(replicas *int64) *ComponentResources {
 	}
 }
 
+// defaultNATSMaxMsgs returns the default stream message limit for a pipeline.
+// It is set to 8× the sink batch size (2× MaxAckPending) so the stream can buffer
+// enough messages for the slowest consumer without starving it.
+// Both 0 and -1 mean unlimited in NATS; we always return a positive value here.
+func defaultNATSMaxMsgs(sinkBatchSize int) int64 {
+	if sinkBatchSize > 0 {
+		return int64(sinkBatchSize) * 8
+	}
+	// Fallback: should not happen since batch size is validated before resources are created.
+	return 500_000
+}
+
 func NewDefaultPipelineResources(cfg *PipelineConfig) PipelineResources {
 	r := PipelineResources{
 		Nats: &NatsResources{
 			Stream: &NatsStreamResources{
 				MaxAge:   getEnvOrDefault("NATS_MAX_STREAM_AGE", "24h"),
 				MaxBytes: getEnvOrDefault("NATS_MAX_STREAM_BYTES", "0"),
+				MaxMsgs:  defaultNATSMaxMsgs(cfg.Sink.Batch.MaxBatchSize),
 			},
 		},
 		Sink: &ComponentResources{

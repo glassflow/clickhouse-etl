@@ -173,6 +173,30 @@ func TestParseNATSMaxBytesQuantity(t *testing.T) {
 	}
 }
 
+func TestDefaultNATSMaxMsgs(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name          string
+		sinkBatchSize int
+		want          int64
+	}{
+		{name: "50k batch (dedup default)", sinkBatchSize: 50_000, want: 400_000},
+		{name: "10k batch (typical sink)", sinkBatchSize: 10_000, want: 80_000},
+		{name: "1k batch (small)", sinkBatchSize: 1_000, want: 8_000},
+		{name: "zero falls back to 500k", sinkBatchSize: 0, want: 500_000},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := defaultNATSMaxMsgs(tt.sinkBatchSize); got != tt.want {
+				t.Errorf("defaultNATSMaxMsgs(%d) = %d, want %d", tt.sinkBatchSize, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestValidateNatsResources_MaxMsgs(t *testing.T) {
 	t.Parallel()
 
