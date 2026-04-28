@@ -118,6 +118,8 @@ export function useSchemaRegistryState(topicName: string, topicIndex: number): S
   useEffect(() => {
     if (!topicName || !schemaRegistry?.url) return
     fetchSubjects()
+    // selectedSubject intentionally read from closure: restore versions for the previously
+    // persisted subject, but do not re-run this effect when selectedSubject changes
     if (selectedSubject) fetchVersionsForSubject(selectedSubject)
   }, [topicName]) // eslint-disable-line react-hooks/exhaustive-deps
 
