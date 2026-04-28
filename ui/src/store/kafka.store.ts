@@ -13,6 +13,7 @@ import {
   TruststoreFormType,
   KafkaConnectionFormType,
   NoAuthFormType,
+  SchemaRegistryFormType,
 } from '@/src/scheme/kafka.scheme'
 import {
   ValidationState,
@@ -57,6 +58,9 @@ export interface KafkaStoreProps {
   // mtls connection type
   mtls: MtlsFormType
 
+  // schema registry (optional, one per Kafka cluster)
+  schemaRegistry: SchemaRegistryFormType
+
   // validation state
   validation: ValidationState
 }
@@ -88,6 +92,9 @@ export interface KafkaStore extends KafkaStoreProps, ValidationMethods {
 
   // mtls actions
   setKafkaMtls: (mtls: MtlsFormType) => void
+
+  // schema registry actions
+  setKafkaSchemaRegistry: (schemaRegistry: SchemaRegistryFormType) => void
 
   // Note: No separate truststore setter - it's embedded in individual auth methods
 
@@ -213,6 +220,15 @@ export const initialKafkaStore: KafkaStoreProps = {
   mtls: {
     clientCert: '',
     clientKey: '',
+    password: '',
+  },
+  schemaRegistry: {
+    enabled: false,
+    url: '',
+    authMethod: 'none' as const,
+    apiKey: '',
+    apiSecret: '',
+    username: '',
     password: '',
   },
 }
@@ -342,6 +358,15 @@ export const createKafkaSlice: StateCreator<KafkaSlice> = (set, get) => ({
       password: '',
     },
 
+    // schema registry
+    schemaRegistry: {
+      enabled: false,
+      url: '',
+      apiKey: '',
+      apiSecret: '',
+      authMethod: 'none' as const,
+    },
+
     // base actions
     setKafkaAuthMethod: (authMethod: string) => set((state) => ({ kafkaStore: { ...state.kafkaStore, authMethod } })),
     setKafkaSecurityProtocol: (securityProtocol: string) =>
@@ -378,6 +403,10 @@ export const createKafkaSlice: StateCreator<KafkaSlice> = (set, get) => ({
 
     // mtls actions
     setKafkaMtls: (mtls: MtlsFormType) => set((state) => ({ kafkaStore: { ...state.kafkaStore, mtls } })),
+
+    // schema registry actions
+    setKafkaSchemaRegistry: (schemaRegistry: SchemaRegistryFormType) =>
+      set((state) => ({ kafkaStore: { ...state.kafkaStore, schemaRegistry } })),
 
     // kafka connection actions
     setKafkaConnection: (connection: KafkaConnectionFormType) =>

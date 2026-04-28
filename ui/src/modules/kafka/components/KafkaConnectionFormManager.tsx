@@ -25,6 +25,7 @@ type KafkaConnectionProps = {
   toggleEditMode?: (apiConfig?: any) => void
   pipelineActionState?: any
   onClose?: () => void
+  schemaRegistryError?: string
 }
 
 export const KafkaConnectionFormManager = ({
@@ -41,6 +42,7 @@ export const KafkaConnectionFormManager = ({
   toggleEditMode,
   pipelineActionState,
   onClose,
+  schemaRegistryError,
 }: KafkaConnectionProps) => {
   // Create a ref to store the original values for discard functionality
   const originalValuesRef = useRef(initialValues)
@@ -221,6 +223,7 @@ export const KafkaConnectionFormManager = ({
           securityProtocol={currentSecurityProtocol}
           errors={shouldShowValidationErrors ? errors : {}}
           readOnly={readOnly}
+          schemaRegistryError={schemaRegistryError}
         />
 
         <FormActions

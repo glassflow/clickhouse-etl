@@ -36,6 +36,7 @@ export function KafkaConnectionContainer({
   pipeline,
 }: KafkaConnectionContainerProps) {
   const [clearErrorMessage, setClearErrorMessage] = useState(false)
+  const [schemaRegistryError, setSchemaRegistryError] = useState<string | undefined>(undefined)
   const { kafkaStore, topicsStore, coreStore } = useStore()
   const { topicCount } = coreStore
   const {
@@ -47,6 +48,7 @@ export function KafkaConnectionContainer({
     noAuth,
     saslScram256,
     saslScram512,
+    schemaRegistry,
   } = kafkaStore
   const { resetTopicsStore } = topicsStore
   // ref to track previous bootstrap servers, not using state to avoid re-renders
@@ -82,6 +84,7 @@ export function KafkaConnectionContainer({
     noAuth: noAuth || KafkaFormDefaultValues.noAuth,
     saslScram256: saslScram256 || KafkaFormDefaultValues.saslScram256,
     saslScram512: saslScram512 || KafkaFormDefaultValues.saslScram512,
+    schemaRegistry: schemaRegistry || KafkaFormDefaultValues.schemaRegistry,
   } as KafkaConnectionFormType
 
   // Monitor changes to bootstrapServers
@@ -138,6 +141,35 @@ export function KafkaConnectionContainer({
 
     // Only save data and complete step if connection was successful
     if (result.success) {
+      // If schema registry is enabled, test it before saving
+      if (values.schemaRegistry?.enabled) {
+        setSchemaRegistryError(undefined)
+        try {
+          const srResponse = await fetch('/ui-api/kafka/schema-registry/test-connection', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              url: values.schemaRegistry.url,
+              authMethod: values.schemaRegistry.authMethod,
+              apiKey: values.schemaRegistry.apiKey,
+              apiSecret: values.schemaRegistry.apiSecret,
+              username: values.schemaRegistry.username,
+              password: values.schemaRegistry.password,
+            }),
+          })
+          const srResult = await srResponse.json()
+          if (!srResult.success) {
+            setSchemaRegistryError(srResult.message || 'Connection failed')
+            return
+          }
+        } catch {
+          setSchemaRegistryError('Could not reach Schema Registry')
+          return
+        }
+      } else {
+        setSchemaRegistryError(undefined)
+      }
+
       saveConnectionData(values)
       analytics.kafka.success({
         authMethod: values.authMethod,
@@ -181,6 +213,7 @@ export function KafkaConnectionContainer({
         toggleEditMode={toggleEditMode}
         pipelineActionState={pipelineActionState}
         onClose={onCompleteStandaloneEditing}
+        schemaRegistryError={schemaRegistryError}
       />
       {/* {connectionResult && !clearErrorMessage && (
         <ActionStatusMessage message={connectionResult.message} success={connectionResult.success} />

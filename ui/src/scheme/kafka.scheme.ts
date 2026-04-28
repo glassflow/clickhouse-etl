@@ -99,12 +99,23 @@ const MtlsFormSchema = z.object({
   password: z.string().min(1, 'Password is required'),
 })
 
+const SchemaRegistryFormSchema = z.object({
+  enabled: z.boolean().default(false),
+  url: z.string().optional(),
+  authMethod: z.enum(['none', 'api_key', 'basic']).default('none'),
+  apiKey: z.string().optional(),
+  apiSecret: z.string().optional(),
+  username: z.string().optional(),
+  password: z.string().optional(),
+})
+
 // First, define a base schema with the common fields
 const KafkaConnectionBaseSchema = z.object({
   authMethod: z.string(),
   securityProtocol: z.string(),
   bootstrapServers: z.string().min(1, 'Bootstrap servers are required'),
   isConnected: z.boolean().optional(),
+  schemaRegistry: SchemaRegistryFormSchema.optional(),
 })
 
 // Helper function to check if security protocol requires SSL/TLS
@@ -176,6 +187,33 @@ const KafkaConnectionFormSchema = z
     }),
   ])
   .superRefine((data, ctx) => {
+    // Validate schema registry URL when enabled
+    if (data.schemaRegistry?.enabled && (!data.schemaRegistry.url || !data.schemaRegistry.url.trim())) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Registry URL is required when Schema Registry is enabled',
+        path: ['schemaRegistry', 'url'],
+      })
+    }
+
+    // Validate credentials for basic auth
+    if (data.schemaRegistry?.enabled && data.schemaRegistry.authMethod === 'basic') {
+      if (!data.schemaRegistry.username?.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Username is required',
+          path: ['schemaRegistry', 'username'],
+        })
+      }
+      if (!data.schemaRegistry.password?.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Password is required',
+          path: ['schemaRegistry', 'password'],
+        })
+      }
+    }
+
     // Validate certificate requirement based on security protocol at the top level
     // This has access to both authMethod and securityProtocol
     const needsSSL = requiresSSL(data.securityProtocol)
@@ -232,6 +270,8 @@ const KafkaConnectionFormSchema = z
     }
   })
 
+type SchemaRegistryForm = z.infer<typeof SchemaRegistryFormSchema>
+
 // extract the inferred type
 type KafkaMetaForm = z.infer<typeof KafkaMetaFormSchema>
 type KafkaBaseForm = z.infer<typeof KafkaBaseFormSchema>
@@ -266,6 +306,7 @@ export {
   TruststoreFormSchema,
   KafkaConnectionFormSchema,
   NoAuthFormSchema,
+  SchemaRegistryFormSchema,
 }
 
 // Export the types (for TypeScript)
@@ -285,4 +326,5 @@ export type {
   TruststoreForm as TruststoreFormType,
   KafkaConnectionForm as KafkaConnectionFormType,
   NoAuthForm as NoAuthFormType,
+  SchemaRegistryForm as SchemaRegistryFormType,
 }

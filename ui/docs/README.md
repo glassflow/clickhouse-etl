@@ -31,6 +31,7 @@ This folder is the **deep reference** for the ClickHouse ETL UI. For development
 | [implementations/KAFKA_OPERATIONS_LAYER.md](implementations/KAFKA_OPERATIONS_LAYER.md)                   | Kafka operations layer: service, factory, clients, resilience, tests. |
 | [implementations/STORE_MODE_SUPPORT_PRD.md](implementations/STORE_MODE_SUPPORT_PRD.md)                   | Store mode support PRD.                                               |
 | [implementations/OBSERVABILITY_IMPLEMENTATION.md](implementations/OBSERVABILITY_IMPLEMENTATION.md)       | OTEL-first structured logging and metrics: architecture, env vars, metric names, usage, constraints. |
+| [implementations/EXTERNAL_SCHEMA_REGISTRY.md](implementations/EXTERNAL_SCHEMA_REGISTRY.md)               | External Schema Registry support: plan, store changes, UI routes, V3 adapter, hydration, phase breakdown. |
 
 ## Modules (per-feature guides)
 

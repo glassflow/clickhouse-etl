@@ -55,6 +55,7 @@
     "@types/react-dom": "^19.1.2",
     "ace-builds": "^1.39.1",
     "add": "^2.0.6",
+    "avsc": "^5.7.9",
     "axios": "^1.8.4",
     "class-variance-authority": "^0.7.1",
     "classnames": "^2.5.1",

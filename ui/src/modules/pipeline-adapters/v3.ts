@@ -15,6 +15,7 @@ import { PipelineAdapter } from './types'
 import { InternalPipelineConfig } from '@/src/types/pipeline'
 import { PipelineVersion } from '@/src/config/pipeline-versions'
 import { toTransformArray, exprToFieldName } from '@/src/modules/transformation/utils'
+import { isRegistrySchema } from '@/src/modules/kafka/utils/schemaSource'
 
 function parseFunctionArgs(argsString: string): string[] {
   const args: string[] = []
@@ -152,7 +153,24 @@ export class V3PipelineAdapter implements PipelineAdapter {
           deduplication: { enabled: false, id_field: '', id_field_type: 'string', time_window: '1h' },
           ...(s.schema_version != null ? { schema_version: s.schema_version } : {}),
           ...(s.schema_registry != null ? { schema_registry: s.schema_registry } : {}),
+          // Infer schemaSource so generate() can reconstruct schema_version in subject:version format
+          ...(s.schema_registry?.url ? { schemaSource: 'external' } : {}),
         })),
+      }
+
+      // Extract registry credentials from the first topic that has them into source.schemaRegistry
+      // so that the hydrate→generate round-trip (download, edit/resume) preserves credentials.
+      const firstRegSource = kafkaSources.find((s: any) => s.schema_registry?.url)
+      if (firstRegSource) {
+        const sr = firstRegSource.schema_registry
+        internalSource.schemaRegistry = {
+          url: sr.url ?? '',
+          authMethod: sr.api_key ? 'api_key' : 'none',
+          apiKey: sr.api_key ?? '',
+          apiSecret: sr.api_secret ?? '',
+          username: '',
+          password: '',
+        }
       }
     }
 
@@ -329,16 +347,45 @@ export class V3PipelineAdapter implements PipelineAdapter {
     if (isOtlp) {
       output.sources = [{ type: cfg.source.type, source_id: (cfg.source as any).id ?? 'source' }]
     } else {
-      output.sources = topics.map((t: any) => ({
-        type: 'kafka',
-        source_id: t.id ?? t.name,
-        connection_params: cfg.source?.connection_params,
-        topic: t.name,
-        consumer_group_initial_offset: t.consumer_group_initial_offset ?? 'latest',
-        schema_fields: (t.schema?.fields ?? []).map((f: any) => ({ name: f.name, type: f.type ?? 'string' })),
-        schema_version: t.schema_version ?? '1',
-        schema_registry: t.schema_registry ?? { url: '', api_key: '', api_secret: '' },
-      }))
+      const reg = cfg.source?.schemaRegistry
+      // Map UI auth methods to backend api_key/api_secret fields:
+      // - 'api_key': apiKey → api_key, apiSecret → api_secret
+      // - 'basic': username → api_key, password → api_secret
+      // - 'none' / undefined: empty strings
+      let regApiKey = ''
+      let regApiSecret = ''
+      if (reg?.authMethod === 'api_key') {
+        regApiKey = reg.apiKey ?? ''
+        regApiSecret = reg.apiSecret ?? ''
+      } else if (reg?.authMethod === 'basic') {
+        regApiKey = reg.username ?? ''
+        regApiSecret = reg.password ?? ''
+      }
+      output.sources = topics.map((t: any) => {
+        // Backend expects "subject:version" format for registry-sourced topics
+        const schemaVersion =
+          isRegistrySchema(t.schemaSource) && t.schemaRegistryVersion && t.schemaRegistryVersion !== 'latest'
+            ? t.schemaRegistrySubject
+              ? `${t.schemaRegistrySubject}:${t.schemaRegistryVersion}`
+              : t.schemaRegistryVersion
+            : (t.schema_version ?? '1')
+        return {
+          type: 'kafka',
+          source_id: t.id ?? t.name,
+          connection_params: cfg.source?.connection_params,
+          topic: t.name,
+          consumer_group_initial_offset: t.consumer_group_initial_offset ?? 'latest',
+          schema_fields: (t.schema?.fields ?? [])
+            .filter((f: any) => !f.isRemoved)
+            .map((f: any) => ({ name: f.name, type: f.userType || (f.type ?? 'string') })),
+          schema_version: schemaVersion,
+          schema_registry: t.schema_registry ?? {
+            url: reg?.url ?? '',
+            api_key: regApiKey,
+            api_secret: regApiSecret,
+          },
+        }
+      })
     }
 
     // ── 2. dedup / filter / transformation → transforms[] ────────────────────

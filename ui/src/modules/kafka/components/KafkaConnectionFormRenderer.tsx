@@ -1,4 +1,4 @@
-import { useFormContext } from 'react-hook-form'
+import { useFormContext, Controller } from 'react-hook-form'
 import { FormGroup } from '@/src/components/ui'
 import { renderFormField } from '@/src/components/ui/form'
 import { KafkaBaseFormConfig } from '@/src/config/kafka-connection-form-config'
@@ -7,6 +7,8 @@ import { KafkaConnectionFormType } from '@/src/scheme'
 import { AUTH_OPTIONS } from '@/src/config/constants'
 import { useEffect, useState } from 'react'
 import { SECURITY_PROTOCOL_OPTIONS_SASL, SECURITY_PROTOCOL_OPTIONS } from '@/src/config/constants'
+import { Checkbox } from '@/src/components/ui/checkbox'
+import { Switch } from '@/src/components/ui/switch'
 import {
   SaslPlainForm,
   NoAuthForm,
@@ -79,17 +81,172 @@ const KafkaBaseForm = ({
   )
 }
 
+// Schema Registry collapsible section
+const SchemaRegistrySection = ({
+  schemaRegistryError,
+  readOnly,
+}: {
+  schemaRegistryError?: string
+  readOnly?: boolean
+}) => {
+  const { register, watch, control, formState: { errors } } = useFormContext<KafkaConnectionFormType>()
+  const enabled = watch('schemaRegistry.enabled')
+
+  return (
+    <div className="border-t border-[var(--color-border-neutral-faded)] pt-6 space-y-4">
+      <div className="flex items-center gap-3">
+        <Controller
+          name="schemaRegistry.enabled"
+          control={control}
+          defaultValue={false}
+          render={({ field }) => (
+            // <Checkbox
+            //   id="schemaRegistry-enabled"
+            //   checked={!!field.value}
+            //   onCheckedChange={(checked) => field.onChange(!!checked)}
+            //   disabled={readOnly}
+            // />
+            <Switch
+              id="schemaRegistry-enabled"
+              checked={!!field.value}
+              onCheckedChange={(checked) => field.onChange(!!checked)}
+              disabled={readOnly}
+            />
+          )}
+        />
+        <label htmlFor="schemaRegistry-enabled" className="text-sm font-medium cursor-pointer select-none text-[var(--color-foreground-neutral)]">
+          Use Schema Registry
+        </label>
+      </div>
+
+      {enabled && (
+        <div className="space-y-4 pl-6">
+          <div className="space-y-2">
+            {renderFormField({
+              field: {
+                name: 'schemaRegistry.url',
+                label: 'Registry URL',
+                placeholder: 'https://...',
+                type: 'text',
+                required: 'Registry URL is required',
+              },
+              register,
+              errors,
+              readOnly,
+            })}
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-[var(--color-foreground-neutral)]">
+              Authentication
+            </label>
+            <Controller
+              name="schemaRegistry.authMethod"
+              control={control}
+              defaultValue="none"
+              render={({ field }) => (
+                <select
+                  value={field.value ?? 'none'}
+                  onChange={(e) => field.onChange(e.target.value)}
+                  disabled={readOnly}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <option value="none">No auth</option>
+                  <option value="api_key">API Key + Secret</option>
+                  <option value="basic">Username + Password</option>
+                </select>
+              )}
+            />
+          </div>
+
+          {watch('schemaRegistry.authMethod') === 'api_key' && (
+            <div className="flex flex-col lg:flex-row gap-4">
+              <div className="space-y-2 w-full lg:w-1/2">
+                {renderFormField({
+                  field: {
+                    name: 'schemaRegistry.apiKey',
+                    label: 'API Key',
+                    placeholder: 'Optional',
+                    type: 'text',
+                  },
+                  register,
+                  errors,
+                  readOnly,
+                })}
+              </div>
+              <div className="space-y-2 w-full lg:w-1/2">
+                {renderFormField({
+                  field: {
+                    name: 'schemaRegistry.apiSecret',
+                    label: 'API Secret',
+                    placeholder: 'Optional',
+                    type: 'password',
+                  },
+                  register,
+                  errors,
+                  readOnly,
+                })}
+              </div>
+            </div>
+          )}
+
+          {watch('schemaRegistry.authMethod') === 'basic' && (
+            <div className="flex flex-col lg:flex-row gap-4">
+              <div className="space-y-2 w-full lg:w-1/2">
+                {renderFormField({
+                  field: {
+                    name: 'schemaRegistry.username',
+                    label: 'Username',
+                    placeholder: 'Username',
+                    type: 'text',
+                    required: 'Username is required',
+                  },
+                  register,
+                  errors,
+                  readOnly,
+                })}
+              </div>
+              <div className="space-y-2 w-full lg:w-1/2">
+                {renderFormField({
+                  field: {
+                    name: 'schemaRegistry.password',
+                    label: 'Password',
+                    placeholder: 'Password',
+                    type: 'password',
+                    required: 'Password is required',
+                  },
+                  register,
+                  errors,
+                  readOnly,
+                })}
+              </div>
+            </div>
+          )}
+
+          {schemaRegistryError && (
+            <p className="text-sm text-destructive">
+              Schema Registry connection failed: {schemaRegistryError}. Check the URL and credentials.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // Main component that selects the correct form based on auth type and protocol
 export const KafkaConnectionFormRenderer = ({
   authMethod,
   securityProtocol,
   errors,
   readOnly,
+  schemaRegistryError,
 }: {
   authMethod: string
   securityProtocol: string
   errors: FieldErrors<KafkaConnectionFormType>
   readOnly?: boolean
+  schemaRegistryError?: string
 }) => {
   const { watch } = useFormContext()
   const [isVisible, setIsVisible] = useState(false)
@@ -163,6 +320,7 @@ export const KafkaConnectionFormRenderer = ({
     >
       <div>{renderBaseForm({ authMethod, readOnly })}</div>
       <div>{renderAuthForm({ readOnly: readOnly })}</div>
+      <SchemaRegistrySection schemaRegistryError={schemaRegistryError} readOnly={readOnly} />
     </div>
   )
 }

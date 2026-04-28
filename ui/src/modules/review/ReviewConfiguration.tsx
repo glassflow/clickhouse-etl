@@ -11,6 +11,7 @@ import { useRouter } from 'next/navigation'
 import { generateApiConfig, getMappingType } from '../clickhouse/utils'
 import { isOtlpSource, getOtlpSignalLabel } from '@/src/config/source-types'
 import { ReviewConfigurationProps } from './types'
+import { isRegistrySchema } from '@/src/modules/kafka/utils/schemaSource'
 import { ClickhouseDestinationPreview } from './ClickhouseDestinationPreview'
 import { ClickhouseConnectionPreview } from './ClickhouseConnectionPreview'
 import { KafkaConnectionPreview } from './KafkaConnectionPreview'
@@ -142,6 +143,19 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
       return (
         <li key={index} className="mb-4">
           <div className="font-medium">{topicName}</div>
+          {typeof topic !== 'string' && topic?.schemaSource === 'registry_resolved_from_event' && (
+            <div className="ml-4 mt-1 text-sm text-muted-foreground">
+              {`Auto-resolved from event: ${topic.schemaRegistrySubject ?? '—'} v${topic.schemaRegistryVersion ?? '?'}`}
+            </div>
+          )}
+          {typeof topic !== 'string' && topic?.schemaSource === 'external' && (
+            <div className="ml-4 mt-1 text-sm text-muted-foreground">
+              {`External schema: ${topic.schemaRegistrySubject ?? '—'} v${topic.schemaRegistryVersion ?? '?'}`}
+            </div>
+          )}
+          {typeof topic !== 'string' && (!topic?.schemaSource || topic.schemaSource === 'internal') && (
+            <div className="ml-4 mt-1 text-sm text-muted-foreground">Auto-detected schema</div>
+          )}
           {(() => {
             const deduplicationConfig = deduplicationStore.getDeduplication(index)
             return (

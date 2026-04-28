@@ -13,6 +13,7 @@ import useGetIndex from '@/src/modules/kafka/useGetIndex'
 import { useKafkaTopicSelectorState } from '@/src/modules/kafka/hooks/useKafkaTopicSelectorState'
 import { useTopicSelectorTopics } from '@/src/modules/kafka/hooks/useTopicSelectorTopics'
 import TopicChangeConfirmationModal from '@/src/modules/kafka/components/TopicChangeConfirmationModal'
+import { RegistrySchemaPanel } from '@/src/modules/kafka/components/RegistrySchemaPanel'
 
 export function KafkaTopicSelector({
   steps,
@@ -28,7 +29,7 @@ export function KafkaTopicSelector({
   pipelineActionState,
   onCompleteStandaloneEditing,
 }: TopicSelectorProps) {
-  const { topicsStore, coreStore } = useStore()
+  const { topicsStore, coreStore, kafkaStore } = useStore()
   const validationEngine = useValidationEngine()
   const getIndex = useGetIndex(currentStep || '')
   const index = getIndex()
@@ -227,9 +228,10 @@ export function KafkaTopicSelector({
   const renderDeduplicationSection = () => {
     if (!enableDeduplication) return null
 
+    const schemaFields = storedTopic?.schema?.fields
     const eventData = event || (manualEvent && isManualEventValid ? JSON.parse(manualEvent) : null)
 
-    if (!eventData) return null
+    if (!schemaFields?.length && !eventData) return null
 
     return (
       <div className="mt-6">
@@ -237,9 +239,20 @@ export function KafkaTopicSelector({
           index={index}
           onChange={configureDeduplication}
           disabled={!topicName}
-          eventData={eventData}
+          eventData={eventData ?? {}}
+          schemaFields={schemaFields}
           readOnly={readOnly}
         />
+      </div>
+    )
+  }
+
+  const renderSchemaSourceSection = () => {
+    if (!kafkaStore?.schemaRegistry?.enabled) return null
+
+    return (
+      <div className="mt-4">
+        <RegistrySchemaPanel topicName={topicName} topicIndex={index} readOnly={readOnly} liveEvent={event} />
       </div>
     )
   }
@@ -255,7 +268,12 @@ export function KafkaTopicSelector({
             onOffsetChange={handleOffsetChange}
             onManualEventChange={handleManualEventChange}
             availableTopics={availableTopics}
-            additionalContent={renderDeduplicationSection()}
+            additionalContent={
+              <>
+                {renderSchemaSourceSection()}
+                {renderDeduplicationSection()}
+              </>
+            }
             isEditingEnabled={!readOnly}
             readOnly={readOnly}
             disableTopicChange={false} // Allow topic selection in edit mode to enable topic changes
@@ -299,7 +317,7 @@ export function KafkaTopicSelector({
 
         {/* NEW: Optional debug indicator for deduplication status */}
         {Boolean(enableDeduplication && topicName && event && !deduplicationConfigured) && (
-          <div className="text-amber-500 text-sm px-6">Please configure deduplication settings to continue</div>
+          <div className="text-[var(--text-warning)] text-sm px-6">Please configure deduplication settings to continue</div>
         )}
       </div>
 

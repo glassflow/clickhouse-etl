@@ -1,0 +1,5 @@
+kiran@Mac ~ % NOTIF_ID="550e8400-e29b-41d4-a716-446655440000"
+curl -X PATCH "http://localhost:8082/api/notifications/5939ba45-0468-4a22-9cc7-6a80383e5d2a/read" \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json"
+{"message": "Notification marked as read", "notification_id": "5939ba45-0468-4a22-9cc7-6a80383e5d2a"}

@@ -10,6 +10,7 @@ import type { TableColumn } from '../types'
 import type { MappingMode } from '../types'
 import { useStore } from '@/src/store'
 import { isOtlpSource } from '@/src/config/source-types'
+import { isRegistrySchema } from '@/src/modules/kafka/utils/schemaSource'
 
 export interface UseClickhouseMapperEventFieldsParams {
   mode: MappingMode
@@ -126,6 +127,35 @@ export function useClickhouseMapperEventFields({
       return
     }
 
+    // Registry schema takes priority: use topic.schema.fields when available
+    if (isRegistrySchema(selectedTopic?.schemaSource) && selectedTopic?.schema?.fields?.length > 0) {
+      const schemaFields = selectedTopic.schema.fields.filter((f: any) => !f.isRemoved)
+      const fieldNames = schemaFields.map((f: any) => f.name)
+      setEventFields(fieldNames)
+      if (clickhouseDestination?.mapping?.some((col: any) => col.eventField)) return
+      if (mappedColumns.length > 0 && fieldNames.length > 0) {
+        const fieldTypeMap = new Map<string, string>(schemaFields.map((f: any) => [f.name as string, (f.userType || f.type || 'string') as string]))
+        const updatedColumns = [...mappedColumns]
+        let hasChanges = false
+        updatedColumns.forEach((col, index) => {
+          const matchingField = findBestMatchingField(col.name, fieldNames)
+          if (matchingField) {
+            hasChanges = true
+            updatedColumns[index] = {
+              ...col,
+              eventField: matchingField,
+              jsonType: fieldTypeMap.get(matchingField) || 'string',
+            }
+          }
+        })
+        if (hasChanges) {
+          setMappedColumns(updatedColumns)
+          setClickhouseDestination({ ...clickhouseDestination, mapping: updatedColumns })
+        }
+      }
+      return
+    }
+
     if (selectedEvent?.event) {
       const data = selectedEvent.event
       setEventData(data)
@@ -161,6 +191,8 @@ export function useClickhouseMapperEventFields({
     otlpStore.schemaFields,
     selectedEvent?.event,
     selectedTopic,
+    selectedTopic?.schemaSource,
+    selectedTopic?.schema?.fields,
     clickhouseDestination,
     mappedColumns,
     setMappedColumns,

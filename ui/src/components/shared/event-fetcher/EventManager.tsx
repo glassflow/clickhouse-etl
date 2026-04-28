@@ -137,6 +137,9 @@ function EventManager({
 
   const eventError = shouldShowEmptyTopic ? 'This topic has no events. Please enter the event schema manually.' : ''
 
+  const isAvroEncoded =
+    currentEvent?.event && typeof currentEvent.event === 'object' && (currentEvent.event as any)._encoding === 'avro-confluent'
+
   return (
     <div className="flex flex-col h-full w-full min-h-[400px] overflow-auto">
       {(currentEvent?.event || shouldShowEmptyTopic || isLoading) && (
@@ -152,6 +155,14 @@ function EventManager({
             </h3>
           </div>
 
+          {isAvroEncoded ? (
+            <div className="rounded-md border border-[var(--color-border-warning)] bg-[var(--color-background-warning-faded)] px-4 py-3 text-sm space-y-1">
+              <p className="font-medium text-[var(--color-foreground-warning)]">Avro-encoded event (schema ID {(currentEvent!.event as any)._schemaId})</p>
+              <p className="text-[var(--color-foreground-warning-faded)]">
+                This topic uses Confluent Avro encoding. Connect a Schema Registry to automatically decode and preview events.
+              </p>
+            </div>
+          ) : (
           <EventEditor
             event={parseForCodeEditor(currentEvent?.event)}
             topic={topicName}
@@ -162,6 +173,7 @@ function EventManager({
             isEditingEnabled={isEditingEnabled}
             readOnly={readOnly}
           />
+          )}
 
           {/* Navigation buttons are hidden to simplify the UI */}
           {/*

@@ -501,6 +501,12 @@ export const KafkaFormDefaultValues = {
     clientKey: '',
     password: '',
   },
+  schemaRegistry: {
+    enabled: false,
+    url: '',
+    apiKey: '',
+    apiSecret: '',
+  },
 }
 
 export const KafkaConnectionFormConfig = {

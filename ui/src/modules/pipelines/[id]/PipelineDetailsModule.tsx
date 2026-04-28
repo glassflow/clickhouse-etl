@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import PipelineDetailsHeader from './PipelineDetailsHeader'
 import { structuredLogger } from '@/src/observability'
 import PipelineStatusOverviewSection from './PipelineStatusOverviewSection'
@@ -29,6 +29,7 @@ import { usePipelineHydration } from '@/src/hooks/usePipelineHydration'
 import { useActiveViewState } from './hooks/useActiveViewState'
 import { useIsTransformationSectionDirty } from '@/src/modules/transformation/hooks/useIsTransformationSectionDirty'
 import { ConfirmationModal, ModalResult } from '@/src/components/common/ConfirmationModal'
+import SchemaBindingsSection, { SchemaBindingsSectionHandle } from './SchemaBindingsSection'
 
 type PendingNavigation =
   | { type: 'section'; section: SidebarSection }
@@ -64,6 +65,9 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
   const [isSavingTags, setIsSavingTags] = useState(false)
   const [refreshDLQTrigger, setRefreshDLQTrigger] = useState(0)
 
+  // Ref for SchemaBindingsSection to allow refreshing after save/deploy
+  const schemaBindingsRef = useRef<SchemaBindingsSectionHandle>(null)
+
   // Use the centralized pipeline actions hook to get current pipeline actions status and transitions
   const { actionState } = usePipelineActions(pipeline)
   const operations = usePipelineOperations()
@@ -76,8 +80,15 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
   const topicsValidation = useStore((state) => state.topicsStore.validation)
   const deduplicationValidation = useStore((state) => state.deduplicationStore.validation)
 
-  const { coreStore, transformationStore } = useStore()
+  const { coreStore, transformationStore, kafkaStore } = useStore()
   const { mode } = coreStore
+
+  // Determine if this pipeline uses an external schema registry.
+  // Check both the hydrated store (reliable after hydration) and per-topic backend data
+  // (present when the backend returns schema_registry per topic in the pipeline response).
+  const hasExternalSchema =
+    !!kafkaStore.schemaRegistry?.url ||
+    pipeline.source?.topics?.some((t: any) => t.schema_registry?.url)
 
   // Determine if pipeline editing operations should be disabled
   // Consider pipeline status, loading state, AND demo mode
@@ -242,6 +253,13 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
     setRefreshDLQTrigger((k) => k + 1)
   }, [])
 
+  // Called by StandaloneStepRenderer after a successful save/deploy
+  // Refreshes the schema bindings list so newly created bindings appear
+  const handleBindingsChanged = useCallback(() => {
+    schemaBindingsRef.current?.refresh()
+    refreshPipelineData()
+  }, [refreshPipelineData])
+
   // redirect to pipelines list after deletion
   const handlePipelineDeleted = () => {
     // Redirect to pipelines list after deletion
@@ -330,6 +348,7 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
             showHeader={showHeader}
             onManageTags={openTagsModal}
             tags={pipeline.metadata?.tags}
+            onBindingsChanged={handleBindingsChanged}
           />
 
           {/* Main Content Area */}
@@ -342,6 +361,23 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
                   showStatusOverview={showStatusOverview}
                   refreshDLQTrigger={refreshDLQTrigger}
                 />
+
+                {/* Schema Bindings — only shown for pipelines using an external schema registry */}
+                {hasExternalSchema && (
+                  <div
+                    className={cn(
+                      'mt-4 transition-all duration-750 ease-out',
+                      showStatusOverview ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4',
+                    )}
+                  >
+                    <SchemaBindingsSection
+                      ref={schemaBindingsRef}
+                      pipelineId={pipeline.pipeline_id}
+                      pipeline={pipeline}
+                      schemaRegistry={kafkaStore.schemaRegistry}
+                    />
+                  </div>
+                )}
 
                 {/* Pipeline Configuration Overview - shows the visual representation of the pipeline */}
                 <div
@@ -406,6 +442,7 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
                 pipeline={pipeline}
                 onPipelineStatusUpdate={handlePipelineStatusUpdate}
                 topicIndex={activeTopicIndex}
+                onBindingsChanged={handleBindingsChanged}
               />
             )}
           </div>

@@ -176,6 +176,12 @@ export const buildInternalPipelineConfig = ({
         type: 'json',
         fields: schemaFields,
       },
+      // Carry over schema source fields so the V3 adapter can correctly generate schema_version
+      // and schema_registry per topic. Without these, isRegistrySchema() returns false and
+      // schema_version falls back to '1' (bare version, rejected by backend).
+      schemaSource: topic.schemaSource,
+      schemaRegistryVersion: topic.schemaRegistryVersion,
+      schemaRegistrySubject: topic.schemaRegistrySubject,
       deduplication:
         // Enable deduplication if:
         // 1. Deduplication is properly configured (enabled and has a key), AND
@@ -391,6 +397,18 @@ export const buildInternalPipelineConfig = ({
           type: 'kafka',
           provider: 'custom', // Or determine from connection details
           connection_params: connectionParams as KafkaConnectionParams,
+          ...(kafkaStore?.schemaRegistry?.enabled
+            ? {
+                schemaRegistry: {
+                  url: kafkaStore.schemaRegistry.url ?? '',
+                  authMethod: kafkaStore.schemaRegistry.authMethod,
+                  apiKey: kafkaStore.schemaRegistry.apiKey ?? '',
+                  apiSecret: kafkaStore.schemaRegistry.apiSecret ?? '',
+                  username: kafkaStore.schemaRegistry.username ?? '',
+                  password: kafkaStore.schemaRegistry.password ?? '',
+                },
+              }
+            : {}),
           topics: topicsConfig,
         },
     // Include join configuration for Kafka multi-topic pipelines; disabled join for all others
