@@ -138,6 +138,9 @@ type NatsResources struct {
 type NatsStreamResources struct {
 	MaxAge   string `json:"maxAge,omitempty"`
 	MaxBytes string `json:"maxBytes,omitempty"`
+	// MaxMsgs is the maximum number of messages per stream. Both 0 and -1 mean unlimited in NATS;
+	// omitting this field (zero value) means use the operator default.
+	MaxMsgs int64 `json:"maxMsgs,omitempty"`
 }
 
 type IngestorResources struct {
@@ -180,6 +183,7 @@ func NewPipelineResourcesWithPolicy(cfg *PipelineConfig, resources PipelineResou
 var PipelineResourcesImmutable = []string{
 	"nats/stream/maxAge",
 	"nats/stream/maxBytes",
+	"nats/stream/maxMsgs",
 	"transform/storage/size",
 }
 
@@ -218,6 +222,9 @@ func validateNatsResources(n *NatsResources) error {
 		if _, err := ParseNATSMaxBytesQuantity(n.Stream.MaxBytes); err != nil {
 			return fmt.Errorf("invalid nats stream maxBytes %q: %w", n.Stream.MaxBytes, err)
 		}
+	}
+	if n.Stream.MaxMsgs < -1 {
+		return fmt.Errorf("invalid nats stream maxMsgs %d: must be -1 (unlimited), 0 (operator default), or a positive value", n.Stream.MaxMsgs)
 	}
 	return nil
 }

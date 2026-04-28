@@ -172,3 +172,32 @@ func TestParseNATSMaxBytesQuantity(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateNatsResources_MaxMsgs(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		maxMsgs int64
+		wantErr bool
+	}{
+		{name: "zero (operator default)", maxMsgs: 0, wantErr: false},
+		{name: "positive value", maxMsgs: 500_000, wantErr: false},
+		{name: "-1 (unlimited)", maxMsgs: -1, wantErr: false},
+		{name: "below -1 is invalid", maxMsgs: -2, wantErr: true},
+		{name: "large negative invalid", maxMsgs: -1_000_000, wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			n := &NatsResources{
+				Stream: &NatsStreamResources{MaxMsgs: tt.maxMsgs},
+			}
+			err := validateNatsResources(n)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("validateNatsResources() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
