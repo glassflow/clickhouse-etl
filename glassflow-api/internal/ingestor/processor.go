@@ -327,7 +327,7 @@ func (k *KafkaMsgProcessor) processBatchAsync(_ context.Context, batch []*kgo.Re
 			continue
 		}
 
-		fut, err := k.publisher.PublishNatsMsgAsync(natsMsg, k.pendingPublishesLimit)
+		fut, err := k.publisher.PublishNatsMsgAsync(ctx, natsMsg, k.pendingPublishesLimit)
 		if err != nil {
 			k.log.Error("Failed to publish message async to NATS",
 				slog.Any("error", err),

@@ -24,7 +24,7 @@ type Publisher interface {
 	Publish(ctx context.Context, msg []byte) error
 	GetSubject() string
 	PublishNatsMsg(ctx context.Context, msg *nats.Msg, opts ...PublishOpt) error
-	PublishNatsMsgAsync(msg *nats.Msg, limit int) (jetstream.PubAckFuture, error)
+	PublishNatsMsgAsync(ctx context.Context, msg *nats.Msg, limit int) (jetstream.PubAckFuture, error)
 	WaitForAsyncPublishAcks() <-chan struct{}
 }
 
@@ -125,7 +125,7 @@ func (p *NatsPublisher) PublishNatsMsg(ctx context.Context, msg *nats.Msg, opts 
 	return nil
 }
 
-func (p *NatsPublisher) PublishNatsMsgAsync(msg *nats.Msg, limit int) (jetstream.PubAckFuture, error) {
+func (p *NatsPublisher) PublishNatsMsgAsync(ctx context.Context, msg *nats.Msg, limit int) (jetstream.PubAckFuture, error) {
 	if msg == nil {
 		return nil, fmt.Errorf("message cannot be nil")
 	}
@@ -134,12 +134,12 @@ func (p *NatsPublisher) PublishNatsMsgAsync(msg *nats.Msg, limit int) (jetstream
 		msg.Subject = p.selectSubject()
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), internal.PublisherAsyncMaxRetryWait)
+	throttleCtx, cancel := context.WithTimeout(ctx, internal.PublisherAsyncMaxRetryWait)
 	defer cancel()
 
-	err := p.throttlePublishBackOff(ctx, limit)
+	err := p.throttlePublishBackOff(throttleCtx, limit)
 	if err != nil {
-		return nil, fmt.Errorf("throttle publish backoff: %w", err)
+		return nil, err
 	}
 
 	futAck, err := p.js.PublishMsgAsync(msg)
@@ -161,19 +161,25 @@ func (p *NatsPublisher) GetSubject() string {
 func (p *NatsPublisher) throttlePublishBackOff(ctx context.Context, limit int) error {
 	err := retry.Do(
 		func() error {
-			currentAsyncPendingMsgs := p.js.PublishAsyncPending()
-			if currentAsyncPendingMsgs < limit {
+			if p.js.PublishAsyncPending() < limit {
 				return nil
 			}
-			return fmt.Errorf("max pending publishes reached: %d", currentAsyncPendingMsgs)
+			return ErrStreamMaxPendingMsgs
 		},
 		retry.Context(ctx),
 		retry.DelayType(retry.BackOffDelay),
 		retry.Delay(internal.PublisherAsyncInitialRetryDelay),
 		retry.MaxDelay(internal.PublisherAsyncMaxRetryDelay),
+		retry.LastErrorOnly(true),
 	)
 	if err != nil {
-		return fmt.Errorf("throttling failed: %w", err)
+		// Distinguish caller cancellation from the throttle's own deadline
+		// (the latter still means "limit reached, give up for now").
+		ctxErr := ctx.Err()
+		if ctxErr != nil && !errors.Is(ctxErr, context.DeadlineExceeded) {
+			return ctxErr
+		}
+		return ErrStreamMaxPendingMsgs
 	}
 
 	return nil
