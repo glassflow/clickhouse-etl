@@ -1,0 +1,145 @@
+{
+  "version": "v3",
+  "pipeline_id": "otlp-traces",
+  "name": "OTLP Traces Pipeline",
+  "sources": [
+    {
+      "type": "otlp.traces",
+      "source_id": "traces"
+    }
+  ],
+  "transforms": [
+    {
+      "type": "dedup",
+      "source_id": "traces",
+      "config": {
+        "key": "span_id",
+        "time_window": "1h"
+      }
+    }
+  ],
+  "sink": {
+    "type": "clickhouse",
+    "connection_params": {
+      "host": "hyperdx-clickstack-clickhouse.hyperdx.svc.cluster.local",
+      "port": "9000",
+      "http_port": "8123",
+      "database": "default",
+      "username": "otelcollector",
+      "password": "otelcollectorpass",
+      "secure": false,
+      "skip_certificate_verification": true
+    },
+    "table": "otel_traces",
+    "max_batch_size": 1000,
+    "max_delay_time": "1s",
+    "mapping": [
+      {
+        "name": "start_timestamp",
+        "column_name": "Timestamp",
+        "column_type": "DateTime64(9)"
+      },
+      {
+        "name": "trace_id",
+        "column_name": "TraceId",
+        "column_type": "String"
+      },
+      {
+        "name": "span_id",
+        "column_name": "SpanId",
+        "column_type": "String"
+      },
+      {
+        "name": "parent_span_id",
+        "column_name": "ParentSpanId",
+        "column_type": "String"
+      },
+      {
+        "name": "trace_state",
+        "column_name": "TraceState",
+        "column_type": "String"
+      },
+      {
+        "name": "name",
+        "column_name": "SpanName",
+        "column_type": "LowCardinality(String)"
+      },
+      {
+        "name": "kind",
+        "column_name": "SpanKind",
+        "column_type": "LowCardinality(String)"
+      },
+      {
+        "name": "resource_attributes",
+        "column_name": "ResourceAttributes",
+        "column_type": "Map(String, String)"
+      },
+      {
+        "name": "scope_name",
+        "column_name": "ScopeName",
+        "column_type": "String"
+      },
+      {
+        "name": "scope_version",
+        "column_name": "ScopeVersion",
+        "column_type": "String"
+      },
+      {
+        "name": "attributes",
+        "column_name": "SpanAttributes",
+        "column_type": "Map(String, String)"
+      },
+      {
+        "name": "duration_ns",
+        "column_name": "Duration",
+        "column_type": "UInt64"
+      },
+      {
+        "name": "status_code",
+        "column_name": "StatusCode",
+        "column_type": "LowCardinality(String)"
+      },
+      {
+        "name": "status_message",
+        "column_name": "StatusMessage",
+        "column_type": "String"
+      }
+    ]
+  },
+  "resources": {
+    "transform": [
+      {
+        "source_id": "traces",
+        "replicas": 1,
+        "storage": {
+          "size": "5Gi"
+        },
+        "requests": {
+          "cpu": "250m",
+          "memory": "256Mi"
+        },
+        "limits": {
+          "cpu": "500m",
+          "memory": "512Mi"
+        }
+      }
+    ],
+    "sink": {
+      "replicas": 1,
+      "requests": {
+        "cpu": "250m",
+        "memory": "256Mi"
+      },
+      "limits": {
+        "cpu": "500m",
+        "memory": "512Mi"
+      }
+    }
+  },
+  "metadata": {
+    "tags": [
+      "observability",
+      "otlp"
+    ]
+  }
+}

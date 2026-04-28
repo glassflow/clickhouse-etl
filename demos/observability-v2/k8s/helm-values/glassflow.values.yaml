@@ -1,0 +1,140 @@
+# GlassFlow ETL Helm values — demo / kind cluster sizing.
+
+global:
+  observability:
+    metrics:
+      enabled: false
+    logs:
+      enabled: false
+  notifications:
+    enabled: false
+  usageStats:
+    enabled: false
+  pipelines:
+    namespace:
+      auto: true
+
+sources:
+  otlpReceiver:
+    enabled: true
+    replicas: 1
+    resources:
+      requests:
+        cpu: "200m"
+        memory: "256Mi"
+      limits:
+        cpu: "500m"
+        memory: "512Mi"
+
+api:
+  replicas: 1
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "100Mi"
+    limits:
+      cpu: "250m"
+      memory: "200Mi"
+
+ui:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+    limits:
+      cpu: "200m"
+      memory: "512Mi"
+  kafkaGateway:
+    enabled: false
+
+nats:
+  enabled: true
+  config:
+    cluster:
+      enabled: false
+      replicas: 1
+    jetstream:
+      enabled: true
+      memoryStore:
+        enabled: false
+      fileStore:
+        enabled: true
+        dir: /data
+        pvc:
+          enabled: true
+          size: 10Gi
+          storageClassName: standard
+  container:
+    merge:
+      resources:
+        requests:
+          cpu: "500m"
+          memory: "512Mi"
+        limits:
+          cpu: "1000m"
+          memory: "1Gi"
+
+postgresql:
+  enabled: true
+  replicaCount: 1
+  persistence:
+    enabled: true
+    size: 5Gi
+    storageClass: standard
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+
+glassflow-operator:
+  controllerManager:
+    replicas: 1
+    manager:
+      resources:
+        requests:
+          cpu: "10m"
+          memory: "64Mi"
+        limits:
+          cpu: "500m"
+          memory: "128Mi"
+  glassflowComponents:
+    ingestor:
+      resources:
+        requests:
+          cpu: "100m"
+          memory: "100Mi"
+        limits:
+          cpu: "200m"
+          memory: "400Mi"
+    join:
+      resources:
+        requests:
+          cpu: "100m"
+          memory: "100Mi"
+        limits:
+          cpu: "200m"
+          memory: "400Mi"
+    sink:
+      resources:
+        requests:
+          cpu: "100m"
+          memory: "100Mi"
+        limits:
+          cpu: "200m"
+          memory: "400Mi"
+    dedup:
+      resources:
+        requests:
+          cpu: "100m"
+          memory: "256Mi"
+        limits:
+          cpu: "500m"
+          memory: "512Mi"
+      storage:
+        size: "5Gi"
+        className: standard
