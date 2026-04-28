@@ -228,9 +228,10 @@ export function KafkaTopicSelector({
   const renderDeduplicationSection = () => {
     if (!enableDeduplication) return null
 
+    const schemaFields = storedTopic?.schema?.fields
     const eventData = event || (manualEvent && isManualEventValid ? JSON.parse(manualEvent) : null)
 
-    if (!eventData) return null
+    if (!schemaFields?.length && !eventData) return null
 
     return (
       <div className="mt-6">
@@ -238,7 +239,8 @@ export function KafkaTopicSelector({
           index={index}
           onChange={configureDeduplication}
           disabled={!topicName}
-          eventData={eventData}
+          eventData={eventData ?? {}}
+          schemaFields={schemaFields}
           readOnly={readOnly}
         />
       </div>
