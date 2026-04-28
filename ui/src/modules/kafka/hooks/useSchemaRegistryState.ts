@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useStore } from '@/src/store'
 import { isRegistrySchema } from '@/src/modules/kafka/utils/schemaSource'
 
@@ -23,22 +23,23 @@ export interface SchemaRegistryStateHook {
   schemaLoaded: boolean
   schemaFieldCount: number
   autoResolved: AutoResolved | null
+  autoResolveDismissed: boolean
   autoResolutionAttempted: boolean
   isResolvingFromEvent: boolean
   fetchSubjects: () => Promise<void>
   selectSubject: (subject: string) => Promise<void>
   fetchVersionsForSubject: (subject: string) => Promise<void>
   selectVersion: (version: string) => void
-  loadSchema: () => Promise<void>
   resolveFromEvent: (rawBase64: string) => Promise<void>
   applyAutoResolved: () => void
+  dismissAutoResolved: () => void
+  clearAppliedSchema: () => void
 }
 
 export function useSchemaRegistryState(topicName: string, topicIndex: number): SchemaRegistryStateHook {
   const { kafkaStore, topicsStore } = useStore()
   const { schemaRegistry } = kafkaStore
 
-  // Read persisted registry state from topic store so selections survive navigation
   const initialTopic = topicsStore.getTopic(topicIndex)
   const initialSubject = initialTopic?.schemaRegistrySubject ?? ''
   const initialVersion = initialTopic?.schemaRegistryVersion ?? 'latest'
@@ -56,6 +57,7 @@ export function useSchemaRegistryState(topicName: string, topicIndex: number): S
   const [schemaLoaded, setSchemaLoaded] = useState(initialSchemaLoaded)
   const [schemaFieldCount, setSchemaFieldCount] = useState(initialFieldCount)
   const [autoResolved, setAutoResolved] = useState<AutoResolved | null>(null)
+  const [autoResolveDismissed, setAutoResolveDismissed] = useState(false)
   const [autoResolutionAttempted, setAutoResolutionAttempted] = useState(false)
   const [isResolvingFromEvent, setIsResolvingFromEvent] = useState(false)
 
@@ -91,15 +93,43 @@ export function useSchemaRegistryState(topicName: string, topicIndex: number): S
     }
   }, [schemaRegistry, topicName]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const fetchVersionsForSubject = useCallback(
+    async (subject: string) => {
+      if (!schemaRegistry?.url || !subject) return
+      setIsLoadingVersions(true)
+      try {
+        const response = await fetch('/ui-api/kafka/schema-registry/versions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...authBody, subject }),
+        })
+        const data = await response.json()
+        if (data.success) setVersions(data.versions || [])
+      } catch {
+        // Non-fatal on restore
+      } finally {
+        setIsLoadingVersions(false)
+      }
+    },
+    [schemaRegistry], // eslint-disable-line react-hooks/exhaustive-deps
+  )
+
+  // Fetch subjects (and restore versions) whenever a topic is selected
+  useEffect(() => {
+    if (!topicName || !schemaRegistry?.url) return
+    fetchSubjects()
+    if (selectedSubject) fetchVersionsForSubject(selectedSubject)
+  }, [topicName]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const selectSubject = useCallback(
     async (subject: string) => {
       setSelectedSubject(subject)
       setVersions([])
       setSelectedVersion('latest')
       setSchemaLoaded(false)
+      setSchemaError(undefined)
       if (!schemaRegistry?.url || !subject) return
       setIsLoadingVersions(true)
-      setSchemaError(undefined)
       try {
         const response = await fetch('/ui-api/kafka/schema-registry/versions', {
           method: 'POST',
@@ -121,84 +151,65 @@ export function useSchemaRegistryState(topicName: string, topicIndex: number): S
     [schemaRegistry], // eslint-disable-line react-hooks/exhaustive-deps
   )
 
-  // Fetches versions for a subject without resetting the currently selected version.
-  // Used when restoring persisted state on step re-entry.
-  const fetchVersionsForSubject = useCallback(
-    async (subject: string) => {
+  // Extracted so selectVersion can call it with the new version before state settles
+  const loadSchemaForSubjectVersion = useCallback(
+    async (subject: string, version: string) => {
       if (!schemaRegistry?.url || !subject) return
-      setIsLoadingVersions(true)
+      setIsLoadingSchema(true)
+      setSchemaError(undefined)
+      setSchemaLoaded(false)
       try {
-        const response = await fetch('/ui-api/kafka/schema-registry/versions', {
+        const response = await fetch('/ui-api/kafka/schema-registry/schema', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...authBody, subject }),
+          body: JSON.stringify({ ...authBody, subject, version }),
         })
         const data = await response.json()
-        if (data.success) {
-          setVersions(data.versions || [])
+        if (data.success && data.fields) {
+          const topic = topicsStore.getTopic(topicIndex)
+          if (topic) {
+            const resolvedVersion = data.version !== undefined ? String(data.version) : version
+            topicsStore.updateTopic({
+              ...topic,
+              schemaSource: 'external',
+              schemaRegistrySubject: subject,
+              schemaRegistryVersion: resolvedVersion,
+              schema: {
+                fields: data.fields.map((f: { name: string; type: string }) => ({
+                  name: f.name,
+                  type: f.type,
+                  userType: f.type,
+                })),
+              },
+            })
+          }
+          setSchemaFieldCount(data.fields.length)
+          setSchemaLoaded(true)
+        } else {
+          setSchemaError(data.error || 'Failed to load schema')
         }
       } catch {
-        // Non-fatal on restore
+        setSchemaError('Could not reach Schema Registry')
       } finally {
-        setIsLoadingVersions(false)
+        setIsLoadingSchema(false)
       }
     },
-    [schemaRegistry], // eslint-disable-line react-hooks/exhaustive-deps
+    [schemaRegistry, topicIndex, topicsStore], // eslint-disable-line react-hooks/exhaustive-deps
   )
 
-  const selectVersion = useCallback((version: string) => {
-    setSelectedVersion(version)
-    setSchemaLoaded(false)
-  }, [])
-
-  const loadSchema = useCallback(async () => {
-    if (!schemaRegistry?.url || !selectedSubject) return
-    setIsLoadingSchema(true)
-    setSchemaError(undefined)
-    setSchemaLoaded(false)
-    try {
-      const response = await fetch('/ui-api/kafka/schema-registry/schema', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...authBody, subject: selectedSubject, version: selectedVersion }),
-      })
-      const data = await response.json()
-      if (data.success && data.fields) {
-        const topic = topicsStore.getTopic(topicIndex)
-        if (topic) {
-          // Use the resolved version number from the registry (e.g. 1) instead of 'latest'.
-          // V3 generate() excludes 'latest' from the subject:version format, causing bare
-          // schema_version = '1' which the backend can't look up by schema subject.
-          const resolvedVersion = data.version !== undefined ? String(data.version) : selectedVersion
-          topicsStore.updateTopic({
-            ...topic,
-            schemaSource: 'external',
-            schemaRegistrySubject: selectedSubject,
-            schemaRegistryVersion: resolvedVersion,
-            schema: {
-              fields: data.fields.map((f: { name: string; type: string }) => ({
-                name: f.name,
-                type: f.type,
-                userType: f.type,
-              })),
-            },
-          })
-        }
-        setSchemaFieldCount(data.fields.length)
-        setSchemaLoaded(true)
-      } else {
-        setSchemaError(data.error || 'Failed to load schema')
-      }
-    } catch {
-      setSchemaError('Could not reach Schema Registry')
-    } finally {
-      setIsLoadingSchema(false)
-    }
-  }, [schemaRegistry, selectedSubject, selectedVersion, topicIndex, topicsStore]) // eslint-disable-line react-hooks/exhaustive-deps
+  const selectVersion = useCallback(
+    (version: string) => {
+      setSelectedVersion(version)
+      setSchemaLoaded(false)
+      if (selectedSubject) loadSchemaForSubjectVersion(selectedSubject, version)
+    },
+    [selectedSubject, loadSchemaForSubjectVersion],
+  )
 
   const resolveFromEvent = useCallback(
     async (rawBase64: string) => {
       if (!schemaRegistry?.url) return
+      setAutoResolveDismissed(false)
       setIsResolvingFromEvent(true)
       try {
         const response = await fetch('/ui-api/kafka/schema-registry/resolve-from-event', {
@@ -232,14 +243,34 @@ export function useSchemaRegistryState(topicName: string, topicIndex: number): S
       schemaRegistrySubject: autoResolved.subject,
       schemaRegistryVersion: autoResolved.version !== undefined ? String(autoResolved.version) : undefined,
       schema: {
-        fields: autoResolved.fields.map((f) => ({
-          name: f.name,
-          type: f.type,
-          userType: f.type,
-        })),
+        fields: autoResolved.fields.map((f) => ({ name: f.name, type: f.type, userType: f.type })),
       },
     })
+    setSchemaFieldCount(autoResolved.fields.length)
+    setSchemaLoaded(true)
   }, [autoResolved, topicIndex, topicsStore])
+
+  const dismissAutoResolved = useCallback(() => {
+    setAutoResolveDismissed(true)
+  }, [])
+
+  const clearAppliedSchema = useCallback(() => {
+    const topic = topicsStore.getTopic(topicIndex)
+    if (!topic) return
+    topicsStore.updateTopic({
+      ...topic,
+      schemaSource: 'internal',
+      schemaRegistrySubject: undefined,
+      schemaRegistryVersion: undefined,
+      schema: { fields: [] },
+    })
+    setSchemaLoaded(false)
+    setSchemaFieldCount(0)
+    setSelectedSubject('')
+    setSelectedVersion('latest')
+    setVersions([])
+    setSchemaError(undefined)
+  }, [topicIndex, topicsStore])
 
   return {
     subjects,
@@ -253,14 +284,16 @@ export function useSchemaRegistryState(topicName: string, topicIndex: number): S
     schemaLoaded,
     schemaFieldCount,
     autoResolved,
+    autoResolveDismissed,
     autoResolutionAttempted,
     isResolvingFromEvent,
     fetchSubjects,
     selectSubject,
     fetchVersionsForSubject,
     selectVersion,
-    loadSchema,
     resolveFromEvent,
     applyAutoResolved,
+    dismissAutoResolved,
+    clearAppliedSchema,
   }
 }
