@@ -1145,7 +1145,21 @@ export class KafkaClient {
             const messageValue = message.value.toString()
             let parsedMessage
 
-            if (format === 'JSON' || format === 'json') {
+            // Confluent Schema Registry wire format: magic byte 0x00 + 4-byte schema ID + Avro payload.
+            // Attempting JSON.parse on Avro binary produces garbled output, so detect it early.
+            const isConfluentAvro = message.value && message.value.length > 5 && message.value[0] === 0x00
+
+            if (isConfluentAvro) {
+              const schemaId = message.value.readUInt32BE(1)
+              structuredLogger.warn('KafkaClient detected Confluent Schema Registry Avro message', { schema_id: schemaId, topic: msgTopic })
+              parsedMessage = {
+                _raw: message.value.toString('base64'),
+                _encoding: 'avro-confluent',
+                _schemaId: schemaId,
+                _error: 'Message is Avro-encoded (Confluent Schema Registry format)',
+                _note: `This topic contains Avro messages serialized with Confluent Schema Registry (schema ID ${schemaId}). Select "AVRO" as the message format and configure a Schema Registry URL to decode these messages.`,
+              }
+            } else if (format === 'JSON' || format === 'json') {
               try {
                 parsedMessage = JSON.parse(messageValue)
               } catch (parseError) {
