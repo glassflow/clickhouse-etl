@@ -83,6 +83,8 @@ github.com/fxamacker/cbor/v2 v2.8.0 h1:fFtUGXUzXPHTIUdne5+zzMPTfffl3RD5qYnkY40vt
 github.com/fxamacker/cbor/v2 v2.8.0/go.mod h1:vM4b+DJCtHn+zz7h3FFp/hDAI9WNWCsZj23V5ytsSxQ=
 github.com/glassflow/glassflow-etl-k8s-operator v1.9.1-0.20260330111818-3c5d7bf686bc h1:fvj5kJPmwZVhj0cSk4vWEZa3eAVqnFnwflVtls//FJo=
 github.com/glassflow/glassflow-etl-k8s-operator v1.9.1-0.20260330111818-3c5d7bf686bc/go.mod h1:EK8L9I3zDKSfg8wObeE2P/L08mGJxOsOfxGw5j2bwiI=
+github.com/glassflow/glassflow-etl-k8s-operator v1.9.1-0.20260428094045-49ae7481a5fa h1:6r8RoUuzXSIE8TpSBPbTttK0IQyLR9V8An7gB7YF6rw=
+github.com/glassflow/glassflow-etl-k8s-operator v1.9.1-0.20260428094045-49ae7481a5fa/go.mod h1:CF/+kFFDv+6P9DRNk5wg0GW8J0WwsQ4lNGmUbPonNlQ=
 github.com/go-faster/city v1.0.1 h1:4WAxSZ3V2Ws4QRDrscLEDcibJY8uf41H6AhXDrNDcGw=
 github.com/go-faster/city v1.0.1/go.mod h1:jKcUJId49qdW3L1qKHH/3wPeUstCVpVSXTM6vO3VcTw=
 github.com/go-faster/errors v0.7.1 h1:MkJTnDoEdi9pDabt1dpWf7AA8/BaSYZqibYyhZ20AYg=
