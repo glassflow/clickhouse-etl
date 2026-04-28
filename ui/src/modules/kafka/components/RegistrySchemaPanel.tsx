@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { useStore } from '@/src/store'
+import { Button } from '@/src/components/ui/button'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/src/components/ui/select'
 import { useSchemaRegistryState } from '@/src/modules/kafka/hooks/useSchemaRegistryState'
 import { isRegistrySchema } from '@/src/modules/kafka/utils/schemaSource'
@@ -57,19 +58,21 @@ export function RegistrySchemaPanel({ topicName, topicIndex, readOnly, liveEvent
   if (schemaIsApplied) {
     return (
       <div className="space-y-2 pt-2">
-        <p className="text-sm text-content-success">
+        <p className="text-sm text-[var(--text-success)]">
           ✓ Schema applied — {topic?.schema?.fields?.length} field
           {topic?.schema?.fields?.length !== 1 ? 's' : ''} from {topic?.schemaRegistrySubject} v.
           {topic?.schemaRegistryVersion}
         </p>
         {!readOnly && (
-          <button
+          <Button
+            variant="ghost"
+            size="text"
             type="button"
             onClick={clearAppliedSchema}
-            className="text-sm text-content-faded hover:underline"
+            className="text-[var(--color-foreground-neutral-faded)]"
           >
             Continue with event-based detection
-          </button>
+          </Button>
         )}
       </div>
     )
@@ -87,22 +90,26 @@ export function RegistrySchemaPanel({ topicName, topicIndex, readOnly, liveEvent
             {autoResolved!.fields.length} field{autoResolved!.fields.length !== 1 ? 's' : ''}
           </div>
           <div className="flex gap-3 pt-1">
-            <button
+            <Button
+              variant="link"
+              size="text"
               type="button"
               onClick={applyAutoResolved}
               disabled={readOnly}
-              className="text-sm font-medium text-primary hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+              className="text-[var(--text-link)]"
             >
               Use this schema
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="ghost"
+              size="text"
               type="button"
               onClick={dismissAutoResolved}
               disabled={readOnly}
-              className="text-sm text-content-faded hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+              className="text-[var(--color-foreground-neutral-faded)]"
             >
               Ignore
-            </button>
+            </Button>
           </div>
         </div>
       )}
