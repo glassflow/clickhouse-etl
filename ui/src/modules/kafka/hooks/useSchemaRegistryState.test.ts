@@ -83,7 +83,7 @@ describe('useSchemaRegistryState', () => {
     )
   })
 
-  it('clearAppliedSchema resets topic to internal and clears fields', () => {
+  it('clearAppliedSchema resets topic to internal and clears fields', async () => {
     vi.mocked(useStore).mockReturnValue(
       makeStore({
         index: 0, name: 'orders', schemaSource: 'external',
@@ -92,7 +92,7 @@ describe('useSchemaRegistryState', () => {
       }) as any,
     )
     const { result } = renderHook(() => useSchemaRegistryState('orders', 0))
-    act(() => { result.current.clearAppliedSchema() })
+    await act(async () => { result.current.clearAppliedSchema() })
     expect(mockUpdateTopic).toHaveBeenCalledWith(
       expect.objectContaining({ schemaSource: 'internal', schemaRegistrySubject: undefined, schema: { fields: [] } }),
     )

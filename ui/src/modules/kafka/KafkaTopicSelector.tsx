@@ -315,7 +315,7 @@ export function KafkaTopicSelector({
 
         {/* NEW: Optional debug indicator for deduplication status */}
         {Boolean(enableDeduplication && topicName && event && !deduplicationConfigured) && (
-          <div className="text-amber-500 text-sm px-6">Please configure deduplication settings to continue</div>
+          <div className="text-[var(--text-warning)] text-sm px-6">Please configure deduplication settings to continue</div>
         )}
       </div>
 
