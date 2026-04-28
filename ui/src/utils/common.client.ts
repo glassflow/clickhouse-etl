@@ -135,6 +135,12 @@ export const extractEventFields = (data: any, prefix = ''): string[] => {
     return []
   }
 
+  // Avro-encoded events the backend cannot decode — skip entirely rather than treating
+  // the error envelope fields (_raw, _encoding, _schemaId, _error, _note) as schema fields.
+  if ('_encoding' in data) {
+    return []
+  }
+
   let fields: string[] = []
 
   Object.keys(data).forEach((key) => {
