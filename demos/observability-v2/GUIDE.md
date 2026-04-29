@@ -89,6 +89,7 @@ The demo file is [`k8s/helm-values/glassflow.values.yaml`](./k8s/helm-values/gla
 
 ```bash
 helm search repo glassflow/glassflow-etl
+kubectl create ns glassflow
 helm upgrade --install glassflow glassflow/glassflow-etl --namespace glassflow -f k8s/helm-values/glassflow.values.yaml --version 0.5.16 --wait --timeout 10m
 ```
 
@@ -259,3 +260,5 @@ make cluster-delete
 ## Filter semantics (GlassFlow)
 
 If you add a **`filter`** transform later, the expression must evaluate to a **boolean**. In the processor, records where the expression evaluates to **`true` are kept** (see `FilterProcessor` in the GlassFlow API codebase). This demo relies on **tail_sampling** in the collector instead of a GlassFlow filter because stable `trace_id` hashing is not available in vanilla expr for this path.
+
+

@@ -7,9 +7,9 @@ global:
     logs:
       enabled: false
   notifications:
-    enabled: false
+    enabled: true
   usageStats:
-    enabled: false
+    enabled: true
   pipelines:
     namespace:
       auto: true
