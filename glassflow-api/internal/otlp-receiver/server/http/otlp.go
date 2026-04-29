@@ -1,6 +1,7 @@
 package http
 
 import (
+	"errors"
 	"io"
 	nethttp "net/http"
 	"strings"
@@ -14,10 +15,17 @@ const (
 	contentTypeJSON     = "application/json"
 )
 
-func decodeOTLPRequest(r *nethttp.Request, req proto.Message) error {
-	body, err := io.ReadAll(r.Body)
+var errRequestTooLarge = errors.New("request body exceeds maximum allowed size")
+
+func decodeOTLPRequest(r *nethttp.Request, maxBodyBytes int64, req proto.Message) error {
+	// Read up to maxBodyBytes+1; if we get more, the request is too large.
+	lr := io.LimitReader(r.Body, maxBodyBytes+1)
+	body, err := io.ReadAll(lr)
 	if err != nil {
 		return err
+	}
+	if int64(len(body)) > maxBodyBytes {
+		return errRequestTooLarge
 	}
 
 	if strings.HasPrefix(r.Header.Get("Content-Type"), contentTypeProtobuf) {

@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"errors"
 
 	collogspb "go.opentelemetry.io/proto/otlp/collector/logs/v1"
 	"google.golang.org/grpc/codes"
@@ -9,6 +10,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/otlp-receiver/server/processor"
 )
 
 type logServiceServer struct {
@@ -29,6 +31,9 @@ func (s *logServiceServer) Export(
 		return nil, status.Error(codes.InvalidArgument, "missing x-glassflow-pipeline-id header")
 	}
 	if err := s.processor.ProcessLogs(ctx, vals[0], req); err != nil {
+		if errors.Is(err, processor.ErrReceiverOverloaded) {
+			return nil, status.Error(codes.ResourceExhausted, err.Error())
+		}
 		return nil, status.Errorf(codes.Internal, "processing logs: %v", err)
 	}
 	return &collogspb.ExportLogsServiceResponse{}, nil

@@ -36,6 +36,7 @@ type Receiver struct {
 func New(
 	log *slog.Logger,
 	otlpDataProcessor *processor.Processor,
+	maxBodyBytes int64,
 ) (*Receiver, error) {
 	grpcServer, grpcHealth, grpcLis, err := grpcQ.NewGRPCServer(grpcAddr, log, otlpDataProcessor)
 	if err != nil {
@@ -50,7 +51,7 @@ func New(
 		done:       make(chan struct{}),
 	}
 
-	r.httpServer = httpQ.NewHTTPServer(httpAddr, &r.ready, log, otlpDataProcessor)
+	r.httpServer = httpQ.NewHTTPServer(httpAddr, &r.ready, log, otlpDataProcessor, maxBodyBytes)
 
 	return r, nil
 }

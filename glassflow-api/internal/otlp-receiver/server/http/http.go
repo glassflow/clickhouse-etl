@@ -27,6 +27,7 @@ type handler struct {
 	ready             *atomic.Bool
 	log               *slog.Logger
 	otlpDataProcessor OTLPDataProcessor
+	maxBodyBytes      int64
 }
 
 type healthResponse struct {
@@ -43,6 +44,7 @@ func NewHTTPServer(
 	ready *atomic.Bool,
 	log *slog.Logger,
 	otlpDataProcessor OTLPDataProcessor,
+	maxBodyBytes int64,
 ) *server.Server {
 	r := mux.NewRouter()
 
@@ -58,6 +60,7 @@ func NewHTTPServer(
 		ready:             ready,
 		log:               log,
 		otlpDataProcessor: otlpDataProcessor,
+		maxBodyBytes:      maxBodyBytes,
 	}
 	registerHumaHandler("/healthz", h.healthz, healthzOperation(), humaAPI)
 	registerHumaHandler("/readyz", h.readyz, readyzOperation(), humaAPI)

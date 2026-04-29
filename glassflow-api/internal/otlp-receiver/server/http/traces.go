@@ -1,11 +1,13 @@
 package http
 
 import (
+	"errors"
 	nethttp "net/http"
 
 	coltracepb "go.opentelemetry.io/proto/otlp/collector/trace/v1"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/otlp-receiver/server/processor"
 )
 
 func (h handler) exportTraces(w nethttp.ResponseWriter, r *nethttp.Request) {
@@ -16,12 +18,21 @@ func (h handler) exportTraces(w nethttp.ResponseWriter, r *nethttp.Request) {
 	}
 
 	req := &coltracepb.ExportTraceServiceRequest{}
-	if err := decodeOTLPRequest(r, req); err != nil {
+	if err := decodeOTLPRequest(r, h.maxBodyBytes, req); err != nil {
+		if errors.Is(err, errRequestTooLarge) {
+			nethttp.Error(w, err.Error(), nethttp.StatusRequestEntityTooLarge)
+			return
+		}
 		nethttp.Error(w, err.Error(), nethttp.StatusBadRequest)
 		return
 	}
 
 	if err := h.otlpDataProcessor.ProcessTraces(r.Context(), pipelineID, req); err != nil {
+		if errors.Is(err, processor.ErrReceiverOverloaded) {
+			w.Header().Set("Retry-After", "1")
+			nethttp.Error(w, err.Error(), nethttp.StatusServiceUnavailable)
+			return
+		}
 		nethttp.Error(w, err.Error(), nethttp.StatusInternalServerError)
 		return
 	}

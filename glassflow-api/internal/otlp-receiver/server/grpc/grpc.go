@@ -19,12 +19,17 @@ type OTLPDataProcessor interface {
 	ProcessMetrics(ctx context.Context, pipelineID string, exportMetricsRequest *colmetricspb.ExportMetricsServiceRequest) error
 }
 
+const grpcMaxRecvMsgSize = 4 * 1024 * 1024 // 4 MiB
+
 func NewGRPCServer(
 	addr string,
 	_ *slog.Logger,
 	processor OTLPDataProcessor,
 ) (*grpc.Server, *health.Server, net.Listener, error) {
-	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(otlpMetricsInterceptor))
+	grpcServer := grpc.NewServer(
+		grpc.UnaryInterceptor(otlpMetricsInterceptor),
+		grpc.MaxRecvMsgSize(grpcMaxRecvMsgSize),
+	)
 
 	grpcHealth := health.NewServer()
 	grpcHealth.SetServingStatus("", healthpb.HealthCheckResponse_NOT_SERVING)

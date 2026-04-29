@@ -88,7 +88,10 @@ type config struct {
 	UsageStatsPassword       string `default:"" split_words:"true"`
 	UsageStatsInstallationID string `default:"" split_words:"true"`
 
-	OTLPConfigFetcherBaseURL string `default:"" split_words:"true"`
+	OTLPConfigFetcherBaseURL  string `default:"" split_words:"true"`
+	OTLPMaxBodyBytes          int64  `default:"4194304" split_words:"true"` // 4 MiB
+	OTLPMaxConcurrentRequests int    `default:"50" split_words:"true"`
+	OTLPNatsChunkSize         int    `default:"1000" split_words:"true"`
 }
 
 var version = "dev"

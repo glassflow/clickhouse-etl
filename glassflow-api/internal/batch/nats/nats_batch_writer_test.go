@@ -62,7 +62,7 @@ func TestBatchWriter_WriteBatch(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	writer := natsBatch.NewBatchWriter(js, subjectRouter)
+	writer := natsBatch.NewBatchWriter(js, subjectRouter, 0)
 
 	// Create test messages
 	messages := []models.Message{
@@ -121,7 +121,7 @@ func TestBatchWriter_WriteBatchWithHeaders(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	writer := natsBatch.NewBatchWriter(js, subjectRouter)
+	writer := natsBatch.NewBatchWriter(js, subjectRouter, 0)
 
 	// Create message with headers
 	messages := []models.Message{
@@ -235,7 +235,7 @@ func TestBatchWriter_WriteBatchWithJetStreamMsg(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	writer := natsBatch.NewBatchWriter(js, subjectRouter)
+	writer := natsBatch.NewBatchWriter(js, subjectRouter, 0)
 	messages := []models.Message{
 		{
 			Type:                 models.MessageTypeJetstreamMsg,
