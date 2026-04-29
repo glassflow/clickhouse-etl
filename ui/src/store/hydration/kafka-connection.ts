@@ -151,4 +151,20 @@ export function hydrateKafkaConnection(pipelineConfig: any) {
     const kafkaConnection = mapBackendKafkaConfigToStore(connectionParams)
     useStore.getState().kafkaStore.setKafkaConnection(kafkaConnection)
   }
+
+  // Hydrate schema registry from first topic (all topics share the same registry)
+  const schemaReg = pipelineConfig?.source?.topics?.[0]?.schema_registry
+  if (schemaReg?.url) {
+    // authMethod is not stored in pipeline JSON — infer from credentials present
+    const authMethod = schemaReg.api_key ? 'api_key' : 'none'
+    useStore.getState().kafkaStore.setKafkaSchemaRegistry({
+      enabled: true,
+      url: schemaReg.url,
+      authMethod: authMethod as 'none' | 'api_key' | 'basic',
+      apiKey: schemaReg.api_key ?? '',
+      apiSecret: schemaReg.api_secret ?? '',
+      username: '',
+      password: '',
+    })
+  }
 }

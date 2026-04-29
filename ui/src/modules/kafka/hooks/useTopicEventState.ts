@@ -43,13 +43,24 @@ export function useTopicEventState({ index, topicName, offset, kafkaStore, effec
   })
 
   useEffect(() => {
-    if (effectiveEvent && !state.event) {
+    if (!effectiveEvent) return
+
+    if (!state.event) {
       setState((prev) => ({
         ...prev,
         event: effectiveEvent,
         isAtEarliest: offset === 'earliest',
         isAtLatest: offset === 'latest',
       }))
+      return
+    }
+
+    // When the store's event changes from an Avro error envelope to a decoded event
+    // (e.g. after schema registry decode), propagate it to local state so EventManager updates.
+    const localIsAvroError = (state.event as any)?._encoding === 'avro-confluent'
+    const storeEventIsDecoded = !(effectiveEvent as any)?._encoding
+    if (localIsAvroError && storeEventIsDecoded) {
+      setState((prev) => ({ ...prev, event: effectiveEvent }))
     }
   }, [effectiveEvent, state.event, offset])
 
