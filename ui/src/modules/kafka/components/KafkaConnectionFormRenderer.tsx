@@ -7,7 +7,6 @@ import { KafkaConnectionFormType } from '@/src/scheme'
 import { AUTH_OPTIONS } from '@/src/config/constants'
 import { useEffect, useState } from 'react'
 import { SECURITY_PROTOCOL_OPTIONS_SASL, SECURITY_PROTOCOL_OPTIONS } from '@/src/config/constants'
-import { Checkbox } from '@/src/components/ui/checkbox'
 import { Switch } from '@/src/components/ui/switch'
 import {
   SaslPlainForm,
@@ -100,12 +99,6 @@ const SchemaRegistrySection = ({
           control={control}
           defaultValue={false}
           render={({ field }) => (
-            // <Checkbox
-            //   id="schemaRegistry-enabled"
-            //   checked={!!field.value}
-            //   onCheckedChange={(checked) => field.onChange(!!checked)}
-            //   disabled={readOnly}
-            // />
             <Switch
               id="schemaRegistry-enabled"
               checked={!!field.value}
@@ -136,28 +129,23 @@ const SchemaRegistrySection = ({
             })}
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-[var(--color-foreground-neutral)]">
-              Authentication
-            </label>
-            <Controller
-              name="schemaRegistry.authMethod"
-              control={control}
-              defaultValue="none"
-              render={({ field }) => (
-                <select
-                  value={field.value ?? 'none'}
-                  onChange={(e) => field.onChange(e.target.value)}
-                  disabled={readOnly}
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <option value="none">No auth</option>
-                  <option value="api_key">API Key + Secret</option>
-                  <option value="basic">Username + Password</option>
-                </select>
-              )}
-            />
-          </div>
+          {renderFormField({
+            field: {
+              name: 'schemaRegistry.authMethod',
+              label: 'Authentication',
+              placeholder: 'Select authentication method',
+              type: 'select',
+              options: [
+                { label: 'No auth', value: 'none' },
+                { label: 'API Key + Secret', value: 'api_key' },
+                { label: 'Username + Password', value: 'basic' },
+              ],
+              defaultValue: 'none',
+            },
+            register,
+            errors,
+            readOnly,
+          })}
 
           {watch('schemaRegistry.authMethod') === 'api_key' && (
             <div className="flex flex-col lg:flex-row gap-4">
