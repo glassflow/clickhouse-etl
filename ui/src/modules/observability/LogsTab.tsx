@@ -7,6 +7,8 @@ import { LogInspectorDrawer } from './LogInspectorDrawer'
 import { FilterPillRow } from './FilterPillRow'
 import { MiniMetricsStrip } from './MiniMetricsStrip'
 import { DisabledState } from './DisabledState'
+import { ContextExpander } from './ContextExpander'
+import { clusterLogs } from './ContextClusterer'
 import { useLogStream } from '@/src/hooks/useLogStream'
 import { useLogsQuery, type LogLine as LogLineType } from '@/src/hooks/useLogsQuery'
 import { useObservabilityFlag } from '@/src/hooks/useObservabilityFlag'
@@ -104,6 +106,22 @@ export function LogsTab({ pipelineId }: LogsTabProps) {
     [allLines],
   )
 
+  // Expanded gap clusters — when ContextExpander is clicked, the gap key is
+  // added to this set and the LogsTab re-renders the underlying lines inline
+  // instead of the placeholder.
+  const [expandedGaps, setExpandedGaps] = React.useState<Set<string>>(new Set())
+
+  // Reset expansions whenever the committed query or buffer length changes —
+  // otherwise old gap keys leak into a fresh result set.
+  React.useEffect(() => {
+    setExpandedGaps(new Set())
+  }, [committedQuery, allLines.length])
+
+  const cluster = React.useMemo(
+    () => clusterLogs(filtered, committedQuery, 5),
+    [filtered, committedQuery],
+  )
+
   const toggleSev = React.useCallback(
     (k: Severity) =>
       setSelectedSeverities((s) => (s.includes(k) ? s.filter((x) => x !== k) : [...s, k])),
@@ -192,11 +210,43 @@ export function LogsTab({ pipelineId }: LogsTabProps) {
           />
         ) : (
           <ul className="flex flex-col">
-            {filtered.map((l, i) => (
-              <li key={`${l._time}-${i}`}>
-                <LogLine line={l} highlight={committedQuery} onClick={setInspector} />
-              </li>
-            ))}
+            {cluster.flatMap((item, i) => {
+              if (item.kind === 'line') {
+                return [
+                  <li key={`l-${item.index}-${item.line._time}`}>
+                    <LogLine
+                      line={item.line}
+                      highlight={committedQuery}
+                      onClick={setInspector}
+                    />
+                  </li>,
+                ]
+              }
+              const gapKey = `${item.startIndex}-${item.endIndex}`
+              if (expandedGaps.has(gapKey)) {
+                return filtered
+                  .slice(item.startIndex, item.endIndex + 1)
+                  .map((l, j) => (
+                    <li key={`l-exp-${gapKey}-${j}-${l._time}`}>
+                      <LogLine line={l} highlight={committedQuery} onClick={setInspector} />
+                    </li>
+                  ))
+              }
+              return [
+                <li key={`g-${i}-${gapKey}`}>
+                  <ContextExpander
+                    collapsedCount={item.collapsedCount}
+                    onExpand={() =>
+                      setExpandedGaps((s) => {
+                        const next = new Set(s)
+                        next.add(gapKey)
+                        return next
+                      })
+                    }
+                  />
+                </li>,
+              ]
+            })}
           </ul>
         )}
       </div>
