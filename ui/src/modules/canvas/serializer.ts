@@ -1,5 +1,18 @@
+import type { Edge, Node } from '@xyflow/react'
 import type { CanvasState } from '@/src/store/canvas.store'
 import type { InternalPipelineConfig } from '@/src/types/pipeline'
+
+/**
+ * Shape used by the canvas editor when calling out to deploy/serialize.
+ * Mirrors the relevant portion of `CanvasState` so callers can pass either
+ * the full canvas store or a derived snapshot.
+ */
+export interface CanvasSerializeInput {
+  nodes: Node[]
+  edges: Edge[]
+  configs: Record<string, Record<string, unknown>>
+  sourceType?: CanvasState['sourceType']
+}
 
 /**
  * Converts the current canvas state into an InternalPipelineConfig shape.
@@ -101,4 +114,18 @@ export function canvasToPipelineConfig(canvas: CanvasState): InternalPipelineCon
       skip_certificate_verification: Boolean(sinkConfig.skipCertificateVerification),
     },
   }
+}
+
+/**
+ * Convenience wrapper around `canvasToPipelineConfig` for callers that hold
+ * a raw `{ nodes, edges, configs }` snapshot rather than a full `CanvasState`.
+ */
+export function serializeCanvas(input: CanvasSerializeInput): InternalPipelineConfig {
+  return canvasToPipelineConfig({
+    nodes: input.nodes,
+    edges: input.edges,
+    nodeConfigs: input.configs,
+    sourceType: input.sourceType ?? 'kafka',
+    activeNodeId: null,
+  } as CanvasState)
 }
