@@ -10,18 +10,23 @@ import {
   useClickhouseConnections,
   useLibrarySchemas,
   useLibraryFolders,
+  useLibraryTransforms,
   type KafkaConnection,
   type ClickhouseConnection,
+  type LibraryTransform,
 } from '@/src/hooks/useLibraryConnections'
 import { ConnectionsList } from './ConnectionsList'
 import { SchemaList } from './SchemaList'
+import { TransformsList } from './TransformsList'
 import { FolderTree } from './FolderTree'
 import { KafkaConnectionFormModal } from './KafkaConnectionFormModal'
 import { ClickHouseConnectionFormModal } from './ClickHouseConnectionFormModal'
+import { TransformFormModal } from './TransformFormModal'
+import { LibraryListSkeleton } from './LibrarySkeletons'
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
-type ActiveTab = 'kafka' | 'clickhouse' | 'schemas'
+type ActiveTab = 'kafka' | 'clickhouse' | 'schemas' | 'transforms'
 
 // ─── Delete confirmation (inline, no extra modal) ─────────────────────────────
 
@@ -42,11 +47,14 @@ export function LibraryClient() {
   const [editingKafka, setEditingKafka] = useState<KafkaConnection | null>(null)
   const [chModalOpen, setChModalOpen] = useState(false)
   const [editingCH, setEditingCH] = useState<ClickhouseConnection | null>(null)
+  const [transformModalOpen, setTransformModalOpen] = useState(false)
+  const [editingTransform, setEditingTransform] = useState<LibraryTransform | null>(null)
 
   // Data
   const kafka = useKafkaConnections()
   const clickhouse = useClickhouseConnections()
   const schemas = useLibrarySchemas()
+  const transforms = useLibraryTransforms()
   const folders = useLibraryFolders()
 
   // ─── Handlers ──────────────────────────────────────────────────────────────
@@ -58,6 +66,9 @@ export function LibraryClient() {
     } else if (activeTab === 'clickhouse') {
       setEditingCH(null)
       setChModalOpen(true)
+    } else if (activeTab === 'transforms') {
+      setEditingTransform(null)
+      setTransformModalOpen(true)
     }
     // schemas: TODO in Sprint 3
   }, [activeTab])
@@ -107,6 +118,24 @@ export function LibraryClient() {
     [schemas],
   )
 
+  const handleEditTransform = useCallback(
+    (id: string) => {
+      const t = (transforms.data ?? []).find((x) => x.id === id) ?? null
+      setEditingTransform(t)
+      setTransformModalOpen(true)
+    },
+    [transforms.data],
+  )
+
+  const handleDeleteTransform = useCallback(
+    async (id: string) => {
+      if (!confirm('Delete this transform?')) return
+      await deleteResource(`/ui-api/library/transforms/${id}`)
+      transforms.mutate()
+    },
+    [transforms],
+  )
+
   // ─── Folder filtering ──────────────────────────────────────────────────────
 
   function applyFolderFilter<T extends { folderId?: string | null }>(items: T[]): T[] {
@@ -117,6 +146,7 @@ export function LibraryClient() {
   const kafkaItems = applyFolderFilter(kafka.data ?? [])
   const chItems = applyFolderFilter(clickhouse.data ?? [])
   const schemaItems = applyFolderFilter(schemas.data ?? [])
+  const transformItems = applyFolderFilter(transforms.data ?? [])
 
   const canAdd = activeTab !== 'schemas'
 
@@ -183,6 +213,14 @@ export function LibraryClient() {
                     </span>
                   )}
                 </TabsTrigger>
+                <TabsTrigger value="transforms">
+                  Transforms
+                  {transforms.data && (
+                    <span className="ml-1.5 caption-1 text-[var(--text-tertiary)]">
+                      ({transformItems.length})
+                    </span>
+                  )}
+                </TabsTrigger>
               </TabsList>
 
               {/* Search */}
@@ -203,12 +241,13 @@ export function LibraryClient() {
             {/* Tab panels */}
             <TabsContent value="kafka">
               {kafka.isLoading ? (
-                <LoadingState />
+                <LibraryListSkeleton />
               ) : kafka.error ? (
                 <ErrorState message={kafka.error} />
               ) : (
                 <ConnectionsList
                   connections={kafkaItems}
+                  kind="kafka"
                   searchQuery={searchQuery}
                   onEdit={handleEditKafka}
                   onDelete={handleDeleteKafka}
@@ -219,12 +258,13 @@ export function LibraryClient() {
 
             <TabsContent value="clickhouse">
               {clickhouse.isLoading ? (
-                <LoadingState />
+                <LibraryListSkeleton />
               ) : clickhouse.error ? (
                 <ErrorState message={clickhouse.error} />
               ) : (
                 <ConnectionsList
                   connections={chItems}
+                  kind="clickhouse"
                   searchQuery={searchQuery}
                   onEdit={handleEditCH}
                   onDelete={handleDeleteCH}
@@ -235,7 +275,7 @@ export function LibraryClient() {
 
             <TabsContent value="schemas">
               {schemas.isLoading ? (
-                <LoadingState />
+                <LibraryListSkeleton />
               ) : schemas.error ? (
                 <ErrorState message={schemas.error} />
               ) : (
@@ -244,6 +284,21 @@ export function LibraryClient() {
                   searchQuery={searchQuery}
                   onEdit={() => {}} // TODO Sprint 3
                   onDelete={handleDeleteSchema}
+                />
+              )}
+            </TabsContent>
+
+            <TabsContent value="transforms">
+              {transforms.isLoading ? (
+                <LibraryListSkeleton />
+              ) : transforms.error ? (
+                <ErrorState message={transforms.error} />
+              ) : (
+                <TransformsList
+                  transforms={transformItems}
+                  searchQuery={searchQuery}
+                  onEdit={handleEditTransform}
+                  onDelete={handleDeleteTransform}
                 />
               )}
             </TabsContent>
@@ -264,19 +319,17 @@ export function LibraryClient() {
         onSaved={() => clickhouse.mutate()}
         connection={editingCH}
       />
+      <TransformFormModal
+        open={transformModalOpen}
+        onClose={() => setTransformModalOpen(false)}
+        onSaved={() => transforms.mutate()}
+        transform={editingTransform}
+      />
     </div>
   )
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function LoadingState() {
-  return (
-    <div className="flex items-center justify-center py-16">
-      <p className="body-3 text-[var(--text-secondary)] animate-pulse">Loading…</p>
-    </div>
-  )
-}
 
 function ErrorState({ message }: { message: string }) {
   return (

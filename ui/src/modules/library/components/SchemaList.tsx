@@ -1,9 +1,11 @@
 'use client'
 
+import Link from 'next/link'
 import { PencilIcon, Trash2Icon } from 'lucide-react'
 import { Card } from '@/src/components/ui/card'
 import { Badge } from '@/src/components/ui/badge'
 import { Button } from '@/src/components/ui/button'
+import { EmptyState } from '@/src/components/ui/empty-state'
 import type { LibrarySchema } from '@/src/hooks/useLibraryConnections'
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -30,11 +32,10 @@ export function SchemaList({ schemas, searchQuery, onEdit, onDelete }: SchemaLis
 
   if (filtered.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 gap-3">
-        <p className="body-3 text-[var(--text-secondary)]">
-          {q ? `No schemas match "${searchQuery}".` : 'No schemas saved yet.'}
-        </p>
-      </div>
+      <EmptyState
+        heading={q ? 'No matches' : 'No schemas yet'}
+        copy={q ? `No schemas match "${searchQuery}".` : 'No schemas saved yet.'}
+      />
     )
   }
 
@@ -68,9 +69,12 @@ function SchemaCard({
     <Card variant="dark" className="flex flex-col gap-3 p-4">
       {/* Header row */}
       <div className="flex items-start justify-between gap-2">
-        <span className="body-2 text-[var(--text-primary)] font-medium leading-tight break-all">
+        <Link
+          href={`/library/schemas/${id}`}
+          className="body-2 text-[var(--text-primary)] font-medium leading-tight break-all hover:text-[var(--color-foreground-primary)] transition-colors"
+        >
           {name}
-        </span>
+        </Link>
         <div className="flex items-center gap-1 shrink-0">
           <Button
             variant="ghost"
