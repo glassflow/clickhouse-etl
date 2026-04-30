@@ -22,6 +22,7 @@ import { FolderTree } from './FolderTree'
 import { KafkaConnectionFormModal } from './KafkaConnectionFormModal'
 import { ClickHouseConnectionFormModal } from './ClickHouseConnectionFormModal'
 import { TransformFormModal } from './TransformFormModal'
+import { LibraryListSkeleton } from './LibrarySkeletons'
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
@@ -240,7 +241,7 @@ export function LibraryClient() {
             {/* Tab panels */}
             <TabsContent value="kafka">
               {kafka.isLoading ? (
-                <LoadingState />
+                <LibraryListSkeleton />
               ) : kafka.error ? (
                 <ErrorState message={kafka.error} />
               ) : (
@@ -257,7 +258,7 @@ export function LibraryClient() {
 
             <TabsContent value="clickhouse">
               {clickhouse.isLoading ? (
-                <LoadingState />
+                <LibraryListSkeleton />
               ) : clickhouse.error ? (
                 <ErrorState message={clickhouse.error} />
               ) : (
@@ -274,7 +275,7 @@ export function LibraryClient() {
 
             <TabsContent value="schemas">
               {schemas.isLoading ? (
-                <LoadingState />
+                <LibraryListSkeleton />
               ) : schemas.error ? (
                 <ErrorState message={schemas.error} />
               ) : (
@@ -289,7 +290,7 @@ export function LibraryClient() {
 
             <TabsContent value="transforms">
               {transforms.isLoading ? (
-                <LoadingState />
+                <LibraryListSkeleton />
               ) : transforms.error ? (
                 <ErrorState message={transforms.error} />
               ) : (
@@ -329,14 +330,6 @@ export function LibraryClient() {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function LoadingState() {
-  return (
-    <div className="flex items-center justify-center py-16">
-      <p className="body-3 text-[var(--text-secondary)] animate-pulse">Loading…</p>
-    </div>
-  )
-}
 
 function ErrorState({ message }: { message: string }) {
   return (
