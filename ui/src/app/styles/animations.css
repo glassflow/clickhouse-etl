@@ -237,6 +237,60 @@
   opacity: 1;
 }
 
+/* ── Drawer (right/left full-width slide) ───────────────────────────────── */
+
+@keyframes drawerSlideInRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes drawerSlideOutRight {
+  from { transform: translateX(0); }
+  to { transform: translateX(100%); }
+}
+
+@keyframes drawerSlideInLeft {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes drawerSlideOutLeft {
+  from { transform: translateX(0); }
+  to { transform: translateX(-100%); }
+}
+
+.animate-drawerSlideInRight  { animation: drawerSlideInRight 200ms ease-out; }
+.animate-drawerSlideOutRight { animation: drawerSlideOutRight 180ms ease-in; }
+.animate-drawerSlideInLeft   { animation: drawerSlideInLeft 200ms ease-out; }
+.animate-drawerSlideOutLeft  { animation: drawerSlideOutLeft 180ms ease-in; }
+
+/* ── Generic fadeOut (companion to fadeIn) ──────────────────────────────── */
+
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.animate-fadeOut { animation: fadeOut 150ms ease-in; }
+
+/* ── Skeleton shimmer ───────────────────────────────────────────────────── */
+
+@keyframes skeletonShimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.animate-skeletonShimmer { animation: skeletonShimmer 1600ms ease-in-out infinite; }
+
+/* ── Live indicator pulse ───────────────────────────────────────────────── */
+
+@keyframes livePulse {
+  0%, 100% { transform: scale(1); opacity: 0.5; }
+  50%      { transform: scale(1.6); opacity: 0; }
+}
+
+.animate-livePulse { animation: livePulse 1400ms ease-out infinite; }
+
 /* ── Reduced motion ──────────────────────────────────────────────────────── */
 
 @media (prefers-reduced-motion: reduce) {
