@@ -121,13 +121,16 @@ describe('DeduplicationConfigurator', () => {
     expect(screen.getByTestId('form-actions')).toBeInTheDocument()
   })
 
-  it('disables Continue when key/window/unit missing', async () => {
+  it('blocks step completion when key/window/unit missing (button stays enabled to surface inline errors)', async () => {
     mockGetDeduplication.mockReturnValue(undefined)
     await act(async () => {
       render(<DeduplicationConfigurator onCompleteStep={mockOnCompleteStep} index={0} />)
     })
     const continueBtn = screen.getByTestId('continue-btn')
-    expect(continueBtn).toBeDisabled()
+    // New UX (commit 742dee2d): button stays enabled; clicking surfaces validation errors instead.
+    expect(continueBtn).not.toBeDisabled()
+    fireEvent.click(continueBtn)
+    expect(mockOnCompleteStep).not.toHaveBeenCalled()
   })
 
   it('enables Continue when key, window, and unit are set', async () => {

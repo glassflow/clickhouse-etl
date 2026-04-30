@@ -183,9 +183,9 @@ describe('sidebarItemBuilders', () => {
       expect(items.find((i) => i.key === 'join')).toBeUndefined()
     })
 
-    it('should include filter when feature flag is enabled', () => {
+    it('should include filter when feature flag is enabled and filter is configured', () => {
       vi.mocked(isFiltersEnabled).mockReturnValue(true)
-      const pipeline = createPipeline()
+      const pipeline = createPipeline({ filter: { enabled: true } })
       const items = getTransformationItems(pipeline)
 
       expect(items).toContainEqual({
@@ -294,6 +294,7 @@ describe('sidebarItemBuilders', () => {
         source: {
           topics: [{ name: 'topic1', deduplication: { enabled: true, id_field: 'id' } }],
         },
+        filter: { enabled: true },
         transformation: {
           enabled: true,
           fields: [{ name: 'field1' }],
@@ -320,6 +321,7 @@ describe('sidebarItemBuilders', () => {
           ],
         },
         join: { enabled: true, sources: [] },
+        filter: { enabled: true },
         transformation: {
           enabled: true,
           fields: [{ name: 'field1' }],

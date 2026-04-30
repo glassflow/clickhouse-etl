@@ -57,7 +57,11 @@ const mockStoreState = {
   joinStore: { validation: { valid: true } },
   topicsStore: { validation: { valid: true } },
   deduplicationStore: { validation: { valid: true } },
-  coreStore: { mode: 'view' },
+  transformationStore: {
+    transformationConfig: { enabled: false, fields: [] },
+    lastSavedTransformationSnapshot: null,
+  },
+  coreStore: { mode: 'view', lastSavedConfig: null },
 }
 
 vi.mock('@/src/store', () => ({

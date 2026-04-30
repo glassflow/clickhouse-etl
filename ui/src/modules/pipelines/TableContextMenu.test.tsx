@@ -12,9 +12,13 @@ vi.mock('next/image', () => ({
   default: ({ alt }: { alt: string }) => <span data-testid="img">{alt}</span>,
 }))
 
-vi.mock('lucide-react', () => ({
-  MoreVertical: () => <span data-testid="more-vertical">More</span>,
-}))
+vi.mock('lucide-react', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>
+  return {
+    ...actual,
+    MoreVertical: () => <span data-testid="more-vertical">More</span>,
+  }
+})
 
 vi.mock('@/src/images/play-white.svg', () => ({ default: 'play.svg' }))
 vi.mock('@/src/images/rename.svg', () => ({ default: 'rename.svg' }))
@@ -133,7 +137,7 @@ describe('TableContextMenu', () => {
       />,
     )
     openMenu()
-    fireEvent.click(screen.getByRole('button', { name: /Edit Edit/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^Edit$/ }))
     expect(onEdit).toHaveBeenCalledTimes(1)
   })
 
@@ -147,7 +151,7 @@ describe('TableContextMenu', () => {
       />,
     )
     openMenu()
-    fireEvent.click(screen.getByRole('button', { name: /Rename Rename/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^Rename$/ }))
     expect(onRename).toHaveBeenCalledTimes(1)
   })
 
