@@ -45,7 +45,7 @@ describe('GET /ui-api/pipelines/:id/metrics', () => {
     })
     expect(res.status).toBe(200)
     expect(fetchSpy).toHaveBeenCalledOnce()
-    const calledUrl = fetchSpy.mock.calls[0][0] as string
+    const calledUrl = String((fetchSpy.mock.calls[0] as unknown[])[0])
     // The forwarded URL must include the rewritten promql with pipeline_id="p1".
     expect(calledUrl).toContain('vm.test')
     expect(decodeURIComponent(calledUrl)).toContain('pipeline_id="p1"')
@@ -72,7 +72,7 @@ describe('GET /ui-api/pipelines/:id/metrics', () => {
       { params: Promise.resolve({ id: 'p1' }) },
     )
     expect(res.status).toBe(200)
-    const calledUrl = fetchSpy.mock.calls[0][0] as string
+    const calledUrl = String((fetchSpy.mock.calls[0] as unknown[])[0])
     const decoded = decodeURIComponent(calledUrl)
     expect(decoded).toContain('pipeline_id="p1"')
     expect(decoded).not.toContain('pipeline_id="other"')
