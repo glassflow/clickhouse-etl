@@ -1,5 +1,8 @@
-import { EmptyState } from '@/src/components/ui/empty-state'
+import { MetricsTab } from '@/src/modules/observability/MetricsTab'
 
-export default function PipelineMetricsPage() {
-  return <EmptyState heading="Metrics" copy="Coming in Phase 5." />
+type PageProps = { params: Promise<{ id: string }> }
+
+export default async function PipelineMetricsPage({ params }: PageProps) {
+  const { id } = await params
+  return <MetricsTab pipelineId={id} />
 }
