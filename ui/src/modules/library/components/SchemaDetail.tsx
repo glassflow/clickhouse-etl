@@ -12,6 +12,7 @@ import { SchemaVersionTimeline } from './SchemaVersionTimeline'
 import { SchemaDiffViewer } from './SchemaDiffViewer'
 import { SchemaVersionPublishModal } from './SchemaVersionPublishModal'
 import { UsedByList } from './UsedByList'
+import { BulkRolloutModal } from './BulkRolloutModal'
 import { notify } from '@/src/notifications'
 import type { SemverBump } from '@/src/app/ui-api/library/schemas/[id]/versions/semver-util'
 import type { SchemaField } from './SchemaDiffViewer'
@@ -26,6 +27,7 @@ export function SchemaDetail({ id }: SchemaDetailProps) {
   const schema = schemas.data?.find((s) => s.id === id) ?? null
 
   const [publishOpen, setPublishOpen] = React.useState(false)
+  const [rolloutOpen, setRolloutOpen] = React.useState(false)
   const [selectedA, setSelectedA] = React.useState<string | null>(null)
   const [selectedB, setSelectedB] = React.useState<string | null>(null)
 
@@ -125,9 +127,21 @@ export function SchemaDetail({ id }: SchemaDetailProps) {
             <Badge variant="outline">pinned per pipeline</Badge>
           </div>
         </div>
-        <Button variant="primary" size="sm" onClick={() => setPublishOpen(true)}>
-          Publish new version
-        </Button>
+        <div className="flex items-center gap-2">
+          {versions.data.length > 0 && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setRolloutOpen(true)}
+              disabled={!latestVersion}
+            >
+              Roll out to pipelines
+            </Button>
+          )}
+          <Button variant="primary" size="sm" onClick={() => setPublishOpen(true)}>
+            Publish new version
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-6">
@@ -182,6 +196,13 @@ export function SchemaDetail({ id }: SchemaDetailProps) {
         currentFields={(schema.fields as SchemaField[]) ?? []}
         onClose={() => setPublishOpen(false)}
         onPublish={handlePublish}
+      />
+
+      <BulkRolloutModal
+        open={rolloutOpen}
+        schemaId={id}
+        toVersion={latestVersion ?? '1.0.0'}
+        onClose={() => setRolloutOpen(false)}
       />
     </div>
   )

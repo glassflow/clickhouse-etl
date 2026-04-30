@@ -1,5 +1,8 @@
-import { EmptyState } from '@/src/components/ui/empty-state'
+import { LibraryLinksTab } from '@/src/modules/pipelines/[id]/LibraryLinksTab'
 
-export default function PipelineLibraryLinksPage() {
-  return <EmptyState heading="Library links" copy="Coming in Phase 3." />
+type PageProps = { params: Promise<{ id: string }> }
+
+export default async function PipelineLibraryLinksPage({ params }: PageProps) {
+  const { id } = await params
+  return <LibraryLinksTab pipelineId={id} />
 }

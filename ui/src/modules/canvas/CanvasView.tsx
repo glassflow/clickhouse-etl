@@ -26,6 +26,7 @@ import { ClickHouseSinkNode } from './nodes/ClickHouseSinkNode'
 import { NodeConfigPanel } from './NodeConfigPanel'
 import { NodePalette } from './NodePalette'
 import { DeployBar } from './DeployBar'
+import { DriftBanner } from './DriftBanner'
 import { serializeCanvas } from './serializer'
 
 const nodeTypes = {
@@ -129,6 +130,11 @@ function CanvasInner({ pipelineId, currentRevision }: CanvasViewProps) {
 
   return (
     <div className="flex flex-col h-full">
+      {pipelineId && (
+        <div className="px-3 pt-3">
+          <DriftBanner pipelineId={pipelineId} />
+        </div>
+      )}
       <div className="flex flex-1 min-h-0 gap-3 p-3">
         <NodePalette />
         <div

@@ -1,15 +1,24 @@
 /**
- * Phase 1 fallback: returns pipelines whose live config references the given
- * resource. Phase 3 will replace this with a query against `pipeline_references`.
+ * Used-by adapters for Library resource detail pages.
  *
- * Today's pipeline configs do not yet carry library resource refs (those land in
- * Phase 3 once `pipeline_references` exists). Until then this helper performs a
- * best-effort scan and gracefully returns an empty array when the inputs are
- * not yet present in the legacy backend response.
+ * Phase 3 onwards: queries `pipeline_references` directly. A reference row is
+ * created every time Canvas writes a new pipeline_revisions entry, so the
+ * latest reference per (pipeline_id, resource) reflects what version that
+ * pipeline currently has pinned (or live, for connections).
+ *
+ * Phase 1 used a config-heuristic that scanned the live backend pipeline list.
+ * That heuristic is gone — Phase 3 owns this lookup authoritatively.
+ *
+ * Pipeline names are best-effort hydrated from the existing `getPipelines`
+ * call so the UI can show human-readable rows; on failure we fall back to
+ * `pipelineId` as the display name.
  */
 
-import { getPipelines, getPipeline } from '@/src/api/pipeline-api'
-import type { ListPipelineConfig, Pipeline } from '@/src/types/pipeline'
+import { and, desc, eq } from 'drizzle-orm'
+import { db } from '@/src/lib/db'
+import { pipelineReferences, type PipelineResourceKind } from '@/src/lib/db/schema'
+import { getPipelines } from '@/src/api/pipeline-api'
+import type { ListPipelineConfig } from '@/src/types/pipeline'
 
 export type UsedByEntry = {
   pipelineId: string
@@ -17,84 +26,71 @@ export type UsedByEntry = {
   pinnedVersion?: string
 }
 
-async function loadFullPipelines(): Promise<Pipeline[]> {
-  let list: ListPipelineConfig[] = []
-  try {
-    list = await getPipelines()
-  } catch {
-    return []
-  }
-  const fulls = await Promise.all(
-    list.map(async (p) => {
-      try {
-        return (await getPipeline(p.pipeline_id)) as Pipeline
-      } catch {
-        return null
-      }
-    }),
-  )
-  return fulls.filter((p): p is Pipeline => p !== null)
-}
-
 export async function findPipelinesUsingKafkaConnection(
   connectionId: string,
 ): Promise<UsedByEntry[]> {
-  const pipelines = await loadFullPipelines()
-  return pipelines
-    .filter((p) => readKafkaConnectionId(p) === connectionId)
-    .map((p) => ({ pipelineId: p.pipeline_id, pipelineName: p.name ?? p.pipeline_id }))
+  return findPipelinesByResource('kafka_connection', connectionId)
 }
 
 export async function findPipelinesUsingClickhouseConnection(
   connectionId: string,
 ): Promise<UsedByEntry[]> {
-  const pipelines = await loadFullPipelines()
-  return pipelines
-    .filter((p) => readClickhouseConnectionId(p) === connectionId)
-    .map((p) => ({ pipelineId: p.pipeline_id, pipelineName: p.name ?? p.pipeline_id }))
+  return findPipelinesByResource('clickhouse_connection', connectionId)
 }
 
 export async function findPipelinesUsingSchema(schemaId: string): Promise<UsedByEntry[]> {
-  const pipelines = await loadFullPipelines()
-  return pipelines
-    .filter((p) => readSchemaIds(p).includes(schemaId))
-    .map((p) => ({
-      pipelineId: p.pipeline_id,
-      pipelineName: p.name ?? p.pipeline_id,
-      pinnedVersion: readSchemaPinnedVersion(p, schemaId),
-    }))
+  return findPipelinesByResource('schema', schemaId)
 }
 
-// --- Adapters: read library refs out of pipeline config without coupling ---
-
-function readKafkaConnectionId(p: Pipeline): string | undefined {
-  // Phase 1: pipeline configs do not yet carry library refs. The optional
-  // `connectionRef.id` is the shape Phase 3 will introduce on `source` /
-  // `sink`. Until then this safely returns undefined.
-  const source = p.source as unknown as { connectionRef?: { id?: string } } | undefined
-  return source?.connectionRef?.id
+export async function findPipelinesUsingTransform(transformId: string): Promise<UsedByEntry[]> {
+  return findPipelinesByResource('transform', transformId)
 }
 
-function readClickhouseConnectionId(p: Pipeline): string | undefined {
-  const sink = p.sink as unknown as { connectionRef?: { id?: string } } | undefined
-  return sink?.connectionRef?.id
-}
+async function findPipelinesByResource(
+  kind: PipelineResourceKind,
+  resourceId: string,
+): Promise<UsedByEntry[]> {
+  // Fetch all references for this resource newest-first, then collapse to the
+  // most-recent entry per pipelineId in-app. This stays portable between
+  // Postgres and the SQLite dev fallback (which lacks `selectDistinctOn`).
+  const rows = await db
+    .select({
+      pipelineId: pipelineReferences.pipelineId,
+      pinnedVersion: pipelineReferences.pinnedVersion,
+      createdAt: pipelineReferences.createdAt,
+    })
+    .from(pipelineReferences)
+    .where(
+      and(
+        eq(pipelineReferences.resourceKind, kind),
+        eq(pipelineReferences.resourceId, resourceId),
+      ),
+    )
+    .orderBy(desc(pipelineReferences.createdAt))
 
-function readSchemaIds(p: Pipeline): string[] {
-  const refs: string[] = []
-  const topics =
-    (p.source as unknown as { topics?: Array<{ schemaRef?: { id?: string } }> })?.topics ?? []
-  for (const t of topics) {
-    if (t?.schemaRef?.id) refs.push(t.schemaRef.id)
+  const seen = new Map<string, { pinnedVersion: string | null }>()
+  for (const row of rows) {
+    if (!seen.has(row.pipelineId)) {
+      seen.set(row.pipelineId, { pinnedVersion: row.pinnedVersion })
+    }
   }
-  return refs
-}
 
-function readSchemaPinnedVersion(p: Pipeline, schemaId: string): string | undefined {
-  const topics =
-    (p.source as unknown as {
-      topics?: Array<{ schemaRef?: { id?: string; pinnedVersion?: string } }>
-    })?.topics ?? []
-  const t = topics.find((x) => x?.schemaRef?.id === schemaId)
-  return t?.schemaRef?.pinnedVersion
+  if (seen.size === 0) return []
+
+  // Best-effort name resolution. If the backend list is unavailable we still
+  // return the rows keyed by pipeline_id — the UI uses pipelineName as a
+  // display label only, the id remains the link target.
+  let nameById = new Map<string, string>()
+  try {
+    const pipelines: ListPipelineConfig[] = await getPipelines()
+    nameById = new Map(pipelines.map((p) => [p.pipeline_id, p.name ?? p.pipeline_id]))
+  } catch {
+    // intentional: keep nameById empty, fall through to id-as-name
+  }
+
+  return Array.from(seen.entries()).map(([pipelineId, info]) => ({
+    pipelineId,
+    pipelineName: nameById.get(pipelineId) ?? pipelineId,
+    pinnedVersion: info.pinnedVersion ?? undefined,
+  }))
 }

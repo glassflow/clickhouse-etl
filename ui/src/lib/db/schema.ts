@@ -1,4 +1,4 @@
-import { pgSchema, uuid, text, timestamp, jsonb } from 'drizzle-orm/pg-core'
+import { pgSchema, uuid, text, timestamp, jsonb, integer } from 'drizzle-orm/pg-core'
 import type { KafkaConfig } from '@/src/lib/kafka-client-interface'
 import type { ClickHouseConfig } from '@/src/app/ui-api/clickhouse/clickhouse-utils'
 
@@ -92,4 +92,47 @@ export const transformVersions = uiLibrary.table('transform_versions', {
   changeSummary: text('change_summary'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   createdBy: text('created_by'),
+})
+
+// ─── Pipeline revisions / references (Phase 3 — Bridge) ──────────────────────
+
+/**
+ * `pipeline_revisions` records every Deploy from Canvas as a new monotonic
+ * revision per pipeline. Each revision pins a snapshot of the full
+ * PipelineConfig and links to a fixed set of Library resource versions via
+ * `pipeline_references`. Library schema/transform bumps never auto-mutate a
+ * deployed pipeline; an upgrade is always a new revision.
+ */
+export const pipelineRevisions = uiLibrary.table('pipeline_revisions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  pipelineId: text('pipeline_id').notNull(),
+  revision: integer('revision').notNull(),
+  config: jsonb('config').$type<Record<string, unknown>>().notNull(),
+  env: text('env').notNull().default('production'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  createdBy: text('created_by'),
+})
+
+export type PipelineResourceKind =
+  | 'kafka_connection'
+  | 'clickhouse_connection'
+  | 'schema'
+  | 'transform'
+
+/**
+ * `pipeline_references` rows pin each library resource a revision uses to a
+ * specific version (for schemas / transforms — `pinnedVersion` is the semver
+ * string) or marks it as live (for connections — `pinnedVersion` is null).
+ */
+export const pipelineReferences = uiLibrary.table('pipeline_references', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  revisionId: uuid('revision_id')
+    .references(() => pipelineRevisions.id, { onDelete: 'cascade' })
+    .notNull(),
+  // Denormalized for cheap GROUP-BY on the used-by lookup path.
+  pipelineId: text('pipeline_id').notNull(),
+  resourceKind: text('resource_kind').$type<PipelineResourceKind>().notNull(),
+  resourceId: uuid('resource_id').notNull(),
+  pinnedVersion: text('pinned_version'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
 })

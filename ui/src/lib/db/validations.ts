@@ -117,3 +117,24 @@ export const PublishTransformVersionInput = z.object({
   inputSchemaId: z.string().uuid().optional().nullable(),
   outputSchemaId: z.string().uuid().optional().nullable(),
 })
+
+// ─── Pipeline revisions / references (Phase 3 — Bridge) ──────────────────────
+
+export const PipelineResourceKindZ = z.enum([
+  'kafka_connection',
+  'clickhouse_connection',
+  'schema',
+  'transform',
+])
+
+export const PipelineReferenceInput = z.object({
+  resourceKind: PipelineResourceKindZ,
+  resourceId: z.string().uuid(),
+  pinnedVersion: z.string().nullable().optional(),
+})
+
+export const CreateRevisionInput = z.object({
+  env: z.string().default('production'),
+  config: z.record(z.string(), z.unknown()),
+  references: z.array(PipelineReferenceInput).default([]),
+})

@@ -12,21 +12,26 @@ type Tab = {
 
 type PipelineTabsProps = {
   pipelineId: string
+  driftCount?: number
   tabs?: Tab[]
 }
 
-const DEFAULT_TABS: (id: string) => Tab[] = (id) => [
+const buildDefaultTabs = (id: string, driftCount?: number): Tab[] => [
   { href: `/pipelines/${id}/overview`, label: 'Overview' },
   { href: `/pipelines/${id}/canvas`, label: 'Canvas' },
-  { href: `/pipelines/${id}/library-links`, label: 'Library links' },
+  {
+    href: `/pipelines/${id}/library-links`,
+    label: 'Library links',
+    badge: driftCount && driftCount > 0 ? { count: driftCount, tone: 'warn' } : undefined,
+  },
   { href: `/pipelines/${id}/metrics`, label: 'Metrics' },
   { href: `/pipelines/${id}/logs`, label: 'Logs' },
   { href: `/pipelines/${id}/settings`, label: 'Settings' },
 ]
 
-export function PipelineTabs({ pipelineId, tabs }: PipelineTabsProps) {
+export function PipelineTabs({ pipelineId, driftCount, tabs }: PipelineTabsProps) {
   const pathname = usePathname()
-  const items = tabs ?? DEFAULT_TABS(pipelineId)
+  const items = tabs ?? buildDefaultTabs(pipelineId, driftCount)
 
   return (
     <nav

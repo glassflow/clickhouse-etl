@@ -15,6 +15,13 @@
       "when": 1746028800000,
       "tag": "0002_library_versions_and_transforms",
       "breakpoints": false
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1746115200000,
+      "tag": "0003_pipeline_revisions_references",
+      "breakpoints": false
     }
   ]
 }
