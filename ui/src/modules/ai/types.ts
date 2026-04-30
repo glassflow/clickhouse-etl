@@ -1,18 +1,81 @@
-// AI-Assisted Pipeline Creation — Core Types
-// These types define the intermediate representation between LLM output and domain stores.
+// AI Assistant — types for chat messages, tool calls, and streaming protocol.
+//
+// Phase 4 (UI revamp 2.0) introduces a streaming, tool-call-aware chat model.
+// The `ChatMessage` type below is the canonical drawer transcript shape;
+// content is a list of `ContentBlock`s (text or tool calls).
+//
+// The intent-driven types (PipelineIntentModel, IntentApiRequest/Response,
+// `LegacyChatMessage`) are kept around because `materializeIntentToStore.ts`
+// remains a useful reference implementation. They are NOT used by the new
+// drawer flow.
 
-// ─── Chat ────────────────────────────────────────────────────────────────────
+// ─── New chat / streaming types (Phase 4) ────────────────────────────────────
 
+export type AiRole = 'user' | 'assistant' | 'system' | 'tool'
+
+export type ToolCallKind = 'pipeline.draft' | 'library.search' | 'validate'
+
+export type ToolCallBlock = {
+  kind: 'tool_call'
+  callId: string
+  tool: ToolCallKind
+  status: 'pending' | 'success' | 'error'
+  input: Record<string, unknown>
+  output?: unknown
+  errorMessage?: string
+}
+
+export type TextBlock = {
+  kind: 'text'
+  text: string
+}
+
+export type ContentBlock = TextBlock | ToolCallBlock
+
+export type ChatMessage = {
+  id: string
+  role: AiRole
+  blocks: ContentBlock[]
+  createdAt: string
+}
+
+/**
+ * SSE event envelope emitted by `/ui-api/ai/chat`.
+ * The route streams these as `data: <json>\n\n` SSE frames.
+ */
+export type StreamEvent =
+  | { type: 'message_start'; messageId: string }
+  | { type: 'text_delta'; messageId: string; delta: string }
+  | {
+      type: 'tool_call_start'
+      messageId: string
+      callId: string
+      tool: ToolCallKind
+      input: Record<string, unknown>
+    }
+  | {
+      type: 'tool_call_result'
+      messageId: string
+      callId: string
+      output: unknown
+      status: 'success' | 'error'
+      errorMessage?: string
+    }
+  | { type: 'message_stop'; messageId: string; tokensUsed?: number }
+  | { type: 'error'; message: string }
+
+// ─── Legacy intent-driven types (kept for materialize bridge) ────────────────
+
+/** @deprecated Drawer flow uses `ChatMessage` (above). */
 export type ChatRole = 'user' | 'assistant' | 'system'
 
-export interface ChatMessage {
+/** @deprecated Drawer flow uses `ChatMessage` (above). Used by materializeIntentToStore. */
+export interface LegacyChatMessage {
   id: string
   role: ChatRole
   content: string
   timestamp: number
 }
-
-// ─── Intent Model ────────────────────────────────────────────────────────────
 
 /** AI-inferred Kafka connection intent */
 export interface KafkaConnectionIntent {
@@ -116,7 +179,7 @@ export interface PipelineIntentModel {
   unresolvedQuestions: string[]
 }
 
-// ─── AI Session State ─────────────────────────────────────────────────────────
+// ─── AI Session State (legacy) ───────────────────────────────────────────────
 
 export type AiSessionStatus =
   | 'idle'
@@ -138,13 +201,13 @@ export interface ProposedChange {
   accepted: boolean
 }
 
-// ─── API Request / Response types ─────────────────────────────────────────────
+// ─── Legacy API Request / Response types ─────────────────────────────────────
 
 export interface IntentApiRequest {
   sessionId: string | null
   userMessage: string
   intent: PipelineIntentModel | null
-  messages: ChatMessage[]
+  messages: LegacyChatMessage[]
   kafkaPassword?: string
   clickhousePassword?: string
 }

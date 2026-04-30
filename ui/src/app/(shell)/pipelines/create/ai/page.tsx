@@ -6,7 +6,7 @@ import { ChevronLeftIcon } from '@heroicons/react/24/outline'
 import { Layers, Wand2 } from 'lucide-react'
 import { Button } from '@/src/components/ui/button'
 import { materializeIntentToStore, type MaterializationPasswords } from '@/src/modules/ai/materializeIntentToStore'
-import type { PipelineIntentModel, ChatMessage, IntentApiRequest, IntentApiResponse, DeepPartial } from '@/src/modules/ai/types'
+import type { PipelineIntentModel, LegacyChatMessage as ChatMessage, IntentApiRequest, IntentApiResponse, DeepPartial } from '@/src/modules/ai/types'
 
 // ─── Session state ────────────────────────────────────────────────────────────
 
