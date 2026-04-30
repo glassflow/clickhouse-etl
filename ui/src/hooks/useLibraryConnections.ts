@@ -112,3 +112,23 @@ export function useLibrarySchemas() {
 export function useLibraryFolders() {
   return useLibraryFetch<LibraryFolder[]>('/ui-api/library/folders')
 }
+
+// ─── Transforms ──────────────────────────────────────────────────────────────
+
+export interface LibraryTransform {
+  id: string
+  name: string
+  description: string | null
+  folderId: string | null
+  tags: string[]
+  language: 'js' | 'sql'
+  code: string
+  inputSchemaId: string | null
+  outputSchemaId: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export function useLibraryTransforms() {
+  return useLibraryFetch<LibraryTransform[]>('/ui-api/library/transforms')
+}
