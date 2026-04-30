@@ -7,6 +7,7 @@ import { isAuthEnabled } from '@/src/utils/auth-config.server'
 import { getPipeline } from '@/src/api/pipeline-api'
 import { PipelineHeader } from '@/src/modules/pipelines/[id]/PipelineHeader'
 import { PipelineTabs } from '@/src/modules/pipelines/[id]/PipelineTabs'
+import { getDriftCount } from '@/src/app/ui-api/pipelines/[id]/library-links/_lib'
 import type { ApiError } from '@/src/types/pipeline'
 
 const getCachedPipeline = cache(getPipeline)
@@ -51,17 +52,21 @@ export default async function PipelineLayout({ children, params }: LayoutProps) 
     pipeline = null
   }
 
+  // Drift count is ambient UX. getDriftCount() swallows DB errors and returns 0
+  // so a missing migration / unreachable DB never blanks the pipeline page.
+  const driftCount = await getDriftCount(id)
+
   return (
     <div className="flex flex-col gap-5 animate-fadeIn">
       {pipeline ? (
-        <PipelineHeader pipeline={pipeline} />
+        <PipelineHeader pipeline={pipeline} driftCount={driftCount} />
       ) : (
         <div className="flex flex-col gap-3">
           <h1 className="title-3 text-[var(--text-primary)]">Pipeline</h1>
           <span className="mono-2 text-[var(--text-tertiary)]">{id}</span>
         </div>
       )}
-      <PipelineTabs pipelineId={id} />
+      <PipelineTabs pipelineId={id} driftCount={driftCount} />
       <Suspense
         fallback={
           <div
