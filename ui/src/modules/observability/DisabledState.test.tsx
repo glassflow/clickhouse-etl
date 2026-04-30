@@ -1,12 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
 import { DisabledState } from './DisabledState'
-
-declare global {
-  interface Window {
-    __ENV__?: Record<string, string | undefined>
-  }
-}
+// Side-effect import: declares the runtime env shape on `window.__ENV__`.
+import '@/src/api/helpers'
 
 describe('DisabledState', () => {
   beforeEach(() => {
