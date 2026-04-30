@@ -156,8 +156,24 @@ export function LogsTab({ pipelineId }: LogsTabProps) {
         />
       )}
 
+      {errorMsg && filtered.length > 0 && (
+        <div
+          role="status"
+          className="flex items-center justify-between gap-2 px-3 py-2 rounded-md border border-[var(--color-foreground-critical-faded)] bg-[var(--color-background-critical-faded)]"
+        >
+          <span className="caption-1 text-[var(--color-foreground-critical)]">{errorMsg}</span>
+          <button
+            type="button"
+            onClick={() => (usingRange ? range.mutate() : stream.clear())}
+            className="caption-1 text-[var(--color-foreground-primary)] underline-offset-2 hover:underline"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       <div className="flex-1 min-h-0 rounded-md border border-[var(--surface-border)] bg-[var(--color-background-elevation-base)] overflow-y-auto">
-        {errorMsg ? (
+        {errorMsg && filtered.length === 0 ? (
           <EmptyState
             heading="Failed to load logs"
             copy={errorMsg}
