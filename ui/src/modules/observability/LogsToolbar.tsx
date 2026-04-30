@@ -6,10 +6,14 @@ import { Input } from '@/src/components/ui/input'
 import { Button } from '@/src/components/ui/button'
 import { LiveIndicator } from '@/src/components/ui/live-indicator'
 import { ScopeBadge } from '@/src/components/ui/scope-badge'
-import { TimeRangePicker } from '@/src/components/ui/time-range-picker'
+import {
+  TimeRangePicker,
+  type TimeRangeKey,
+} from '@/src/components/ui/time-range-picker'
 import { KbdHint } from '@/src/components/ui/kbd-hint'
 import { useStore } from '@/src/store'
 import { BrushedRangePill } from './BrushedRangePill'
+import { CustomDateRangeModal } from './CustomDateRangeModal'
 
 type LogsToolbarProps = {
   pipelineId: string
@@ -40,6 +44,16 @@ export function LogsToolbar({
   connected,
 }: LogsToolbarProps) {
   const { observabilityStore } = useStore()
+  const [customOpen, setCustomOpen] = React.useState(false)
+
+  const handleRangeChange = (k: TimeRangeKey) => {
+    if (k === 'custom') {
+      setCustomOpen(true)
+      return
+    }
+    observabilityStore.setRangeKey(k)
+  }
+
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -54,7 +68,7 @@ export function LogsToolbar({
         <div className="flex items-center gap-2">
           <TimeRangePicker
             value={observabilityStore.rangeKey}
-            onChange={observabilityStore.setRangeKey}
+            onChange={handleRangeChange}
           />
           <Button variant="secondary" size="sm" onClick={onTogglePause}>
             {paused ? (
@@ -66,6 +80,25 @@ export function LogsToolbar({
           </Button>
         </div>
       </div>
+      <CustomDateRangeModal
+        open={customOpen}
+        initialFrom={
+          observabilityStore.customRange
+            ? new Date(observabilityStore.customRange.fromMs)
+            : null
+        }
+        initialTo={
+          observabilityStore.customRange
+            ? new Date(observabilityStore.customRange.toMs)
+            : null
+        }
+        onClose={() => setCustomOpen(false)}
+        onApply={(range) => {
+          observabilityStore.setCustomRange(range)
+          observabilityStore.setRangeKey('custom')
+          setCustomOpen(false)
+        }}
+      />
 
       <div className="relative">
         <SearchIcon
