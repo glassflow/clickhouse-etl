@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import Link from 'next/link'
 import { Crumbs } from '@/src/components/ui/crumbs'
 import { Badge } from '@/src/components/ui/badge'
 import { LiveIndicator } from '@/src/components/ui/live-indicator'
@@ -44,7 +45,14 @@ export function PipelineHeader({ pipeline, driftCount }: PipelineHeaderProps) {
           </h1>
           <LiveIndicator active={isLive} label={status} />
           {driftCount != null && driftCount > 0 && (
-            <Badge variant="warning">{driftCount} drift</Badge>
+            <Link
+              href={`/pipelines/${pipeline.pipeline_id}/library-links`}
+              aria-label={`${driftCount} library drift — open Library links`}
+            >
+              <Badge variant="warning" className="cursor-pointer hover:opacity-80">
+                {driftCount} drift
+              </Badge>
+            </Link>
           )}
         </div>
         <div className="flex items-center gap-3">
