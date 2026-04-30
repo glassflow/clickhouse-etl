@@ -23,6 +23,28 @@ const SOURCE_TYPES = new Set(['kafkaSource', 'otlpSource'])
 const SINK_TYPES = new Set(['clickhouseSink'])
 const TRANSFORM_TYPES = new Set(['dedup', 'filter', 'transform', 'join'])
 
+/**
+ * Pure predicate used by ReactFlow's `isValidConnection` to reject
+ * type-incompatible edges before they're added to the graph.
+ *
+ * Rules:
+ * - No self-loops (same id source and target)
+ * - Sinks cannot be a source of an edge (nothing flows out of a sink)
+ * - Sources cannot be a target of an edge (nothing flows into a source)
+ *
+ * Returns `false` for nullish inputs so callers can safely pass `nodes.find(...)`.
+ */
+export function isValidNodeConnection(
+  source: { id: string; type?: string } | null | undefined,
+  target: { id: string; type?: string } | null | undefined,
+): boolean {
+  if (!source || !target) return false
+  if (source.id === target.id) return false
+  if (SINK_TYPES.has(source.type ?? '')) return false
+  if (SOURCE_TYPES.has(target.type ?? '')) return false
+  return true
+}
+
 type NodeConfigs = Record<string, Record<string, unknown>>
 
 export function validateCanvas(
