@@ -9,6 +9,8 @@ export interface SchemaField {
   nullable: boolean
 }
 
+export type TransformLanguage = 'js' | 'sql'
+
 export const uiLibrary = pgSchema('ui_library')
 
 export const folders = uiLibrary.table('folders', {
@@ -49,4 +51,45 @@ export const schemas = uiLibrary.table('schemas', {
   fields: jsonb('fields').$type<SchemaField[]>().notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
+export const schemaVersions = uiLibrary.table('schema_versions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  schemaId: uuid('schema_id')
+    .references(() => schemas.id, { onDelete: 'cascade' })
+    .notNull(),
+  version: text('version').notNull(), // semver: '1.4.0'
+  fields: jsonb('fields').$type<SchemaField[]>().notNull(),
+  changeSummary: text('change_summary'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  createdBy: text('created_by'),
+})
+
+export const transforms = uiLibrary.table('transforms', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull(),
+  description: text('description'),
+  folderId: uuid('folder_id').references(() => folders.id, { onDelete: 'set null' }),
+  tags: jsonb('tags').$type<string[]>().default([]).notNull(),
+  language: text('language').$type<TransformLanguage>().notNull(),
+  code: text('code').notNull(), // current draft / latest
+  inputSchemaId: uuid('input_schema_id').references(() => schemas.id, { onDelete: 'set null' }),
+  outputSchemaId: uuid('output_schema_id').references(() => schemas.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
+export const transformVersions = uiLibrary.table('transform_versions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  transformId: uuid('transform_id')
+    .references(() => transforms.id, { onDelete: 'cascade' })
+    .notNull(),
+  version: text('version').notNull(),
+  language: text('language').$type<TransformLanguage>().notNull(),
+  code: text('code').notNull(),
+  inputSchemaId: uuid('input_schema_id'),
+  outputSchemaId: uuid('output_schema_id'),
+  changeSummary: text('change_summary'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  createdBy: text('created_by'),
 })

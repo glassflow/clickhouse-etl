@@ -79,3 +79,41 @@ export const UpdateFolderInput = z.object({
   name: z.string().min(1).optional(),
   parentId: optionalUuid,
 })
+
+// ─── Schema versions ─────────────────────────────────────────────────────────
+
+export const SchemaFieldZ = z.object({
+  name: z.string().min(1),
+  type: z.string().min(1),
+  nullable: z.boolean(),
+})
+
+export const PublishSchemaVersionInput = z.object({
+  bump: z.enum(['major', 'minor', 'patch']),
+  changeSummary: z.string().max(2000).optional(),
+  fields: z.array(SchemaFieldZ).min(1),
+})
+
+// ─── Transforms ──────────────────────────────────────────────────────────────
+
+export const CreateTransformInput = z.object({
+  name: z.string().min(1).max(120),
+  description: z.string().max(2000).optional(),
+  folderId: z.string().uuid().optional().nullable(),
+  tags: z.array(z.string()).default([]),
+  language: z.enum(['js', 'sql']),
+  code: z.string().min(1),
+  inputSchemaId: z.string().uuid().optional().nullable(),
+  outputSchemaId: z.string().uuid().optional().nullable(),
+})
+
+export const UpdateTransformInput = CreateTransformInput.partial()
+
+export const PublishTransformVersionInput = z.object({
+  bump: z.enum(['major', 'minor', 'patch']),
+  changeSummary: z.string().max(2000).optional(),
+  language: z.enum(['js', 'sql']),
+  code: z.string().min(1),
+  inputSchemaId: z.string().uuid().optional().nullable(),
+  outputSchemaId: z.string().uuid().optional().nullable(),
+})
