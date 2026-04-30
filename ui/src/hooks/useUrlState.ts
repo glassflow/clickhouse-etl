@@ -30,8 +30,7 @@ export function useUrlState<T>(
 
   const value = React.useMemo(
     () => (raw != null ? deserialize(raw) : initial),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [raw],
+    [raw, initial, deserialize],
   )
 
   const set = React.useCallback(

@@ -97,8 +97,7 @@ export function LogsTab({ pipelineId }: LogsTabProps) {
       }
     }
     if (changed) setCompListUrl(Array.from(known))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [components])
+  }, [components, setCompListUrl])
 
   const selectedComponents = compList
 
