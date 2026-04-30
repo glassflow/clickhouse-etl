@@ -8,6 +8,7 @@ import { Button } from '@/src/components/ui/button'
 import { Card } from '@/src/components/ui/card'
 import { Badge } from '@/src/components/ui/badge'
 import { Skeleton } from '@/src/components/ui/skeleton'
+import { EmptyState } from '@/src/components/ui/empty-state'
 import { SchemaVersionTimeline } from './SchemaVersionTimeline'
 import { SchemaDiffViewer } from './SchemaDiffViewer'
 import { SchemaVersionPublishModal } from './SchemaVersionPublishModal'
@@ -149,10 +150,18 @@ export function SchemaDetail({ id }: SchemaDetailProps) {
           <h2 className="title-6 text-[var(--text-primary)] mb-3">Versions</h2>
           {versions.isLoading ? (
             <Skeleton width="100%" height={120} />
+          ) : versions.error ? (
+            <EmptyState
+              heading="Couldn't load versions"
+              copy={String(versions.error)}
+              cta={{ label: 'Retry', onClick: () => versions.mutate() }}
+            />
           ) : versions.data.length === 0 ? (
-            <p className="body-3 text-[var(--text-secondary)]">
-              No versions yet — publish to create v1.0.0.
-            </p>
+            <EmptyState
+              heading="No versions yet"
+              copy="Publish to create v1.0.0 — once published, all references in pipelines will pin to that version."
+              cta={{ label: 'Publish new version', onClick: () => setPublishOpen(true) }}
+            />
           ) : (
             <SchemaVersionTimeline
               versions={versions.data}

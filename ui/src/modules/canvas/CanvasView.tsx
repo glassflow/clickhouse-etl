@@ -16,6 +16,8 @@ import {
 import '@xyflow/react/dist/style.css'
 
 import { useStore } from '@/src/store'
+import { notify } from '@/src/notifications/notify'
+import { isValidNodeConnection } from './canvas-validation'
 import { KafkaSourceNode } from './nodes/KafkaSourceNode'
 import { OtlpSourceNode } from './nodes/OtlpSourceNode'
 import { DedupNode } from './nodes/DedupNode'
@@ -27,7 +29,15 @@ import { NodeConfigPanel } from './NodeConfigPanel'
 import { NodePalette } from './NodePalette'
 import { DeployBar } from './DeployBar'
 import { DriftBanner } from './DriftBanner'
+import { UnsavedChangesGuard } from './UnsavedChangesGuard'
 import { serializeCanvas } from './serializer'
+import {
+  Drawer,
+  DrawerBody,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from '@/src/components/ui/drawer'
 
 const nodeTypes = {
   kafkaSource: KafkaSourceNode,
@@ -66,6 +76,17 @@ function CanvasInner({ pipelineId, currentRevision }: CanvasViewProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Below 1280px viewports, the right-side config panel collides with the
+  // node palette + canvas viewport. Switch to a Drawer overlay instead so
+  // the user still has full canvas width while editing a node.
+  const [viewportTooNarrow, setViewportTooNarrow] = React.useState(false)
+  React.useEffect(() => {
+    const fn = () => setViewportTooNarrow(window.innerWidth < 1280)
+    fn()
+    window.addEventListener('resize', fn)
+    return () => window.removeEventListener('resize', fn)
+  }, [])
+
   const handleDragOver = (event: React.DragEvent) => {
     event.preventDefault()
     event.dataTransfer.dropEffect = 'move'
@@ -88,7 +109,23 @@ function CanvasInner({ pipelineId, currentRevision }: CanvasViewProps) {
   }
 
   const handleConnect = (conn: Connection) => {
+    const source = nodes.find((n) => n.id === conn.source)
+    const target = nodes.find((n) => n.id === conn.target)
+    if (!isValidNodeConnection(source, target)) {
+      notify({
+        variant: 'warning',
+        title: 'Invalid connection',
+        description: `Can't connect ${source?.type ?? 'unknown'} → ${target?.type ?? 'unknown'}.`,
+      })
+      return
+    }
     setEdges(addEdge(conn, edges))
+  }
+
+  const isValidConnection = (conn: Connection | { source: string; target: string }) => {
+    const source = nodes.find((n) => n.id === conn.source)
+    const target = nodes.find((n) => n.id === conn.target)
+    return isValidNodeConnection(source, target)
   }
 
   const handleJumpToNode = (id: string) => {
@@ -130,6 +167,7 @@ function CanvasInner({ pipelineId, currentRevision }: CanvasViewProps) {
 
   return (
     <div className="flex flex-col h-full">
+      <UnsavedChangesGuard />
       {pipelineId && (
         <div className="px-3 pt-3">
           <DriftBanner pipelineId={pipelineId} />
@@ -150,6 +188,7 @@ function CanvasInner({ pipelineId, currentRevision }: CanvasViewProps) {
             onNodesChange={(c: NodeChange[]) => applyNodeChanges(c)}
             onEdgesChange={(c: EdgeChange[]) => applyEdgeChanges(c)}
             onConnect={handleConnect}
+            isValidConnection={isValidConnection}
             onNodeClick={(_, node) => setActiveNode(node.id)}
             fitView
           >
@@ -158,10 +197,25 @@ function CanvasInner({ pipelineId, currentRevision }: CanvasViewProps) {
             <MiniMap />
           </ReactFlow>
         </div>
-        {activeNodeId && (
+        {activeNodeId && !viewportTooNarrow && (
           <NodeConfigPanel nodeId={activeNodeId} onClose={() => setActiveNode(null)} />
         )}
       </div>
+      {activeNodeId && viewportTooNarrow && (
+        <Drawer open onOpenChange={(o) => !o && setActiveNode(null)}>
+          <DrawerContent>
+            <DrawerHeader>
+              <DrawerTitle>Node configuration</DrawerTitle>
+            </DrawerHeader>
+            <DrawerBody>
+              <NodeConfigPanel
+                nodeId={activeNodeId}
+                onClose={() => setActiveNode(null)}
+              />
+            </DrawerBody>
+          </DrawerContent>
+        </Drawer>
+      )}
       <DeployBar
         pipelineId={pipelineId ?? null}
         currentRevision={currentRevision ?? null}

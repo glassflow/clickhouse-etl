@@ -12,7 +12,28 @@ import {
 } from '@/src/components/ui/drawer'
 import { Button } from '@/src/components/ui/button'
 import { Badge } from '@/src/components/ui/badge'
+import { getRuntimeEnv } from '@/src/utils/common.client'
 import type { LogLine as LogLineType } from '@/src/hooks/useLogsQuery'
+
+/**
+ * Build a deep link to an external trace backend (e.g. Tempo / HyperDX).
+ * Reads `NEXT_PUBLIC_TRACE_BACKEND_URL` from the runtime env so the URL can be
+ * configured per deploy without rebuilding. Returns `null` when unconfigured;
+ * the caller hides the link in that case.
+ */
+function traceUrl(traceId: string): string | null {
+  const env = getRuntimeEnv() as Record<string, string | undefined>
+  const base = env?.NEXT_PUBLIC_TRACE_BACKEND_URL
+  return base ? `${base.replace(/\/$/, '')}/trace/${encodeURIComponent(traceId)}` : null
+}
+
+const DLQ_PATTERN = /(\bdlq\b|dead[-_ ]?letter|dead-?queue)/i
+
+function looksLikeDlq(line: LogLineType): boolean {
+  const sev = String(line.severity ?? '').toLowerCase()
+  if (sev === 'fatal') return true
+  return DLQ_PATTERN.test(String(line._msg ?? ''))
+}
 
 type LogInspectorDrawerProps = {
   line: LogLineType | null
@@ -77,9 +98,20 @@ export function LogInspectorDrawer({ line, pipelineId, onClose }: LogInspectorDr
         </DrawerBody>
 
         <DrawerFooter>
-          {line?.trace_id ? (
+          {line?.trace_id && traceUrl(String(line.trace_id)) ? (
             <Button asChild variant="ghost" size="sm">
-              <a href={`#trace-${String(line.trace_id)}`}>View trace →</a>
+              <a
+                href={traceUrl(String(line.trace_id)) ?? '#'}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                View trace →
+              </a>
+            </Button>
+          ) : null}
+          {line && looksLikeDlq(line) ? (
+            <Button asChild variant="ghost" size="sm">
+              <Link href={`/pipelines/${pipelineId}/overview#dlq`}>Open DLQ →</Link>
             </Button>
           ) : null}
           <Button asChild variant="secondary" size="sm">

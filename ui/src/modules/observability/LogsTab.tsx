@@ -7,9 +7,12 @@ import { LogInspectorDrawer } from './LogInspectorDrawer'
 import { FilterPillRow } from './FilterPillRow'
 import { MiniMetricsStrip } from './MiniMetricsStrip'
 import { DisabledState } from './DisabledState'
+import { ContextExpander } from './ContextExpander'
+import { clusterLogs } from './ContextClusterer'
 import { useLogStream } from '@/src/hooks/useLogStream'
 import { useLogsQuery, type LogLine as LogLineType } from '@/src/hooks/useLogsQuery'
 import { useObservabilityFlag } from '@/src/hooks/useObservabilityFlag'
+import { useUrlState, useUrlStateArray } from '@/src/hooks/useUrlState'
 import { useStore } from '@/src/store'
 import { EmptyState } from '@/src/components/ui/empty-state'
 
@@ -41,14 +44,25 @@ export function LogsTab({ pipelineId }: LogsTabProps) {
   const { observabilityStore } = useStore()
   const enabled = useObservabilityFlag()
 
-  const [query, setQuery] = React.useState('')
-  const [committedQuery, setCommittedQuery] = React.useState('')
+  // URL-encoded state — the same query/severities/components on a fresh
+  // reload reproduces the same view. Phase 6 acceptance criterion.
+  const [committedQuery, setCommittedQuery] = useUrlState<string>('q', '')
+  const [query, setQuery] = React.useState(committedQuery)
   const [paused, setPaused] = React.useState(false)
   const [inspector, setInspector] = React.useState<LogLineType | null>(null)
-  const [selectedSeverities, setSelectedSeverities] = React.useState<Severity[]>([
-    ...ALL_SEVERITIES,
-  ])
-  const [selectedComponents, setSelectedComponents] = React.useState<string[]>([])
+
+  // Severities default to all when URL is empty; explicit selections persist
+  // through reloads. We seed the UI state from the URL once, then let the
+  // pill-row toggle drive both UI and URL.
+  const [sevList, setSevListUrl] = useUrlStateArray('sev', [...ALL_SEVERITIES])
+  const selectedSeverities = sevList.length > 0 ? (sevList as Severity[]) : [...ALL_SEVERITIES]
+  const [compList, setCompListUrl] = useUrlStateArray('comp', [])
+
+  // Whenever the committed-query URL value changes (e.g. shared-link load),
+  // sync the input box.
+  React.useEffect(() => {
+    setQuery(committedQuery)
+  }, [committedQuery])
 
   const usingRange = !!observabilityStore.brushedRange
   // Switch from live tail to range-query mode when a range is pinned.
@@ -64,20 +78,28 @@ export function LogsTab({ pipelineId }: LogsTabProps) {
 
   // Auto-select all newly-discovered components on first sighting; existing
   // selections are preserved so the user's manual deselections aren't reset
-  // every time a new component appears.
+  // every time a new component appears. Run only when no explicit URL list
+  // has been set — once the user opts in to filtering, we stop auto-adding.
+  // We track this in a ref to avoid pushing URL updates on every buffer tick.
+  const compListRef = React.useRef(compList)
   React.useEffect(() => {
-    setSelectedComponents((prev) => {
-      const known = new Set(prev)
-      let changed = false
-      for (const c of components) {
-        if (!known.has(c)) {
-          known.add(c)
-          changed = true
-        }
+    compListRef.current = compList
+  }, [compList])
+
+  React.useEffect(() => {
+    if (compListRef.current.length === 0) return
+    const known = new Set(compListRef.current)
+    let changed = false
+    for (const c of components) {
+      if (!known.has(c)) {
+        known.add(c)
+        changed = true
       }
-      return changed ? Array.from(known) : prev
-    })
-  }, [components])
+    }
+    if (changed) setCompListUrl(Array.from(known))
+  }, [components, setCompListUrl])
+
+  const selectedComponents = compList
 
   const filtered = React.useMemo(
     () =>
@@ -104,15 +126,38 @@ export function LogsTab({ pipelineId }: LogsTabProps) {
     [allLines],
   )
 
+  // Expanded gap clusters — when ContextExpander is clicked, the gap key is
+  // added to this set and the LogsTab re-renders the underlying lines inline
+  // instead of the placeholder.
+  const [expandedGaps, setExpandedGaps] = React.useState<Set<string>>(new Set())
+
+  // Reset expansions whenever the committed query or buffer length changes —
+  // otherwise old gap keys leak into a fresh result set.
+  React.useEffect(() => {
+    setExpandedGaps(new Set())
+  }, [committedQuery, allLines.length])
+
+  const cluster = React.useMemo(
+    () => clusterLogs(filtered, committedQuery, 5),
+    [filtered, committedQuery],
+  )
+
   const toggleSev = React.useCallback(
-    (k: Severity) =>
-      setSelectedSeverities((s) => (s.includes(k) ? s.filter((x) => x !== k) : [...s, k])),
-    [],
+    (k: Severity) => {
+      const current = sevList.length > 0 ? sevList : [...ALL_SEVERITIES]
+      setSevListUrl(
+        current.includes(k) ? current.filter((x) => x !== k) : [...current, k],
+      )
+    },
+    [sevList, setSevListUrl],
   )
   const toggleComp = React.useCallback(
-    (k: string) =>
-      setSelectedComponents((s) => (s.includes(k) ? s.filter((x) => x !== k) : [...s, k])),
-    [],
+    (k: string) => {
+      setCompListUrl(
+        compList.includes(k) ? compList.filter((x) => x !== k) : [...compList, k],
+      )
+    },
+    [compList, setCompListUrl],
   )
 
   if (!enabled) {
@@ -192,11 +237,43 @@ export function LogsTab({ pipelineId }: LogsTabProps) {
           />
         ) : (
           <ul className="flex flex-col">
-            {filtered.map((l, i) => (
-              <li key={`${l._time}-${i}`}>
-                <LogLine line={l} highlight={committedQuery} onClick={setInspector} />
-              </li>
-            ))}
+            {cluster.flatMap((item, i) => {
+              if (item.kind === 'line') {
+                return [
+                  <li key={`l-${item.index}-${item.line._time}`}>
+                    <LogLine
+                      line={item.line}
+                      highlight={committedQuery}
+                      onClick={setInspector}
+                    />
+                  </li>,
+                ]
+              }
+              const gapKey = `${item.startIndex}-${item.endIndex}`
+              if (expandedGaps.has(gapKey)) {
+                return filtered
+                  .slice(item.startIndex, item.endIndex + 1)
+                  .map((l, j) => (
+                    <li key={`l-exp-${gapKey}-${j}-${l._time}`}>
+                      <LogLine line={l} highlight={committedQuery} onClick={setInspector} />
+                    </li>
+                  ))
+              }
+              return [
+                <li key={`g-${i}-${gapKey}`}>
+                  <ContextExpander
+                    collapsedCount={item.collapsedCount}
+                    onExpand={() =>
+                      setExpandedGaps((s) => {
+                        const next = new Set(s)
+                        next.add(gapKey)
+                        return next
+                      })
+                    }
+                  />
+                </li>,
+              ]
+            })}
           </ul>
         )}
       </div>
