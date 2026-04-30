@@ -136,3 +136,24 @@ export const pipelineReferences = uiLibrary.table('pipeline_references', {
   pinnedVersion: text('pinned_version'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 })
+
+// ─── AI chats (Phase 4 — AI Assistant) ───────────────────────────────────────
+
+/**
+ * `ai_chats` persists one conversation per scope. The scope key is either
+ * `'global'` (the "new pipeline" chat reachable from anywhere) or a
+ * `pipelineId` (the per-pipeline chat opened from a pipeline detail page).
+ *
+ * Drawer hydrates a transcript via GET; debounced PUT writes back the whole
+ * message list. One row per `scopeKey` — enforced via UNIQUE.
+ */
+export const aiChats = uiLibrary.table('ai_chats', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  pipelineId: text('pipeline_id'), // null = global "new pipeline" chat
+  scopeKey: text('scope_key').notNull().unique(), // 'global' or pipeline_id
+  messages: jsonb('messages').$type<unknown[]>().notNull(),
+  modelId: text('model_id'),
+  tokensUsed: integer('tokens_used').default(0),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})

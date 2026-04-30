@@ -10,6 +10,7 @@ import { NotificationProvider } from '@/src/components/providers/NotificationPro
 import { AuthProvider } from '@/src/components/providers/AuthProvider'
 import { ObservabilityProvider } from '@/src/components/providers/ObservabilityProvider'
 import { NotificationsPanel } from '@/src/components/notifications/NotificationsPanel'
+import { AiDrawerMount } from '@/src/components/shared/AiDrawerMount'
 import Script from 'next/script'
 
 // Define the fonts
@@ -59,6 +60,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                       {children}
                       <Toaster />
                       <NotificationsPanel />
+                      <AiDrawerMount />
                     </AuthProvider>
                   </NotificationProvider>
                 </PlatformProvider>

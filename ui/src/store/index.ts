@@ -25,6 +25,7 @@ import { createDomainSlice, DomainSlice } from './domain.store'
 import { createDeploymentSlice, DeploymentSlice } from './deployment.store'
 import { createRuntimeSlice, RuntimeSlice } from './runtime.store'
 import { createObservabilitySlice, ObservabilitySlice } from './observability.store'
+import { createAiUiSlice, AiUiSlice } from './ai-ui.store'
 import Cookies from 'js-cookie'
 
 interface Store
@@ -45,7 +46,8 @@ interface Store
     DomainSlice,
     DeploymentSlice,
     RuntimeSlice,
-    ObservabilitySlice {
+    ObservabilitySlice,
+    AiUiSlice {
   // Global reset function that can reset all slices
   resetAllPipelineState: (topicCount: number, force?: boolean) => void
 
@@ -78,6 +80,7 @@ const useActualStore = create<Store>()(
       ...createDeploymentSlice(set, get, store),
       ...createRuntimeSlice(set, get, store),
       ...createObservabilitySlice(set, get, store),
+      ...createAiUiSlice(set, get, store),
 
       // Global reset function that resets all slices
       resetAllPipelineState: (topicCount: number, force = false) => {

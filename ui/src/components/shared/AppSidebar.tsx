@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import logoFullName from '../../images/logo-full-name.svg'
 import { Button } from '@/src/components/ui/button'
+import { AiToggleButton } from '@/src/modules/ai/components/AiToggleButton'
 import { PlatformBadge } from './PlatformBadge'
 import { NotificationBadge } from './NotificationBadge'
 import { UserSection } from './UserSection'
@@ -222,6 +223,11 @@ export function AppSidebar({ onCreateClick }: AppSidebarProps) {
             <PlusIcon size={16} />
             Create
           </Button>
+        </div>
+
+        {/* AI assistant toggle (Cmd+K shortcut handled inside AiToggleButton) */}
+        <div className="px-1">
+          <AiToggleButton />
         </div>
 
         <NavGroup label="" items={primaryNavItems} isActive={isActive} />

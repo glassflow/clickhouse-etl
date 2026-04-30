@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { Squares2X2Icon } from '@heroicons/react/24/outline'
+import { Squares2X2Icon, SparklesIcon } from '@heroicons/react/24/outline'
 import { structuredLogger } from '@/src/observability'
 import Join from '../../images/join.svg'
 import IngestOnly from '../../images/ingest-only.svg'
@@ -50,10 +50,11 @@ function OrSeparator() {
 // Client Component for handling searchParams
 export default function HomePageClient() {
   const store = useStore()
-  const { topicsStore, kafkaStore, joinStore, coreStore, otlpStore, resetForNewPipeline, resetAllPipelineState } = store
+  const { topicsStore, kafkaStore, joinStore, coreStore, otlpStore, aiUiStore, resetForNewPipeline, resetAllPipelineState } = store
   const analytics = useJourneyAnalytics()
   const searchParams = useSearchParams()
   const showWarning = searchParams?.get('showWarning') === 'true'
+  const openAi = searchParams?.get('openAi') === '1'
   const fromPath = searchParams?.get('from')
   const [showWarningModal, setShowWarningModal] = useState(showWarning)
   const router = useRouter()
@@ -72,6 +73,14 @@ export default function HomePageClient() {
   useEffect(() => {
     enterCreateMode()
   }, [enterCreateMode])
+
+  // Auto-open the AI drawer when arriving with `?openAi=1` (e.g. via the
+  // legacy /pipelines/create/ai redirect or the "Ask AI" CTA below).
+  useEffect(() => {
+    if (openAi) {
+      aiUiStore.openDrawer({ kind: 'global' })
+    }
+  }, [openAi, aiUiStore])
 
   // Fetch active pipelines count for platform limitation check
   useEffect(() => {
@@ -393,28 +402,36 @@ export default function HomePageClient() {
           </Card>
         </section>
 
-        {/* <OrSeparator /> */}
+        <OrSeparator />
 
-        {/* Section 3: Configure with AI assistant (placeholder for future) */}
-        {/* <section className="flex flex-col gap-3 sm:gap-4 w-full" aria-labelledby="section-ai-heading">
-          <h2 id="section-ai-heading" className="subtitle-2 text-content text-xs sm:text-sm font-medium mb-3">
-            Configure with AI assistant
-          </h2>
-          <p className="subtitle-3 text-muted-foreground text-xs sm:text-sm -mt-1">
-            Use the AI assistant to configure your pipeline
-          </p>
-          <div
-            className={cn(
-              'btn-card opacity-60 cursor-not-allowed h-16 sm:h-20 lg:h-24 w-full max-w-md',
-              'border-dashed',
-            )}
-            aria-hidden
+        {/* Section: Configure with AI assistant — opens the global drawer */}
+        <section
+          className="flex flex-col gap-3 sm:gap-4 w-full"
+          aria-labelledby="section-ai-heading"
+        >
+          <h2
+            id="section-ai-heading"
+            className="subtitle-2 text-content text-xs sm:text-sm font-medium mb-3"
           >
-            <div className="flex items-center justify-center px-4 sm:px-6 w-full h-full pointer-events-none">
-              <span className="text-sm sm:text-lg font-medium text-muted-foreground">Coming soon</span>
-            </div>
-          </div>
-        </section> */}
+            Ask AI
+          </h2>
+          <p className="subtitle-3 text-xs sm:text-sm -mt-1">
+            Describe your pipeline in natural language — the assistant drafts a
+            configuration you can review in Canvas.
+          </p>
+          <Card variant="selectable" className="h-16 sm:h-20 lg:h-24 w-full max-w-md !p-0">
+            <button
+              type="button"
+              className="flex items-center justify-center px-4 sm:px-6 w-full h-full cursor-pointer"
+              onClick={() => aiUiStore.openDrawer({ kind: 'global' })}
+            >
+              <SparklesIcon className="w-6 h-6 sm:w-9 sm:h-9 text-[var(--color-orange-300)]" />
+              <span className="ml-3 sm:ml-4 text-sm sm:text-lg font-medium text-muted-foreground">
+                Ask AI
+              </span>
+            </button>
+          </Card>
+        </section>
       </div>
 
       <InfoModal
