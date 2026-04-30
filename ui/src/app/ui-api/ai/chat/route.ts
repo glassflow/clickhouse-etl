@@ -180,8 +180,7 @@ export async function POST(req: Request): Promise<Response> {
 
         // Tool-use loop. Continues until the model returns a non-tool-use
         // stop reason. Bounded by Anthropic's own max-token + max-turn rules.
-        // eslint-disable-next-line no-constant-condition
-        while (true) {
+        for (;;) {
           const turn = client.messages.stream({
             model: body.modelId ?? 'claude-haiku-4-5',
             max_tokens: 4096,

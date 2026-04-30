@@ -41,8 +41,7 @@ export function AiChatPanel() {
       cancelled = true
     }
     // aiUiStore is stable from zustand; depending on key alone is correct.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key])
+  }, [key, aiUiStore])
 
   // Persist on transcript change (debounced 500ms).
   React.useEffect(() => {
