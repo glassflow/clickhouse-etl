@@ -1,19 +1,11 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import PipelinePage from '@/src/app/(shell)/pipelines/[id]/page'
+import PipelineOverviewPage from '@/src/app/(shell)/pipelines/[id]/overview/page'
+import PipelineRootPage from '@/src/app/(shell)/pipelines/[id]/page'
 import { createMockPipeline } from './[id]/__tests__/test-helpers'
 import { getPipeline } from '@/src/api/pipeline-api'
-import { isAuthEnabled } from '@/src/utils/auth-config.server'
 import { isMockMode } from '@/src/utils/mock-api'
-
-vi.mock('@/src/utils/auth-config.server', () => ({
-  isAuthEnabled: vi.fn(() => false),
-}))
-
-vi.mock('@/src/lib/auth0', () => ({
-  getSessionSafely: vi.fn(),
-}))
 
 vi.mock('@/src/api/pipeline-api', () => ({
   getPipeline: vi.fn(),
@@ -23,19 +15,17 @@ vi.mock('@/src/utils/mock-api', () => ({
   isMockMode: vi.fn(() => false),
 }))
 
-const mockNotFound = vi.fn(() => {
-  const err = new Error('NEXT_NOT_FOUND')
-  ;(err as unknown as { digest: string }).digest = 'not-found'
-  throw err
-})
-
 vi.mock('next/navigation', () => ({
   redirect: (url: string) => {
     const err = new Error('NEXT_REDIRECT')
     ;(err as unknown as { digest: string }).digest = `redirect:${url}`
     throw err
   },
-  notFound: (...args: unknown[]) => mockNotFound(...args),
+  notFound: () => {
+    const err = new Error('NEXT_NOT_FOUND')
+    ;(err as unknown as { digest: string }).digest = 'not-found'
+    throw err
+  },
 }))
 
 vi.mock('@/src/modules/pipelines/[id]/PipelineDetailsModule', () => ({
@@ -54,15 +44,22 @@ vi.mock('@/src/modules/pipelines/[id]/PipelineDetailsClientWrapper', () => ({
   ),
 }))
 
+describe('PipelineRootPage (app/pipelines/[id]/page) — redirects to /overview', () => {
+  const pipelineId = 'test-id-123'
+  const params = Promise.resolve({ id: pipelineId })
 
-describe('PipelinePage (app/pipelines/[id]/page)', () => {
+  it('redirects to /pipelines/<id>/overview', async () => {
+    await expect(PipelineRootPage({ params })).rejects.toThrow('NEXT_REDIRECT')
+  })
+})
+
+describe('PipelineOverviewPage (app/pipelines/[id]/overview/page)', () => {
   const pipelineId = 'test-id-123'
   const params = Promise.resolve({ id: pipelineId })
   const searchParams = Promise.resolve({})
 
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(isAuthEnabled).mockReturnValue(false)
     vi.mocked(isMockMode).mockReturnValue(false)
   })
 
@@ -70,7 +67,7 @@ describe('PipelinePage (app/pipelines/[id]/page)', () => {
     const pipeline = createMockPipeline({ pipeline_id: pipelineId, name: 'SSR Pipeline' })
     vi.mocked(getPipeline).mockResolvedValue(pipeline as Awaited<ReturnType<typeof getPipeline>>)
 
-    const Page = await PipelinePage({ params, searchParams })
+    const Page = await PipelineOverviewPage({ params, searchParams })
 
     render(Page)
 
@@ -81,7 +78,7 @@ describe('PipelinePage (app/pipelines/[id]/page)', () => {
   it('renders PipelineDetailsClientWrapper when deployment=progress', async () => {
     const searchParamsWithDeployment = Promise.resolve({ deployment: 'progress' })
 
-    const Page = await PipelinePage({ params, searchParams: searchParamsWithDeployment })
+    const Page = await PipelineOverviewPage({ params, searchParams: searchParamsWithDeployment })
 
     render(Page)
 
@@ -92,7 +89,7 @@ describe('PipelinePage (app/pipelines/[id]/page)', () => {
   it('renders PipelineDetailsClientWrapper when isMockMode is true', async () => {
     vi.mocked(isMockMode).mockReturnValue(true)
 
-    const Page = await PipelinePage({ params, searchParams })
+    const Page = await PipelineOverviewPage({ params, searchParams })
 
     render(Page)
 
@@ -100,19 +97,25 @@ describe('PipelinePage (app/pipelines/[id]/page)', () => {
     expect(screen.getByTestId('client-wrapper-id')).toHaveTextContent(pipelineId)
   })
 
-  it('calls notFound() when getPipeline returns 404', async () => {
+  it('renders PipelineDetailsClientWrapper when getPipeline throws (non-404)', async () => {
+    vi.mocked(getPipeline).mockRejectedValue(new Error('Server error'))
+
+    const Page = await PipelineOverviewPage({ params, searchParams })
+
+    render(Page)
+
+    expect(screen.getByTestId('client-wrapper')).toBeInTheDocument()
+    expect(screen.getByTestId('client-wrapper-id')).toHaveTextContent(pipelineId)
+  })
+
+  it('renders PipelineDetailsClientWrapper when getPipeline returns 404 (layout handles notFound; overview falls back)', async () => {
+    // The 404 → notFound() behavior moved to layout.tsx. The overview page itself
+    // gracefully falls back to the client wrapper for ALL errors so SSR doesn't blank.
     const err = new Error('Not found') as Error & { code?: number }
     err.code = 404
     vi.mocked(getPipeline).mockRejectedValue(err)
 
-    await expect(PipelinePage({ params, searchParams })).rejects.toThrow('NEXT_NOT_FOUND')
-    expect(mockNotFound).toHaveBeenCalled()
-  })
-
-  it('renders PipelineDetailsClientWrapper when getPipeline throws non-404 error', async () => {
-    vi.mocked(getPipeline).mockRejectedValue(new Error('Server error'))
-
-    const Page = await PipelinePage({ params, searchParams })
+    const Page = await PipelineOverviewPage({ params, searchParams })
 
     render(Page)
 

@@ -1,6 +1,8 @@
 'use client'
 
 import Image from 'next/image'
+import Link from 'next/link'
+import { Squares2X2Icon } from '@heroicons/react/24/outline'
 import { structuredLogger } from '@/src/observability'
 import Join from '../../images/join.svg'
 import IngestOnly from '../../images/ingest-only.svg'
@@ -340,6 +342,36 @@ export default function HomePageClient() {
             </div>
           </section>
         )}
+
+        <OrSeparator />
+
+        {/* Section 2b: Compose with canvas — additional creation path; wizard above stays untouched */}
+        <section
+          className="flex flex-col gap-3 sm:gap-4 w-full"
+          aria-labelledby="section-canvas-heading"
+        >
+          <h2
+            id="section-canvas-heading"
+            className="subtitle-2 text-content text-xs sm:text-sm font-medium mb-3"
+          >
+            Compose with canvas
+          </h2>
+          <p className="subtitle-3 text-xs sm:text-sm -mt-1">
+            Build complex pipelines visually with a graph editor — drop sources, transforms, and
+            sinks, then deploy.
+          </p>
+          <Card variant="selectable" className="h-16 sm:h-20 lg:h-24 w-full max-w-md !p-0">
+            <Link
+              href="/canvas"
+              className="flex items-center justify-center px-4 sm:px-6 w-full h-full cursor-pointer"
+            >
+              <Squares2X2Icon className="w-6 h-6 sm:w-9 sm:h-9 text-[var(--color-orange-300)]" />
+              <span className="ml-3 sm:ml-4 text-sm sm:text-lg font-medium text-muted-foreground">
+                Open Canvas
+              </span>
+            </Link>
+          </Card>
+        </section>
 
         <OrSeparator />
 

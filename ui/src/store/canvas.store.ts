@@ -1,7 +1,21 @@
-import { type Node, type Edge, applyNodeChanges, applyEdgeChanges, type NodeChange, type EdgeChange } from '@xyflow/react'
+import {
+  type Node,
+  type Edge,
+  applyNodeChanges,
+  applyEdgeChanges,
+  type NodeChange,
+  type EdgeChange,
+} from '@xyflow/react'
 import { StateCreator } from 'zustand'
+import { validateCanvas, type ValidationResult } from '@/src/modules/canvas/canvas-validation'
 
 export type CanvasSourceType = 'kafka' | 'otlp.logs' | 'otlp.traces' | 'otlp.metrics'
+
+export type DeployState =
+  | { status: 'idle' }
+  | { status: 'validating' }
+  | { status: 'deploying' }
+  | { status: 'error'; message: string }
 
 export interface CanvasState {
   nodes: Node[]
@@ -9,6 +23,8 @@ export interface CanvasState {
   sourceType: CanvasSourceType
   activeNodeId: string | null
   nodeConfigs: Record<string, Record<string, unknown>>
+  deployState: DeployState
+  isDirty: boolean
 }
 
 export interface CanvasActions {
@@ -20,13 +36,20 @@ export interface CanvasActions {
   setNodeConfig: (nodeId: string, config: Record<string, unknown>) => void
   setSourceType: (type: CanvasSourceType) => void
   initDefaultPipeline: (sourceType: CanvasSourceType) => void
+  validate: () => ValidationResult
+  setDeployState: (s: DeployState) => void
+  markClean: () => void
+  addNodeAt: (kind: string, position: { x: number; y: number }) => void
+  removeNode: (id: string) => void
 }
 
 export interface CanvasSlice {
   canvasStore: CanvasState & CanvasActions
 }
 
-const buildDefaultPipeline = (sourceType: CanvasSourceType): { nodes: Node[]; edges: Edge[] } => {
+const buildDefaultPipeline = (
+  sourceType: CanvasSourceType,
+): { nodes: Node[]; edges: Edge[] } => {
   const isOtlp = sourceType !== 'kafka'
   const sourceNodeType = isOtlp ? 'otlpSource' : 'kafkaSource'
 
@@ -80,15 +103,17 @@ export const createCanvasSlice: StateCreator<CanvasSlice> = (set, _get) => ({
     sourceType: 'kafka',
     activeNodeId: null,
     nodeConfigs: {},
+    deployState: { status: 'idle' },
+    isDirty: false,
 
     setNodes: (nodes) =>
       set((state) => ({
-        canvasStore: { ...state.canvasStore, nodes },
+        canvasStore: { ...state.canvasStore, nodes, isDirty: true },
       })),
 
     setEdges: (edges) =>
       set((state) => ({
-        canvasStore: { ...state.canvasStore, edges },
+        canvasStore: { ...state.canvasStore, edges, isDirty: true },
       })),
 
     applyNodeChanges: (changes) =>
@@ -96,6 +121,7 @@ export const createCanvasSlice: StateCreator<CanvasSlice> = (set, _get) => ({
         canvasStore: {
           ...state.canvasStore,
           nodes: applyNodeChanges(changes, state.canvasStore.nodes),
+          isDirty: true,
         },
       })),
 
@@ -104,6 +130,7 @@ export const createCanvasSlice: StateCreator<CanvasSlice> = (set, _get) => ({
         canvasStore: {
           ...state.canvasStore,
           edges: applyEdgeChanges(changes, state.canvasStore.edges),
+          isDirty: true,
         },
       })),
 
@@ -120,6 +147,7 @@ export const createCanvasSlice: StateCreator<CanvasSlice> = (set, _get) => ({
             ...state.canvasStore.nodeConfigs,
             [nodeId]: config,
           },
+          isDirty: true,
         },
       })),
 
@@ -138,8 +166,51 @@ export const createCanvasSlice: StateCreator<CanvasSlice> = (set, _get) => ({
           sourceType,
           activeNodeId: null,
           nodeConfigs: {},
+          isDirty: false,
         },
       }))
     },
+
+    validate: () => {
+      const s = (_get() as { canvasStore: CanvasState }).canvasStore
+      return validateCanvas(s.nodes, s.edges, s.nodeConfigs)
+    },
+
+    setDeployState: (deployState) =>
+      set((state) => ({
+        canvasStore: { ...state.canvasStore, deployState },
+      })),
+
+    markClean: () =>
+      set((state) => ({
+        canvasStore: { ...state.canvasStore, isDirty: false },
+      })),
+
+    addNodeAt: (kind, position) =>
+      set((state) => {
+        const id = `${kind}-${Date.now()}`
+        const newNode: Node = { id, type: kind, position, data: { label: kind } }
+        return {
+          canvasStore: {
+            ...state.canvasStore,
+            nodes: [...state.canvasStore.nodes, newNode],
+            isDirty: true,
+          },
+        }
+      }),
+
+    removeNode: (id) =>
+      set((state) => ({
+        canvasStore: {
+          ...state.canvasStore,
+          nodes: state.canvasStore.nodes.filter((n: Node) => n.id !== id),
+          edges: state.canvasStore.edges.filter(
+            (e: Edge) => e.source !== id && e.target !== id,
+          ),
+          activeNodeId:
+            state.canvasStore.activeNodeId === id ? null : state.canvasStore.activeNodeId,
+          isDirty: true,
+        },
+      })),
   },
 })
