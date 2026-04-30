@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -24,6 +24,8 @@ import {
 import { Input } from '@/src/components/ui/input'
 import { Button } from '@/src/components/ui/button'
 import type { KafkaConnection } from '@/src/hooks/useLibraryConnections'
+import { useKafkaConnectionUsedBy } from '@/src/hooks/useLibraryDetail'
+import { ConnectionBlastRadiusDialog } from './ConnectionBlastRadiusDialog'
 
 // ─── Validation schema ────────────────────────────────────────────────────────
 
@@ -88,7 +90,11 @@ export function KafkaConnectionFormModal({
     }
   }, [connection, form, open])
 
-  const onSubmit = async (values: FormValues) => {
+  // Used-by check for blast-radius gate (only meaningful when editing)
+  const usedBy = useKafkaConnectionUsedBy(isEdit ? (connection!.id ?? null) : null)
+  const [pendingValues, setPendingValues] = useState<FormValues | null>(null)
+
+  const persist = async (values: FormValues) => {
     const tags = values.tags
       ? values.tags
           .split(',')
@@ -131,6 +137,15 @@ export function KafkaConnectionFormModal({
         message: data.error ?? 'Failed to save connection',
       })
     }
+  }
+
+  const onSubmit = async (values: FormValues) => {
+    if (isEdit && usedBy.data.length > 0) {
+      // Defer save until user confirms in blast-radius dialog
+      setPendingValues(values)
+      return
+    }
+    await persist(values)
   }
 
   return (
@@ -246,6 +261,16 @@ export function KafkaConnectionFormModal({
           </form>
         </Form>
       </DialogContent>
+      <ConnectionBlastRadiusDialog
+        open={pendingValues !== null}
+        usedBy={usedBy.data}
+        onCancel={() => setPendingValues(null)}
+        onConfirm={async () => {
+          const values = pendingValues
+          setPendingValues(null)
+          if (values) await persist(values)
+        }}
+      />
     </Dialog>
   )
 }
