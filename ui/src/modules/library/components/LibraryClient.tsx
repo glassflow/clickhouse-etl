@@ -209,6 +209,7 @@ export function LibraryClient() {
               ) : (
                 <ConnectionsList
                   connections={kafkaItems}
+                  kind="kafka"
                   searchQuery={searchQuery}
                   onEdit={handleEditKafka}
                   onDelete={handleDeleteKafka}
@@ -225,6 +226,7 @@ export function LibraryClient() {
               ) : (
                 <ConnectionsList
                   connections={chItems}
+                  kind="clickhouse"
                   searchQuery={searchQuery}
                   onEdit={handleEditCH}
                   onDelete={handleDeleteCH}

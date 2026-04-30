@@ -1,9 +1,11 @@
 'use client'
 
+import Link from 'next/link'
 import { PencilIcon, Trash2Icon } from 'lucide-react'
 import { Card } from '@/src/components/ui/card'
 import { Badge } from '@/src/components/ui/badge'
 import { Button } from '@/src/components/ui/button'
+import { EmptyState } from '@/src/components/ui/empty-state'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -15,8 +17,11 @@ export type LibraryConnection = {
   createdAt: string
 }
 
+export type ConnectionKind = 'kafka' | 'clickhouse'
+
 type ConnectionsListProps = {
   connections: LibraryConnection[]
+  kind: ConnectionKind
   searchQuery: string
   onEdit: (id: string) => void
   onDelete: (id: string) => void
@@ -27,6 +32,7 @@ type ConnectionsListProps = {
 
 export function ConnectionsList({
   connections,
+  kind,
   searchQuery,
   onEdit,
   onDelete,
@@ -44,11 +50,10 @@ export function ConnectionsList({
 
   if (filtered.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 gap-3">
-        <p className="body-3 text-[var(--text-secondary)]">
-          {q ? `No connections match "${searchQuery}".` : emptyLabel}
-        </p>
-      </div>
+      <EmptyState
+        heading={q ? 'No matches' : 'No connections yet'}
+        copy={q ? `No connections match "${searchQuery}".` : emptyLabel}
+      />
     )
   }
 
@@ -58,6 +63,7 @@ export function ConnectionsList({
         <ConnectionCard
           key={conn.id}
           connection={conn}
+          kind={kind}
           onEdit={onEdit}
           onDelete={onDelete}
         />
@@ -70,10 +76,12 @@ export function ConnectionsList({
 
 function ConnectionCard({
   connection,
+  kind,
   onEdit,
   onDelete,
 }: {
   connection: LibraryConnection
+  kind: ConnectionKind
   onEdit: (id: string) => void
   onDelete: (id: string) => void
 }) {
@@ -83,9 +91,12 @@ function ConnectionCard({
     <Card variant="dark" className="flex flex-col gap-3 p-4">
       {/* Header row */}
       <div className="flex items-start justify-between gap-2">
-        <span className="body-2 text-[var(--text-primary)] font-medium leading-tight break-all">
+        <Link
+          href={`/library/connections/${kind}/${id}`}
+          className="body-2 text-[var(--text-primary)] font-medium leading-tight break-all hover:text-[var(--color-foreground-primary)] transition-colors"
+        >
           {name}
-        </span>
+        </Link>
         <div className="flex items-center gap-1 shrink-0">
           <Button
             variant="ghost"
