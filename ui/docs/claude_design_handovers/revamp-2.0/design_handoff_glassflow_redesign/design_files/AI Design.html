@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>GlassFlow · AI assistant exploration</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<link rel="stylesheet" href="styles/base.css"/>
+<link rel="stylesheet" href="styles/theme.css"/>
+<link rel="stylesheet" href="styles/canvas.css"/>
+<link rel="stylesheet" href="styles/pipeline-canvas.css"/>
+<link rel="stylesheet" href="styles/ai-assistant.css"/>
+<style>
+  html, body { height: 100%; }
+  body { background: #070708; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="components/shell.jsx"></script>
+<script type="text/babel" src="components/canvas-primitives.jsx"></script>
+<script type="text/babel" src="components/ai-primitives.jsx"></script>
+<script type="text/babel" src="components/ai-artboards1.jsx"></script>
+
+<script type="text/babel">
+const { DesignCanvas, DCSection, DCArtboard } = window;
+
+function App() {
+  return (
+    <DesignCanvas
+      title="GlassFlow · AI assistant"
+      subtitle="Phase 4 design exploration · the 'Ask AI' lane — conversational pipeline creation with attribution and a live preview"
+    >
+      <DCSection
+        id="entry"
+        title="1 · Entry point"
+        subtitle="AI is one of three ways to create. Shown inside the Create modal alongside Wizard and Canvas."
+      >
+        <DCArtboard id="ai-entry" label="Create modal · three lanes" width={1680} height={940}>
+          <ArtAIEntry/>
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection
+        id="empty"
+        title="2 · Empty conversation"
+        subtitle="First impression — what the user sees before typing. Keeps the chat pane wide; preview pane stays hidden until there's something to preview."
+      >
+        <DCArtboard id="ai-empty" label="First-run chat · no messages yet" width={1680} height={940}>
+          <ArtAIEmpty/>
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection
+        id="midchat"
+        title="3 · Mid-conversation"
+        subtitle="Split view: chat on the left, live canvas preview on the right. AI attributes every decision and picks library items when it can."
+      >
+        <DCArtboard id="ai-midchat" label="Chat + live canvas preview · 4 messages in" width={1680} height={1040}>
+          <ArtAIMidChat/>
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection
+        id="complete"
+        title="4 · Ready to deploy"
+        subtitle="The handoff: AI shows the full configuration as a reviewable summary with attributions, and offers deploy / open-in-canvas / save-as-draft."
+      >
+        <DCArtboard id="ai-complete" label="Completed plan · pre-flight checks + attribution summary" width={1680} height={1080}>
+          <ArtAIComplete/>
+        </DCArtboard>
+      </DCSection>
+    </DesignCanvas>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
