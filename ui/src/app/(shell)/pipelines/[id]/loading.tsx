@@ -1,10 +1,27 @@
-import { Loader2 } from 'lucide-react'
+import { Skeleton } from '@/src/components/ui/skeleton'
 
+/**
+ * Layout-shape-preserving fallback for pipeline detail tabs. The Suspense
+ * boundary set in `layout.tsx` shows this while the tab page resolves; we
+ * render placeholder blocks roughly matching the populated layout (header
+ * + content area) instead of a centered spinner so the page doesn't jump
+ * once the data lands.
+ */
 export default function PipelineDetailsLoading() {
   return (
-    <div className="flex flex-col items-center justify-center gap-3 min-h-[400px]" aria-busy="true" aria-label="Loading pipeline">
-      <Loader2 className="h-8 w-8 animate-spin text-[var(--color-foreground-primary)]" role="status" aria-hidden />
-      <p className="body-3 text-[var(--color-foreground-neutral-faded)]">Loading pipeline details…</p>
+    <div
+      className="flex flex-col gap-4 p-2"
+      aria-busy="true"
+      aria-label="Loading pipeline"
+    >
+      <div className="flex flex-col gap-2">
+        <Skeleton width={200} height={20} />
+        <Skeleton width={320} height={32} />
+      </div>
+      <div className="flex flex-col gap-3 mt-4">
+        <Skeleton width="100%" height={120} />
+        <Skeleton width="100%" height={240} />
+      </div>
     </div>
   )
 }

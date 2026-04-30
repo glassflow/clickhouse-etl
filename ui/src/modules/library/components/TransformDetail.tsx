@@ -6,6 +6,7 @@ import { Button } from '@/src/components/ui/button'
 import { Card } from '@/src/components/ui/card'
 import { Badge } from '@/src/components/ui/badge'
 import { Skeleton } from '@/src/components/ui/skeleton'
+import { EmptyState } from '@/src/components/ui/empty-state'
 import { useTransform, useTransformVersions } from '@/src/hooks/useLibraryDetail'
 import { TransformFormModal } from './TransformFormModal'
 
@@ -24,11 +25,22 @@ export function TransformDetail({ id }: TransformDetailProps) {
       </div>
     )
   }
+  if (transform.error) {
+    return (
+      <EmptyState
+        heading="Couldn't load transform"
+        copy={String(transform.error)}
+        cta={{ label: 'Retry', onClick: () => transform.mutate() }}
+      />
+    )
+  }
   if (!transform.data) {
     return (
-      <Card variant="dark" className="p-8 text-center">
-        <p className="body-3 text-[var(--text-secondary)]">Transform not found.</p>
-      </Card>
+      <EmptyState
+        heading="Transform not found"
+        copy="This transform may have been deleted or you don't have access to it."
+        cta={{ label: 'Back to Library', href: '/library' }}
+      />
     )
   }
 
@@ -69,8 +81,17 @@ export function TransformDetail({ id }: TransformDetailProps) {
         <h2 className="title-6 text-[var(--text-primary)] mb-3">Versions</h2>
         {versionsRes.isLoading ? (
           <Skeleton width="100%" height={80} />
+        ) : versionsRes.error ? (
+          <EmptyState
+            heading="Couldn't load versions"
+            copy={String(versionsRes.error)}
+            cta={{ label: 'Retry', onClick: () => versionsRes.mutate() }}
+          />
         ) : versions.length === 0 ? (
-          <p className="body-3 text-[var(--text-secondary)]">No versions published yet.</p>
+          <EmptyState
+            heading="No versions published yet"
+            copy="Save the transform to publish version 1; subsequent edits create new versions automatically."
+          />
         ) : (
           <ul className="flex flex-col divide-y divide-[var(--surface-border)] border border-[var(--surface-border)] rounded-md">
             {versions.map((v) => (

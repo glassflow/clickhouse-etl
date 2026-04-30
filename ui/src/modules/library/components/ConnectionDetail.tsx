@@ -16,6 +16,7 @@ import { Button } from '@/src/components/ui/button'
 import { Card } from '@/src/components/ui/card'
 import { Badge } from '@/src/components/ui/badge'
 import { Skeleton } from '@/src/components/ui/skeleton'
+import { EmptyState } from '@/src/components/ui/empty-state'
 import { UsedByList } from './UsedByList'
 import { KafkaConnectionFormModal } from './KafkaConnectionFormModal'
 import { ClickHouseConnectionFormModal } from './ClickHouseConnectionFormModal'
@@ -56,9 +57,11 @@ export function ConnectionDetail({ kind, id }: ConnectionDetailProps) {
 
   if (!connection) {
     return (
-      <Card variant="dark" className="p-8 text-center">
-        <p className="body-3 text-[var(--text-secondary)]">Connection not found.</p>
-      </Card>
+      <EmptyState
+        heading="Connection not found"
+        copy="This connection may have been deleted or you don't have access to it."
+        cta={{ label: 'Back to Library', href: '/library' }}
+      />
     )
   }
 
