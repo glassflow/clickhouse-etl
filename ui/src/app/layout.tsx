@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import ThemeProvider from '@/src/components/shared/ThemeProvider'
-import { Inter, Archivo } from 'next/font/google'
+import { Inter, Archivo, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
 import { AnalyticsProvider } from '@/src/components/providers/AnalyticsProvider'
 import { HealthCheckProvider } from '@/src/components/providers/HealthCheckProvider'
@@ -25,6 +25,12 @@ const archivo = Archivo({
   display: 'swap',
 })
 
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  variable: '--font-jetbrains-mono',
+  display: 'swap',
+})
+
 export const metadata: Metadata = {
   title: 'Glassflow',
   description: 'Real-time data pipeline platform',
@@ -34,7 +40,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${archivo.variable} bg-[var(--page-background)]`}
+      className={`${inter.variable} ${archivo.variable} ${jetbrainsMono.variable} bg-[var(--page-background)]`}
       suppressHydrationWarning
     >
       <head>

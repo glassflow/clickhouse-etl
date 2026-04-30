@@ -165,3 +165,25 @@
   line-height: var(--line-height-title-6);
   letter-spacing: var(--letter-spacing-title-6);
 }
+
+/* Mono — for IDs, timestamps, axis labels, code snippets, query strings */
+.mono-1 {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-body-3);
+  line-height: var(--line-height-body-3);
+  letter-spacing: -0.01em;
+}
+
+.mono-2 {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-caption-1);
+  line-height: var(--line-height-caption-1);
+  letter-spacing: -0.01em;
+}
+
+.mono-3 {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-caption-2);
+  line-height: var(--line-height-caption-2);
+  letter-spacing: -0.01em;
+}

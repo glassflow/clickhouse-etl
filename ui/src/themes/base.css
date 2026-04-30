@@ -3,6 +3,7 @@
   /* Typography */
   --font-family-title: var(--font-archivo), Inter, sans-serif;
   --font-family-body: Inter, BlinkMacSystemFont, -apple-system, Roboto, Helvetica, Arial, sans-serif;
+  --font-family-mono: var(--font-jetbrains-mono), ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   --font-weight-regular: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;

@@ -441,6 +441,38 @@
   --select-content-background-color-disabled: var(--color-gradient-grey-100);
   --select-content-foreground-color-disabled: var(--color-gray-300);
   --select-content-border-color-disabled: var(--color-gray-500);
+
+  /* ============ Observability ============ */
+  /* Chart series — used in metrics drill-down component split */
+  --obs-chart-ingestor: var(--color-blue-500);
+  --obs-chart-processor: rgb(184, 132, 232);
+  --obs-chart-sink: var(--color-green-500);
+  --obs-chart-grid: var(--color-gray-dark-700);
+  --obs-chart-axis: var(--color-gray-dark-500);
+  --obs-chart-crosshair: var(--color-gray-250);
+
+  /* Log severity — left-edge stripes on log rows */
+  --obs-severity-debug: var(--color-gray-dark-500);
+  --obs-severity-info: var(--color-blue-500);
+  --obs-severity-warn: var(--color-yellow-400);
+  --obs-severity-error: var(--color-red-500);
+  --obs-severity-fatal: var(--color-red-500);
+
+  /* Retention bar tones */
+  --obs-retention-ok: var(--color-green-500);
+  --obs-retention-warn: var(--color-yellow-400);
+  --obs-retention-critical: var(--color-red-500);
+
+  /* Drift indicator (Bridge) */
+  --obs-drift-minor: var(--color-yellow-400);
+  --obs-drift-major: var(--color-red-500);
+
+  /* Live indicator pulse */
+  --obs-live-dot: var(--color-orange-300);
+
+  /* Translucent brand-orange overlays for selection / scope-badge backgrounds */
+  --color-orange-alpha-10: rgba(232, 145, 89, 0.10);
+  --color-orange-alpha-20: rgba(232, 145, 89, 0.20);
 }
 
 /* Surface gradient border utility class */
