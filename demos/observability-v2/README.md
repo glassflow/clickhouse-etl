@@ -1,6 +1,6 @@
 # Observability Stack v2 — OTel + GlassFlow + ClickHouse + HyperDX
 
-A **traces-only** observability demo: synthetic spans flow through the OpenTelemetry Collector (masking + tail sampling), then through **GlassFlow** over OTLP (stateful **deduplication** on `span_id`), into **ClickHouse**, viewable in **HyperDX**.
+A **traces-only** observability demo: synthetic spans flow through the OpenTelemetry Collector (tail sampling), then through **GlassFlow** over OTLP (stateful **deduplication** on `span_id` + stateless **masking**), into **ClickHouse**, viewable in **HyperDX**.
 
 ```text
 TelemetryGen → OTel Collector → GlassFlow (OTLP) → ClickHouse → HyperDX
@@ -15,16 +15,16 @@ GlassFlow is installed from the published Helm chart by default: **`glassflow/gl
 | Problem | Where it is handled | What to verify |
 | --- | --- | --- |
 | Retry / duplicate spans | GlassFlow dedupe (`span_id`, 1h window) | ClickHouse: no duplicate `span_id` within the TTL window |
-| Compliance masking | OTel **transform** processor (span attributes) | `user_email` / `demo_ssn` in `SpanAttributes` are redacted |
+| Compliance masking | GlassFlow **stateless** transformation | `user_email` / `demo_ssn` in `SpanAttributes` are redacted |
 | Cost / noise (keep errors, sample OK) | OTel **tail_sampling** (~10% non-errors + all `ERROR`) | Ratio of `StatusCode` in `otel_traces` vs generator rates |
 
-GlassFlow’s filter expressions use [expr-lang](https://expr-lang.org/) without regex replace on arbitrary strings; **regex-style** redaction belongs in the collector (as here) or another edge component. See [GUIDE.md](./GUIDE.md) for details.
+The pipeline uses GlassFlow [stateless transformations](https://docs.glassflow.dev/transformations/stateless-transformation) to pass through the trace fields and write redacted demo resource/span attributes before the ClickHouse sink. See [GUIDE.md](./GUIDE.md) for details.
 
 ## Requirements
 
 | Resource | Minimum |
 |----------|---------|
-| CPU      | 4 cores |
+| CPU      | 6 cores |
 | RAM      | 8 GB    |
 | Disk     | 10 GB   |
 
@@ -68,14 +68,14 @@ then `GLASSFLOW_API_URL=http://localhost:18080 make deploy-pipelines`.
 
 | Component | Namespace | Purpose |
 | --- | --- | --- |
-| OTel Collector | `otel` | Receives OTLP, redacts attributes, tail-samples, exports traces to GlassFlow |
-| GlassFlow | `glassflow` | OTLP ingest, `span_id` deduplication, ClickHouse sink |
+| OTel Collector | `otel` | Receives OTLP, tail-samples, exports traces to GlassFlow |
+| GlassFlow | `glassflow` | OTLP ingest, `span_id` deduplication, stateless masking, ClickHouse sink |
 | HyperDX + ClickHouse | `hyperdx` | Storage and UI |
 | TelemetryGen Job | `otel` | Two containers: mostly OK spans + fewer ERROR spans, with demo PII attributes |
 
 ## GlassFlow pipeline
 
-A single pipeline **`otlp-traces`** is defined in [`glassflow-pipelines/traces-pipeline.json`](./glassflow-pipelines/traces-pipeline.json): `version` v3, `sources[]` with `otlp.traces`, a `dedup` transform on `span_id`, ClickHouse `sink.connection_params`, and sink-level `mapping`. The ClickHouse DDL is [`clickhouse/create_otel_tables.sql`](./clickhouse/create_otel_tables.sql) (`otel_traces` only) using ClickStack-compatible trace column names; `ServiceName` is derived from `ResourceAttributes['service.name']`, while `Events` and `Links` use `Array(Map(String, String))`.
+A single pipeline **`otlp-traces`** is defined in [`glassflow-pipelines/traces-pipeline.json`](./glassflow-pipelines/traces-pipeline.json): `version` v3, `sources[]` with `otlp.traces`, a `dedup` transform on `span_id`, a `stateless` transform that rewrites demo `ResourceAttributes` and `SpanAttributes` with redacted `user_email` and `demo_ssn` values, ClickHouse `sink.connection_params`, and sink-level `mapping`. The ClickHouse DDL is [`clickhouse/create_otel_tables.sql`](./clickhouse/create_otel_tables.sql) (`otel_traces` only) using ClickStack-compatible trace column names; `ServiceName` is derived from `ResourceAttributes['service.name']`, while `Events` and `Links` use `Array(Map(String, String))`.
 
 ## Documentation
 

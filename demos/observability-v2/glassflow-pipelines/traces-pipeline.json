@@ -16,6 +16,84 @@
         "key": "span_id",
         "time_window": "1h"
       }
+    },
+    {
+      "type": "stateless",
+      "source_id": "traces",
+      "config": {
+        "transforms": [
+          {
+            "expression": "start_timestamp",
+            "output_name": "start_timestamp",
+            "output_type": "string"
+          },
+          {
+            "expression": "trace_id",
+            "output_name": "trace_id",
+            "output_type": "string"
+          },
+          {
+            "expression": "span_id",
+            "output_name": "span_id",
+            "output_type": "string"
+          },
+          {
+            "expression": "parent_span_id",
+            "output_name": "parent_span_id",
+            "output_type": "string"
+          },
+          {
+            "expression": "trace_state",
+            "output_name": "trace_state",
+            "output_type": "string"
+          },
+          {
+            "expression": "name",
+            "output_name": "name",
+            "output_type": "string"
+          },
+          {
+            "expression": "kind",
+            "output_name": "kind",
+            "output_type": "string"
+          },
+          {
+            "expression": "{'service.name': resource_attributes['service.name'], 'user_email': '[REDACTED]', 'demo_ssn': '[REDACTED]'}",
+            "output_name": "resource_attributes",
+            "output_type": "map"
+          },
+          {
+            "expression": "scope_name",
+            "output_name": "scope_name",
+            "output_type": "string"
+          },
+          {
+            "expression": "scope_version",
+            "output_name": "scope_version",
+            "output_type": "string"
+          },
+          {
+            "expression": "{'user_email': '[REDACTED]', 'demo_ssn': '[REDACTED]'}",
+            "output_name": "attributes",
+            "output_type": "map"
+          },
+          {
+            "expression": "duration_ns",
+            "output_name": "duration_ns",
+            "output_type": "uint"
+          },
+          {
+            "expression": "status_code",
+            "output_name": "status_code",
+            "output_type": "string"
+          },
+          {
+            "expression": "status_message",
+            "output_name": "status_message",
+            "output_type": "string"
+          }
+        ]
+      }
     }
   ],
   "sink": {

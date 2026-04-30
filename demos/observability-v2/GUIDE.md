@@ -5,7 +5,7 @@ This walkthrough matches the **single-signal** demo: **traces** from TelemetryGe
 ## Story: three problems, three places in the pipeline
 
 1. **Duplicates (retries)** — The same logical span may be exported more than once. GlassFlow performs **stateful deduplication** on `span_id` with a **1 hour** window before writes to ClickHouse.
-2. **Compliance (PII)** — Span attributes may contain sensitive values. This demo applies **redaction in the OpenTelemetry Collector** using the **transform** processor (OTTL), so GlassFlow and ClickHouse never see raw `user_email` / `demo_ssn` values. (GlassFlow stateless transforms use expr `replace()` as **literal** substring replace, not Python `re`; edge redaction is often done here or in the SDK.)
+2. **Compliance (PII)** — Span attributes may contain sensitive values. This demo applies **masking in GlassFlow** using a **stateless** transformation, so ClickHouse never stores raw `user_email` / `demo_ssn` values.
 3. **Cost control (error-prioritized sampling)** — You want **all error traces** and a **small fraction of successful** traces. The collector runs **tail_sampling**: `status_code` policy for `ERROR`, plus **probabilistic 10%** for the remainder. GlassFlow still dedupes whatever arrives.
 
 ### Before vs After
@@ -23,7 +23,7 @@ This walkthrough matches the **single-signal** demo: **traces** from TelemetryGe
 │                                                                    │
 │  ┌────────────────────────┐   OTLP/gRPC   ┌─────────────────────┐  │
 │  │ TelemetryGen Job       │ ────────────► │ OTel Collector      │  │
-│  │ (OK + Error containers)│               │ transform +         │  │
+│  │ (OK + Error containers)│               │ memory_limiter +    │  │
 │  └────────────────────────┘               │ tail_sampling       │  │
 │                                            └──────────┬──────────┘  │
 │                                                       │ OTLP/gRPC   │
@@ -32,6 +32,7 @@ This walkthrough matches the **single-signal** demo: **traces** from TelemetryGe
 │                                            ┌─────────────────────┐  │
 │                                            │ GlassFlow           │  │
 │                                            │ dedup (span_id,1h)  │  │
+│                                            │ stateless masking   │  │
 │                                            │ → ClickHouse sink   │  │
 │                                            └──────────┬──────────┘  │
 │                                                       ▼             │
@@ -124,7 +125,7 @@ In another shell:
 make deploy-pipelines
 ```
 
-This POSTs [`glassflow-pipelines/traces-pipeline.json`](./glassflow-pipelines/traces-pipeline.json). Its shape follows the current V3 docs: root **`version`: `"v3"`**, **`sources[]`** with **`type: "otlp.traces"`** and **`source_id`**, a **`transforms[]`** dedup step on **`span_id`**, ClickHouse **`sink.connection_params`**, and sink-level **`mapping`**. OTLP sources do not define **`schema_fields`** because GlassFlow uses the predefined OTLP schema, and the API rejects source-level resource overrides for OTLP sources. `ServiceName` is derived in ClickHouse from `ResourceAttributes['service.name']` because this API exposes `resource_attributes` but rejects `resource_attributes.service.name` as a mapping field. `events` and `links` are stored as `Array(Map(String, String))` because the sink validator does not accept ClickHouse `Nested(...)` target types.
+This POSTs [`glassflow-pipelines/traces-pipeline.json`](./glassflow-pipelines/traces-pipeline.json). Its shape follows the current V3 docs: root **`version`: `"v3"`**, **`sources[]`** with **`type: "otlp.traces"`** and **`source_id`**, a **`transforms[]`** dedup step on **`span_id`**, a **`stateless`** step that passes through mapped trace fields while rewriting the demo `resource_attributes` and `attributes` maps to redacted `user_email` / `demo_ssn` values, ClickHouse **`sink.connection_params`**, and sink-level **`mapping`**. OTLP sources do not define **`schema_fields`** because GlassFlow uses the predefined OTLP schema, and the API rejects source-level resource overrides for OTLP sources. `ServiceName` is derived in ClickHouse from `ResourceAttributes['service.name']` because this API exposes `resource_attributes` but rejects `resource_attributes.service.name` as a mapping field. `events` and `links` are stored as `Array(Map(String, String))` because the sink validator does not accept ClickHouse `Nested(...)` target types.
 
 ---
 
@@ -209,12 +210,12 @@ LIMIT 20;
 
 Expect **no rows** (or only transient doubles if you query mid-batch before dedupe settles).
 
-### Masking (collector transform)
+### Masking (GlassFlow stateless transform)
 
 ```sql
 SELECT
-  countIf(mapContains(ResourceAttributes, 'user_email') AND ResourceAttributes['user_email'] = '[REDACTED]') AS redacted_email,
-  countIf(mapContains(ResourceAttributes, 'demo_ssn') AND ResourceAttributes['demo_ssn'] = '[REDACTED]') AS redacted_ssn,
+  countIf(mapContains(SpanAttributes, 'user_email') AND SpanAttributes['user_email'] = '[REDACTED]') AS redacted_email,
+  countIf(mapContains(SpanAttributes, 'demo_ssn') AND SpanAttributes['demo_ssn'] = '[REDACTED]') AS redacted_ssn,
   count() AS total
 FROM otel_traces;
 ```
@@ -242,7 +243,7 @@ make cluster-delete
 | GlassFlow pods `Pending` | Insufficient CPU/memory | Increase kind node resources |
 | No traces in HyperDX | Collector → GlassFlow connectivity | `kubectl get svc -n glassflow glassflow-otlp-receiver`; check `x-glassflow-pipeline-id: otlp-traces` in `otel-collector.values.yaml` |
 | `deploy-pipelines` fails | API not reachable, 409 conflict, or 422 validation | Run `make pf-glassflow-api` first. **HTTP 409** means **pipeline id already exists**. **HTTP 422** means the JSON did not match the API schema; confirm it uses `sources[]`, `source_id`, `transforms[]`, `sink.connection_params`, and `sink.mapping` |
-| `transform` / `tail_sampling` errors on startup | Collector contrib version / YAML | Confirm image `otel/opentelemetry-collector-contrib:0.120.0` matches the config keys in [`k8s/helm-values/otel-collector.values.yaml`](./k8s/helm-values/otel-collector.values.yaml) |
+| `tail_sampling` errors on startup | Collector contrib version / YAML | Confirm image `otel/opentelemetry-collector-contrib:0.120.0` matches the config keys in [`k8s/helm-values/otel-collector.values.yaml`](./k8s/helm-values/otel-collector.values.yaml) |
 
 ---
 
@@ -252,7 +253,7 @@ make cluster-delete
 | --- | --- | --- |
 | Broker | Kafka required | None |
 | Signals | Logs + metrics + traces (v1 scope) | **Traces only** |
-| Sampling / PII | Not highlighted | OTel **tail_sampling** + **transform** |
+| Sampling / PII | Not highlighted | OTel **tail_sampling** + GlassFlow **stateless** masking |
 | Dedupe | GlassFlow post-Kafka | GlassFlow on OTLP stream (`span_id`, 1h) |
 
 ---
@@ -260,5 +261,3 @@ make cluster-delete
 ## Filter semantics (GlassFlow)
 
 If you add a **`filter`** transform later, the expression must evaluate to a **boolean**. In the processor, records where the expression evaluates to **`true` are kept** (see `FilterProcessor` in the GlassFlow API codebase). This demo relies on **tail_sampling** in the collector instead of a GlassFlow filter because stable `trace_id` hashing is not available in vanilla expr for this path.
-
-
