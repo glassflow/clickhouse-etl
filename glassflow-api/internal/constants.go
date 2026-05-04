@@ -179,6 +179,11 @@ const (
 	IngestorMaxRetryDelay     = 5 * time.Second
 	IngestorMaxRetryWait      = 10 * time.Minute
 
+	// Backoff between iterations of processBatchAsync's internal retry loop
+	// when the batch is not yet fully published due to backpressure.
+	IngestorBackpressureInitialDelay = 50 * time.Millisecond
+	IngestorBackpressureMaxDelay     = 5 * time.Second
+
 	// Orchestrator constants
 	ShutdownTimeout = 30 * time.Second
 

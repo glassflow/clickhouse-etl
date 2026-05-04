@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"strconv"
 	"sync/atomic"
+	"time"
 
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
@@ -18,15 +19,23 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/componentsignals"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	schemav2 "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema_v2"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
 )
+
+// SchemaValidator is the subset of schema_v2.Schema that the ingestor uses.
+// Defining it as an interface here keeps the processor unit-testable without
+// a real schema registry.
+type SchemaValidator interface {
+	Validate(ctx context.Context, data []byte) (string, error)
+	Get(ctx context.Context, versionID, key string, data []byte) (any, error)
+	IsExternal() bool
+}
 
 type KafkaMsgProcessor struct {
 	pipelineID      string
 	publisher       stream.Publisher
 	dlqPublisher    stream.Publisher
-	schema          *schemav2.Schema
+	schema          SchemaValidator
 	topic           models.KafkaTopicsConfig
 	signalPublisher *componentsignals.ComponentSignalPublisher
 	log             *slog.Logger
@@ -45,7 +54,7 @@ type KafkaMsgProcessor struct {
 func NewKafkaMsgProcessor(
 	pipelineID string,
 	publisher, dlqPublisher stream.Publisher,
-	schema *schemav2.Schema,
+	schema SchemaValidator,
 	topic models.KafkaTopicsConfig,
 	runtimeCfg models.IngestorRuntimeConfig,
 	signalPublisher *componentsignals.ComponentSignalPublisher,
@@ -300,85 +309,262 @@ func (k *KafkaMsgProcessor) processBatchSync(ctx context.Context, batch []*kgo.R
 	return lastProcessed, nil
 }
 
-func (k *KafkaMsgProcessor) processBatchAsync(_ context.Context, batch []*kgo.Record) (*kgo.Record, error) {
-	ctx := context.Background()
+// pendingPublish pairs an in-flight PubAck future with the index of its
+// originating record in the original batch.
+type pendingPublish struct {
+	future jetstream.PubAckFuture
+	idx    int
+}
 
-	type futureWithRecord struct {
-		future jetstream.PubAckFuture
-		record *kgo.Record
+// asyncBatchState holds per-call state for the internal retry loop in
+// processBatchAsync. None of this state survives across calls — each batch is
+// driven to completion (or to a fatal/ctx-cancel cleanup) within one call.
+type asyncBatchState struct {
+	batch        []*kgo.Record
+	cachedMsgs   []*nats.Msg // index → prepared *nats.Msg (nil = not prepared yet OR DLQ-at-prepare)
+	completed    []bool      // index → true when record is acked or DLQ-accepted
+	backpressure []int       // indices waiting for retry (their cachedMsgs entry is non-nil)
+	dlqOnExit    []int       // indices to DLQ on cleanup (fatal classification)
+	cursor       int         // next batch index to publish from
+	lastAckedIdx int         // -1 means nothing acked yet
+	savedErr     error       // first non-backpressure error; triggers cleanup path
+	outBytes     int64
+	retries      map[int]int // hook for a future per-record retry cap (currently uncapped)
+}
+
+// processBatchAsync drives the batch to completion via an internal retry loop.
+// It returns only when:
+//   - the whole batch is done (ack, DLQ-at-prepare, or DLQ-on-cleanup): err == nil
+//   - a fatal error fires (returns lastProcessed + the error)
+//   - ctx cancels (returns lastProcessed + ctx.Err)
+//
+// Records past a backpressured record may be successfully published to NATS in
+// the same pass — they are not re-published. lastProcessed reflects the
+// highest contiguous-acked record by original batch position.
+func (k *KafkaMsgProcessor) processBatchAsync(ctx context.Context, batch []*kgo.Record) (*kgo.Record, error) {
+	if len(batch) == 0 {
+		return nil, nil
 	}
 
-	futures := make([]futureWithRecord, 0, len(batch))
-	var lastProcessed *kgo.Record
-
-	for _, msg := range batch {
-		natsMsg, err := k.prepareMesssage(ctx, msg)
-		if err != nil {
-			k.log.Error("Failed to prepare message",
-				slog.Any("error", err),
-				slog.String("topic", msg.Topic),
-				slog.Int("partition", int(msg.Partition)))
-
-			return lastProcessed, fmt.Errorf("failed to prepare message: %w", err)
-		}
-		if natsMsg == nil {
-			// Message was pushed to DLQ, count as processed
-			lastProcessed = msg
-			continue
-		}
-
-		fut, err := k.publisher.PublishNatsMsgAsync(natsMsg, k.pendingPublishesLimit)
-		if err != nil {
-			k.log.Error("Failed to publish message async to NATS",
-				slog.Any("error", err),
-				slog.String("topic", msg.Topic),
-				slog.Int("partition", int(msg.Partition)))
-
-			dlqErr := k.pushMsgToDLQ(ctx, msg.Value, err)
-			if dlqErr != nil {
-				k.log.Error("Failed to push failed message to DLQ",
-					slog.Any("error", dlqErr),
-					slog.String("topic", msg.Topic),
-					slog.Int("partition", int(msg.Partition)))
-				return lastProcessed, fmt.Errorf("failed to publish async to NATS: %w", err)
-			}
-
-			lastProcessed = msg
-			continue
-		}
-
-		futures = append(futures, futureWithRecord{future: fut, record: msg})
-		lastProcessed = msg
+	s := &asyncBatchState{
+		batch:        batch,
+		cachedMsgs:   make([]*nats.Msg, len(batch)),
+		completed:    make([]bool, len(batch)),
+		cursor:       0,
+		lastAckedIdx: -1,
+		retries:      make(map[int]int),
 	}
+	backoff := internal.IngestorBackpressureInitialDelay
 
-	// Wait for all futures to complete
-	<-k.publisher.WaitForAsyncPublishAcks()
+	var futures []pendingPublish
 
-	var outBytes int64
-	for _, f := range futures {
+	for {
+		// 1. Re-publish records sitting in the backpressure carry slice.
+		futures = k.publishBackpressureSlice(ctx, s, futures)
+
+		// 2. Continue publishing fresh records from the cursor.
+		futures = k.publishFromCursor(ctx, s, futures)
+
+		// 3. Wait for in-flight publishes to settle, then classify.
+		if len(futures) > 0 {
+			<-k.publisher.WaitForAsyncPublishAcks()
+			k.classifyFutures(s, futures)
+			futures = futures[:0]
+		}
+
+		// 4. Walk the contiguous-acked prefix forward.
+		k.advanceLastAckedIdx(s)
+
+		// 5. Termination.
+		if s.savedErr != nil {
+			return k.cleanupAndReturn(ctx, s, s.savedErr)
+		}
+		if ctx.Err() != nil {
+			return k.cleanupAndReturn(ctx, s, ctx.Err())
+		}
+		if s.cursor == len(s.batch) && len(s.backpressure) == 0 {
+			observability.RecordBytesProcessed(ctx, "ingestor", "out", s.outBytes)
+			return s.batch[len(s.batch)-1], nil
+		}
+
+		// 6. Backoff before the next iteration. Interruptible by ctx.
 		select {
-		case <-f.future.Ok():
-			// Successfully published
-			outBytes += int64(len(f.future.Msg().Data))
-			lastProcessed = f.record
-			continue
-		case err := <-f.future.Err():
-			k.log.Error("Failed to receive async publish ack",
-				slog.Any("error", err),
-				slog.String("subject", f.future.Msg().Subject))
-
-			dlqErr := k.pushMsgToDLQ(ctx, f.future.Msg().Data, err)
-			if dlqErr != nil {
-				k.log.Error("Failed to push failed message to DLQ",
-					slog.Any("error", dlqErr),
-					slog.String("subject", f.future.Msg().Subject))
-				return lastProcessed, fmt.Errorf("push mesage to the DLQ %w", dlqErr)
+		case <-ctx.Done():
+			return k.cleanupAndReturn(ctx, s, ctx.Err())
+		case <-time.After(backoff):
+			if backoff < internal.IngestorBackpressureMaxDelay {
+				backoff *= 2
+				if backoff > internal.IngestorBackpressureMaxDelay {
+					backoff = internal.IngestorBackpressureMaxDelay
+				}
 			}
-			lastProcessed = f.record
 		}
 	}
+}
 
-	observability.RecordBytesProcessed(ctx, "ingestor", "out", outBytes)
+// publishBackpressureSlice retries the records carried over from earlier
+// iterations. Each entry's *nats.Msg is already cached. Indices that hit the
+// throttle again are kept in the slice; fatal errors set savedErr and route
+// the index to dlqOnExit.
+func (k *KafkaMsgProcessor) publishBackpressureSlice(ctx context.Context, s *asyncBatchState, futures []pendingPublish) []pendingPublish {
+	if len(s.backpressure) == 0 {
+		return futures
+	}
+	carry := s.backpressure[:0]
+	for _, idx := range s.backpressure {
+		if s.savedErr != nil {
+			carry = append(carry, idx)
+			continue
+		}
+		fut, err := k.publisher.PublishNatsMsgAsync(ctx, s.cachedMsgs[idx], k.pendingPublishesLimit)
+		if err != nil {
+			if stream.IsBackpressureErr(err) {
+				carry = append(carry, idx)
+				continue
+			}
+			// Any non-backpressure error from the publish call is treated as
+			// fatal: connection closed, stream not found, ctx cancellation,
+			// or anything unclassified. The record stays around for cleanup
+			// to DLQ.
+			s.savedErr = err
+			s.dlqOnExit = append(s.dlqOnExit, idx)
+			continue
+		}
+		futures = append(futures, pendingPublish{future: fut, idx: idx})
+	}
+	s.backpressure = carry
+	return futures
+}
 
-	return lastProcessed, nil
+// publishFromCursor walks fresh records starting at the cursor. prepareMessage
+// runs at most once per record and the result is cached so retries skip
+// re-validation. The cursor only advances when a record is committed to its
+// fate (cached and queued, or DLQ'd at prepare, or routed to dlqOnExit).
+func (k *KafkaMsgProcessor) publishFromCursor(ctx context.Context, s *asyncBatchState, futures []pendingPublish) []pendingPublish {
+	for s.cursor < len(s.batch) && s.savedErr == nil {
+		rec := s.batch[s.cursor]
+
+		msg := s.cachedMsgs[s.cursor]
+		if msg == nil {
+			prepared, err := k.prepareMesssage(ctx, rec)
+			if err != nil {
+				// prepareMessage errors are fatal: schema-incompatible
+				// (signal sent), or DLQ-push failure. Record is not added to
+				// dlqOnExit because we couldn't even DLQ it; surface the
+				// error and let the runner fail the pipeline.
+				s.savedErr = err
+				return futures
+			}
+			if prepared == nil {
+				// prepareMessage already pushed to DLQ inline.
+				s.completed[s.cursor] = true
+				s.cursor++
+				continue
+			}
+			s.cachedMsgs[s.cursor] = prepared
+			msg = prepared
+		}
+
+		fut, err := k.publisher.PublishNatsMsgAsync(ctx, msg, k.pendingPublishesLimit)
+		if err != nil {
+			if stream.IsBackpressureErr(err) {
+				// Throttle hit. Don't advance cursor — try again next iter.
+				return futures
+			}
+			s.savedErr = err
+			s.dlqOnExit = append(s.dlqOnExit, s.cursor)
+			s.cursor++
+			return futures
+		}
+		futures = append(futures, pendingPublish{future: fut, idx: s.cursor})
+		s.cursor++
+	}
+	return futures
+}
+
+// classifyFutures inspects each in-flight future, marks completed indices, and
+// routes failures into either backpressure (retry) or dlqOnExit (fatal).
+func (k *KafkaMsgProcessor) classifyFutures(s *asyncBatchState, futures []pendingPublish) {
+	for _, p := range futures {
+		select {
+		case <-p.future.Ok():
+			s.completed[p.idx] = true
+			if msg := s.cachedMsgs[p.idx]; msg != nil {
+				s.outBytes += int64(len(msg.Data))
+			}
+		case err := <-p.future.Err():
+			if stream.IsBackpressureErr(err) {
+				s.backpressure = append(s.backpressure, p.idx)
+				s.retries[p.idx]++
+				continue
+			}
+			k.log.Error("Async publish ack failed",
+				slog.Any("error", err),
+				slog.String("subject", p.future.Msg().Subject))
+			if s.savedErr == nil {
+				s.savedErr = err
+			}
+			s.dlqOnExit = append(s.dlqOnExit, p.idx)
+		}
+	}
+}
+
+func (k *KafkaMsgProcessor) advanceLastAckedIdx(s *asyncBatchState) {
+	for i := s.lastAckedIdx + 1; i < len(s.batch); i++ {
+		if !s.completed[i] {
+			break
+		}
+		s.lastAckedIdx = i
+	}
+}
+
+// cleanupAndReturn DLQs every still-pending record (backpressure carry + the
+// fatal-but-DLQable set) so lastProcessed can advance through them and the
+// consumer commits a clean Kafka offset. Records past a backpressured one
+// that already PubAck'd to NATS would otherwise be re-delivered on restart
+// and republished — DLQ'ing the blocker avoids those duplicates.
+//
+// On a DLQ-push failure we stop advancing through the pending set: returning
+// partial progress is better than silently losing track of which records were
+// actually DLQ'd.
+func (k *KafkaMsgProcessor) cleanupAndReturn(ctx context.Context, s *asyncBatchState, cause error) (*kgo.Record, error) {
+	// When the cleanup is triggered by ctx cancellation, the same ctx will
+	// fail on every DLQ push. Use a fresh, bounded ctx so we can still drain.
+	dlqCtx := ctx
+	if errors.Is(cause, context.Canceled) || errors.Is(cause, context.DeadlineExceeded) {
+		var cancel context.CancelFunc
+		dlqCtx, cancel = context.WithTimeout(context.Background(), internal.DefaultComponentShutdownTimeout)
+		defer cancel()
+	}
+
+	pending := make([]int, 0, len(s.backpressure)+len(s.dlqOnExit))
+	pending = append(pending, s.backpressure...)
+	pending = append(pending, s.dlqOnExit...)
+
+	var dlqErr error
+	for _, idx := range pending {
+		if s.completed[idx] {
+			continue
+		}
+		err := k.pushMsgToDLQ(dlqCtx, s.batch[idx].Value, fmt.Errorf("ingestor cleanup: %w", cause))
+		if err != nil {
+			dlqErr = err
+			break
+		}
+		s.completed[idx] = true
+	}
+
+	k.advanceLastAckedIdx(s)
+
+	observability.RecordBytesProcessed(ctx, "ingestor", "out", s.outBytes)
+
+	var lastProcessed *kgo.Record
+	if s.lastAckedIdx >= 0 {
+		lastProcessed = s.batch[s.lastAckedIdx]
+	}
+
+	if dlqErr != nil {
+		return lastProcessed, errors.Join(cause, dlqErr)
+	}
+	return lastProcessed, cause
 }
