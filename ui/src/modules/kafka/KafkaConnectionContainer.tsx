@@ -13,6 +13,7 @@ import type { Pipeline } from '@/src/types/pipeline'
 import type { PipelineActionState } from '@/src/hooks/usePipelineActions'
 import { useKafkaConnectionSave } from '@/src/modules/kafka/hooks/useKafkaConnectionSave'
 import { SaveToLibraryPrompt } from '@/src/components/common/SaveToLibraryPrompt'
+import { getApiUrl } from '@/src/utils/mock-api'
 import { UseSavedConnectionChips } from '@/src/components/common/UseSavedConnectionChips'
 
 export interface KafkaConnectionContainerProps {
@@ -138,7 +139,7 @@ export function KafkaConnectionContainer({
 
   const handleSaveToLibrary = async (name: string) => {
     if (!connectionFormValues) throw new Error('No connection data to save')
-    const res = await fetch('/ui-api/library/connections/kafka', {
+    const res = await fetch(getApiUrl('library/connections/kafka'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, config: connectionFormValues }),

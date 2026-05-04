@@ -22,6 +22,7 @@ import {
 } from '@/src/components/ui/select'
 import type { LibraryTransform } from '@/src/hooks/useLibraryConnections'
 import { notify } from '@/src/notifications'
+import { getApiUrl } from '@/src/utils/mock-api'
 
 type TransformFormModalProps = {
   open: boolean
@@ -56,8 +57,8 @@ export function TransformFormModal({
     setSubmitting(true)
     try {
       const url = editing
-        ? `/ui-api/library/transforms/${transform!.id}`
-        : '/ui-api/library/transforms'
+        ? getApiUrl(`library/transforms/${transform!.id}`)
+        : getApiUrl('library/transforms')
       const res = await fetch(url, {
         method: editing ? 'PATCH' : 'POST',
         headers: { 'content-type': 'application/json' },

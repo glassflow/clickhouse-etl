@@ -15,6 +15,7 @@ import { Button } from '@/src/components/ui/button'
 import { Checkbox } from '@/src/components/ui/checkbox'
 import { useSchemaUsedBy } from '@/src/hooks/useLibraryDetail'
 import { notify } from '@/src/notifications'
+import { getApiUrl } from '@/src/utils/mock-api'
 
 type BulkRolloutModalProps = {
   open: boolean
@@ -60,7 +61,7 @@ export function BulkRolloutModal({
   const handleConfirm = async () => {
     setSubmitting(true)
     try {
-      const res = await fetch(`/ui-api/library/schemas/${schemaId}/rollout`, {
+      const res = await fetch(getApiUrl(`library/schemas/${schemaId}/rollout`), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ targetPipelineIds: targets, toVersion, mode }),

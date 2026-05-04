@@ -10,6 +10,7 @@ import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 import type { PipelineActionState } from '@/src/hooks/usePipelineActions'
 import { SaveToLibraryPrompt } from '@/src/components/common/SaveToLibraryPrompt'
 import { UseSavedConnectionChips } from '@/src/components/common/UseSavedConnectionChips'
+import { getApiUrl } from '@/src/utils/mock-api'
 
 export function ClickhouseConnectionContainer({
   onCompleteStep,
@@ -157,7 +158,7 @@ export function ClickhouseConnectionContainer({
 
   const handleSaveToLibrary = async (name: string) => {
     if (!connectionFormValues) throw new Error('No connection data to save')
-    const res = await fetch('/ui-api/library/connections/clickhouse', {
+    const res = await fetch(getApiUrl('library/connections/clickhouse'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, config: connectionFormValues }),

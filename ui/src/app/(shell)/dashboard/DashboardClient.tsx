@@ -76,7 +76,7 @@ export function DashboardClient({ initialPipelines, stats }: DashboardClientProp
   }, [])
 
   return (
-    <div className="flex flex-col gap-8 animate-fadeIn">
+    <div className="flex flex-col gap-8 animate-fadeIn max-w-[var(--main-container-width)] mx-auto w-full">
       {/* Page header */}
       <div className="flex flex-col gap-1">
         <h1 className="title-2 text-[var(--text-primary)]">Dashboard</h1>

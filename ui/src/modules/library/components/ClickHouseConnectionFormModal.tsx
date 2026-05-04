@@ -26,6 +26,7 @@ import { Button } from '@/src/components/ui/button'
 import type { ClickhouseConnection } from '@/src/hooks/useLibraryConnections'
 import { useClickhouseConnectionUsedBy } from '@/src/hooks/useLibraryDetail'
 import { ConnectionBlastRadiusDialog } from './ConnectionBlastRadiusDialog'
+import { getApiUrl } from '@/src/utils/mock-api'
 
 // ─── Validation schema ────────────────────────────────────────────────────────
 
@@ -132,8 +133,8 @@ export function ClickHouseConnectionFormModal({
     }
 
     const url = isEdit
-      ? `/ui-api/library/connections/clickhouse/${connection!.id}`
-      : '/ui-api/library/connections/clickhouse'
+      ? getApiUrl(`library/connections/clickhouse/${connection!.id}`)
+      : getApiUrl('library/connections/clickhouse')
     const method = isEdit ? 'PUT' : 'POST'
 
     const res = await fetch(url, {

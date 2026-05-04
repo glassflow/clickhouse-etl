@@ -15,6 +15,7 @@ import { SchemaVersionPublishModal } from './SchemaVersionPublishModal'
 import { UsedByList } from './UsedByList'
 import { BulkRolloutModal } from './BulkRolloutModal'
 import { notify } from '@/src/notifications'
+import { getApiUrl } from '@/src/utils/mock-api'
 import type { SemverBump } from '@/src/app/ui-api/library/schemas/[id]/versions/semver-util'
 import type { SchemaField } from './SchemaDiffViewer'
 
@@ -64,7 +65,7 @@ export function SchemaDetail({ id }: SchemaDetailProps) {
     changeSummary: string | undefined
     fields: SchemaField[]
   }) => {
-    const res = await fetch(`/ui-api/library/schemas/${id}/versions`, {
+    const res = await fetch(getApiUrl(`library/schemas/${id}/versions`), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(data),

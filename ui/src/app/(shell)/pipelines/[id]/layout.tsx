@@ -57,7 +57,7 @@ export default async function PipelineLayout({ children, params }: LayoutProps) 
   const driftCount = await getDriftCount(id)
 
   return (
-    <div className="flex flex-col gap-5 animate-fadeIn">
+    <div className="flex flex-col gap-5 animate-fadeIn max-w-[var(--max-content-width-2xl)] mx-auto w-full">
       {pipeline ? (
         <PipelineHeader pipeline={pipeline} driftCount={driftCount} />
       ) : (

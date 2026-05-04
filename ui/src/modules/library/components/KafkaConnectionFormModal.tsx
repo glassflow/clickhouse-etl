@@ -26,6 +26,7 @@ import { Button } from '@/src/components/ui/button'
 import type { KafkaConnection } from '@/src/hooks/useLibraryConnections'
 import { useKafkaConnectionUsedBy } from '@/src/hooks/useLibraryDetail'
 import { ConnectionBlastRadiusDialog } from './ConnectionBlastRadiusDialog'
+import { getApiUrl } from '@/src/utils/mock-api'
 
 // ─── Validation schema ────────────────────────────────────────────────────────
 
@@ -118,8 +119,8 @@ export function KafkaConnectionFormModal({
     }
 
     const url = isEdit
-      ? `/ui-api/library/connections/kafka/${connection!.id}`
-      : '/ui-api/library/connections/kafka'
+      ? getApiUrl(`library/connections/kafka/${connection!.id}`)
+      : getApiUrl('library/connections/kafka')
     const method = isEdit ? 'PUT' : 'POST'
 
     const res = await fetch(url, {

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import type { KafkaConfig } from '@/src/lib/kafka-client-interface'
 import type { ClickHouseConfig } from '@/src/app/ui-api/clickhouse/clickhouse-utils'
 import type { SchemaField } from '@/src/lib/db/schema'
+import { getApiUrl } from '@/src/utils/mock-api'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -98,19 +99,19 @@ function useLibraryFetch<T>(url: string): FetchState<T> {
 // ─── Public hooks ─────────────────────────────────────────────────────────────
 
 export function useKafkaConnections() {
-  return useLibraryFetch<KafkaConnection[]>('/ui-api/library/connections/kafka')
+  return useLibraryFetch<KafkaConnection[]>(getApiUrl('library/connections/kafka'))
 }
 
 export function useClickhouseConnections() {
-  return useLibraryFetch<ClickhouseConnection[]>('/ui-api/library/connections/clickhouse')
+  return useLibraryFetch<ClickhouseConnection[]>(getApiUrl('library/connections/clickhouse'))
 }
 
 export function useLibrarySchemas() {
-  return useLibraryFetch<LibrarySchema[]>('/ui-api/library/schemas')
+  return useLibraryFetch<LibrarySchema[]>(getApiUrl('library/schemas'))
 }
 
 export function useLibraryFolders() {
-  return useLibraryFetch<LibraryFolder[]>('/ui-api/library/folders')
+  return useLibraryFetch<LibraryFolder[]>(getApiUrl('library/folders'))
 }
 
 // ─── Transforms ──────────────────────────────────────────────────────────────
@@ -130,5 +131,5 @@ export interface LibraryTransform {
 }
 
 export function useLibraryTransforms() {
-  return useLibraryFetch<LibraryTransform[]>('/ui-api/library/transforms')
+  return useLibraryFetch<LibraryTransform[]>(getApiUrl('library/transforms'))
 }

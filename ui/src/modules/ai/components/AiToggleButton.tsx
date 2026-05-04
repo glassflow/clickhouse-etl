@@ -10,7 +10,11 @@ import { Button } from '@/src/components/ui/button'
 import { SparklesIcon } from 'lucide-react'
 import { KbdHint } from '@/src/components/ui/kbd-hint'
 
-export function AiToggleButton() {
+type AiToggleButtonProps = {
+  compact?: boolean
+}
+
+export function AiToggleButton({ compact = false }: AiToggleButtonProps) {
   const { aiUiStore } = useStore()
   const toggleDrawer = aiUiStore.toggleDrawer
 
@@ -34,6 +38,19 @@ export function AiToggleButton() {
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [toggleDrawer])
+
+  if (compact) {
+    return (
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={toggleDrawer}
+        aria-label="Open AI assistant (⌘K)"
+      >
+        <SparklesIcon size={15} />
+      </Button>
+    )
+  }
 
   return (
     <Button

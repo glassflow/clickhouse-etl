@@ -151,6 +151,8 @@
   --color-green-800: #152a1d; /* Keep existing - slightly different from Figma green-750 */
   --color-green-900: #223f2d; /* Keep existing - missing from Figma */
   --color-green-950: #1a241c; /* Keep existing - missing from Figma */
+  --color-green-alpha-10: rgba(0, 211, 112, 0.1);
+  --color-green-alpha-20: rgba(0, 211, 112, 0.2);
 
   /* Yellow/Warning Colors */
   --color-yellow-100: #fffbeb;
@@ -164,6 +166,8 @@
   --color-yellow-800: #2b2410;
   --color-yellow-900: #40371b;
   --color-yellow-950: #2a2214; /* NEW */
+  --color-yellow-alpha-10: rgba(238, 213, 138, 0.1);
+  --color-yellow-alpha-20: rgba(238, 213, 138, 0.2);
 
   /* Blue/Info Colors */
   /* Note: Figma uses "cobalt" naming, we use "blue" for consistency */
@@ -177,6 +181,8 @@
   --color-blue-800: #1e3a8a; /* Keep existing - missing from Figma */
   --color-blue-900: #1e40af; /* Keep existing - missing from Figma */
   --color-blue-950: #141d33; /* NEW */
+  --color-blue-alpha-10: rgba(36, 149, 255, 0.1);
+  --color-blue-alpha-20: rgba(36, 149, 255, 0.2);
 
   /* Slate Colors */
   --color-slate-200: #c4d1f0; /* card-feedback border hover */
@@ -409,4 +415,24 @@
   --page-border: var(--color-border-neutral);
   --page-shadow: var(--shadow-raised);
   --page-background: var(--color-background-regular);
+
+  /* Library type glyph tokens */
+  --glyph-kafka-color: var(--color-orange-300);
+  --glyph-kafka-bg: var(--color-orange-alpha-10);
+  --glyph-kafka-border: var(--color-orange-alpha-20);
+  --glyph-ch-color: #ffd54a;
+  --glyph-ch-bg: rgba(215, 174, 6, 0.12);
+  --glyph-ch-border: rgba(215, 174, 6, 0.25);
+  --glyph-schema-color: var(--color-blue-500);
+  --glyph-schema-bg: var(--color-blue-750);
+  --glyph-schema-border: var(--color-blue-alpha-20);
+  --glyph-dedup-color: #b794ff;
+  --glyph-dedup-bg: rgba(183, 148, 255, 0.1);
+  --glyph-dedup-border: rgba(183, 148, 255, 0.2);
+  --glyph-filter-color: var(--color-green-500);
+  --glyph-filter-bg: var(--color-green-750);
+  --glyph-filter-border: var(--color-green-alpha-20);
+  --glyph-transform-color: var(--color-orange-300);
+  --glyph-transform-bg: var(--color-orange-alpha-10);
+  --glyph-transform-border: var(--color-orange-alpha-20);
 }

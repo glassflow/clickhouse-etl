@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import type { LibraryTransform } from './useLibraryConnections'
+import { getApiUrl } from '@/src/utils/mock-api'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -78,7 +79,7 @@ function useDetailFetch<T>(url: string | null): FetchState<T> {
 // ─── Public hooks ─────────────────────────────────────────────────────────────
 
 export function useSchemaVersions(schemaId: string | null) {
-  const url = schemaId ? `/ui-api/library/schemas/${schemaId}/versions` : null
+  const url = schemaId ? getApiUrl(`library/schemas/${schemaId}/versions`) : null
   const result = useDetailFetch<SchemaVersion[]>(url)
   return {
     data: result.data ?? [],
@@ -89,7 +90,7 @@ export function useSchemaVersions(schemaId: string | null) {
 }
 
 export function useSchemaUsedBy(schemaId: string | null) {
-  const url = schemaId ? `/ui-api/library/schemas/${schemaId}/used-by` : null
+  const url = schemaId ? getApiUrl(`library/schemas/${schemaId}/used-by`) : null
   const result = useDetailFetch<{ usedBy: UsedByEntry[] }>(url)
   return {
     data: result.data?.usedBy ?? [],
@@ -101,7 +102,7 @@ export function useSchemaUsedBy(schemaId: string | null) {
 
 export function useKafkaConnectionUsedBy(connectionId: string | null) {
   const url = connectionId
-    ? `/ui-api/library/connections/kafka/${connectionId}/used-by`
+    ? getApiUrl(`library/connections/kafka/${connectionId}/used-by`)
     : null
   const result = useDetailFetch<{ usedBy: UsedByEntry[] }>(url)
   return {
@@ -114,7 +115,7 @@ export function useKafkaConnectionUsedBy(connectionId: string | null) {
 
 export function useClickhouseConnectionUsedBy(connectionId: string | null) {
   const url = connectionId
-    ? `/ui-api/library/connections/clickhouse/${connectionId}/used-by`
+    ? getApiUrl(`library/connections/clickhouse/${connectionId}/used-by`)
     : null
   const result = useDetailFetch<{ usedBy: UsedByEntry[] }>(url)
   return {
@@ -126,7 +127,7 @@ export function useClickhouseConnectionUsedBy(connectionId: string | null) {
 }
 
 export function useTransform(transformId: string | null) {
-  const url = transformId ? `/ui-api/library/transforms/${transformId}` : null
+  const url = transformId ? getApiUrl(`library/transforms/${transformId}`) : null
   const result = useDetailFetch<LibraryTransform>(url)
   return {
     data: result.data ?? null,
@@ -150,7 +151,7 @@ export type TransformVersion = {
 }
 
 export function useTransformVersions(transformId: string | null) {
-  const url = transformId ? `/ui-api/library/transforms/${transformId}/versions` : null
+  const url = transformId ? getApiUrl(`library/transforms/${transformId}/versions`) : null
   const result = useDetailFetch<TransformVersion[]>(url)
   return {
     data: result.data ?? [],

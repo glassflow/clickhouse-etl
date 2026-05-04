@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { getApiUrl } from '@/src/utils/mock-api'
 import { Card } from '@/src/components/ui/card'
 import { Input } from '@/src/components/ui/input'
 import { Button } from '@/src/components/ui/button'
@@ -27,8 +28,8 @@ export function LibrarySidebar() {
     const fetchConnections = async () => {
       try {
         const [kafkaRes, clickhouseRes] = await Promise.all([
-          fetch('/ui-api/library/connections/kafka'),
-          fetch('/ui-api/library/connections/clickhouse'),
+          fetch(getApiUrl('library/connections/kafka')),
+          fetch(getApiUrl('library/connections/clickhouse')),
         ])
         if (kafkaRes.ok) {
           const data = await kafkaRes.json() as LibraryConnection[]

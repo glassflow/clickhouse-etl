@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { getApiUrl } from '@/src/utils/mock-api'
 import {
   Dialog,
   DialogContent,
@@ -64,10 +65,10 @@ export function UpgradeModal({ pipelineId, link, onClose, onUpgraded }: UpgradeM
     let cancelled = false
     setDiffLoading(true)
     Promise.all([
-      fetch(`/ui-api/library/schemas/${link.resourceId}/versions/${link.pinnedVersion}`).then(
+      fetch(getApiUrl(`library/schemas/${link.resourceId}/versions/${link.pinnedVersion}`)).then(
         (r) => (r.ok ? (r.json() as Promise<SchemaVersionDetail>) : null),
       ),
-      fetch(`/ui-api/library/schemas/${link.resourceId}/versions/${link.latestVersion}`).then(
+      fetch(getApiUrl(`library/schemas/${link.resourceId}/versions/${link.latestVersion}`)).then(
         (r) => (r.ok ? (r.json() as Promise<SchemaVersionDetail>) : null),
       ),
     ])
