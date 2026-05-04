@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import { ChevronRight } from 'lucide-react'
 import { StepKeys } from '@/src/config/constants'
 import { cn } from '@/src/utils/common.client'
 import { getStepIcon, CompletedCheckIcon } from './wizard-step-icons'
@@ -141,7 +142,7 @@ export function WizardSidebar({
           >
             {step.title}
           </span>
-          {state === 'active' && <span className="text-lg text-[var(--color-foreground-primary)] font-bold">›</span>}
+          {state === 'active' && <ChevronRight className="h-4 w-4 text-[var(--color-foreground-primary)] shrink-0" />}
         </button>
       </div>
     )

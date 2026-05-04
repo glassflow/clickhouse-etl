@@ -12,300 +12,274 @@ import { formatNumber, formatBytes, formatRelativeTime } from '@/src/utils/commo
 import { notify } from '@/src/notifications'
 import { metricsMessages } from '@/src/notifications/messages'
 
-interface ClickHouseMetricsDisplay {
-  rowCount: string
-  insertRateRows: string
-  insertRateBytes: string
-  latencyP50: string
-  latencyP95: string
-  tableSize: string
-  queryMemory: string
-  activeQueries: string
-  failedInserts: string
-  lastUpdated: string
-}
+// ── Skeleton ───────────────────────────────────────────────────────────────────
 
-const defaultMetrics: ClickHouseMetricsDisplay = {
-  rowCount: '0',
-  insertRateRows: '0 rows/sec',
-  insertRateBytes: '0 B/sec',
-  latencyP50: '0ms',
-  latencyP95: '0ms',
-  tableSize: '0B',
-  queryMemory: '0B',
-  activeQueries: '0',
-  failedInserts: '0',
-  lastUpdated: '-',
-}
-
-// Helper function to convert ClickHouseTableMetrics to display format
-const convertToDisplayMetrics = (metrics: ClickHouseTableMetrics): ClickHouseMetricsDisplay => {
-  return {
-    rowCount: formatNumber(metrics.rowCount),
-    insertRateRows: `${formatNumber(Math.round(metrics.insertRateRowsPerSec))} rows/sec`,
-    insertRateBytes: `${formatBytes(Math.round(metrics.insertRateBytesPerSec))}/sec`,
-    latencyP50: `${Math.round(metrics.insertLatencyP50Ms)}ms`,
-    latencyP95: `${Math.round(metrics.insertLatencyP95Ms)}ms`,
-    tableSize: formatBytes(metrics.compressedSizeBytes),
-    queryMemory: formatBytes(metrics.memoryUsageBytes),
-    activeQueries: formatNumber(metrics.activeQueries),
-    failedInserts: formatNumber(metrics.failedInsertsLast5Min),
-    lastUpdated: formatRelativeTime(metrics.lastUpdated),
-  }
-}
-
-const renderMinimizedView = ({ rowCount, insertRateRows }: { rowCount: string; insertRateRows: string }) => {
+function SkeletonCell() {
   return (
-    <div className="flex flex-row gap-2 items-center">
-      <div className="flex flex-row gap-2 items-center">
-        <div className="w-3 h-3 rounded-full bg-blue-500" />
-        <span className="text-md font-bold">{rowCount}</span>
-        <span className="text-sm font-normal">rows</span>
-      </div>
-      <div className="flex flex-row gap-2 items-center">
-        <div className="w-3 h-3 rounded-full bg-green-500" />
-        <span className="text-md font-bold">{insertRateRows}</span>
-      </div>
+    <div className="flex flex-col gap-1.5">
+      <div className="h-4 w-10 rounded animate-pulse bg-[var(--color-background-neutral-faded)]" />
+      <div className="h-3 w-14 rounded animate-pulse bg-[var(--color-background-neutral-faded)]" />
     </div>
   )
 }
 
-const renderExpandedView = ({
-  rowCount,
-  insertRateRows,
-  insertRateBytes,
-  latencyP50,
-  latencyP95,
-  tableSize,
-  queryMemory,
-  activeQueries,
-  failedInserts,
-  lastUpdated,
-}: ClickHouseMetricsDisplay) => {
+function LoadingSkeleton() {
+  return (
+    <Card variant="outline" className="py-4 px-6 mb-4 w-full">
+      <div className="flex flex-col gap-5">
+        <div className="flex flex-row justify-between items-center">
+          <div className="flex flex-row gap-2 items-center">
+            <div className="w-5 h-5 rounded animate-pulse bg-[var(--color-background-neutral-faded)]" />
+            <div className="h-4 w-44 rounded animate-pulse bg-[var(--color-background-neutral-faded)]" />
+          </div>
+          <div className="h-3 w-20 rounded animate-pulse bg-[var(--color-background-neutral-faded)]" />
+        </div>
+        <div className="grid grid-cols-4 gap-x-6 gap-y-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <SkeletonCell key={i} />
+          ))}
+        </div>
+      </div>
+    </Card>
+  )
+}
+
+// ── Metric primitives ──────────────────────────────────────────────────────────
+
+function MetricCell({
+  value,
+  label,
+  accent,
+}: {
+  value: string
+  label: string
+  accent?: boolean
+}) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span
+        className={`title-6 tabular-nums leading-tight ${
+          accent
+            ? 'text-[var(--color-foreground-primary)]'
+            : 'text-[var(--color-foreground-neutral)]'
+        }`}
+      >
+        {value}
+      </span>
+      <span className="caption-1 text-[var(--color-foreground-neutral-faded)]">{label}</span>
+    </div>
+  )
+}
+
+function MetricSection({
+  heading,
+  children,
+}: {
+  heading: string
+  children: React.ReactNode
+}) {
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex flex-row gap-2 items-center">
-        <span className="text-md font-bold">{rowCount}</span>
-        <span className="text-sm font-normal text-[var(--color-foreground-neutral-faded)]">Total rows</span>
-      </div>
-      <div className="flex flex-row gap-2 items-center">
-        <span className="text-md font-bold">{insertRateRows}</span>
-        <span className="text-sm font-normal text-[var(--color-foreground-neutral-faded)]">Insert rate (rows)</span>
-      </div>
-      <div className="flex flex-row gap-2 items-center">
-        <span className="text-md font-bold">{insertRateBytes}</span>
-        <span className="text-sm font-normal text-[var(--color-foreground-neutral-faded)]">Insert rate (bytes)</span>
-      </div>
-      <div className="flex flex-row gap-2 items-center">
-        <span className="text-md font-bold">{latencyP50}</span>
-        <span className="text-sm font-normal text-[var(--color-foreground-neutral-faded)]">Latency P50</span>
-      </div>
-      <div className="flex flex-row gap-2 items-center">
-        <span className="text-md font-bold">{latencyP95}</span>
-        <span className="text-sm font-normal text-[var(--color-foreground-neutral-faded)]">Latency P95</span>
-      </div>
-      <div className="flex flex-row gap-2 items-center">
-        <span className="text-md font-bold">{tableSize}</span>
-        <span className="text-sm font-normal text-[var(--color-foreground-neutral-faded)]">Table size (disk)</span>
-      </div>
-      <div className="flex flex-row gap-2 items-center">
-        <span className="text-md font-bold">{queryMemory}</span>
-        <span className="text-sm font-normal text-[var(--color-foreground-neutral-faded)]">Query memory</span>
-      </div>
-      <div className="flex flex-row gap-2 items-center">
-        <span className="text-md font-bold">{activeQueries}</span>
-        <span className="text-sm font-normal text-[var(--color-foreground-neutral-faded)]">Active queries</span>
-      </div>
-      <div className="flex flex-row gap-2 items-center">
-        <span className="text-md font-bold">{failedInserts}</span>
-        <span className="text-sm font-normal text-[var(--color-foreground-neutral-faded)]">Failed inserts (5min)</span>
-      </div>
-      <div className="flex flex-row gap-2 items-center">
-        <span className="text-md font-bold">{lastUpdated}</span>
-        <span className="text-sm font-normal text-[var(--color-foreground-neutral-faded)]">Last updated</span>
-      </div>
+      <span className="caption-1 font-medium uppercase tracking-wider text-[var(--color-foreground-neutral-faded)]">
+        {heading}
+      </span>
+      <div className="grid grid-cols-2 gap-x-8 gap-y-3">{children}</div>
     </div>
   )
 }
+
+// ── Main component ─────────────────────────────────────────────────────────────
 
 function ClickHouseTableMetricsCard({ pipeline }: { pipeline: Pipeline }) {
   const [isExpanded, setIsExpanded] = useState(false)
-  const [metrics, setMetrics] = useState<ClickHouseMetricsDisplay>(defaultMetrics)
   const [rawMetrics, setRawMetrics] = useState<ClickHouseTableMetrics | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [lastUpdatedStr, setLastUpdatedStr] = useState<string>('')
+  const [isInitialLoading, setIsInitialLoading] = useState(true)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [isAnimating, setIsAnimating] = useState(false)
-  const contentRef = useRef<HTMLDivElement>(null)
-  const [contentHeight, setContentHeight] = useState(0)
-  const [currentTime, setCurrentTime] = useState(new Date())
+  // Tracks whether the next fetch is the very first one — guards full loading state
+  const isFirstFetch = useRef(true)
+  const [now, setNow] = useState(() => new Date())
 
-  // Live timer for "Last updated" - updates every second
+  // 1s tick — only drives the "updated X ago" string, not a full metric recompute
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date())
-    }, 1000)
-
-    return () => clearInterval(timer)
+    const t = setInterval(() => setNow(new Date()), 1000)
+    return () => clearInterval(t)
   }, [])
 
-  // Update display metrics when currentTime changes (for live "Last updated")
   useEffect(() => {
-    if (rawMetrics) {
-      setMetrics({
-        rowCount: formatNumber(rawMetrics.rowCount),
-        insertRateRows: `${formatNumber(Math.round(rawMetrics.insertRateRowsPerSec))} rows/sec`,
-        insertRateBytes: `${formatBytes(Math.round(rawMetrics.insertRateBytesPerSec))}/sec`,
-        latencyP50: `${Math.round(rawMetrics.insertLatencyP50Ms)}ms`,
-        latencyP95: `${Math.round(rawMetrics.insertLatencyP95Ms)}ms`,
-        tableSize: formatBytes(rawMetrics.compressedSizeBytes),
-        queryMemory: formatBytes(rawMetrics.memoryUsageBytes),
-        activeQueries: formatNumber(rawMetrics.activeQueries),
-        failedInserts: formatNumber(rawMetrics.failedInsertsLast5Min),
-        lastUpdated: formatRelativeTime(rawMetrics.lastUpdated, currentTime),
-      })
+    if (rawMetrics?.lastUpdated) {
+      setLastUpdatedStr(formatRelativeTime(rawMetrics.lastUpdated, now))
     }
-  }, [currentTime, rawMetrics])
+  // rawMetrics?.lastUpdated changes only when new data arrives; `now` ticks every second
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [now, rawMetrics?.lastUpdated])
 
+  // Polling — depends on pipeline_id so parent object reference churn does not reset the interval
   useEffect(() => {
-    const fetchClickHouseMetrics = async () => {
+    if (!pipeline?.pipeline_id) return
+
+    let cancelled = false
+    isFirstFetch.current = true
+
+    const fetchMetrics = async () => {
+      const isFirst = isFirstFetch.current
+
+      if (isFirst) {
+        setIsInitialLoading(true)
+      } else {
+        setIsRefreshing(true)
+      }
+
       try {
-        setLoading(true)
         setError(null)
-        const fetchedMetrics = await getClickHouseMetricsFromConfig(pipeline)
-        setRawMetrics(fetchedMetrics)
-        setMetrics(convertToDisplayMetrics(fetchedMetrics))
-      } catch (err: any) {
-        // Handle specific error cases
-        let errorMessage: string
-        if (err.code === 404) {
-          errorMessage = 'Pipeline not found in backend'
-        } else if (err.message?.includes('Pipeline does not have a ClickHouse sink')) {
-          errorMessage = 'Pipeline does not have a ClickHouse sink'
-        } else {
-          errorMessage = err.message || 'Failed to fetch ClickHouse metrics'
+        const data = await getClickHouseMetricsFromConfig(pipeline)
+        if (!cancelled) {
+          setRawMetrics(data)
+          setLastUpdatedStr(formatRelativeTime(data.lastUpdated, new Date()))
         }
-
-        setError(errorMessage)
-        setMetrics(defaultMetrics)
-        setRawMetrics(null)
-
-        // Show notification to user
-        notify(
-          metricsMessages.fetchClickHouseMetricsFailed(() => {
-            fetchClickHouseMetrics() // Retry
-          }),
-        )
+      } catch (err: any) {
+        if (!cancelled) {
+          let msg: string
+          if (err.code === 404) {
+            msg = 'Pipeline not found'
+          } else if (err.message?.includes('Pipeline does not have a ClickHouse sink')) {
+            msg = 'No ClickHouse sink configured'
+          } else {
+            msg = err.message || 'Failed to fetch metrics'
+          }
+          setError(msg)
+          if (isFirst) setRawMetrics(null)
+          notify(metricsMessages.fetchClickHouseMetricsFailed(() => fetchMetrics()))
+        }
       } finally {
-        setLoading(false)
+        if (!cancelled) {
+          if (isFirst) {
+            setIsInitialLoading(false)
+            isFirstFetch.current = false
+          } else {
+            setIsRefreshing(false)
+          }
+        }
       }
     }
 
-    if (pipeline?.pipeline_id) {
-      fetchClickHouseMetrics()
-
-      // Set up polling every 30 seconds
-      const interval = setInterval(fetchClickHouseMetrics, 30000)
-      return () => clearInterval(interval)
+    fetchMetrics()
+    const interval = setInterval(fetchMetrics, 30000)
+    return () => {
+      cancelled = true
+      clearInterval(interval)
     }
-  }, [pipeline])
+  // `pipeline` (full object) is captured in the closure; intentionally keyed only on id
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pipeline?.pipeline_id])
 
-  // Calculate height when content changes - use requestAnimationFrame to ensure DOM has updated
-  useEffect(() => {
-    if (contentRef.current) {
-      // Use requestAnimationFrame to wait for DOM to fully render
-      requestAnimationFrame(() => {
-        if (contentRef.current) {
-          const height = contentRef.current.scrollHeight
-          // Add small buffer to prevent cut-off
-          setContentHeight(height + 4)
-        }
-      })
-    }
-  }, [metrics, isExpanded])
+  if (isInitialLoading) return <LoadingSkeleton />
 
-  const toggleExpand = () => {
-    setIsAnimating(true)
-    setIsExpanded(!isExpanded)
-
-    // Reset animation state after animation completes
-    setTimeout(() => {
-      setIsAnimating(false)
-    }, 300) // Match animation duration
-  }
-
-  if (loading) {
-    return (
-      <Card className="card-outline py-4 px-6 mb-4 w-full">
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-row justify-between gap-2 items-center">
-            <div className="flex flex-start flex-row gap-2 items-center">
-              <Image src={ClickHouseIcon} alt="ClickHouse Table Metrics" className="w-6 h-6" width={24} height={24} />
-              <h3 className="text-lg font-bold">ClickHouse Table Metrics</h3>
-            </div>
-            <div className="w-6 h-6" /> {/* Placeholder for expand button */}
-          </div>
-          <div className="text-sm text-muted-foreground animate-pulse">Loading ClickHouse metrics...</div>
-        </div>
-      </Card>
-    )
-  }
-
-  if (error) {
-    return (
-      <Card className="card-outline py-4 px-6 mb-4 w-full">
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-row justify-between gap-2 items-center">
-            <div className="flex flex-start flex-row gap-2 items-center">
-              <Image src={ClickHouseIcon} alt="ClickHouse Table Metrics" className="w-6 h-6" width={24} height={24} />
-              <h3 className="text-lg font-bold">ClickHouse Table Metrics</h3>
-            </div>
-            <div className="w-6 h-6" /> {/* Placeholder for expand button */}
-          </div>
-          <div className="text-sm text-muted-foreground animate-fadeIn">Missing ClickHouse metrics: {error}</div>
-        </div>
-      </Card>
-    )
-  }
+  // Derived display values — computed once per rawMetrics change, not on the 1s tick
+  const m = rawMetrics
+  const rowCount = m ? formatNumber(m.rowCount) : '—'
+  const insertRateRows = m ? `${formatNumber(Math.round(m.insertRateRowsPerSec))}/s` : '—'
+  const insertRateBytes = m ? `${formatBytes(Math.round(m.insertRateBytesPerSec))}/s` : '—'
+  const latencyP50 = m ? `${Math.round(m.insertLatencyP50Ms)}ms` : '—'
+  const latencyP95 = m ? `${Math.round(m.insertLatencyP95Ms)}ms` : '—'
+  const tableSize = m ? formatBytes(m.compressedSizeBytes) : '—'
+  const memory = m ? formatBytes(m.memoryUsageBytes) : '—'
+  const activeQueries = m ? formatNumber(m.activeQueries) : '—'
+  const failedInserts = m ? formatNumber(m.failedInsertsLast5Min) : '—'
+  const merges = m ? String(m.mergesInProgress + m.mutationsInProgress) : '—'
 
   return (
-    <Card className="card-outline py-4 px-6 mb-4 w-full">
+    <Card variant="outline" className="py-4 px-6 mb-4 w-full">
       <div className="flex flex-col gap-4">
-        <div className="flex flex-row justify-between gap-2 items-center">
-          <div className="flex flex-start flex-row gap-2 items-center">
-            <Image src={ClickHouseIcon} alt="ClickHouse Table Metrics" className="w-6 h-6" width={24} height={24} />
-            <h3 className="text-lg font-bold">ClickHouse Table Metrics</h3>
-          </div>
-          <Image
-            src={isExpanded ? MinimizeIcon : MaximizeIcon}
-            alt="Toggle expand"
-            className={`w-6 h-6 cursor-pointer transition-transform duration-200 hover:scale-110 ${
-              isAnimating ? 'animate-pulse' : ''
-            }`}
-            width={24}
-            height={24}
-            onClick={toggleExpand}
-          />
-        </div>
 
-        {/* Animated content container */}
-        <div
-          className="transition-all duration-300 ease-out"
-          style={{
-            maxHeight: isExpanded ? `${contentHeight}px` : '40px', // 40px for minimized view
-            opacity: loading ? 0.7 : 1,
-            overflow: 'hidden',
-          }}
-        >
-          <div ref={contentRef} className="pb-1">
-            {isExpanded ? (
-              <div className="animate-fadeIn">{renderExpandedView(metrics)}</div>
-            ) : (
-              <div className="animate-fadeIn">
-                {renderMinimizedView({ rowCount: metrics.rowCount, insertRateRows: metrics.insertRateRows })}
-              </div>
+        {/* ── Header ───────────────────────────────────────── */}
+        <div className="flex flex-row justify-between items-center">
+          <div className="flex flex-row gap-2 items-center">
+            <Image
+              src={ClickHouseIcon}
+              alt="ClickHouse"
+              className="w-5 h-5"
+              width={20}
+              height={20}
+            />
+            <h3 className="title-6">ClickHouse Table Metrics</h3>
+          </div>
+
+          <div className="flex flex-row items-center gap-3">
+            {/* Live "updated X ago" — always visible in header, refreshes every second */}
+            <span className="caption-1 text-[var(--color-foreground-neutral-faded)]">
+              {isRefreshing ? (
+                <span className="animate-pulse text-[var(--color-foreground-primary)]">
+                  Refreshing…
+                </span>
+              ) : lastUpdatedStr ? (
+                `Updated ${lastUpdatedStr}`
+              ) : null}
+            </span>
+
+            {m && (
+              <button
+                type="button"
+                aria-label={isExpanded ? 'Collapse metrics' : 'Expand metrics'}
+                onClick={() => setIsExpanded((v) => !v)}
+                className="flex items-center justify-center cursor-pointer opacity-50 hover:opacity-100 transition-opacity duration-150"
+              >
+                <Image
+                  src={isExpanded ? MinimizeIcon : MaximizeIcon}
+                  alt=""
+                  aria-hidden="true"
+                  className="w-4 h-4"
+                  width={16}
+                  height={16}
+                />
+              </button>
             )}
           </div>
         </div>
+
+        {/* Inline error — card stays visible, no full replacement */}
+        {error && (
+          <p className="caption-1 text-[var(--color-foreground-critical)] animate-fadeIn">
+            {error}
+          </p>
+        )}
+
+        {m && (
+          <>
+            {/* ── Collapsed: two primary stats ─────────────── */}
+            <div className={`smooth-expand ${isExpanded ? 'collapsed' : 'expanded'}`}>
+              <div className="flex flex-row gap-8 pb-1">
+                <MetricCell value={rowCount} label="Total rows" accent />
+                <MetricCell value={insertRateRows} label="Insert rate" />
+              </div>
+            </div>
+
+            {/* ── Expanded: four semantic groups ───────────── */}
+            <div className={`smooth-expand ${isExpanded ? 'expanded' : 'collapsed'}`}>
+              <div className="flex flex-col gap-5 pb-1">
+                <MetricSection heading="Throughput">
+                  <MetricCell value={insertRateRows} label="Rows/sec" />
+                  <MetricCell value={insertRateBytes} label="Bytes/sec" />
+                </MetricSection>
+                <MetricSection heading="Latency">
+                  <MetricCell value={latencyP50} label="P50" />
+                  <MetricCell value={latencyP95} label="P95" />
+                </MetricSection>
+                <MetricSection heading="Scale">
+                  <MetricCell value={rowCount} label="Total rows" accent />
+                  <MetricCell value={tableSize} label="Table size" />
+                </MetricSection>
+                <MetricSection heading="Health">
+                  <MetricCell value={failedInserts} label="Failed (5 min)" />
+                  <MetricCell value={activeQueries} label="Active queries" />
+                  <MetricCell value={merges} label="Merges / mutations" />
+                  <MetricCell value={memory} label="Memory" />
+                </MetricSection>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </Card>
   )

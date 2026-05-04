@@ -1,0 +1,171 @@
+---
+title: Release Notes v3.0.0
+sidebarTitle: v3.0.0
+icon: FileIcon
+description: Release notes for the GlassFlow ClickHouse ETL v3.0.0 — Pipeline Config V3 format, OTLP source support for logs/metrics/traces, unrestricted downstream scaling, inverted filter semantics, and a v2-to-v3 migration preview API.
+---
+
+# Release Notes v3.0.0
+
+Version 3.0.0 is a **major release** introducing the **Pipeline Config V3 format**, **OTLP source support** for ingesting OpenTelemetry logs, metrics, and traces alongside Kafka, **unrestricted downstream scaling**, and **inverted filter semantics**. A new **migrate-preview API** converts existing v2 pipeline configs to the v3 format in place. This product release is accompanied by [**Helm chart v0.5.16**](https://github.com/glassflow/charts/releases/tag/glassflow-etl-0.5.16); use the v0.5.16 chart when installing or upgrading to v3.0.0. The chart bundles operator chart v0.8.0 as a dependency, so upgrading the product chart upgrades the operator automatically.
+
+This release is **not wire-compatible with v2 pipeline configs** — existing pipelines must be migrated. Review the [Migration Notes](#migration-notes) before upgrading.
+
+## What's New
+
+### 🆕 Pipeline Config V3 Format
+
+The pipeline JSON has been redesigned to support multiple sources, structured transforms, and schema-versioned field mappings ([#665](https://github.com/glassflow/clickhouse-etl/pull/665)). Full schema and examples in the [Pipeline Configuration Reference](/configuration/pipeline-config-reference).
+
+- **Multiple sources per pipeline** — `sources` is now a top-level array, each entry with its own `source_id`, connection params, topic/signal, and `schema_fields`. Replaces the single `source.topics[]` structure from v2.
+- **Transforms as a list** — `dedup`, `filter`, and stateless transforms are now unified under a `transforms[]` array, each with a `type` and per-source scope.
+- **Join left/right orientation** — Join sources are structured as `left_source` / `right_source` with explicit `output_fields`, replacing the previous positional `sources[]` with orientation strings.
+- **Sink mapping separated from schema** — `sink.mapping` carries ClickHouse `column_name` / `column_type`; source-level `schema_fields` only define the wire shape.
+- **Schema version header propagation** — The ingestor and sink pass the schema version header end-to-end, enabling schema evolution without recreating pipelines.
+
+### 📡 OTLP Source Support
+
+Pipelines can now ingest OpenTelemetry data directly — no Kafka intermediary required ([#615](https://github.com/glassflow/clickhouse-etl/pull/615), [#618](https://github.com/glassflow/clickhouse-etl/pull/618), [#624](https://github.com/glassflow/clickhouse-etl/pull/624), [#639](https://github.com/glassflow/clickhouse-etl/pull/639), [#644](https://github.com/glassflow/clickhouse-etl/pull/644)). Full docs and exporter setup in the [OTLP Source reference](/sources/otlp).
+
+- **Logs, metrics, and traces** — Dedicated source types: `otlp.logs`, `otlp.metrics`, `otlp.traces`. The OTLP receiver accepts OTLP/HTTP and OTLP/gRPC exporters.
+- **Predefined schema fields** — Each signal type ships with a canonical schema (timestamp, severity, body, resource attributes, scope name, …) so new pipelines can be created without field-by-field schema definition.
+- **OTLP-aware pipeline lifecycle** — Stopped pipelines keep their NATS streams and continue buffering incoming OTLP data for replay on resume; terminated/deleted pipelines release the streams and reject further events.
+- **Multi-pipeline routing** — A single OTLP receiver instance routes inbound requests to multiple pipelines via the `x-glassflow-pipeline-id` header.
+- **CRD + storage support** — The K8s operator CRD and Postgres schema have been extended to persist OTLP pipeline specs.
+
+### 🔁 v2 → v3 Migration Preview API
+
+A new endpoint converts a v2 pipeline config to the v3 format without touching any database state ([#684](https://github.com/glassflow/clickhouse-etl/pull/684)).
+
+- **Endpoint** — `POST /api/v1/pipeline/migrate-preview` — accepts a v2 pipeline JSON, returns the v3 equivalent. Pure transformation; no pipeline is created.
+- **Coverage** — Topics array → sources array (topic ID fallback to name), per-topic dedup/filter/stateless transforms → transforms array, join sources with left/right orientation → structured join with `output_fields`, table_mapping carried through.
+- **Intended use** — Run your existing v2 configs through this endpoint, diff the output, then apply the v3 config via `POST /api/v1/pipeline` as normal.
+
+### 📈 Unrestricted Downstream Scaling
+
+Downstream components can now have **more replicas than upstream** ([#652](https://github.com/glassflow/clickhouse-etl/pull/652)).
+
+- Ingestor, dedup, transform, filter, and sink components each scale independently, subject to topology-specific limits documented in the [Scaling Guide](/installation/kubernetes/scaling).
+- NATS subject round-robin (`PublishNatsMsgAsync`) correctly fans out across downstream replicas.
+
+### 🎯 Filter Semantics Inverted
+
+Filter expressions now **keep** messages where the expression evaluates to `true` ([#657](https://github.com/glassflow/clickhouse-etl/pull/657)).
+
+- Previously, a matching expression meant "drop this message". The new semantics match user intuition: `amount > 100` keeps high-value events.
+- **This is a breaking change.** See [Migration Notes](#migration-notes) — every existing filter expression will now produce the opposite result.
+
+### 📝 YAML Config Upload and Download
+
+The UI now accepts and emits YAML in addition to JSON for pipeline configs.
+
+- **Upload** — Paste or upload either JSON or YAML; both are parsed against the v3 schema.
+- **Download** — Export the active pipeline config in either format.
+- **Validation** — YAML goes through the same v3 validation pass as JSON.
+
+### 🖥️ UI V3 Overhaul
+
+The pipeline creation wizard has been rebuilt against the V3 pipeline format and OTLP sources.
+
+- **Source selection** — Home page lets you pick Kafka or OTLP before entering the wizard; the rest of the journey adapts to the chosen source type.
+- **OTLP wizard path** — Signal-type selection step, schema preview, filter and transformation steps adapted to OTLP schemas.
+- **Edit / view hydration** — Edit mode now correctly hydrates both Kafka and OTLP pipelines.
+- **Transformations playground** — Continues to support rapid expression iteration, now against V3 schemas.
+
+## Improvements
+
+### 🐘 PgBouncer in Helm Chart
+
+The product chart now bundles PgBouncer for Postgres connection pooling ([#634](https://github.com/glassflow/clickhouse-etl/pull/634)).
+
+- **Transaction pooling** — `postgres` pool mode with session pooling explicitly disabled where incompatible.
+- **Simple query protocol** — The glassflow-api driver switches to the simple query protocol on the PgBouncer-fronted connection to preserve compatibility with transaction pooling.
+- **Resource savings** — Reduces the Postgres connection fan-out for clusters running many pipelines.
+
+### 🗄️ Database Migration Consolidation
+
+Migrations `0004` through `0006` have been condensed into a single `pipeline_v3` revision ([#663](https://github.com/glassflow/clickhouse-etl/pull/663)).
+
+- Fresh installs run one migration instead of three.
+- **Existing v2.10.x / v2.11.x installations must upgrade via v2.11.x first** — the condensed revision replaces migrations that must have already been applied. See [Migration Notes](#migration-notes).
+
+### 📊 Observability
+
+The metrics surface has been expanded for OTLP and unified across components. Full reference: [Prometheus Metrics](/configuration/metrics).
+
+- **New — `gfm_bytes_processed_total`** — counter of bytes per component with a `direction` label (`in` / `out`). Lets you track per-stage throughput in bytes rather than just records.
+- **New — `gfm_receiver_request_count` / `gfm_receiver_request_duration_seconds`** — count and latency for the OTLP receiver, labeled by `transport` (`http` / `grpc`), `status` (`ok` / `error`), `component` (`otlp.logs` / `otlp.metrics` / `otlp.traces`), and `pipeline_id`.
+- **Unified processing duration** — `gfm_processor_duration_seconds` has been merged into `gfm_processing_duration_seconds`. A single histogram now covers every component (ingestor, sink, transform, filter, dedup) with an optional `stage` label (e.g. `dedup_filter`, `schema_mapping`, `total_preparation`).
+- **Removed — `gfm_records_processed_per_second`** — superseded by `gfm_clickhouse_records_written_per_second` for the sink and derivable via `rate()` for other components. See [Migration Notes](#migration-notes).
+- **Removed — `gfm_records_filtered_total`** — filtered counts are now reported via `gfm_processor_messages_total{status="filtered"}`. See [Migration Notes](#migration-notes).
+
+### 🔒 Security
+
+- **Cascade delete for pipeline resources** — Deleting a pipeline now cascades to its sources, sinks, and transformations via FK constraints, preventing orphaned rows ([#633](https://github.com/glassflow/clickhouse-etl/pull/633)).
+
+### 🧪 DLQ Observability
+
+- **Richer validation error messages** — Schema validation failures pushed to the DLQ now include enough detail to diagnose the offending field and expected type ([#605](https://github.com/glassflow/clickhouse-etl/pull/605)).
+- **DLQ stream name printed on startup** — Every component logs its DLQ stream name on boot, simplifying debugging ([#603](https://github.com/glassflow/clickhouse-etl/pull/603)).
+
+## 🐛 Bug Fixes
+
+- **Join zero-output regression** — Fixed a consumer filter-subject mismatch introduced in v2.11.0 that caused join pipelines to produce zero output on k8s. The join component no longer appends an incorrect wildcard suffix to the stream name when building its NATS consumer filter ([#681](https://github.com/glassflow/clickhouse-etl/pull/681)).
+- **Failed-row handling** — Rows that fail to append in the sink are now routed to the DLQ rather than discarded silently from the batch.
+
+## Migration Notes
+
+Upgrading from v2.11.x to v3.0.0 involves **two breaking changes** you must address before your pipelines will run:
+
+### 1. Pipeline Config V3 format
+
+All existing pipeline JSONs must be migrated to the v3 shape. Use the new migration endpoint:
+
+```
+POST /api/v1/pipeline/migrate-preview
+Content-Type: application/json
+
+{ <your v2 pipeline JSON> }
+```
+
+The response is the equivalent v3 JSON. No database state is touched by this endpoint — it's a pure transformation. Review the output, then apply it with `POST /api/v1/pipeline` as normal.
+
+### 2. Filter expression semantics are inverted
+
+Filters now **keep** messages where the expression is `true`. If you had `amount > 100` meaning "drop events over 100", it now means "keep events over 100" — the opposite. Review every `filter` transform in every pipeline and negate the expression if the previous behavior is the one you want. The migrate-preview endpoint does **not** rewrite filter expressions for you; this requires human judgment.
+
+### 3. Metric renames for dashboards
+
+Two Prometheus metrics have been removed; Grafana dashboards that reference them by name will render empty panels until updated:
+
+- `gfm_records_processed_per_second` → use `gfm_clickhouse_records_written_per_second` for sink throughput, or `rate(gfm_processor_messages_total[5m])` for processor throughput.
+- `gfm_records_filtered_total` → use `gfm_processor_messages_total{status="filtered"}`.
+
+`gfm_processor_duration_seconds` has also been unified into `gfm_processing_duration_seconds`; update any panels querying the old name to the new one (same bucket layout, new `component` / `stage` labels).
+
+### Upgrade path
+
+- **You must be on v2.11.x before upgrading to v3.0.0.** The DB migration consolidation in this release expects migrations up through v2.11.x to have already been applied. Upgrading directly from v2.10.x or earlier will fail the migration step.
+- **Helm chart** — use `glassflow-etl` **v0.5.16** for product v3.0.0. The operator chart (v0.8.0) is bundled as a dependency and upgraded automatically — no separate operator release needed.
+
+👉 **[Migration Guide →](/installation/migration/v3.0.0)** — Step-by-step instructions for migrating from v2.11.x to v3.0.0.
+
+### Backward compatibility
+
+- Existing v2 pipelines **will not load** on v3.0.0 without migration.
+- Previously-ingested data in ClickHouse is unaffected.
+- Pipeline history events from earlier versions remain readable.
+
+## Try It Out
+
+1. **Upgrade via Helm** — Deploy v3.0.0 using the [Kubernetes Helm charts](/installation/kubernetes) at chart version `v0.5.16`. Ensure your existing cluster is on v2.11.x first.
+2. **Convert your existing configs** — Run `POST /api/v1/pipeline/migrate-preview` for each v2 pipeline JSON, review the output, then re-create the pipelines with `POST /api/v1/pipeline`.
+3. **Review filters** — Audit every `filter` expression and invert it if the old "drop matching" behavior was intended.
+4. **Try OTLP** — Create a new pipeline with `sources[0].type = "otlp.logs"` / `"otlp.metrics"` / `"otlp.traces"`, and point an OpenTelemetry exporter at the GlassFlow OTLP receiver endpoint with the `x-glassflow-pipeline-id` header.
+5. **Scale downstream components** — With the new V3 resources format, set distinct `replicas` on ingestor, dedup, transform, and sink to tune throughput independently.
+
+## Full Changelog
+
+For a complete list of all changes in v3.0.0, see the [GitHub release v3.0.0](https://github.com/glassflow/clickhouse-etl/releases/tag/v3.0.0).
+
+*GlassFlow v3.0.0 unifies Kafka and OpenTelemetry sources under a single pipeline model and sets the foundation for schema-versioned ETL at scale.*

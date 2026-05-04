@@ -93,8 +93,8 @@ export function UploadPipelineModal({
         <DialogHeader>
           <DialogTitle className="modal-title flex items-center gap-2 mb-4">Import Pipeline Configuration</DialogTitle>
           <DialogDescription className="modal-description mb-4">
-            Upload a pipeline configuration JSON file or paste the configuration directly. The configuration will be
-            validated and used to pre-fill the pipeline wizard.
+            Upload a pipeline configuration file (JSON or YAML) or paste the configuration directly. The configuration
+            will be validated and used to pre-fill the pipeline wizard.
           </DialogDescription>
         </DialogHeader>
 
@@ -148,6 +148,13 @@ export function UploadPipelineModal({
                     <dd className="text-[var(--text-primary)]">
                       {validationResult.topicCount === 2 ? 'Multi-Topic (Join)' : 'Single-Topic'}
                     </dd>
+
+                    {validationResult.detectedFormat && (
+                      <>
+                        <dt className="text-[var(--text-secondary)]">Format:</dt>
+                        <dd className="text-[var(--text-primary)] font-mono uppercase">{validationResult.detectedFormat}</dd>
+                      </>
+                    )}
                   </dl>
 
                   {/* Warnings */}

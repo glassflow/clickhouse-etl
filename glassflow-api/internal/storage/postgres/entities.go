@@ -506,7 +506,7 @@ func (s *PostgresStorage) deleteUnusedTransformations(
 
 	_, err := tx.Exec(ctx, `
 		DELETE FROM transformations WHERE id = ANY($1)
-	`, idsToDelete)
+	`, uuidsToArrayArg(idsToDelete))
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to delete unused transformations",
 			slog.String("pipeline_id", pipelineID),
@@ -609,8 +609,8 @@ func (s *PostgresStorage) getTransformations(ctx context.Context, transIDs []uui
 		return make(map[string]Transformation), nil
 	}
 
-	query := `SELECT type, config FROM transformations WHERE id = ANY($1)`
-	rows, err := s.pool.Query(ctx, query, transIDs)
+	query := `SELECT id, type, config FROM transformations WHERE id = ANY($1)`
+	rows, err := s.pool.Query(ctx, query, uuidsToArrayArg(transIDs))
 	if err != nil {
 		return nil, fmt.Errorf("query transformations: %w", err)
 	}
@@ -618,13 +618,14 @@ func (s *PostgresStorage) getTransformations(ctx context.Context, transIDs []uui
 
 	transformations := make(map[string]Transformation)
 	for rows.Next() {
-		var transType string
+		var transID, transType string
 		var configJSON []byte
-		if err := rows.Scan(&transType, &configJSON); err != nil {
+		if err := rows.Scan(&transID, &transType, &configJSON); err != nil {
 			return nil, fmt.Errorf("scan transformation: %w", err)
 		}
 
 		transformations[transType] = Transformation{
+			ID:     transID,
 			Type:   transType,
 			Config: configJSON,
 		}

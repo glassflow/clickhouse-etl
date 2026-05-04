@@ -5,6 +5,7 @@ import { structuredLogger } from '@/src/observability'
 import { InternalPipelineConfig } from '@/src/types/pipeline'
 import { getPipelineAdapter } from '@/src/modules/pipeline-adapters/factory'
 import { LATEST_PIPELINE_VERSION } from '@/src/config/pipeline-versions'
+import { isOtlpSource } from '@/src/config/source-types'
 
 const encodeBase64 = (password: string) => {
   return password ? Buffer.from(password).toString('base64') : undefined
@@ -100,6 +101,8 @@ export const buildInternalPipelineConfig = ({
   deduplicationStore,
   filterStore,
   transformationStore,
+  coreStore,
+  otlpStore,
 }: {
   pipelineId: string
   pipelineName: string
@@ -113,6 +116,8 @@ export const buildInternalPipelineConfig = ({
   deduplicationStore: any
   filterStore?: any
   transformationStore?: any
+  coreStore?: any
+  otlpStore?: any
 }): InternalPipelineConfig => {
   // Generate a new pipeline ID if one doesn't exist
   let finalPipelineId = pipelineId
@@ -120,6 +125,9 @@ export const buildInternalPipelineConfig = ({
     finalPipelineId = uuidv4()
     setPipelineId(finalPipelineId)
   }
+
+  // Detect OTLP source — no Kafka topics, different source structure
+  const isOtlp = !!(coreStore?.sourceType && isOtlpSource(coreStore.sourceType))
 
   const mapping = clickhouseDestination?.mapping || []
 
@@ -168,6 +176,12 @@ export const buildInternalPipelineConfig = ({
         type: 'json',
         fields: schemaFields,
       },
+      // Carry over schema source fields so the V3 adapter can correctly generate schema_version
+      // and schema_registry per topic. Without these, isRegistrySchema() returns false and
+      // schema_version falls back to '1' (bare version, rejected by backend).
+      schemaSource: topic.schemaSource,
+      schemaRegistryVersion: topic.schemaRegistryVersion,
+      schemaRegistrySubject: topic.schemaRegistrySubject,
       deduplication:
         // Enable deduplication if:
         // 1. Deduplication is properly configured (enabled and has a key), AND
@@ -237,6 +251,11 @@ export const buildInternalPipelineConfig = ({
             }
           }
 
+          // For OTLP: no Kafka topics so selectedTopics[0] is undefined; fall back to the OTLP source id
+          if (isOtlp && !sourceId) {
+            sourceId = otlpStore?.sourceId || 'source'
+          }
+
           return {
             source_id: sourceId,
             field_name: mapping.eventField,
@@ -245,79 +264,6 @@ export const buildInternalPipelineConfig = ({
           }
         })
     : []
-
-  // Collect all field_names that are already in the mapping
-  const mappedFieldNames = new Set(tableMappings.map((m: any) => `${m.source_id}:${m.field_name}`))
-
-  // Add deduplication keys to mapping if they're not already included
-  // These entries have empty column_name and column_type because they're not mapped to ClickHouse,
-  // but the backend needs to know they're part of the Kafka schema
-  selectedTopics.forEach((topic: any, topicIndex: number) => {
-    const deduplicationConfig = deduplicationStore?.getDeduplication?.(topicIndex)
-    if (deduplicationConfig?.enabled && deduplicationConfig?.key) {
-      const dedupKey = deduplicationConfig.key
-      const topicName = topic.name
-      const fieldKey = `${topicName}:${dedupKey}`
-
-      // Only add if not already in the mapping
-      if (!mappedFieldNames.has(fieldKey)) {
-        tableMappings.push({
-          source_id: topicName,
-          field_name: dedupKey,
-          column_name: '',
-          column_type: '',
-        })
-        mappedFieldNames.add(fieldKey)
-      }
-    }
-  })
-
-  // Add join keys to mapping if they're not already included
-  // These entries have empty column_name and column_type because they're not mapped to ClickHouse,
-  // but the backend needs to know they're part of the Kafka schema
-  if (joinStore?.enabled && joinStore?.streams?.length > 0) {
-    joinStore.streams.forEach((stream: any) => {
-      if (stream.joinKey) {
-        const topicName = stream.topicName || stream.streamId
-        const fieldKey = `${topicName}:${stream.joinKey}`
-
-        // Only add if not already in the mapping
-        if (!mappedFieldNames.has(fieldKey)) {
-          tableMappings.push({
-            source_id: topicName,
-            field_name: stream.joinKey,
-            column_name: '',
-            column_type: '',
-          })
-          mappedFieldNames.add(fieldKey)
-        }
-      }
-    })
-  }
-
-  // Add filter fields to mapping if they're not already included
-  // These entries have empty column_name and column_type because they're not mapped to ClickHouse,
-  // but the backend needs to know they're part of the Kafka schema
-  if (filterStore?.filterConfig?.enabled && filterStore?.filterConfig?.root) {
-    const filterFields = extractFilterFields(filterStore.filterConfig.root)
-    // For single-topic pipelines, use the first topic as the source
-    const topicName = selectedTopics[0]?.name
-
-    filterFields.forEach((fieldName: string) => {
-      const fieldKey = `${topicName}:${fieldName}`
-
-      // Only add if not already in the mapping
-      if (!mappedFieldNames.has(fieldKey)) {
-        tableMappings.push({
-          source_id: topicName,
-          field_name: fieldName,
-          column_name: '',
-          column_type: '',
-        })
-        mappedFieldNames.add(fieldKey)
-      }
-    })
-  }
 
   // Normalize Kafka broker hosts when running inside Docker
   const runtimeEnv = getRuntimeEnv()
@@ -432,49 +378,64 @@ export const buildInternalPipelineConfig = ({
   const config: InternalPipelineConfig = {
     pipeline_id: finalPipelineId,
     name: pipelineName,
-    source: {
-      type: 'kafka',
-      provider: 'custom', // Or determine from connection details
-      connection_params: connectionParams as KafkaConnectionParams,
-      topics: topicsConfig,
-    },
-    // Include join configuration if multiple topics
-    ...(topicsConfig.length > 1
+    source: isOtlp
       ? {
-          join: {
-            enabled: joinStore.enabled,
-            type: joinStore.type || 'temporal',
-            sources:
-              joinStore.streams.length > 0
-                ? joinStore.streams.map((stream: any) => ({
-                    // source_id: stream.streamId,
-                    source_id: stream.topicName,
-                    join_key: stream.joinKey,
-                    time_window: `${stream.joinTimeWindowValue}${stream.joinTimeWindowUnit.charAt(0)}`,
-                    orientation: stream.orientation,
-                  }))
-                : topicsConfig.map((topic: any, index: number) => {
-                    // Get deduplication config for join key
-                    const deduplicationConfig = deduplicationStore?.getDeduplication?.(index) || null
-                    const joinKey = deduplicationConfig?.key || ''
-
-                    return {
-                      source_id: topic.name,
-                      join_key: joinKey,
-                      time_window: '1h',
-                      orientation: index === 0 ? 'left' : 'right',
-                    }
-                  }),
-          },
+          // OTLP source: no Kafka topics or connection params
+          type: otlpStore?.signalType || coreStore?.sourceType || 'otlp',
+          id: otlpStore?.sourceId || '',
+          ...(otlpStore?.deduplication?.enabled
+            ? {
+                deduplication: {
+                  enabled: true,
+                  key: otlpStore.deduplication.key,
+                  time_window: otlpStore.deduplication.time_window,
+                },
+              }
+            : {}),
         }
       : {
-          // Add default empty join object to satisfy type
-          join: {
-            type: '',
-            enabled: false,
-            sources: [],
-          },
-        }),
+          type: 'kafka',
+          provider: 'custom', // Or determine from connection details
+          connection_params: connectionParams as KafkaConnectionParams,
+          ...(kafkaStore?.schemaRegistry?.enabled
+            ? {
+                schemaRegistry: {
+                  url: kafkaStore.schemaRegistry.url ?? '',
+                  authMethod: kafkaStore.schemaRegistry.authMethod,
+                  apiKey: kafkaStore.schemaRegistry.apiKey ?? '',
+                  apiSecret: kafkaStore.schemaRegistry.apiSecret ?? '',
+                  username: kafkaStore.schemaRegistry.username ?? '',
+                  password: kafkaStore.schemaRegistry.password ?? '',
+                },
+              }
+            : {}),
+          topics: topicsConfig,
+        },
+    // Include join configuration for Kafka multi-topic pipelines; disabled join for all others
+    join: isOtlp || topicsConfig.length <= 1
+      ? { enabled: false }
+      : {
+          enabled: joinStore.enabled,
+          type: joinStore.type || 'temporal',
+          sources:
+            joinStore.streams.length > 0
+              ? joinStore.streams.map((stream: any) => ({
+                  source_id: stream.topicName,
+                  join_key: stream.joinKey,
+                  time_window: `${stream.joinTimeWindowValue}${stream.joinTimeWindowUnit.charAt(0)}`,
+                  orientation: stream.orientation,
+                }))
+              : topicsConfig.map((topic: any, index: number) => {
+                  const deduplicationConfig = deduplicationStore?.getDeduplication?.(index) || null
+                  const joinKey = deduplicationConfig?.key || ''
+                  return {
+                    source_id: topic.name,
+                    join_key: joinKey,
+                    time_window: '1h',
+                    orientation: index === 0 ? 'left' : 'right',
+                  }
+                }),
+        },
     sink: {
       type: 'clickhouse',
       provider: 'custom', // Or determine from connection details
@@ -487,7 +448,7 @@ export const buildInternalPipelineConfig = ({
             http_port: clickhouseConnection.directConnection?.httpPort?.toString() || undefined,
             database: clickhouseDestination?.database,
             username: clickhouseConnection.directConnection?.username,
-            password: encodeBase64(clickhouseConnection.directConnection?.password),
+            password: clickhouseConnection.directConnection?.password,
             secure: clickhouseConnection.directConnection?.useSSL || false,
             skip_certificate_verification: clickhouseConnection.directConnection?.skipCertificateVerification || false,
             max_batch_size: clickhouseDestination?.maxBatchSize || 1000,
@@ -524,14 +485,14 @@ export const buildInternalPipelineConfig = ({
           }
         : {}),
     } as any, // Type assertion to bypass strict checks on conditional properties for now
-    // Include filter configuration only for single-topic pipelines
-    // Filter is not available for multi-topic journeys
-    ...(topicsConfig.length === 1
+    // Include filter configuration for single-topic and OTLP pipelines
+    // Filter is not available for multi-topic (join) journeys
+    ...(topicsConfig.length === 1 || isOtlp
       ? filterStore?.filterConfig?.enabled && filterStore?.expressionString
         ? {
             filter: {
               enabled: true,
-              expression: filterStore.expressionString,
+              expression: `!(${filterStore.expressionString})`,
             },
           }
         : {
@@ -541,9 +502,9 @@ export const buildInternalPipelineConfig = ({
             },
           }
       : {}),
-    // Include transformation configuration only for single-topic pipelines
-    // Transformation is not available for multi-topic journeys
-    ...(topicsConfig.length === 1
+    // Include transformation configuration for single-topic and OTLP pipelines
+    // Transformation is not available for multi-topic (join) journeys
+    ...(topicsConfig.length === 1 || isOtlp
       ? transformationStore?.transformationConfig?.enabled &&
         transformationStore?.transformationConfig?.fields?.length > 0
         ? {
@@ -600,7 +561,9 @@ export const generateApiConfig = ({
   filterStore,
   transformationStore,
   pipeline_resources,
-  version, // New optional parameter
+  version: _version, // ignored — generation always uses LATEST_PIPELINE_VERSION
+  coreStore,
+  otlpStore,
 }: {
   pipelineId: string
   pipelineName: string
@@ -616,6 +579,8 @@ export const generateApiConfig = ({
   transformationStore?: any
   pipeline_resources?: import('@/src/types/pipeline').PipelineResources | null
   version?: string
+  coreStore?: any
+  otlpStore?: any
 }) => {
   try {
     // 1. Build the internal configuration structure
@@ -632,19 +597,32 @@ export const generateApiConfig = ({
       deduplicationStore,
       filterStore,
       transformationStore,
+      coreStore,
+      otlpStore,
     })
 
-    // 2. Get the appropriate adapter
-    // Use provided version or fallback to LATEST_PIPELINE_VERSION if not provided
-    // If version is passed (e.g. from existing config), we respect it to avoid implicit upgrades
-    const targetVersion = version || LATEST_PIPELINE_VERSION
-    const adapter = getPipelineAdapter(targetVersion)
+    // 2. Always generate in the latest format — the internal config shape is version-agnostic
+    //    so any adapter can hydrate into it, but generation always targets the current backend API.
+    const adapter = getPipelineAdapter(LATEST_PIPELINE_VERSION)
 
-    // 3. Generate the external API configuration
-    const apiConfig = adapter.generate(internalConfig)
+    // 3. Enrich internalConfig with pipeline_resources so the V3 adapter can translate
+    // them into resources.sources[] / resources.transform[] in the output.
+    // For legacy adapters (V1/V2) that don't handle this translation, we fall back to
+    // merging pipeline_resources as a top-level key after generation.
+    const enrichedConfig =
+      pipeline_resources && typeof pipeline_resources === 'object' && Object.keys(pipeline_resources).length > 0
+        ? { ...internalConfig, pipeline_resources }
+        : internalConfig
 
-    // 4. Merge pipeline_resources from Resources step when present
-    if (pipeline_resources && typeof pipeline_resources === 'object' && Object.keys(pipeline_resources).length > 0) {
+    // 4. Generate the external API configuration
+    const apiConfig = adapter.generate(enrichedConfig)
+
+    // 5. Legacy fallback: V1/V2 adapters don't translate pipeline_resources internally
+    if (
+      pipeline_resources &&
+      Object.keys(pipeline_resources).length > 0 &&
+      adapter.version !== 'v3'
+    ) {
       return { ...apiConfig, pipeline_resources }
     }
     return apiConfig
@@ -780,6 +758,9 @@ export const TYPE_COMPATIBILITY_MAP: Record<string, string[]> = {
   float: ['Float32', 'Float64', 'Decimal', 'DateTime', 'DateTime64'],
   bytes: ['String'],
   array: ['Array', 'String'],
+  // map type: primary target is Map(String, String) for create-table path;
+  // String is allowed as a fallback for JSON-serialised storage
+  map: ['Map(String, String)', 'String'],
 
   // Backward compatibility: legacy precision types map to same ClickHouse types
   int8: ['Int8', 'Int16', 'Int32', 'Int64'],
@@ -825,6 +806,19 @@ export function isTypeCompatible(sourceType: string | undefined, clickhouseType:
   if (clickhouseType.startsWith('Array(')) {
     const innerType = clickhouseType.substring(6, clickhouseType.length - 1)
     return sourceType === 'array' || isTypeCompatible(sourceType, innerType)
+  }
+
+  // Handle Map types in ClickHouse (e.g. Map(String, String), Map(LowCardinality(String), String))
+  // Must be handled explicitly: the generic substring check below would wrongly match 'String'
+  // inside a Map type's parameter list against non-map source types.
+  if (clickhouseType.startsWith('Map(')) {
+    return sourceType === 'map'
+  }
+
+  // Handle LowCardinality wrapper — strip it and recurse so LowCardinality(String) matches 'string'
+  if (clickhouseType.startsWith('LowCardinality(')) {
+    const innerType = clickhouseType.substring(15, clickhouseType.length - 1)
+    return isTypeCompatible(sourceType, innerType)
   }
 
   // Check the compatibility map

@@ -13,8 +13,11 @@ import { isPreviewModeEnabled } from '@/src/config/feature-flags'
 import { generateApiConfig, getMappingType } from '@/src/modules/clickhouse/utils'
 import { structuredLogger } from '@/src/observability'
 import { LATEST_PIPELINE_VERSION } from '@/src/config/pipeline-versions'
+import { downloadFailedConfig } from '@/src/utils/pipeline-download'
 import type { StepBaseProps } from '@/src/modules/pipelines/[id]/step-renderer/stepProps'
 import { DestinationErrorBlock } from '@/src/modules/clickhouse/components/DestinationErrorBlock'
+import type { DownloadFormat } from '@/src/components/common/DownloadFormatModal'
+import { isOtlpSource } from '@/src/config/source-types'
 
 export function PipelineResourcesConfigurator({
   onCompleteStep,
@@ -37,12 +40,14 @@ export function PipelineResourcesConfigurator({
     clickhouseConnectionStore,
     clickhouseDestinationStore,
     kafkaStore,
+    otlpStore,
   } = useStore()
   const [initialized, setInitialized] = useState(false)
   const [initialValues, setInitialValues] = useState(resourcesToFormValues(null))
   const [deployError, setDeployError] = useState<string | null>(null)
   const [failedDeploymentConfig, setFailedDeploymentConfig] = useState<any>(null)
 
+  const isOtlp = isOtlpSource(coreStore?.sourceType || 'kafka')
   const hasJoin = joinStore?.enabled === true
   const topics = topicsStore?.topics ? Object.values(topicsStore.topics) : []
   const hasTopicDedup = topics.some(
@@ -56,7 +61,7 @@ export function PipelineResourcesConfigurator({
     transformationStore?.transformationConfig?.enabled === true ||
     (transformationStore?.transformationConfig?.fields?.length ?? 0) > 0
 
-  const pipelineShape = { hasJoin, hasTransform, hasDedup }
+  const pipelineShape = { hasJoin, hasTransform, hasDedup, isOtlp }
   const immutablePaths = resourcesStore.fields_policy?.immutable ?? []
 
   useEffect(() => {
@@ -141,6 +146,8 @@ export function PipelineResourcesConfigurator({
           transformationStore,
           pipeline_resources: resourcesStore.pipeline_resources,
           version: pipelineVersion,
+          coreStore,
+          otlpStore,
         })
 
         if (payload && typeof payload === 'object' && !('error' in payload)) {
@@ -184,41 +191,23 @@ export function PipelineResourcesConfigurator({
     toggleEditMode?.()
   }
 
-  const handleDownloadFailedConfig = useCallback(() => {
-    if (!failedDeploymentConfig) return
-
-    try {
-      const downloadConfig = {
-        ...failedDeploymentConfig,
-        exported_at: new Date().toISOString(),
-        exported_by: 'GlassFlow UI',
-        version: LATEST_PIPELINE_VERSION,
+  const handleDownloadFailedConfig = useCallback(
+    (format: DownloadFormat = 'yaml') => {
+      if (!failedDeploymentConfig) return
+      try {
+        const config = {
+          ...failedDeploymentConfig,
+          name: failedDeploymentConfig.name || coreStore.pipelineName || 'pipeline',
+        }
+        downloadFailedConfig(config, format, LATEST_PIPELINE_VERSION)
+      } catch (downloadError) {
+        structuredLogger.error('PipelineResourcesConfigurator failed to download configuration', {
+          error: downloadError instanceof Error ? downloadError.message : String(downloadError),
+        })
       }
-
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0]
-      const configName = failedDeploymentConfig.name || coreStore.pipelineName || 'pipeline'
-      const sanitizedName = configName.replace(/[^a-zA-Z0-9-_]/g, '_')
-      const filename = `${sanitizedName}_config_${timestamp}.json`
-
-      const blob = new Blob([JSON.stringify(downloadConfig, null, 2)], {
-        type: 'application/json',
-      })
-
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = filename
-      link.style.display = 'none'
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      URL.revokeObjectURL(url)
-    } catch (downloadError) {
-      structuredLogger.error('PipelineResourcesConfigurator failed to download configuration', {
-        error: downloadError instanceof Error ? downloadError.message : String(downloadError),
-      })
-    }
-  }, [failedDeploymentConfig, coreStore.pipelineName])
+    },
+    [failedDeploymentConfig, coreStore.pipelineName],
+  )
 
   if (!initialized) {
     return (

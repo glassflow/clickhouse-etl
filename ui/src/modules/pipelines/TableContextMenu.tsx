@@ -1,18 +1,9 @@
 import { useState } from 'react'
 import { Button } from '@/src/components/ui/button'
-import { MoreVertical } from 'lucide-react'
+import { MoreVertical, Play, Square, Pencil, PencilLine, Trash2, Download, X, Tag } from 'lucide-react'
 import { cn, isDemoMode } from '@/src/utils/common.client'
 import { getActionConfig, shouldShowAction } from '@/src/utils/pipeline-actions'
 import { PipelineStatus, PipelineAction } from '@/src/types/pipeline'
-import PlayIcon from '@/src/images/play-white.svg'
-import RenameIcon from '@/src/images/rename.svg'
-import EditIcon from '@/src/images/edit.svg'
-import DeleteIcon from '@/src/images/trash.svg'
-import DownloadIcon from '@/src/images/download-white.svg'
-import CloseIcon from '@/src/images/close.svg'
-import StopWhiteIcon from '@/src/images/stop-white.svg'
-import TagIcon from '@/src/images/tag-icon-white.svg'
-import Image from 'next/image'
 
 interface TableContextMenuProps {
   pipelineStatus: PipelineStatus
@@ -105,7 +96,7 @@ export const TableContextMenu = ({
 
           {/* Menu dropdown */}
           <div
-            className="absolute right-0 top-full mt-1 z-20 w-48 surface-gradient-border border-0 bg-[var(--color-background-elevation-raised-faded-2)] shadow-lg p-1 min-w-[160px] sm:min-w-[180px]"
+            className="absolute right-0 top-full mt-1 z-20 w-48 surface-gradient-border border-0 bg-[var(--color-background-elevation-raised-faded-2)] shadow-lg p-1 min-w-[160px] sm:min-w-[180px] animate-slideDown"
             onClick={(e) => e.stopPropagation()} // Prevent any clicks in the menu from bubbling to parent
           >
             {/* Stop Button */}
@@ -122,13 +113,7 @@ export const TableContextMenu = ({
                 disabled={isLoading}
                 title={getConfig('stop').disabledReason}
               >
-                <Image
-                  src={StopWhiteIcon}
-                  alt="Stop"
-                  width={16}
-                  height={16}
-                  className="filter brightness-100 group-hover:brightness-0"
-                />
+                <Square className="h-4 w-4 shrink-0" />
                 <span className="truncate">Stop</span>
               </Button>
             )}
@@ -147,7 +132,7 @@ export const TableContextMenu = ({
                 disabled={isLoading}
                 title={getConfig('resume').disabledReason}
               >
-                <Image src={PlayIcon} alt="Resume" width={16} height={16} />
+                <Play className="h-4 w-4 shrink-0" />
                 <span className="truncate">Resume</span>
               </Button>
             )}
@@ -169,13 +154,7 @@ export const TableContextMenu = ({
                 disabled={editConfig.isDisabled || isLoading}
                 title={editConfig.disabledReason}
               >
-                <Image
-                  src={EditIcon}
-                  alt="Edit"
-                  width={16}
-                  height={16}
-                  className="filter brightness-100 group-hover:brightness-0"
-                />
+                <PencilLine className="h-4 w-4 shrink-0" />
                 <span className="truncate">Edit</span>
               </Button>
             )}
@@ -197,13 +176,7 @@ export const TableContextMenu = ({
                 disabled={isLoading}
                 title={getConfig('rename').disabledReason}
               >
-                <Image
-                  src={RenameIcon}
-                  alt="Rename"
-                  width={16}
-                  height={16}
-                  className="filter brightness-100 group-hover:brightness-0"
-                />
+                <Pencil className="h-4 w-4 shrink-0" />
                 <span className="truncate">Rename</span>
               </Button>
             )}
@@ -224,13 +197,7 @@ export const TableContextMenu = ({
                 disabled={demoMode || isLoading}
                 title={demoMode ? 'Action disabled in demo mode' : undefined}
               >
-                <Image
-                  alt="Edit tags"
-                  src={TagIcon}
-                  width={16}
-                  height={16}
-                  className="filter brightness-100 group-hover:brightness-0"
-                />
+                <Tag className="h-4 w-4 shrink-0" />
                 <span className="truncate">Edit tags</span>
               </Button>
             )}
@@ -252,13 +219,7 @@ export const TableContextMenu = ({
                 disabled={isLoading}
                 title={getConfig('terminate').disabledReason || 'Immediately terminate pipeline'}
               >
-                <Image
-                  src={CloseIcon}
-                  alt="Terminate"
-                  width={16}
-                  height={16}
-                  className="filter brightness-100 group-hover:brightness-0"
-                />
+                <X className="h-4 w-4 shrink-0" />
                 <span className="truncate">Terminate</span>
               </Button>
             )}
@@ -280,13 +241,7 @@ export const TableContextMenu = ({
                 disabled={isLoading}
                 title={getConfig('delete').disabledReason}
               >
-                <Image
-                  src={DeleteIcon}
-                  alt="Delete"
-                  width={16}
-                  height={16}
-                  className="filter brightness-100 group-hover:brightness-0"
-                />
+                <Trash2 className="h-4 w-4 shrink-0" />
                 <span className="truncate">Delete</span>
               </Button>
             )}
@@ -306,13 +261,7 @@ export const TableContextMenu = ({
                 disabled={false}
                 title={`Download configuration`}
               >
-                <Image
-                  src={DownloadIcon}
-                  alt="Download"
-                  width={16}
-                  height={16}
-                  className="filter brightness-100 group-hover:brightness-0"
-                />
+                <Download className="h-4 w-4 shrink-0" />
                 <span className="truncate">Download</span>
               </Button>
             )}

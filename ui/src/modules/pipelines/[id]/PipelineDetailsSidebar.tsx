@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import { ChevronRight } from 'lucide-react'
 import { cn } from '@/src/utils/common.client'
 import { Pipeline } from '@/src/types/pipeline'
 import { getSidebarItems, type SidebarSection, type SidebarItem } from './sidebar'
@@ -38,7 +39,7 @@ export function PipelineDetailsSidebar({
               onClick={() => onSectionClick(item.key)}
               disabled={disabled && item.key !== 'monitor'}
               className={cn(
-                'relative flex items-center justify-between w-full py-2 px-3 rounded-md bg-transparent border-none cursor-default transition-all duration-150 ease-out text-left',
+                'relative flex items-center justify-between w-full py-2 px-3 rounded-md bg-transparent border-none cursor-default transition-all duration-200 text-left',
                 isActive && 'bg-[var(--color-background-elevation-raised)]',
                 !isActive && isClickable && 'hover:bg-[var(--color-background-neutral-faded)]',
                 isClickable && 'cursor-pointer',
@@ -47,14 +48,21 @@ export function PipelineDetailsSidebar({
             >
               <span
                 className={cn(
-                  'text-sm font-medium text-content',
+                  'body-3 transition-colors duration-200',
                   !isActive && 'text-[var(--color-foreground-neutral-faded)]',
                   isActive && 'font-semibold text-[var(--color-foreground-neutral)]',
                 )}
               >
                 {item.label}
               </span>
-              {isActive && <span className="text-lg text-[var(--color-foreground-primary)] font-bold">›</span>}
+              <ChevronRight
+                className={cn(
+                  'h-4 w-4 shrink-0 transition-all duration-200',
+                  isActive
+                    ? 'opacity-100 translate-x-0 text-[var(--color-foreground-primary)]'
+                    : 'opacity-0 -translate-x-1',
+                )}
+              />
             </button>
           )
         })}

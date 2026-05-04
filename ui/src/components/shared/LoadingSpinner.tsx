@@ -1,37 +1,24 @@
+import { Loader2 } from 'lucide-react'
 import { cn } from '@/src/utils/common.client'
 
 interface LoadingSpinnerProps {
   size?: 'sm' | 'md' | 'lg'
   className?: string
-  color?: 'blue' | 'green' | 'gray'
 }
 
-const LoadingSpinner = ({ size = 'md', className, color = 'blue' }: LoadingSpinnerProps) => {
-  const sizeClasses = {
-    sm: 'w-4 h-4',
-    md: 'w-6 h-6',
-    lg: 'w-8 h-8',
-  }
+const sizeClasses = {
+  sm: 'h-4 w-4',
+  md: 'h-6 w-6',
+  lg: 'h-8 w-8',
+}
 
-  const colorClasses = {
-    blue: 'text-blue-600',
-    green: 'text-green-600',
-    gray: 'text-gray-600',
-  }
-
+const LoadingSpinner = ({ size = 'md', className }: LoadingSpinnerProps) => {
   return (
-    <div
-      className={cn(
-        'animate-spin rounded-full border-2 border-current border-t-transparent',
-        sizeClasses[size],
-        colorClasses[color],
-        className,
-      )}
-      role="status"
+    <Loader2
+      className={cn('animate-spin text-[var(--color-foreground-primary)] shrink-0', sizeClasses[size], className)}
       aria-label="Loading"
-    >
-      <span className="sr-only">Loading...</span>
-    </div>
+      role="status"
+    />
   )
 }
 

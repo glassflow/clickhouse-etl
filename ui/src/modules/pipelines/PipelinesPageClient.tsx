@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useEffect, useState, useCallback } from 'react'
+import { Loader2 } from 'lucide-react'
 import { PipelinesList } from '@/src/modules/pipelines/PipelinesList'
 import { structuredLogger } from '@/src/observability'
 import { NoPipelines } from '@/src/modules/pipelines/NoPipelines'
@@ -64,8 +65,9 @@ export default function PipelinesPageClient() {
   if (isLoading) {
     return (
       <div className="container mx-auto p-4">
-        <div className="flex flex-col items-center justify-start min-h-[calc(100vh-200px)] gap-12">
-          <div className="text-center">Loading pipelines...</div>
+        <div className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)] gap-3">
+          <Loader2 className="h-7 w-7 animate-spin text-[var(--color-foreground-primary)]" />
+          <p className="body-3 text-[var(--color-foreground-neutral-faded)]">Loading pipelines…</p>
         </div>
       </div>
     )

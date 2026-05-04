@@ -9,8 +9,10 @@ import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 import { ModalResult } from '@/src/components/common/InfoModal'
 import { validateColumnMappings, getMappingType, generateApiConfig } from '../utils'
 import { sanitizePipelineResourcesForSubmit } from '@/src/modules/resources/utils'
+import { downloadFailedConfig } from '@/src/utils/pipeline-download'
 import type { TableColumn, TableSchema } from '../types'
 import type { ValidationResult } from '../types'
+import type { DownloadFormat } from '@/src/components/common/DownloadFormatModal'
 
 export interface UseDestinationSaveParams {
   validateMapping: () => ValidationResult | null
@@ -329,38 +331,18 @@ export function useDestinationSave({
     coreStore.discardSection('clickhouse-destination')
   }, [coreStore])
 
-  const handleDownloadFailedConfig = useCallback(() => {
-    if (!failedDeploymentConfig) return
-
-    try {
-      const downloadConfig = {
-        ...failedDeploymentConfig,
-        exported_at: new Date().toISOString(),
-        exported_by: 'GlassFlow UI',
-        version: LATEST_PIPELINE_VERSION,
+  const handleDownloadFailedConfig = useCallback(
+    (format: DownloadFormat = 'yaml') => {
+      if (!failedDeploymentConfig) return
+      try {
+        const config = { ...failedDeploymentConfig, name: failedDeploymentConfig.name || pipelineName || 'pipeline' }
+        downloadFailedConfig(config, format, LATEST_PIPELINE_VERSION)
+      } catch (downloadError) {
+        console.error('Failed to download configuration:', downloadError)
       }
-
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0]
-      const configName = failedDeploymentConfig.name || pipelineName || 'pipeline'
-      const sanitizedName = configName.replace(/[^a-zA-Z0-9-_]/g, '_')
-      const filename = `${sanitizedName}_config_${timestamp}.json`
-
-      const blob = new Blob([JSON.stringify(downloadConfig, null, 2)], {
-        type: 'application/json',
-      })
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = filename
-      link.style.display = 'none'
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      URL.revokeObjectURL(url)
-    } catch (downloadError) {
-      console.error('Failed to download configuration:', downloadError)
-    }
-  }, [failedDeploymentConfig, pipelineName])
+    },
+    [failedDeploymentConfig, pipelineName],
+  )
 
   const onModalComplete = useCallback(
     (result: (typeof ModalResult)[keyof typeof ModalResult]) => {

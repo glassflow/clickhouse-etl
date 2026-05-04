@@ -33,7 +33,6 @@ func TestNewPipelineHealth(t *testing.T) {
 func TestNewPipelineConfig(t *testing.T) {
 	id := "test-pipeline"
 	name := "Test Pipeline"
-	mapper := MapperConfig{Type: internal.SchemaMapperJSONToCHType}
 	sourceType := SourceType(internal.KafkaIngestorType)
 	ingestor := IngestorComponentConfig{Type: internal.KafkaIngestorType}
 	join := JoinComponentConfig{Type: internal.TemporalJoinType}
@@ -45,7 +44,6 @@ func TestNewPipelineConfig(t *testing.T) {
 	config := NewPipelineConfig(
 		id,
 		name,
-		mapper,
 		sourceType,
 		OTLPSourceConfig{},
 		ingestor,

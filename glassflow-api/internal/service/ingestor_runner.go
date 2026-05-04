@@ -125,7 +125,7 @@ func (i *IngestorRunner) Start(ctx context.Context) error {
 
 	schema, err := schemav2.NewSchema(
 		i.pipelineCfg.Status.PipelineID,
-		i.topicName,
+		topicCfg.ID,
 		i.db,
 		srClient,
 	)

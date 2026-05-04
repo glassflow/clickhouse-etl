@@ -58,7 +58,7 @@ export default async function Home() {
   // Default landing page for all other unauthenticated visitors
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-8 max-w-2xl mx-auto text-center">
-      <h1 className="text-4xl sm:text-5xl font-bold text-brand-gradient">Welcome to Glassflow</h1>
+      <h1 className="title-1 text-[var(--color-foreground-primary)]">Welcome to Glassflow</h1>
       <p className="text-lg text-muted-foreground max-w-xl">
         Create powerful data pipelines with ready-to-use operations. Sign in to get started with your real-time data
         processing.

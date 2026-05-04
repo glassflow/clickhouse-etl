@@ -34,10 +34,13 @@ export default function UserProfile() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="relative h-8 w-8 rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-400">
+        <button className="relative h-8 w-8 rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--color-orange-300)]">
           <Avatar className="h-8 w-8">
             <AvatarImage src={user.picture || ''} alt={user.name || 'User'} />
-            <AvatarFallback className="bg-gradient-to-br from-orange-400 to-orange-600 text-white text-xs">
+            <AvatarFallback
+              className="text-[var(--color-on-brand)] text-xs"
+              style={{ background: 'linear-gradient(to bottom right, var(--color-orange-300), var(--color-orange-600))' }}
+            >
               {initials}
             </AvatarFallback>
           </Avatar>

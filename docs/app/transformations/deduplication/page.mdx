@@ -1,0 +1,224 @@
+---
+title: 'Deduplication'
+description: 'Learn how deduplication works in GlassFlow and how to configure it'
+---
+import { Callout, Tabs } from 'nextra/components'
+
+# Deduplication
+
+The **Deduplication** transformation removes duplicate events from your data stream, ensuring that each unique event is processed only once. This is essential for maintaining data quality and preventing duplicate records in your ClickHouse tables.
+
+## How It Works
+
+Deduplication in GlassFlow uses a key-value store ([BadgerDB](https://docs.hypermode.com/badger/overview)) to track unique event identifiers. The process works as follows:
+
+### Internal Process
+
+1. **Message Consumption**: Messages are read from the ingestor output stream in batches
+2. **Duplicate Detection**: Each message's unique identifier (specified by `key`) is checked against the deduplication store
+3. **Filtering**: Messages with identifiers that already exist in the store are filtered out as duplicates
+4. **Storage**: Unique messages have their identifiers stored in the deduplication store
+5. **Forwarding**: Only unique messages are forwarded to the downstream component (sink or join)
+
+### Time Window
+
+The deduplication store maintains entries for a configurable time window. After the time window expires, entries are automatically evicted from the store. This means:
+
+- Events with the same ID that arrive within the time window are considered duplicates
+- Events with the same ID that arrive after the time window expires are treated as new events
+- The time window prevents the deduplication store from growing indefinitely
+
+### Atomic Transactions
+
+Deduplication uses atomic transactions to ensure data consistency:
+
+- When processing a batch, all deduplication checks and store updates happen within a single transaction
+- If processing fails, the transaction is not committed, ensuring no duplicate keys are saved
+- This prevents duplicate events from being produced even during processing failures
+- Messages are only acknowledged after successful deduplication and forwarding
+
+For more details on how deduplication handles failures, see the [Data Flow](/architecture/data-flow#stage-3-transformations-optional) documentation.
+
+## Configuration
+
+Deduplication is configured per source in the pipeline configuration. Here's the configuration structure:
+
+<Tabs items={['YAML', 'JSON', 'Web UI']} defaultIndex="2" storageKey="config_format">
+  <Tabs.Tab>
+    ```yaml
+    transforms:
+      - type: dedup
+        source_id: user-events
+        config:
+          key: event_id
+          time_window: 24h
+    ```
+    Refer to the [Pipeline Configuration Reference](/configuration/pipeline-config-reference#deduplication-configuration) for more details.
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```json
+    {
+      "transforms": [
+        {
+          "type": "dedup",
+          "source_id": "user-events",
+          "config": {
+            "key": "event_id",
+            "time_window": "24h"
+          }
+        }
+      ]
+    }
+    ```
+    Refer to the [Pipeline Configuration Reference](/configuration/pipeline-config-reference#deduplication-configuration) for more details.
+  </Tabs.Tab>
+  <Tabs.Tab>
+    <img alt="Deduplication Configuration" src="/assets/ui_dedup_configuration.png" />
+  </Tabs.Tab>
+</Tabs>
+
+## Best Practices
+
+### Choosing an ID Field
+
+- **Use a truly unique identifier**: The `key` field should reference a value that is unique across all events (e.g., UUID, transaction ID, event ID)
+- **Avoid timestamps**: Timestamps are not unique and should not be used as the deduplication key
+- **Consider composite keys**: If no single field is unique, consider creating a composite key in your data
+
+### Setting Time Windows
+
+<Callout type="info">
+The maximum supported `time_window` value is **7 days** (`168h`).
+</Callout>
+
+- **Match your use case**: Set the time window based on how long duplicates might arrive (e.g., retry windows, network delays)
+- **Balance memory and coverage**: Longer windows use more memory but catch duplicates over longer periods
+- **Consider event frequency**: For high-frequency events, shorter windows may be sufficient
+
+### Performance Considerations
+
+- **Batch processing**: Deduplication processes messages in batches for efficiency
+- **Memory usage**: The deduplication store size depends on the number of unique IDs within the time window
+- **Storage location**: The BadgerDB store is persisted to disk, ensuring deduplication state survives restarts
+
+## Example Configuration
+
+Here's a complete example of a pipeline with deduplication enabled:
+
+<Tabs items={['YAML', 'JSON']} defaultIndex="0" storageKey="config_format">
+  <Tabs.Tab>
+    ```yaml
+    version: v3
+    pipeline_id: deduplicated-pipeline
+    name: Deduplicated Events Pipeline
+    sources:
+      - type: kafka
+        source_id: user-events
+        connection_params:
+          brokers:
+            - "kafka:9092"
+          protocol: PLAINTEXT
+          mechanism: NO_AUTH
+        topic: user-events
+        consumer_group_initial_offset: latest
+        schema_fields:
+          - name: event_id
+            type: string
+          - name: user_id
+            type: string
+          - name: timestamp
+            type: datetime
+    transforms:
+      - type: dedup
+        source_id: user-events
+        config:
+          key: event_id
+          time_window: 24h
+    sink:
+      type: clickhouse
+      connection_params:
+        host: clickhouse.example.com
+        port: "9000"
+        database: default
+        username: default
+        password: mysecret
+        secure: false
+      table: user_events
+      max_batch_size: 1000
+      max_delay_time: 1s
+      mapping:
+        - name: event_id
+          column_name: event_id
+          column_type: String
+        - name: user_id
+          column_name: user_id
+          column_type: String
+        - name: timestamp
+          column_name: created_at
+          column_type: DateTime
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```json
+    {
+      "version": "v3",
+      "pipeline_id": "deduplicated-pipeline",
+      "name": "Deduplicated Events Pipeline",
+      "sources": [
+        {
+          "type": "kafka",
+          "source_id": "user-events",
+          "connection_params": {
+            "brokers": ["kafka:9092"],
+            "protocol": "PLAINTEXT",
+            "mechanism": "NO_AUTH"
+          },
+          "topic": "user-events",
+          "consumer_group_initial_offset": "latest",
+          "schema_fields": [
+            {"name": "event_id", "type": "string"},
+            {"name": "user_id", "type": "string"},
+            {"name": "timestamp", "type": "datetime"}
+          ]
+        }
+      ],
+      "transforms": [
+        {
+          "type": "dedup",
+          "source_id": "user-events",
+          "config": {
+            "key": "event_id",
+            "time_window": "24h"
+          }
+        }
+      ],
+      "sink": {
+        "type": "clickhouse",
+        "connection_params": {
+          "host": "clickhouse.example.com",
+          "port": "9000",
+          "database": "default",
+          "username": "default",
+          "password": "mysecret",
+          "secure": false
+        },
+        "table": "user_events",
+        "max_batch_size": 1000,
+        "max_delay_time": "1s",
+        "mapping": [
+          {"name": "event_id", "column_name": "event_id", "column_type": "String"},
+          {"name": "user_id", "column_name": "user_id", "column_type": "String"},
+          {"name": "timestamp", "column_name": "created_at", "column_type": "DateTime"}
+        ]
+      }
+    }
+    ```
+  </Tabs.Tab>
+</Tabs>
+
+## Related Documentation
+
+- [Data Flow - Deduplication Stage](/architecture/data-flow#stage-3-transformations-optional)
+- [Pipeline Configuration Reference - Deduplication Configuration](/configuration/pipeline-config-reference#deduplication-configuration)
+- [Transformations Overview](/transformations)
+

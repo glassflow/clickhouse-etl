@@ -24,9 +24,9 @@
   </a>
 </div>
 
-# Run any transformation on Kafka data at TB scale for ClickHouse
+# Run any data transformation at TB scale for ClickHouse
 
-GlassFlow is an open-source stream processing engine designed for high-volume data ingestion and transformation from Kafka to ClickHouse. GlassFlow comes with the following core functionalities:
+GlassFlow is an open-source stream processing engine designed for high-volume data ingestion and transformation from multiple sources into ClickHouse. GlassFlow comes with the following core functionalities:
 
 - **Stateless transformations**: Powered by the expr expression engine, enabling flexible data transformations using helper functions and standard operators (e.g., removing null values or replacing missing timestamps).
 - **Stateful transformations**: A built-in state store allows deduplication logic and temporal joins over configurable time windows.
@@ -40,13 +40,13 @@ GlassFlow is an open-source stream processing engine designed for high-volume da
 To get started with GlassFlow, you can:
 
 1. **Try the Live Demo**: Experience GlassFlow running on a live cluster at [demo.glassflow.dev](https://demo.glassflow.dev)
-2. **Install on Kubernetes**: Follow our [Kubernetes Installation Guide](https://docs.glassflow.dev/installation/kubernetes) for production deployment
-3. **Learn More**: Explore our [Usage Guide](https://docs.glassflow.dev/usage-guide) to start creating pipelines
+2. **Install on Kubernetes**: Follow our [Kubernetes Installation Guide](https://docs.glassflow.dev/installation/kubernetes) for any production deployment
+3. **Learn More**: Explore our [Usage Guide](https://docs.glassflow.dev/usage-guide) to start creating data pipelines
 
 
 ## 🧭 Installation Options
 
-GlassFlow is open source and can be self-hosted on Kubernetes. GlassFlow works with any managed Kubernetes services like AWS EKS, GKE, AKS, and more.
+GlassFlow is open source and can be self-hosted on Kubernetes. GlassFlow works with any managed Kubernetes service like AWS EKS, GKE, AKS, and more.
 
 | Method                         | Use Case                                | Docs Link                                                                 |
 |-------------------------------|------------------------------------------|---------------------------------------------------------------------------|

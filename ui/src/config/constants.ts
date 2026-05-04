@@ -14,6 +14,8 @@ export enum StepKeys {
   PIPELINE_RESOURCES = 'pipeline-resources',
   REVIEW_CONFIGURATION = 'review-configuration',
   DEPLOY_PIPELINE = 'deploy-pipeline',
+  OTLP_SIGNAL_TYPE = 'otlp-signal-type',
+  OTLP_DEDUPLICATION = 'otlp-deduplication',
 }
 
 export enum EventDataFormat {
@@ -268,6 +270,20 @@ export const stepsMetadata = {
     key: StepKeys.DEPLOY_PIPELINE,
     title: 'Deploy Pipeline',
     description: 'Deploy the pipeline to the ClickHouse database.',
+  },
+  [StepKeys.OTLP_SIGNAL_TYPE]: {
+    key: StepKeys.OTLP_SIGNAL_TYPE,
+    title: 'OTLP Source',
+    description: 'Select your OpenTelemetry signal type.',
+    formTitle: 'OTLP Source Configuration',
+    formDescription: 'Choose the type of OpenTelemetry data to ingest.',
+  },
+  [StepKeys.OTLP_DEDUPLICATION]: {
+    key: StepKeys.OTLP_DEDUPLICATION,
+    title: 'Deduplication',
+    description: 'Optionally deduplicate incoming OTLP data by a key field.',
+    formTitle: 'Deduplication',
+    formDescription: 'Deduplicate incoming data by a key field within a time window.',
   },
 }
 

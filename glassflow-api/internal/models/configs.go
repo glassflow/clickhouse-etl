@@ -533,7 +533,6 @@ func (e PipelineConfigError) Error() string {
 
 func NewPipelineConfig(
 	id, name string,
-	mc MapperConfig,
 	st SourceType,
 	otlpSource OTLPSourceConfig,
 	ic IngestorComponentConfig,
@@ -550,7 +549,6 @@ func NewPipelineConfig(
 		Name:                    name,
 		SourceType:              st,
 		OTLPSource:              otlpSource,
-		Mapper:                  mc,
 		Ingestor:                ic,
 		Join:                    jc,
 		Sink:                    sc,

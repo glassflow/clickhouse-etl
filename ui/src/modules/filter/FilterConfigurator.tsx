@@ -18,6 +18,7 @@ import {
   getAllRules,
 } from './utils'
 import { validateFilterExpression, FilterValidationField } from '@/src/api/pipeline-api'
+import { isOtlpSource } from '@/src/config/source-types'
 
 export interface FilterConfiguratorProps {
   onCompleteStep: (stepName: string) => void
@@ -36,7 +37,7 @@ export function FilterConfigurator({
   pipelineActionState,
   onCompleteStandaloneEditing,
 }: FilterConfiguratorProps) {
-  const { coreStore, filterStore, topicsStore } = useStore()
+  const { coreStore, filterStore, topicsStore, otlpStore } = useStore()
 
   // Get filter config from store
   const filterConfig = filterStore.filterConfig
@@ -50,6 +51,10 @@ export function FilterConfigurator({
 
   // Extract available fields from schema or event (use effective type: userType || type for overrides)
   const availableFields = useMemo((): Array<{ name: string; type: string }> => {
+    if (isOtlpSource(coreStore.sourceType)) {
+      return otlpStore.schemaFields.map((f) => ({ name: f.name, type: f.type }))
+    }
+
     if (eventSchema && eventSchema.length > 0) {
       return eventSchema
         .filter((f: any) => !f.isRemoved)
@@ -82,7 +87,7 @@ export function FilterConfigurator({
     }
 
     return []
-  }, [eventSchema, selectedEvent])
+  }, [coreStore.sourceType, otlpStore.schemaFields, eventSchema, selectedEvent])
 
   // Local validation state
   const [localValidation, setLocalValidation] = useState<FilterConfigValidation>({
@@ -103,6 +108,8 @@ export function FilterConfigurator({
   // Track previous config key to avoid infinite loops
   const prevConfigKeyRef = useRef<string>('')
   const validationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Always-fresh ref to avoid stale closure in the debounced async callback
+  const availableFieldsRef = useRef(availableFields)
 
   // Helper to serialize the filter tree for comparison
   const serializeGroup = (group: FilterGroup): any => ({
@@ -127,6 +134,9 @@ export function FilterConfigurator({
       }
     }),
   })
+
+  // Keep the ref current on every render
+  availableFieldsRef.current = availableFields
 
   // Create a stable key for the filter config
   const filterConfigKey = JSON.stringify({
@@ -172,12 +182,16 @@ export function FilterConfigurator({
     })
 
     if (!localResult.isValid) {
+      // Reset backend status so it doesn't stay stuck at 'validating'
+      filterStore.setBackendValidation({ status: 'idle' })
       return
     }
 
     // Generate expression and validate with backend
     const expression = toExprString(filterConfig)
     if (!expression) {
+      // No complete rules yet — reset so the status doesn't linger
+      filterStore.setBackendValidation({ status: 'idle' })
       return
     }
 
@@ -185,7 +199,8 @@ export function FilterConfigurator({
     filterStore.setBackendValidation({ status: 'validating' })
 
     validationTimeoutRef.current = setTimeout(async () => {
-      const fields: FilterValidationField[] = availableFields.map((f) => ({
+      // Use the ref so we always send the freshest field list, not a stale closure value
+      const fields: FilterValidationField[] = availableFieldsRef.current.map((f) => ({
         name: f.name,
         type: f.type,
       }))
@@ -404,7 +419,7 @@ export function FilterConfigurator({
       {/* Description */}
       <div className="text-sm text-content">
         {availableFields.length > 0
-          ? "Define filter conditions to exclude events that match your criteria. Events that don't match will pass through the pipeline."
+          ? "Define filter conditions to keep events that match your criteria. Events that don't match will be excluded from the pipeline."
           : 'Select a topic and wait for event data to load to configure filtering.'}
       </div>
 

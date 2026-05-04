@@ -35,6 +35,13 @@ export function KafkaConnectionPreview({ kafkaStore }: { kafkaStore: any }) {
           )}
         </>
       ) : null}
+
+      {kafkaStore.schemaRegistry?.enabled && (
+        <>
+          <div className="text-sm text-muted-foreground">Schema Registry:</div>
+          <div>{kafkaStore.schemaRegistry.url}</div>
+        </>
+      )}
     </div>
   )
 }

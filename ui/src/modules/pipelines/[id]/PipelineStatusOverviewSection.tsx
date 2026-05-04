@@ -16,7 +16,7 @@ function PipelineStatusOverviewSection({
   return (
     <div
       className={cn(
-        'flex flex-col gap-4 transition-all duration-750 ease-out',
+        'flex flex-col gap-4 transition-all duration-500 ease-out',
         showStatusOverview ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4',
       )}
     >

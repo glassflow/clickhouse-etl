@@ -81,7 +81,7 @@ func (h *handler) getPipeline(ctx context.Context, input *GetPipelineInput) (*Ge
 		}
 	}
 
-	return &GetPipelineResponse{Body: toPipelineJSON(p)}, nil
+	return &GetPipelineResponse{Body: toJSON(p)}, nil
 }
 
 func parseSchemaQueryParams(values []string) (map[string]string, error) {

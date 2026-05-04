@@ -12,6 +12,8 @@ import { structuredLogger } from '@/src/observability'
 import { hydrateFilter } from './hydration/filter'
 import { hydrateTransformation } from './hydration/transformation'
 import { hydrateResources } from './hydration/resources'
+import { hydrateOtlpSource } from './hydration/otlp-source'
+import { isOtlpSource } from '@/src/config/source-types'
 
 // Helper function to compute operation type from topicCount + deduplication + join state
 // This is used for backward compatibility (analytics, display, etc.)
@@ -81,6 +83,7 @@ interface CoreStoreProps {
   pipelineId: string
   pipelineName: string
   topicCount: number // Primary: number of topics (1 or 2)
+  sourceType: string // 'kafka' | 'otlp' — determines which source UI to render
   operationsSelected: OperationsSelectedType // Computed/derived for backward compatibility
   pipelineVersion: string | undefined // Track the version of the pipeline config
   outboundEventPreview: OutboundEventPreviewType
@@ -94,12 +97,15 @@ interface CoreStoreProps {
   // New incremental state management fields
   lastSavedConfig: Pipeline | undefined
   saveHistory: Pipeline[]
+  // Schema binding selection (topic name → selected version, undefined = current binding)
+  selectedBindingVersions: Record<string, string | undefined>
 }
 
 interface CoreStore extends CoreStoreProps {
   // actions
   setApiConfig: (config: Partial<Pipeline>) => void
   setTopicCount: (topicCount: number) => void
+  setSourceType: (sourceType: string) => void
   setOperationsSelected: (operations: OperationsSelectedType) => void // Kept for backward compatibility
   getComputedOperation: () => string // Computes operation from topicCount + deduplication + join
   setOutboundEventPreview: (preview: OutboundEventPreviewType) => void
@@ -132,6 +138,10 @@ interface CoreStore extends CoreStoreProps {
   hydrateSection: (section: string, config: PipelineConfigForHydration) => Promise<void>
   discardSection: (section: string) => Promise<void>
   discardSections: (sections: string[]) => void
+  // Schema binding selection actions
+  setSelectedBindingVersion: (topicName: string, version: string | undefined) => void
+  resetBindingSelection: () => void
+  isViewingHistoricalBinding: () => boolean
 }
 
 export interface CoreSlice {
@@ -142,6 +152,7 @@ export const initialCoreStore: CoreStoreProps = {
   pipelineId: '',
   pipelineName: '',
   topicCount: 0, // 0 = not set, 1 = single topic, 2 = two topics
+  sourceType: 'kafka', // Default to Kafka for backward compatibility
   pipelineVersion: undefined,
   operationsSelected: {
     operation: '',
@@ -159,6 +170,7 @@ export const initialCoreStore: CoreStoreProps = {
   // Initialize incremental state management fields
   lastSavedConfig: undefined,
   saveHistory: [],
+  selectedBindingVersions: {},
 }
 
 export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
@@ -171,6 +183,10 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
     setPipelineName: (name: string) =>
       set((state) => ({
         coreStore: { ...state.coreStore, pipelineName: name },
+      })),
+    setSourceType: (sourceType: string) =>
+      set((state) => ({
+        coreStore: { ...state.coreStore, sourceType },
       })),
     setTopicCount: (topicCount: number) => {
       set((state) => ({
@@ -548,18 +564,26 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
           case 'resources':
             await hydrateResources(config)
             break
-          case 'all':
-            // Hydrate sync sections first (including filter and transformation - don't need event schema)
-            hydrateKafkaConnection(config)
+          case 'otlp':
+            hydrateOtlpSource(config)
+            break
+          case 'all': {
+            const cfg = config as any
+            const sourceType: string = cfg.sources?.[0]?.type ?? cfg.source?.type ?? ''
+            if (sourceType && isOtlpSource(sourceType)) {
+              hydrateOtlpSource(config)
+            } else {
+              hydrateKafkaConnection(config)
+              await hydrateKafkaTopics(config)
+            }
             hydrateClickhouseConnection(config)
             hydrateJoinConfiguration(config)
             hydrateFilter(config)
             hydrateTransformation(config)
-            // Then async sections that require network calls
-            await hydrateKafkaTopics(config)
             await hydrateClickhouseDestination(config)
             await hydrateResources(config)
             break
+          }
           default:
             structuredLogger.warn('Unknown section for hydration', { section })
         }
@@ -603,6 +627,24 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
       } else {
         structuredLogger.warn('No lastSavedConfig available for sections discard')
       }
+    },
+    setSelectedBindingVersion: (topicName: string, version: string | undefined) =>
+      set((state) => ({
+        coreStore: {
+          ...state.coreStore,
+          selectedBindingVersions: {
+            ...state.coreStore.selectedBindingVersions,
+            [topicName]: version,
+          },
+        },
+      })),
+    resetBindingSelection: () =>
+      set((state) => ({
+        coreStore: { ...state.coreStore, selectedBindingVersions: {} },
+      })),
+    isViewingHistoricalBinding: () => {
+      const { selectedBindingVersions } = get().coreStore
+      return Object.values(selectedBindingVersions).some((v) => v !== undefined)
     },
   },
 })

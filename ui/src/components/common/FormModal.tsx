@@ -130,10 +130,11 @@ export function FormModal({
             variant="primary"
             size="custom"
             onClick={handleSubmit}
-            disabled={isSubmitDisabled}
+            loading={isSubmitDisabled}
+            loadingText={submitButtonText}
             title={isSubmitDisabled ? 'Please wait for validation to complete' : undefined}
           >
-            {isValidating ? 'Validating...' : isLoading ? 'Loading...' : submitButtonText}
+            {submitButtonText}
           </Button>
         </DialogFooter>
       </DialogContent>

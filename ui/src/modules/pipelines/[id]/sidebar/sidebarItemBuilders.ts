@@ -1,6 +1,7 @@
 import { StepKeys } from '@/src/config/constants'
 import { Pipeline } from '@/src/types/pipeline'
 import { isFiltersEnabled } from '@/src/config/feature-flags'
+import { isOtlpSource } from '@/src/config/source-types'
 
 /**
  * Section types for the sidebar
@@ -9,6 +10,7 @@ export type SidebarSection =
   | 'monitor'
   | 'resources'
   | 'kafka-connection'
+  | 'otlp-source'
   | 'topic'
   | 'left-topic'
   | 'right-topic'
@@ -34,15 +36,47 @@ export interface SidebarItem {
   topicIndex?: number
 }
 
+// Helpers for both v3 (sources[]) and old (source.*) formats
+
+function getPipelineSourceType(pipeline: Pipeline): string {
+  const v3Sources = (pipeline as any).sources
+  if (Array.isArray(v3Sources) && v3Sources.length > 0) return v3Sources[0]?.type || ''
+  return pipeline?.source?.type || ''
+}
+
+function getPipelineTopics(pipeline: Pipeline): any[] {
+  const v3Sources = (pipeline as any).sources
+  if (Array.isArray(v3Sources) && v3Sources.length > 0) {
+    return v3Sources.filter((s: any) => !isOtlpSource(s.type || ''))
+  }
+  return pipeline?.source?.topics || []
+}
+
+function getPipelineTransforms(pipeline: Pipeline): any[] {
+  return (pipeline as any).transforms || []
+}
+
 /**
- * Get source section items (Kafka connection and topics)
+ * Get source section items (Kafka connection and topics, or OTLP source)
  */
 export function getSourceItems(pipeline: Pipeline): SidebarItem[] {
+  if (isOtlpSource(getPipelineSourceType(pipeline))) {
+    const transforms = getPipelineTransforms(pipeline)
+    const hasOtlpDedup = pipeline?.source?.deduplication?.enabled === true
+      || transforms.some((t: any) => t.type === 'dedup')
+
+    const items: SidebarItem[] = [{ key: 'otlp-source', label: 'OTLP Source' }]
+    if (hasOtlpDedup) {
+      items.push({ key: 'deduplicate', label: 'Deduplicate', stepKey: StepKeys.OTLP_DEDUPLICATION })
+    }
+    return items
+  }
+
   const items: SidebarItem[] = [
     { key: 'kafka-connection', label: 'Kafka Connection', stepKey: StepKeys.KAFKA_CONNECTION },
   ]
 
-  const topics = pipeline?.source?.topics || []
+  const topics = getPipelineTopics(pipeline)
   const topicCount = topics.length
   const isMultiTopic = topicCount > 1
 
@@ -115,7 +149,8 @@ export function getSourceItems(pipeline: Pipeline): SidebarItem[] {
 export function getTransformationItems(pipeline: Pipeline): SidebarItem[] {
   const items: SidebarItem[] = []
 
-  const topics = pipeline?.source?.topics || []
+  const topics = getPipelineTopics(pipeline)
+  const transforms = getPipelineTransforms(pipeline)
   const isMultiTopic = topics.length > 1
   const hasJoin = pipeline?.join?.enabled === true
 
@@ -128,8 +163,10 @@ export function getTransformationItems(pipeline: Pipeline): SidebarItem[] {
     })
   }
 
-  // Add Filter section (only if filters feature is enabled)
-  if (isFiltersEnabled()) {
+  // Add Filter: v3 stores filter in transforms[], old format uses pipeline.filter
+  const hasFilter = pipeline?.filter?.enabled === true
+    || transforms.some((t: any) => t.type === 'filter')
+  if (isFiltersEnabled() && hasFilter) {
     items.push({
       key: 'filter',
       label: 'Filter',
@@ -137,12 +174,15 @@ export function getTransformationItems(pipeline: Pipeline): SidebarItem[] {
     })
   }
 
-  // Add Transformation section (if stateless transformations are enabled)
+  // Add Transformation: v3 stores stateless in transforms[], old uses transformation/stateless_transformation
   const hasStatelessTransformation =
-    pipeline?.transformation?.enabled === true || pipeline?.stateless_transformation?.enabled === true
+    pipeline?.transformation?.enabled === true ||
+    pipeline?.stateless_transformation?.enabled === true ||
+    transforms.some((t: any) => t.type === 'stateless')
   const hasTransformationFields =
     (pipeline?.transformation?.fields?.length ?? 0) > 0 ||
-    (pipeline?.stateless_transformation?.config?.transform?.length ?? 0) > 0
+    (pipeline?.stateless_transformation?.config?.transform?.length ?? 0) > 0 ||
+    transforms.some((t: any) => t.type === 'stateless' && (t.config?.transforms?.length ?? 0) > 0)
 
   if (hasStatelessTransformation && hasTransformationFields) {
     items.push({

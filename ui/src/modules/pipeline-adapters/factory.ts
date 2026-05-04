@@ -12,6 +12,7 @@ const adapters: Record<string, PipelineAdapter> = {
 
 export const getPipelineAdapter = (version?: string): PipelineAdapter => {
   const normalized = version === '3' ? PipelineVersion.V3 : version
+
   if (normalized && adapters[normalized]) {
     return adapters[normalized]
   }

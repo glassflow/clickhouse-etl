@@ -55,7 +55,7 @@ export function PipelineTransitionOverlay({ visible, title, description }: Pipel
           </DialogHeader>
 
           <div className="flex flex-col items-center justify-center py-6">
-            <LoadingSpinner size="lg" color="gray" className="mb-4" />
+            <LoadingSpinner size="lg" className="mb-4" />
             <p className="text-sm text-muted-foreground text-center">Please wait while the pipeline transitions...</p>
           </div>
 

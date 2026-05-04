@@ -33,7 +33,7 @@ build-linux-arm64:
 
 .PHONY: run-test
 run-test:
-	go test -v -count=1 -race $(shell go list ./... | grep -v /tests)
+	go test -count=1 -race $(shell go list ./... | grep -v /tests)
 
 .PHONE: lint
 lint:

@@ -1,6 +1,7 @@
 package mapper
 
 import (
+	"math"
 	"reflect"
 	"testing"
 	"time"
@@ -246,6 +247,72 @@ func TestConvertValue(t *testing.T) {
 			input:      uint64(64),
 			want:       uint64(64),
 			wantErr:    false,
+		},
+		// Cross-signedness: uint source -> signed Int column (e.g., OTLP dropped_attributes_count into Int32)
+		{
+			name:       "uint to Int8",
+			columnType: internal.CHTypeInt8,
+			fieldType:  internal.KafkaTypeUint,
+			input:      uint64(8),
+			want:       int8(8),
+			wantErr:    false,
+		},
+		{
+			name:       "uint to Int16",
+			columnType: internal.CHTypeInt16,
+			fieldType:  internal.KafkaTypeUint,
+			input:      uint64(16),
+			want:       int16(16),
+			wantErr:    false,
+		},
+		{
+			name:       "uint to Int32",
+			columnType: internal.CHTypeInt32,
+			fieldType:  internal.KafkaTypeUint,
+			input:      uint64(0),
+			want:       int32(0),
+			wantErr:    false,
+		},
+		{
+			name:       "uint to Int64",
+			columnType: internal.CHTypeInt64,
+			fieldType:  internal.KafkaTypeUint,
+			input:      uint64(64),
+			want:       int64(64),
+			wantErr:    false,
+		},
+		{
+			name:       "uint to Int32 out of range",
+			columnType: internal.CHTypeInt32,
+			fieldType:  internal.KafkaTypeUint,
+			input:      uint64(math.MaxInt32 + 1),
+			want:       nil,
+			wantErr:    true,
+		},
+		// Cross-signedness: signed int source -> unsigned UInt column
+		{
+			name:       "int to UInt8",
+			columnType: internal.CHTypeUInt8,
+			fieldType:  internal.KafkaTypeInt,
+			input:      int64(8),
+			want:       uint8(8),
+			wantErr:    false,
+		},
+		{
+			name:       "int to UInt32",
+			columnType: internal.CHTypeUInt32,
+			fieldType:  internal.KafkaTypeInt,
+			input:      int64(32),
+			want:       uint32(32),
+			wantErr:    false,
+		},
+		{
+			name:       "int to UInt32 negative rejected",
+			columnType: internal.CHTypeUInt32,
+			fieldType:  internal.KafkaTypeInt,
+			input:      int64(-1),
+			want:       nil,
+			wantErr:    true,
 		},
 		{
 			name:       "float to Float32",
@@ -513,6 +580,30 @@ func TestConvertValue(t *testing.T) {
 			input:      []any{map[string]any{"key1": "value1"}, "not a map"},
 			want:       nil,
 			wantErr:    true,
+		},
+		{
+			name:       "Map(String, String) with nil data returns empty map",
+			columnType: "Map(String, String)",
+			fieldType:  internal.KafkaTypeMap,
+			input:      nil,
+			want:       map[string]string{},
+			wantErr:    false,
+		},
+		{
+			name:       "Map(LowCardinality(String), String) with nil data returns empty map",
+			columnType: "Map(LowCardinality(String), String)",
+			fieldType:  internal.KafkaTypeMap,
+			input:      nil,
+			want:       map[string]string{},
+			wantErr:    false,
+		},
+		{
+			name:       "Map(String, String) with empty map data",
+			columnType: "Map(String, String)",
+			fieldType:  internal.KafkaTypeMap,
+			input:      map[string]any{},
+			want:       map[string]string{},
+			wantErr:    false,
 		},
 		{
 			name:       "Array(Map(String, String)) with empty array",

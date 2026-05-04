@@ -9,7 +9,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/src/components/ui/ta
 import yaml from 'js-yaml'
 import { useRouter } from 'next/navigation'
 import { generateApiConfig, getMappingType } from '../clickhouse/utils'
+import { isOtlpSource, getOtlpSignalLabel } from '@/src/config/source-types'
 import { ReviewConfigurationProps } from './types'
+import { isRegistrySchema } from '@/src/modules/kafka/utils/schemaSource'
 import { ClickhouseDestinationPreview } from './ClickhouseDestinationPreview'
 import { ClickhouseConnectionPreview } from './ClickhouseConnectionPreview'
 import { KafkaConnectionPreview } from './KafkaConnectionPreview'
@@ -18,6 +20,7 @@ import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 import { createPipeline } from '@/src/api/pipeline-api'
 import { Pipeline } from '@/src/types/pipeline'
 import { isFiltersEnabled, isTransformationsEnabled } from '@/src/config/feature-flags'
+
 
 export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewConfigurationProps) {
   const {
@@ -31,7 +34,14 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
     filterStore,
     transformationStore,
     resourcesStore,
+    otlpStore,
   } = useStore()
+  // Detect OTLP source using multiple signals — coreStore.sourceType can be unreliable
+  // because enterCreateMode() resets it to 'kafka'. Check otlpStore.signalType (set by
+  // the OtlpSignalTypeStep) and otlpStore.sourceId (set on the home page) as fallbacks.
+  const isOtlp = isOtlpSource(coreStore.sourceType)
+    || isOtlpSource(otlpStore.signalType ?? '')
+    || (otlpStore.sourceId !== '' && otlpStore.schemaFields.length > 0)
   const { apiConfig, pipelineId, setPipelineId, pipelineName, pipelineVersion } = coreStore
   const { clickhouseConnection } = clickhouseConnectionStore
   const { clickhouseDestination } = clickhouseDestinationStore
@@ -47,7 +57,7 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
 
   // Compute config from current stores so display and deploy always reflect latest state
   const effectiveConfig = useMemo(() => {
-    const result = generateApiConfig({
+    return generateApiConfig({
       pipelineId,
       pipelineName: pipelineName || 'Pipeline',
       setPipelineId,
@@ -62,8 +72,9 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
       transformationStore,
       pipeline_resources: resourcesStore.pipeline_resources,
       version: pipelineVersion,
+      coreStore,
+      otlpStore,
     })
-    return result
   }, [
     pipelineId,
     pipelineName,
@@ -78,6 +89,8 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
     transformationStore,
     resourcesStore.pipeline_resources,
     pipelineVersion,
+    otlpStore,
+    coreStore,
   ])
 
   const configError = effectiveConfig && typeof effectiveConfig === 'object' && 'error' in effectiveConfig
@@ -130,6 +143,19 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
       return (
         <li key={index} className="mb-4">
           <div className="font-medium">{topicName}</div>
+          {typeof topic !== 'string' && topic?.schemaSource === 'registry_resolved_from_event' && (
+            <div className="ml-4 mt-1 text-sm text-muted-foreground">
+              {`Auto-resolved from event: ${topic.schemaRegistrySubject ?? '—'} v${topic.schemaRegistryVersion ?? '?'}`}
+            </div>
+          )}
+          {typeof topic !== 'string' && topic?.schemaSource === 'external' && (
+            <div className="ml-4 mt-1 text-sm text-muted-foreground">
+              {`External schema: ${topic.schemaRegistrySubject ?? '—'} v${topic.schemaRegistryVersion ?? '?'}`}
+            </div>
+          )}
+          {typeof topic !== 'string' && (!topic?.schemaSource || topic.schemaSource === 'internal') && (
+            <div className="ml-4 mt-1 text-sm text-muted-foreground">Auto-detected schema</div>
+          )}
           {(() => {
             const deduplicationConfig = deduplicationStore.getDeduplication(index)
             return (
@@ -187,15 +213,33 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
-          <div className="p-4 border-b border-[var(--color-border-neutral-faded)] last:border-b-0 transition-all duration-200 hover:bg-[var(--color-background-neutral-faded)] animate-fade-in-up animate-delay-100">
-            <h3 className="text-lg font-medium mb-2 transition-colors duration-200">Kafka Connection</h3>
-            <KafkaConnectionPreview kafkaStore={kafkaStore} />
-          </div>
+          {isOtlp ? (
+            <div className="p-4 border-b border-[var(--color-border-neutral-faded)] last:border-b-0 transition-all duration-200 hover:bg-[var(--color-background-neutral-faded)] animate-fade-in-up animate-delay-100">
+              <h3 className="text-lg font-medium mb-2 transition-colors duration-200">Source</h3>
+              <div className="space-y-2">
+                <p className="text-sm text-[var(--color-foreground-neutral)]">
+                  <strong>Source Type:</strong> OTLP {getOtlpSignalLabel(coreStore.sourceType)}
+                </p>
+                {otlpStore.deduplication.enabled && (
+                  <p className="text-sm text-[var(--color-foreground-neutral-faded)]">
+                    Deduplication: {otlpStore.deduplication.key} (window: {otlpStore.deduplication.time_window})
+                  </p>
+                )}
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="p-4 border-b border-[var(--color-border-neutral-faded)] last:border-b-0 transition-all duration-200 hover:bg-[var(--color-background-neutral-faded)] animate-fade-in-up animate-delay-100">
+                <h3 className="text-lg font-medium mb-2 transition-colors duration-200">Kafka Connection</h3>
+                <KafkaConnectionPreview kafkaStore={kafkaStore} />
+              </div>
 
-          <div className="p-4 border-b border-[var(--color-border-neutral-faded)] last:border-b-0 transition-all duration-200 hover:bg-[var(--color-background-neutral-faded)] animate-fade-in-up animate-delay-200">
-            <h3 className="text-lg font-medium mb-2 transition-colors duration-200">Selected Topics</h3>
-            <ul className="list-disc list-inside">{renderTopics()}</ul>
-          </div>
+              <div className="p-4 border-b border-[var(--color-border-neutral-faded)] last:border-b-0 transition-all duration-200 hover:bg-[var(--color-background-neutral-faded)] animate-fade-in-up animate-delay-200">
+                <h3 className="text-lg font-medium mb-2 transition-colors duration-200">Selected Topics</h3>
+                <ul className="list-disc list-inside">{renderTopics()}</ul>
+              </div>
+            </>
+          )}
 
           {isFiltersEnabled() && filterStore?.filterConfig?.enabled && (
             <div className="p-4 border-b border-gray-200 last:border-b-0 transition-all duration-200 hover:bg-[var(--color-background-neutral-faded)] animate-fade-in-up animate-delay-250">

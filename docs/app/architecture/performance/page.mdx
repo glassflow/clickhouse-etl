@@ -8,7 +8,7 @@ import { Mermaid } from '../../components/Mermaid'
 
 # Performance
 
-This document summarizes benchmark results for a GlassFlow pipeline under sustained load and explains why the test is relevant for teams running Kafka-to-ClickHouse ingestion at scale.
+This document summarizes benchmark results for a GlassFlow pipeline under sustained load and explains why the test is relevant for teams running high-throughput ingestion to ClickHouse at scale.
 
 ## Why this benchmark
 
@@ -18,7 +18,7 @@ This document summarizes benchmark results for a GlassFlow pipeline under sustai
 - Scale predictably within and across pipelines
 - Fit into an existing Kafka + ClickHouse setup
 
-This benchmark provides concrete numbers for how GlassFlow scales horizontally within a single pipeline by increasing the number of component replicas.
+This benchmark provides concrete numbers for how GlassFlow scales horizontally within a single Kafka pipeline by increasing the number of component replicas.
 
 ## Summary at a glance
 
@@ -51,7 +51,7 @@ At 2 replicas the ingestor stabilizes around ~110k rps and the sink around ~105k
 
 ## Horizontal scaling
 
-GlassFlow scales throughput horizontally by increasing the number of ingestor and sink replicas. Each replica consumes from Kafka and writes to ClickHouse independently, distributing the load across multiple NATS JetStream streams in parallel.
+GlassFlow scales throughput horizontally by increasing the number of ingestor and sink replicas. Each replica consumes from its source and writes to ClickHouse independently, distributing the load across multiple NATS JetStream streams in parallel.
 
 As replica count increases, the internal NATS cluster becomes the throughput bottleneck. A higher number of replicas requires a larger NATS cluster to sustain the increased message volume — the test infrastructure used 9 NATS nodes to support runs up to 10 replicas. For component-level scaling configuration, see [Scaling Pipelines](/installation/kubernetes/scaling).
 
@@ -95,7 +95,7 @@ This test focuses on per-pipeline horizontal scalability under sustained load.
 
 In GlassFlow, each pipeline runs independently. Increasing the number of replicas for ingestor and sink components is the primary lever for scaling throughput within a single pipeline.
 
-The pipeline configuration used for this test was **ingest-only**: no deduplication and no transformation. Events were consumed from Kafka and written directly to ClickHouse. This isolates the raw throughput capacity of the ingestor and sink components.
+The pipeline configuration used for this test was **ingest-only**: no deduplication and no transformation. Events were consumed from a Kafka source and written directly to ClickHouse. This isolates the raw throughput capacity of the ingestor and sink components.
 
 ### Workload model
 

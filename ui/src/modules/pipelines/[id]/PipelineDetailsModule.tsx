@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import PipelineDetailsHeader from './PipelineDetailsHeader'
 import { structuredLogger } from '@/src/observability'
 import PipelineStatusOverviewSection from './PipelineStatusOverviewSection'
@@ -17,7 +17,10 @@ import { usePipelineActions } from '@/src/hooks/usePipelineActions'
 import { getPipeline, updatePipelineMetadata } from '@/src/api/pipeline-api'
 import { cn, isDemoMode } from '@/src/utils/common.client'
 import { KafkaConnectionSection } from './sections/KafkaConnectionSection'
+import { OtlpSourceSection } from './sections/OtlpSourceSection'
 import { ClickhouseConnectionSection } from './sections/ClickhouseConnectionSection'
+import { ChevronRight } from 'lucide-react'
+import { isOtlpSource } from '@/src/config/source-types'
 import PipelineTagsModal from '@/src/modules/pipelines/components/PipelineTagsModal'
 import { handleApiError } from '@/src/notifications/api-error-handler'
 import { notify } from '@/src/notifications'
@@ -26,6 +29,7 @@ import { usePipelineHydration } from '@/src/hooks/usePipelineHydration'
 import { useActiveViewState } from './hooks/useActiveViewState'
 import { useIsTransformationSectionDirty } from '@/src/modules/transformation/hooks/useIsTransformationSectionDirty'
 import { ConfirmationModal, ModalResult } from '@/src/components/common/ConfirmationModal'
+import SchemaBindingsSection, { SchemaBindingsSectionHandle } from './SchemaBindingsSection'
 
 type PendingNavigation =
   | { type: 'section'; section: SidebarSection }
@@ -61,6 +65,9 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
   const [isSavingTags, setIsSavingTags] = useState(false)
   const [refreshDLQTrigger, setRefreshDLQTrigger] = useState(0)
 
+  // Ref for SchemaBindingsSection to allow refreshing after save/deploy
+  const schemaBindingsRef = useRef<SchemaBindingsSectionHandle>(null)
+
   // Use the centralized pipeline actions hook to get current pipeline actions status and transitions
   const { actionState } = usePipelineActions(pipeline)
   const operations = usePipelineOperations()
@@ -73,8 +80,15 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
   const topicsValidation = useStore((state) => state.topicsStore.validation)
   const deduplicationValidation = useStore((state) => state.deduplicationStore.validation)
 
-  const { coreStore, transformationStore } = useStore()
+  const { coreStore, transformationStore, kafkaStore } = useStore()
   const { mode } = coreStore
+
+  // Determine if this pipeline uses an external schema registry.
+  // Check both the hydrated store (reliable after hydration) and per-topic backend data
+  // (present when the backend returns schema_registry per topic in the pipeline response).
+  const hasExternalSchema =
+    !!kafkaStore.schemaRegistry?.url ||
+    pipeline.source?.topics?.some((t: any) => t.schema_registry?.url)
 
   // Determine if pipeline editing operations should be disabled
   // Consider pipeline status, loading state, AND demo mode
@@ -239,6 +253,13 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
     setRefreshDLQTrigger((k) => k + 1)
   }, [])
 
+  // Called by StandaloneStepRenderer after a successful save/deploy
+  // Refreshes the schema bindings list so newly created bindings appear
+  const handleBindingsChanged = useCallback(() => {
+    schemaBindingsRef.current?.refresh()
+    refreshPipelineData()
+  }, [refreshPipelineData])
+
   // redirect to pipelines list after deletion
   const handlePipelineDeleted = () => {
     // Redirect to pipelines list after deletion
@@ -292,20 +313,22 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
     }
   }
 
+  // Detect OTLP from either old format (source.type) or v3 format (sources[0].type)
+  const rawSources = (pipeline as any).sources
+  const detectedSourceType = pipeline.source?.type
+    || (Array.isArray(rawSources) && rawSources.length > 0 ? rawSources[0]?.type : '')
+    || ''
+  const isOtlp = isOtlpSource(detectedSourceType)
+
   // Section selection highlighting - determine which overview card should be highlighted
-  const isSourceSelected = isSourceStep(activeStep)
+  const isSourceSelected = isOtlp ? activeSection === 'otlp-source' : isSourceStep(activeStep)
   const isSinkSelected = isSinkStep(activeStep)
   const isResourcesSelected = isResourcesStep(activeStep)
 
   return (
     <div className="container mx-auto px-4 sm:px-0">
       {/* Two-column layout: Sidebar extends to top + Content (Header + Main) */}
-      <div
-        className={cn(
-          'flex flex-row gap-6 sm:gap-8 w-full py-4 transition-all duration-750 ease-out',
-          showConfigurationSection ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4',
-        )}
-      >
+      <div className="flex flex-row gap-6 sm:gap-8 w-full py-4 animate-section-enter">
         {/* Left Sidebar - extends from top */}
         <PipelineDetailsSidebar
           pipeline={pipeline}
@@ -325,31 +348,60 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
             showHeader={showHeader}
             onManageTags={openTagsModal}
             tags={pipeline.metadata?.tags}
+            onBindingsChanged={handleBindingsChanged}
           />
 
           {/* Main Content Area */}
           <div className="grow">
-            {/* Show Status Overview when 'monitor' is selected and no step is active */}
-            {activeSection === 'monitor' && !activeStep && (
-              <>
+            {/* Show Status Overview when 'monitor' is selected (or 'otlp-source') and no step is active */}
+            {(activeSection === 'monitor' || activeSection === 'otlp-source') && !activeStep && (
+              <div className="animate-section-enter">
                 <PipelineStatusOverviewSection
                   pipeline={pipeline}
                   showStatusOverview={showStatusOverview}
                   refreshDLQTrigger={refreshDLQTrigger}
                 />
 
+                {/* Schema Bindings — only shown for pipelines using an external schema registry */}
+                {hasExternalSchema && (
+                  <div
+                    className={cn(
+                      'mt-4 transition-all duration-750 ease-out',
+                      showStatusOverview ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4',
+                    )}
+                  >
+                    <SchemaBindingsSection
+                      ref={schemaBindingsRef}
+                      pipelineId={pipeline.pipeline_id}
+                      pipeline={pipeline}
+                      schemaRegistry={kafkaStore.schemaRegistry}
+                    />
+                  </div>
+                )}
+
                 {/* Pipeline Configuration Overview - shows the visual representation of the pipeline */}
                 <div
                   className={cn(
-                    'flex flex-row gap-4 items-stretch transition-all duration-750 ease-out mt-6',
+                    'flex flex-row gap-1 items-start transition-all duration-500 ease-out mt-6',
                     showConfigurationSection ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4',
                   )}
                 >
-                  <KafkaConnectionSection
-                    disabled={isEditingDisabled && !demoMode}
-                    selected={isSourceSelected}
-                    onStepClick={handleStepClick}
-                  />
+                  {isOtlp ? (
+                    <OtlpSourceSection
+                      disabled={isEditingDisabled && !demoMode}
+                      selected={isSourceSelected}
+                    />
+                  ) : (
+                    <KafkaConnectionSection
+                      disabled={isEditingDisabled && !demoMode}
+                      selected={isSourceSelected}
+                      onStepClick={handleStepClick}
+                    />
+                  )}
+                  {/* Source → Transformation flow connector */}
+                  <div className="flex-shrink-0 flex items-start pt-[52px] px-0.5">
+                    <ChevronRight className="w-4 h-4 text-[var(--color-foreground-neutral-faded)] opacity-30" />
+                  </div>
                   <TransformationSection
                     pipeline={pipeline}
                     onStepClick={handleStepClick}
@@ -365,24 +417,32 @@ function PipelineDetailsModule({ pipeline: initialPipeline }: { pipeline: Pipeli
                     activeStep={activeStep}
                     resourcesSelected={isResourcesSelected}
                   />
+                  {/* Transformation → Sink flow connector */}
+                  <div className="flex-shrink-0 flex items-start pt-[52px] px-0.5">
+                    <ChevronRight className="w-4 h-4 text-[var(--color-foreground-neutral-faded)] opacity-30" />
+                  </div>
                   <ClickhouseConnectionSection
                     disabled={isEditingDisabled && !demoMode}
                     selected={isSinkSelected}
                     onStepClick={handleStepClick}
                   />
                 </div>
-              </>
+              </div>
             )}
 
-            {/* Render the standalone step renderer when a step is active */}
+            {/* Render the standalone step renderer when a step is active.
+                key={activeStep} forces remount on step change, resetting state
+                and retriggering the card entrance animation. */}
             {activeStep && (
               <StandaloneStepRenderer
+                key={activeStep}
                 stepKey={activeStep}
                 onClose={handleCloseStep}
                 onCloseAfterSave={closeStep}
                 pipeline={pipeline}
                 onPipelineStatusUpdate={handlePipelineStatusUpdate}
                 topicIndex={activeTopicIndex}
+                onBindingsChanged={handleBindingsChanged}
               />
             )}
           </div>

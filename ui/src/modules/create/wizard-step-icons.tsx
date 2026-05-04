@@ -46,6 +46,8 @@ export const stepIcons: Record<StepKeys, StepIconComponent> = {
   [StepKeys.PIPELINE_RESOURCES]: createIconComponent(IconCheck, 'Pipeline Resources'),
   [StepKeys.REVIEW_CONFIGURATION]: createIconComponent(IconCheck, 'Review'),
   [StepKeys.DEPLOY_PIPELINE]: createIconComponent(IconCheck, 'Deploy'),
+  [StepKeys.OTLP_SIGNAL_TYPE]: createIconComponent(IconCheck, 'Signal Type'),
+  [StepKeys.OTLP_DEDUPLICATION]: createIconComponent(IconCheck, 'Deduplication'),
 }
 
 // Get icon component for a specific step

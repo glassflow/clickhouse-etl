@@ -168,8 +168,9 @@ export interface Pipeline {
   created_at?: string // Creation timestamp
   source: {
     type: string
-    provider: string
-    connection_params: {
+    provider?: string
+    id?: string // OTLP source identifier
+    connection_params?: {
       brokers: string[]
       skip_auth?: boolean // Deprecated: backend now uses mechanism: "NO_AUTH" instead
       skip_tls_verification?: boolean
@@ -179,7 +180,16 @@ export interface Pipeline {
       password?: string
       root_ca?: string
     }
-    topics: Array<{
+    schemaRegistry?: {
+      enabled?: boolean
+      url?: string
+      authMethod?: 'none' | 'api_key' | 'basic'
+      apiKey?: string
+      apiSecret?: string
+      username?: string
+      password?: string
+    }
+    topics?: Array<{
       name: string
       id: string
       schema: {
@@ -197,13 +207,20 @@ export interface Pipeline {
         time_window: string
       }
     }>
+    deduplication?: {
+      enabled: boolean
+      key: string
+      time_window: string
+    }
   }
   join: {
-    type: string
+    id?: string
+    type?: string
     enabled: boolean
-    sources: Array<{
+    sources?: Array<{
       source_id: string
-      join_key: string
+      join_key?: string
+      key?: string
       time_window: string
       orientation: string
     }>

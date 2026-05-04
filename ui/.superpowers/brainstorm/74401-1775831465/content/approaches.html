@@ -1,0 +1,86 @@
+<h2>OTLP Source Support — Architectural Approaches</h2>
+<p class="subtitle">How should we integrate OTLP as an alternative data source in the pipeline wizard?</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Source-Aware Journey Builder</h3>
+      <p><strong>Recommended</strong> — Add <code>sourceType</code> to CoreStore. Home page gains a source selection step before topic count. A new <code>getOtlpJourney()</code> function returns the OTLP-specific step sequence. The wizard, sidebar, and components branch on <code>sourceType</code>.</p>
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>Pros</h4>
+          <ul>
+            <li>Follows existing journey pattern — <code>getSingleTopicJourney()</code> / <code>getTwoTopicJourney()</code> / <code>getOtlpJourney()</code></li>
+            <li>Minimal changes to wizard orchestrator — it already works with dynamic step arrays</li>
+            <li>New OTLP-specific steps (signal type selector, OTLP dedup) are isolated in <code>src/modules/otlp/</code></li>
+            <li>Reuses existing ClickHouse, filter, transformation, and resources steps</li>
+            <li>Clean separation — Kafka code untouched</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>Cons</h4>
+          <ul>
+            <li>Need a new store slice (<code>OtlpSlice</code>) for signal type and OTLP-specific config</li>
+            <li>Home page gets a bit more complex (source selection → then topic count for Kafka only)</li>
+            <li>Some shared steps (dedup, mapper, resources) need <code>sourceType</code>-aware branching</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Separate OTLP Wizard Route</h3>
+      <p>Create an entirely separate wizard at <code>/pipelines/create/otlp</code> with its own page, step definitions, and components. Home page routes to either <code>/pipelines/create</code> (Kafka) or <code>/pipelines/create/otlp</code>.</p>
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>Pros</h4>
+          <ul>
+            <li>Complete isolation — zero risk of breaking existing Kafka flow</li>
+            <li>OTLP wizard can be optimized for its simpler flow</li>
+            <li>Easy to feature-flag or remove independently</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>Cons</h4>
+          <ul>
+            <li>Significant code duplication — ClickHouse connection, mapper, resources, filter, transformation steps duplicated</li>
+            <li>Two wizard orchestrators to maintain</li>
+            <li>Divergence risk — shared steps evolve independently, bugs get fixed in one but not the other</li>
+            <li>Store slices still shared, so "isolation" is partial</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Abstract Source Provider Pattern</h3>
+      <p>Introduce a <code>SourceProvider</code> interface that both Kafka and OTLP implement. Each provider defines its own steps, store slices, schema shape, and validation. The wizard consumes the provider generically.</p>
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>Pros</h4>
+          <ul>
+            <li>Most extensible — adding a third source type (e.g., S3, Pub/Sub) follows the same pattern</li>
+            <li>Clean inversion of control — wizard doesn't know about specific sources</li>
+            <li>Shared steps (ClickHouse, resources) remain truly shared</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>Cons</h4>
+          <ul>
+            <li>Over-engineering for 2 source types — significant refactor of existing Kafka code to conform to the provider interface</li>
+            <li>High risk — touches many existing files, could break Kafka flow</li>
+            <li>Longer timeline — abstraction design + migration + new OTLP provider</li>
+            <li>YAGNI unless a third source is planned soon</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

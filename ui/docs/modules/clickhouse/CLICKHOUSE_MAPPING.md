@@ -2,7 +2,9 @@
 
 ## Overview
 
-The ClickHouse Mapping module handles the mapping of event schema from Kafka topics (or intermediary schema created by transformations) to ClickHouse table columns. This module provides a comprehensive interface for selecting target databases and tables, configuring batch processing parameters, and mapping event fields to ClickHouse columns with automatic type inference and validation.
+The ClickHouse Mapping module handles the mapping of event schema from **Kafka topics** or **OTLP (OpenTelemetry) sources** (or the intermediary schema produced by transformations) to ClickHouse table columns. This module provides a comprehensive interface for selecting target databases and tables, configuring batch processing parameters, and mapping event fields to ClickHouse columns with automatic type inference and validation.
+
+The mapper is source-aware: when the active source type is OTLP, it uses the predefined fixed schema from `otlpStore.schemaFields` instead of sampling a Kafka event. All type-inference and auto-mapping logic branches on `isOtlpSource(coreStore.sourceType)` before falling through to the Kafka path.
 
 ## Architecture
 
@@ -39,7 +41,8 @@ Supporting Infrastructure:
     ├── topicsStore
     ├── transformationStore
     ├── joinStore
-    └── deduplicationStore
+    ├── deduplicationStore
+    └── otlpStore  ← OTLP fixed schema fields + signal type
 ```
 
 ## Core Components
@@ -315,18 +318,55 @@ interface FieldColumnMapperProps {
 
 ## Mapping Logic
 
-### Single-Topic Mode
+### OTLP Source Mode
+
+When `isOtlpSource(coreStore.sourceType)` is `true`, the mapper bypasses all Kafka event-sampling logic and uses the fixed schema stored in `otlpStore.schemaFields`.
+
+**Field source:** `otlpStore.schemaFields` — a static array of `{ name, type }` entries defined in `src/modules/otlp/constants.ts`. No Kafka event is needed and no `topicsStore` data is consulted.
+
+**Type inference (Use Existing Table path):** The `jsonType` for each field is read directly from `otlpStore.schemaFields`. No `inferJsonType()` or `getVerifiedTypeFromTopic()` calls are made for OTLP fields.
+
+**Type inference (Create New Table path):** The auto-mapping `useEffect` in `ClickhouseMapper` calls `getDefaultClickHouseType(field.type)` using the OTLP field's `type` property. This produces correct ClickHouse DDL types:
+
+| OTLP type | ClickHouse type (auto-generated) |
+|-----------|----------------------------------|
+| `string`  | `String` |
+| `uint`    | `UInt8` |
+| `int`     | `Int8` |
+| `float`   | `Float32` |
+| `bool`    | `Bool` |
+| `array`   | `Array` |
+| `map`     | `Map(String, String)` |
+
+**Auto-mapping:** `performAutoMapping()` and `mapEventFieldToColumn()` both branch on `isOtlp` and look up `otlpStore.schemaFields` instead of calling `getVerifiedTypeFromTopic`.
+
+**OTLP Metrics — union column schema:** The Metrics flat schema contains fields from all metric subtypes (Gauge, Sum, Histogram, Summary) in a single row. Fields are conditionally populated depending on `metric_type`:
+
+| Field | Populated for |
+|-------|---------------|
+| `value_double`, `value_int` | Gauge, Sum |
+| `is_monotonic` | Sum only |
+| `aggregation_temporality` | Sum, Histogram, ExponentialHistogram |
+| `count`, `sum`, `min`, `max`, `bucket_counts`, `explicit_bounds` | Histogram, Summary |
+
+The `metric_type` field (a synthetic discriminator derived from the protobuf `data` oneof) should always be mapped so users can filter by metric subtype in ClickHouse queries. Fields that will always be NULL for a given workload can simply be left unmapped.
+
+**Resource field naming:** Unlike Logs and Traces (which use `resource_attributes`), the Metrics flat schema uses `resource` for the resource attribute map. This is intentional and matches the Go backend output.
+
+### Single-Topic Mode (Kafka)
 
 In single-topic mode, the component maps fields from one Kafka topic to ClickHouse columns.
 
 **Field Source Priority:**
-1. **Intermediary Schema** (if transformations enabled): Uses fields from `transformationStore.getIntermediarySchema()`
-2. **Original Event Fields**: Extracts fields from the selected event using `extractEventFields()`
+1. **OTLP fixed schema** (if OTLP source): Uses `otlpStore.schemaFields` — see OTLP Source Mode above
+2. **Intermediary Schema** (if transformations enabled): Uses fields from `transformationStore.getIntermediarySchema()`
+3. **Original Event Fields**: Extracts fields from the selected event using `extractEventFields()`
 
 **Type Inference Priority:**
-1. **Verified Type**: Type from topic schema (set during type verification step)
-2. **Inferred Type**: Type inferred from event data using `inferJsonType()`
-3. **Default**: Falls back to `'string'` if type cannot be determined
+1. **OTLP schema type** (if OTLP source): Type from `otlpStore.schemaFields` — no event sampling needed
+2. **Verified Type**: Type from Kafka topic schema (set during type verification step)
+3. **Inferred Type**: Type inferred from event data using `inferJsonType()`
+4. **Default**: Falls back to `'string'` if type cannot be determined
 
 **Auto-Mapping Logic:**
 ```typescript
@@ -459,28 +499,45 @@ The `inferJsonType` function analyzes JavaScript values and infers appropriate J
 
 ### Type Compatibility (`isTypeCompatible`)
 
-The `isTypeCompatible` function checks if a source type (Kafka/JSON) can be safely mapped to a ClickHouse column type.
+The `isTypeCompatible` function checks if a source type (Kafka/JSON/OTLP) can be safely mapped to a ClickHouse column type. It is used both for real-time validation highlighting in the UI and for blocking deployment on incompatible mappings.
 
 **Compatibility Map:**
 
 ```typescript
 const TYPE_COMPATIBILITY_MAP: Record<string, string[]> = {
-  string: ['String', 'FixedString', 'DateTime', 'DateTime64', 'UUID', 'Enum8', 'Enum16', ...],
-  int8: ['Int8'],
-  int16: ['Int16'],
-  int32: ['Int32'],
-  int64: ['Int64', 'DateTime', 'DateTime64'],
-  float32: ['Float32'],
-  float64: ['Float64', 'DateTime', 'DateTime64'],
-  bool: ['Bool'],
-  // ... more mappings
+  // Core types
+  string:  ['String', 'FixedString', 'DateTime', 'DateTime64', 'UUID', 'Enum8', 'Enum16', 'Decimal', 'Bool', ...],
+  bool:    ['Bool'],
+  int:     ['Int8', 'Int16', 'Int32', 'Int64', 'UInt8', 'UInt16', 'UInt32', 'UInt64', 'DateTime', 'DateTime64'],
+  float:   ['Float32', 'Float64', 'Decimal', 'DateTime', 'DateTime64'],
+  bytes:   ['String'],
+  array:   ['Array', 'String'],
+  map:     ['Map(String, String)', 'String'],  // Map(String, String) for create-table; String as JSON fallback
+
+  // Precision aliases (backward compat)
+  uint:    ['UInt8', 'UInt16', 'UInt32', 'UInt64'],
+  int64:   ['Int64', 'DateTime', 'DateTime64'],
+  float64: ['Float64'],
+  // ... other precision variants
 }
 ```
 
-**Special Handling:**
-- **Nullable Types**: Strips `Nullable()` wrapper and checks inner type
-- **Array Types**: Checks if source is array or if inner type is compatible
-- **Partial Matching**: Uses `includes()` for flexible matching (e.g., `Nullable(String)` matches `String`)
+The first entry in each list is the default ClickHouse type used when auto-generating columns in the **Create New Table** path (`getDefaultClickHouseType`).
+
+**Special Handling — parameterised ClickHouse types (evaluated before the map lookup):**
+
+| ClickHouse type pattern | Behaviour |
+|-------------------------|-----------|
+| `Nullable(T)` | Strips wrapper, recurses with inner type `T` |
+| `Array(T)` | Source `array` always matches; otherwise recurses with `T` |
+| `Map(K, V)` | Only source type `map` matches — this guard is mandatory because `String` appears inside the Map parameter list and would otherwise produce false positives in the substring fallback |
+| `LowCardinality(T)` | Strips wrapper, recurses with inner type `T` — allows e.g. `LowCardinality(String)` to match `string` source type |
+
+**Substring fallback:** After the explicit handlers, the function checks `compatibleTypes.some(t => clickhouseType.includes(t))`. This covers parameterised variants like `DateTime64(9)` matching against `'DateTime64'` in the string list, or `UInt32` matching `'UInt32'`.
+
+**OTLP `map` fields and ClickHouse `Map(...)` columns:**
+
+OTLP schema fields typed as `map` (e.g. `resource_attributes`, `scope_attributes`, `attributes` in Logs/Traces; `resource`, `scope_attributes`, `attributes` in Metrics) can be mapped to any ClickHouse `Map(...)` column regardless of the key/value types used, including `Map(LowCardinality(String), String)` as used in the canonical OTel ClickHouse schema. The `LowCardinality` key optimisation is transparent to the compatibility check.
 
 ### Field Matching (`findBestMatchingField`)
 
@@ -645,12 +702,13 @@ Builds the internal pipeline configuration structure from UI stores.
 The component integrates with multiple Zustand stores:
 
 - **clickhouseDestinationStore**: Stores destination configuration (database, table, mapping, batch settings)
-- **topicsStore**: Provides topic data and event information
+- **topicsStore**: Provides topic data and event information (Kafka path only)
 - **transformationStore**: Provides intermediary schema when transformations are enabled
 - **joinStore**: Provides join configuration for multi-topic pipelines
 - **deduplicationStore**: Provides deduplication configuration
 - **filterStore**: Provides filter configuration
-- **coreStore**: Provides pipeline metadata and validation state
+- **coreStore**: Provides pipeline metadata, `sourceType`, and validation state
+- **otlpStore**: Provides the fixed schema field list (`schemaFields`) and signal type when `sourceType` is OTLP. Used in `ClickhouseMapper` (create-table type inference), `useClickhouseMapperEventFields` (event field list + auto-mapping), and `useClickhouseMapperState` (type lookup on manual field selection)
 
 ### State Synchronization
 
@@ -705,6 +763,50 @@ The component tracks various analytics events:
 4. **Handle nullable columns**: Unmapped nullable columns are safe but may indicate incomplete mapping
 5. **Review DEFAULT columns**: Columns with DEFAULT expressions will be auto-populated but should be reviewed
 6. **Test with sample data**: Always test the mapping with sample events before deployment
+
+## OTLP → ClickHouse Mapping Reference
+
+### Canonical OTel Logs table
+
+The table below shows how each column in a standard `otel_logs` ClickHouse table maps to the OTLP Logs flat schema. All combinations are validated as compatible by `isTypeCompatible`.
+
+```sql
+CREATE TABLE default.otel_logs (
+    timestamp              DateTime64(9),
+    observed_timestamp     DateTime64(9),
+    severity_number        UInt8,
+    trace_id               String,
+    span_id                String,
+    flags                  UInt32,
+    severity_text          LowCardinality(String),
+    body                   String,
+    resource_attributes    Map(LowCardinality(String), String),
+    dropped_attributes_count UInt32,
+    scope_name             LowCardinality(String),
+    scope_version          String,
+    scope_attributes       Map(LowCardinality(String), String),
+    attributes             Map(LowCardinality(String), String)
+) ENGINE = MergeTree ...
+```
+
+| ClickHouse column | ClickHouse type | OTLP field | OTLP type | Compatibility path |
+|---|---|---|---|---|
+| `timestamp` | `DateTime64(9)` | `timestamp` | `string` | string → DateTime64 (type map) |
+| `observed_timestamp` | `DateTime64(9)` | `observed_timestamp` | `string` | string → DateTime64 (type map) |
+| `severity_number` | `UInt8` | `severity_number` | `uint` | uint → UInt8 (type map) |
+| `trace_id` | `String` | `trace_id` | `string` | string → String (type map) |
+| `span_id` | `String` | `span_id` | `string` | string → String (type map) |
+| `flags` | `UInt32` | `flags` | `uint` | uint → UInt32 (type map) |
+| `severity_text` | `LowCardinality(String)` | `severity_text` | `string` | LowCardinality stripped → String → string (type map) |
+| `body` | `String` | `body` | `string` | string → String (type map) |
+| `resource_attributes` | `Map(LowCardinality(String), String)` | `resource_attributes` | `map` | Map guard: sourceType === 'map' |
+| `dropped_attributes_count` | `UInt32` | `dropped_attributes_count` | `uint` | uint → UInt32 (type map) |
+| `scope_name` | `LowCardinality(String)` | `scope_name` | `string` | LowCardinality stripped → String → string |
+| `scope_version` | `String` | `scope_version` | `string` | string → String (type map) |
+| `scope_attributes` | `Map(LowCardinality(String), String)` | `scope_attributes` | `map` | Map guard: sourceType === 'map' |
+| `attributes` | `Map(LowCardinality(String), String)` | `attributes` | `map` | Map guard: sourceType === 'map' |
+
+The same pattern applies for Traces (`scope_attributes`, `resource_attributes`, `attributes`) and Metrics (`resource`, `scope_attributes`, `attributes`). Note that the Metrics flat schema uses `resource` (not `resource_attributes`) for the resource map field — this matches the Go backend output.
 
 ## Related Documentation
 

@@ -36,6 +36,10 @@ Feature: Clickhouse ETL sink
                 },
                 "sink": {
                     "type": "clickhouse",
+                    "clickhouse_connection_params": {
+                        "database": "default",
+                        "table": "events_test"
+                    },
                     "stream_id": "test_stream",
                     "source_id": "topic-1",
                     "batch": {
@@ -143,6 +147,10 @@ Feature: Clickhouse ETL sink
                 },
                 "sink": {
                     "type": "clickhouse",
+                    "clickhouse_connection_params": {
+                        "database": "default",
+                        "table": "events_test"
+                    },
                     "stream_id": "test_stream",
                     "source_id": "topic-1",
                     "batch": {
@@ -254,6 +262,10 @@ Feature: Clickhouse ETL sink
                 },
                 "sink": {
                     "type": "clickhouse",
+                    "clickhouse_connection_params": {
+                        "database": "default",
+                        "table": "events_test"
+                    },
                     "stream_id": "test_stream",
                     "source_id": "topic-1",
                     "batch": {
@@ -338,6 +350,10 @@ Feature: Clickhouse ETL sink
                 },
                 "sink": {
                     "type": "clickhouse",
+                    "clickhouse_connection_params": {
+                        "database": "default",
+                        "table": "events_test"
+                    },
                     "stream_id": "test_stream",
                     "source_id": "topic-1",
                     "batch": {
@@ -405,6 +421,10 @@ Feature: Clickhouse ETL sink
                 },
                 "sink": {
                     "type": "clickhouse",
+                    "clickhouse_connection_params": {
+                        "database": "default",
+                        "table": "events_test"
+                    },
                     "stream_id": "test_stream",
                     "source_id": "topic-1",
                     "batch": {
@@ -484,6 +504,10 @@ Feature: Clickhouse ETL sink
                 },
                 "sink": {
                     "type": "clickhouse",
+                    "clickhouse_connection_params": {
+                        "database": "default",
+                        "table": "events_test"
+                    },
                     "stream_id": "test_stream",
                     "source_id": "topic-1",
                     "batch": {
@@ -565,6 +589,10 @@ Feature: Clickhouse ETL sink
                 },
                 "sink": {
                     "type": "clickhouse",
+                    "clickhouse_connection_params": {
+                        "database": "default",
+                        "table": "events_test"
+                    },
                     "stream_id": "test_stream",
                     "source_id": "topic-1",
                     "batch": {
@@ -641,6 +669,10 @@ Feature: Clickhouse ETL sink
                 },
                 "sink": {
                     "type": "clickhouse",
+                    "clickhouse_connection_params": {
+                        "database": "default",
+                        "table": "events_test"
+                    },
                     "stream_id": "test_stream",
                     "source_id": "topic-1",
                     "batch": {
@@ -715,6 +747,10 @@ Feature: Clickhouse ETL sink
                 },
                 "sink": {
                     "type": "clickhouse",
+                    "clickhouse_connection_params": {
+                        "database": "default",
+                        "table": "events_test"
+                    },
                     "stream_id": "test_stream",
                     "source_id": "topic-1",
                     "batch": {
@@ -789,6 +825,10 @@ Feature: Clickhouse ETL sink
                 },
                 "sink": {
                     "type": "clickhouse",
+                    "clickhouse_connection_params": {
+                        "database": "default",
+                        "table": "events_test"
+                    },
                     "stream_id": "test_stream",
                     "source_id": "topic-1",
                     "batch": {
@@ -863,6 +903,10 @@ Feature: Clickhouse ETL sink
                 },
                 "sink": {
                     "type": "clickhouse",
+                    "clickhouse_connection_params": {
+                        "database": "default",
+                        "table": "events_test"
+                    },
                     "stream_id": "test_stream",
                     "source_id": "topic-1",
                     "batch": {
@@ -907,6 +951,109 @@ Feature: Clickhouse ETL sink
         And I gracefully stop ClickHouse sink
         Then the ClickHouse table "default.events_test" should contain 2 rows
 
+    Scenario: Import events with Map columns including empty and null maps
+        Given the ClickHouse table "default.events_test" already exists with schema
+            | column_name      | data_type                           |
+            | id               | String                              |
+            | resource         | Map(LowCardinality(String), String) |
+            | scope_attributes | Map(String, String)                 |
+            | attributes       | Map(String, String)                 |
+        And a stream consumer with config
+            """json
+            {
+                "stream": "test_stream",
+                "subject": "test_subject",
+                "consumer": "test_consumer",
+                "ack_wait": "3s"
+            }
+            """
+        And a pipeline with configuration
+            """json
+            {
+                "pipeline_id": "test-pipeline-11",
+                "source_type": "kafka",
+                "name": "test-pipeline-11",
+                "source": {
+                    "type": "kafka",
+                    "kafka_topics": []
+                },
+                "sink": {
+                    "type": "clickhouse",
+                    "clickhouse_connection_params": {
+                        "database": "default",
+                        "table": "events_test"
+                    },
+                    "stream_id": "test_stream",
+                    "source_id": "topic-1",
+                    "batch": {
+                        "max_batch_size": 5
+                    },
+                    "config": [
+                        {
+                            "source_field": "id",
+                            "source_type": "string",
+                            "destination_field": "id",
+                            "destination_type": "String"
+                        },
+                        {
+                            "source_field": "resource",
+                            "source_type": "map",
+                            "destination_field": "resource",
+                            "destination_type": "Map(LowCardinality(String), String)"
+                        },
+                        {
+                            "source_field": "scope_attributes",
+                            "source_type": "map",
+                            "destination_field": "scope_attributes",
+                            "destination_type": "Map(String, String)"
+                        },
+                        {
+                            "source_field": "attributes",
+                            "source_type": "map",
+                            "destination_field": "attributes",
+                            "destination_type": "Map(String, String)"
+                        }
+                    ]
+                },
+                "schema_versions": {
+                    "topic-1": {
+                        "source_id": "topic-1",
+                        "version_id": "1",
+                        "data_type": "json",
+                        "fields": [
+                            {
+                                "name": "id",
+                                "type": "string"
+                            },
+                            {
+                                "name": "resource",
+                                "type": "map"
+                            },
+                            {
+                                "name": "scope_attributes",
+                                "type": "map"
+                            },
+                            {
+                                "name": "attributes",
+                                "type": "map"
+                            }
+                        ]
+                    }
+                }
+            }
+            """
+        When I publish 5 events to the stream
+            | id | resource                        | scope_attributes            | attributes | NATS-Schema-Version-Id |
+            | 1  | {"service.name":"telemetrygen"} | {"scope.key":"scope.value"} | {}         | 1                      |
+            | 2  | {}                              | {}                          | {}         | 1                      |
+            | 3  | null                            | null                        | null       | 1                      |
+            | 4  | <missing>                       | <missing>                   | <missing>  | 1                      |
+            | 5  | {"service.name":"myservice"}    | null                        | <missing>  | 1                      |
+        And I run ClickHouse sink
+        And Wait until all messages are processed
+        And I gracefully stop ClickHouse sink
+        Then the ClickHouse table "default.events_test" should contain 5 rows
+
     Scenario: Import events with fixed string
         Given the ClickHouse table "default.events_test" already exists with schema
             | column_name | data_type      |
@@ -933,6 +1080,10 @@ Feature: Clickhouse ETL sink
                 },
                 "sink": {
                     "type": "clickhouse",
+                    "clickhouse_connection_params": {
+                        "database": "default",
+                        "table": "events_test"
+                    },
                     "stream_id": "test_stream",
                     "source_id": "topic-1",
                     "batch": {

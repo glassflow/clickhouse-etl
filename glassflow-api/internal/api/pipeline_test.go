@@ -27,29 +27,26 @@ func TestEditPipeline_Success(t *testing.T) {
 		pipelineService: mockPipelineService,
 	}
 
-	// Test data - use a simple valid pipeline JSON
+	// Test data - use a simple valid v3 pipeline JSON
 	pipelineID := "test-pipeline-123"
 	editRequestData := map[string]interface{}{
+		"version":     "v3",
 		"pipeline_id": pipelineID,
 		"name":        "Updated Pipeline",
-		"source": map[string]interface{}{
-			"type":     "kafka",
-			"provider": "confluent",
-			"connection_params": map[string]interface{}{
-				"brokers":   []string{"localhost:9092"},
-				"mechanism": "NO_AUTH",
-				"protocol":  "SASL_PLAINTEXT",
-			},
-			"topics": []map[string]interface{}{
-				{
-					"name": "test-topic",
-					"id":   "topic-1",
+		"sources": []map[string]interface{}{
+			{
+				"type":      "kafka",
+				"source_id": "topic-1",
+				"connection_params": map[string]interface{}{
+					"brokers":   []string{"localhost:9092"},
+					"mechanism": "NO_AUTH",
+					"protocol":  "SASL_PLAINTEXT",
+				},
+				"topic": "test-topic",
+				"schema_fields": []map[string]interface{}{
+					{"name": "id", "type": "string"},
 				},
 			},
-		},
-		"join": map[string]interface{}{
-			"type":    "temporal",
-			"enabled": false,
 		},
 		"sink": map[string]interface{}{
 			"type": "clickhouse",
@@ -65,17 +62,6 @@ func TestEditPipeline_Success(t *testing.T) {
 			"table":          "test_table",
 			"max_batch_size": 1000,
 			"max_delay_time": "60s",
-		},
-		"schema": map[string]interface{}{
-			"fields": []map[string]interface{}{
-				{
-					"source_id":   "test-topic",
-					"name":        "id",
-					"type":        "string",
-					"column_name": "id",
-					"column_type": "String",
-				},
-			},
 		},
 	}
 
@@ -116,26 +102,23 @@ func TestEditPipeline_PipelineNotFound(t *testing.T) {
 
 	pipelineID := "non-existent-pipeline"
 	editRequestData := map[string]interface{}{
+		"version":     "v3",
 		"pipeline_id": pipelineID,
 		"name":        "Updated Pipeline",
-		"source": map[string]interface{}{
-			"type":     "kafka",
-			"provider": "confluent",
-			"connection_params": map[string]interface{}{
-				"brokers":   []string{"localhost:9092"},
-				"mechanism": "NO_AUTH",
-				"protocol":  "SASL_PLAINTEXT",
-			},
-			"topics": []map[string]interface{}{
-				{
-					"name": "test-topic",
-					"id":   "topic-1",
+		"sources": []map[string]interface{}{
+			{
+				"type":      "kafka",
+				"source_id": "topic-1",
+				"connection_params": map[string]interface{}{
+					"brokers":   []string{"localhost:9092"},
+					"mechanism": "NO_AUTH",
+					"protocol":  "SASL_PLAINTEXT",
+				},
+				"topic": "test-topic",
+				"schema_fields": []map[string]interface{}{
+					{"name": "id", "type": "string"},
 				},
 			},
-		},
-		"join": map[string]interface{}{
-			"type":    "temporal",
-			"enabled": false,
 		},
 		"sink": map[string]interface{}{
 			"type": "clickhouse",
@@ -151,17 +134,6 @@ func TestEditPipeline_PipelineNotFound(t *testing.T) {
 			"table":          "test_table",
 			"max_batch_size": 1000,
 			"max_delay_time": "60s",
-		},
-		"schema": map[string]interface{}{
-			"fields": []map[string]interface{}{
-				{
-					"source_id":   "test-topic",
-					"name":        "id",
-					"type":        "string",
-					"column_name": "id",
-					"column_type": "String",
-				},
-			},
 		},
 	}
 
@@ -259,7 +231,7 @@ func TestEditPipeline_InvalidPipelineData(t *testing.T) {
 	var pipelineBody pipelineJSON
 	pipelineBody.PipelineID = pipelineID
 	pipelineBody.Name = "Test"
-	// Missing required fields like source, sink, schema will cause toModel() to fail
+	// Missing required fields like sources, sink will cause toModel() to fail
 
 	// Create input
 	input := &EditPipelineInput{
@@ -328,39 +300,43 @@ func TestCreatePipeline_CRDAlignedValidations(t *testing.T) {
 		wantContain string
 	}{
 		{
-			name: "no topics",
+			name: "no sources",
 			modify: func(b map[string]interface{}) {
-				b["source"].(map[string]interface{})["topics"] = []map[string]interface{}{}
+				b["sources"] = []map[string]interface{}{}
 			},
-			wantContain: "at least one topic",
+			wantContain: "at least one source",
 		},
 		{
-			name: "more than two topics",
+			name: "more than two sources",
 			modify: func(b map[string]interface{}) {
-				b["source"].(map[string]interface{})["topics"] = []map[string]interface{}{
-					{"name": "t1"},
-					{"name": "t2"},
-					{"name": "t3"},
+				connParams := map[string]interface{}{
+					"brokers":   []string{"localhost:9092"},
+					"mechanism": "NO_AUTH",
+					"protocol":  "SASL_PLAINTEXT",
+				}
+				b["sources"] = []map[string]interface{}{
+					{"type": "kafka", "source_id": "t1", "connection_params": connParams, "topic": "t1"},
+					{"type": "kafka", "source_id": "t2", "connection_params": connParams, "topic": "t2"},
+					{"type": "kafka", "source_id": "t3", "connection_params": connParams, "topic": "t3"},
 				}
 			},
-			wantContain: "at most 2 topics",
+			wantContain: "at most 2 sources",
 		},
 		{
-			name: "empty topic name",
+			name: "empty source_id",
 			modify: func(b map[string]interface{}) {
-				b["source"].(map[string]interface{})["topics"] = []map[string]interface{}{
-					{"name": ""},
-				}
+				sources := b["sources"].([]map[string]interface{})
+				sources[0]["source_id"] = ""
 			},
-			wantContain: "topic name",
-			// error says "topic name at index 0 cannot be empty"
+			wantContain: "empty source_id",
 		},
 		{
-			name: "source type not kafka",
+			name: "unsupported source type",
 			modify: func(b map[string]interface{}) {
-				b["source"].(map[string]interface{})["type"] = "rabbitmq"
+				sources := b["sources"].([]map[string]interface{})
+				sources[0]["type"] = "rabbitmq"
 			},
-			wantContain: "unsupported source kind",
+			wantContain: "unsupported type",
 		},
 	}
 
@@ -409,40 +385,44 @@ func TestCreatePipeline_JoinEnabledRejectsIncompatibleComponents(t *testing.T) {
 		{
 			name: "stateless transformation enabled",
 			modify: func(b map[string]interface{}) {
-				b["join"].(map[string]interface{})["enabled"] = true
-				b["stateless_transformation"] = map[string]interface{}{
-					"id":      "test-transform",
-					"type":    "expr_lang_transform",
-					"enabled": true,
-					"config": map[string]interface{}{
-						"transform": []map[string]interface{}{
-							{
-								"expression":  "lower(id)",
-								"output_name": "out",
-								"output_type": "string",
+				b["transforms"] = []map[string]interface{}{
+					{
+						"type":      "stateless",
+						"source_id": "orders",
+						"config": map[string]interface{}{
+							"transforms": []map[string]interface{}{
+								{
+									"expression":  "lower(order_id)",
+									"output_name": "out",
+									"output_type": "string",
+								},
 							},
 						},
 					},
 				}
 			},
-			wantContain: "join cannot be enabled when stateless transformation is enabled",
+			wantContain: "filter/stateless transforms are not supported with join",
 		},
 		{
 			name: "filter enabled",
 			modify: func(b map[string]interface{}) {
-				b["join"].(map[string]interface{})["enabled"] = true
-				b["filter"] = map[string]interface{}{
-					"enabled":    true,
-					"expression": `id == "1"`,
+				b["transforms"] = []map[string]interface{}{
+					{
+						"type":      "filter",
+						"source_id": "orders",
+						"config": map[string]interface{}{
+							"expression": `order_id != ""`,
+						},
+					},
 				}
 			},
-			wantContain: "join cannot be enabled when filter is enabled",
+			wantContain: "filter/stateless transforms are not supported with join",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			body := validCreatePipelineBody()
+			body := validJoinPipelineBody()
 			tt.modify(body)
 
 			jsonBytes, err := json.Marshal(body)
@@ -486,44 +466,47 @@ func TestEditPipeline_JoinEnabledRejectsIncompatibleComponents(t *testing.T) {
 		modify      func(map[string]interface{})
 		wantContain string
 	}{
-
 		{
 			name: "stateless transformation enabled",
 			modify: func(b map[string]interface{}) {
-				b["join"].(map[string]interface{})["enabled"] = true
-				b["stateless_transformation"] = map[string]interface{}{
-					"id":      "test-transform",
-					"type":    "expr_lang_transform",
-					"enabled": true,
-					"config": map[string]interface{}{
-						"transform": []map[string]interface{}{
-							{
-								"expression":  "lower(id)",
-								"output_name": "out",
-								"output_type": "string",
+				b["transforms"] = []map[string]interface{}{
+					{
+						"type":      "stateless",
+						"source_id": "orders",
+						"config": map[string]interface{}{
+							"transforms": []map[string]interface{}{
+								{
+									"expression":  "lower(order_id)",
+									"output_name": "out",
+									"output_type": "string",
+								},
 							},
 						},
 					},
 				}
 			},
-			wantContain: "join cannot be enabled when stateless transformation is enabled",
+			wantContain: "filter/stateless transforms are not supported with join",
 		},
 		{
 			name: "filter enabled",
 			modify: func(b map[string]interface{}) {
-				b["join"].(map[string]interface{})["enabled"] = true
-				b["filter"] = map[string]interface{}{
-					"enabled":    true,
-					"expression": `id == "1"`,
+				b["transforms"] = []map[string]interface{}{
+					{
+						"type":      "filter",
+						"source_id": "orders",
+						"config": map[string]interface{}{
+							"expression": `order_id != ""`,
+						},
+					},
 				}
 			},
-			wantContain: "join cannot be enabled when filter is enabled",
+			wantContain: "filter/stateless transforms are not supported with join",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			body := validCreatePipelineBody()
+			body := validJoinPipelineBody()
 			tt.modify(body)
 
 			jsonBytes, err := json.Marshal(body)
@@ -555,35 +538,29 @@ func TestEditPipeline_JoinEnabledRejectsIncompatibleComponents(t *testing.T) {
 	}
 }
 
-// validCreatePipelineBody returns a minimal valid pipeline JSON for create (used as base for validation tests).
+// validCreatePipelineBody returns a minimal valid v3 pipeline JSON for create (used as base for validation tests).
 func validCreatePipelineBody() map[string]interface{} {
 	return map[string]interface{}{
+		"version":     "v3",
 		"pipeline_id": "test-pipeline",
 		"name":        "Test Pipeline",
-		"source": map[string]interface{}{
-			"type":     "kafka",
-			"provider": "confluent",
-			"connection_params": map[string]interface{}{
-				"brokers":   []string{"localhost:9092"},
-				"mechanism": "NO_AUTH",
-				"protocol":  "SASL_PLAINTEXT",
-			},
-			"topics": []map[string]interface{}{
-				{
-					"name": "test-topic",
-					"id":   "test-topic",
-					"schema_fields": []map[string]interface{}{
-						{
-							"name": "id",
-							"type": "string",
-						},
+		"sources": []map[string]interface{}{
+			{
+				"type":      "kafka",
+				"source_id": "test-topic",
+				"connection_params": map[string]interface{}{
+					"brokers":   []string{"localhost:9092"},
+					"mechanism": "NO_AUTH",
+					"protocol":  "SASL_PLAINTEXT",
+				},
+				"topic": "test-topic",
+				"schema_fields": []map[string]interface{}{
+					{
+						"name": "id",
+						"type": "string",
 					},
 				},
 			},
-		},
-		"join": map[string]interface{}{
-			"type":    "temporal",
-			"enabled": false,
 		},
 		"sink": map[string]interface{}{
 			"type": "clickhouse",
@@ -603,6 +580,71 @@ func validCreatePipelineBody() map[string]interface{} {
 	}
 }
 
+// validJoinPipelineBody returns a valid v3 two-source Kafka pipeline with join enabled.
+func validJoinPipelineBody() map[string]interface{} {
+	connParams := map[string]interface{}{
+		"brokers":   []string{"localhost:9092"},
+		"mechanism": "NO_AUTH",
+		"protocol":  "SASL_PLAINTEXT",
+	}
+	return map[string]interface{}{
+		"version":     "v3",
+		"pipeline_id": "test-pipeline",
+		"name":        "Test Pipeline",
+		"sources": []map[string]interface{}{
+			{
+				"type":              "kafka",
+				"source_id":         "orders",
+				"connection_params": connParams,
+				"topic":             "orders",
+				"schema_fields": []map[string]interface{}{
+					{"name": "order_id", "type": "string"},
+					{"name": "customer_id", "type": "string"},
+				},
+			},
+			{
+				"type":              "kafka",
+				"source_id":         "users",
+				"connection_params": connParams,
+				"topic":             "users",
+				"schema_fields": []map[string]interface{}{
+					{"name": "user_id", "type": "string"},
+					{"name": "email", "type": "string"},
+				},
+			},
+		},
+		"join": map[string]interface{}{
+			"enabled":      true,
+			"type":         "temporal",
+			"left_source":  map[string]interface{}{"source_id": "orders", "key": "customer_id", "time_window": "30s"},
+			"right_source": map[string]interface{}{"source_id": "users", "key": "user_id", "time_window": "30s"},
+			"output_fields": []map[string]interface{}{
+				{"source_id": "orders", "name": "order_id", "output_name": "ORDER_ID"},
+				{"source_id": "users", "name": "email"},
+			},
+		},
+		"sink": map[string]interface{}{
+			"type": "clickhouse",
+			"connection_params": map[string]interface{}{
+				"host":      "localhost",
+				"port":      "9000",
+				"http_port": "8123",
+				"database":  "test_db",
+				"username":  "default",
+				"password":  "x",
+				"secure":    false,
+			},
+			"table":          "joined",
+			"max_batch_size": 500,
+			"max_delay_time": "2s",
+			"mapping": []map[string]interface{}{
+				{"name": "ORDER_ID", "column_name": "order_id", "column_type": "String"},
+				{"name": "email", "column_name": "email", "column_type": "String"},
+			},
+		},
+	}
+}
+
 func TestCreatePipeline_UnsupportedClickHouseColumnType(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -615,16 +657,13 @@ func TestCreatePipeline_UnsupportedClickHouseColumnType(t *testing.T) {
 	}
 
 	body := validCreatePipelineBody()
-	// Override schema to use an unsupported ClickHouse column type
-	body["schema"] = map[string]interface{}{
-		"fields": []map[string]interface{}{
-			{
-				"source_id":   "test-topic",
-				"name":        "id",
-				"type":        "string",
-				"column_name": "id",
-				"column_type": "Unsupported",
-			},
+	// Add sink mapping with an unsupported ClickHouse column type
+	sinkMap := body["sink"].(map[string]interface{})
+	sinkMap["mapping"] = []map[string]interface{}{
+		{
+			"name":        "id",
+			"column_name": "id",
+			"column_type": "Unsupported",
 		},
 	}
 
@@ -664,17 +703,18 @@ func TestCreatePipeline_InvalidStatelessTransformExpression(t *testing.T) {
 	}
 
 	body := validCreatePipelineBody()
-	// Enable stateless transformation with an invalid expression (will not compile)
-	body["stateless_transformation"] = map[string]interface{}{
-		"id":      "test-transform",
-		"type":    "expr_lang_transform",
-		"enabled": true,
-		"config": map[string]interface{}{
-			"transform": []map[string]interface{}{
-				{
-					"expression":  "invalid ??? syntax",
-					"output_name": "out",
-					"output_type": "string",
+	// Add stateless transform with an invalid expression
+	body["transforms"] = []map[string]interface{}{
+		{
+			"type":      "stateless",
+			"source_id": "test-topic",
+			"config": map[string]interface{}{
+				"transforms": []map[string]interface{}{
+					{
+						"expression":  "invalid ??? syntax",
+						"output_name": "out",
+						"output_type": "string",
+					},
 				},
 			},
 		},
@@ -716,17 +756,17 @@ func TestCreatePipeline_ValidStatelessTransformAccepted(t *testing.T) {
 	}
 
 	body := validCreatePipelineBody()
-	body["stateless_transformation"] = map[string]interface{}{
-		"id":        "test-transform",
-		"type":      "expr_lang_transform",
-		"enabled":   true,
-		"source_id": "test-topic",
-		"config": map[string]interface{}{
-			"transform": []map[string]interface{}{
-				{
-					"expression":  "lower(id)",
-					"output_name": "out",
-					"output_type": "string",
+	body["transforms"] = []map[string]interface{}{
+		{
+			"type":      "stateless",
+			"source_id": "test-topic",
+			"config": map[string]interface{}{
+				"transforms": []map[string]interface{}{
+					{
+						"expression":  "lower(id)",
+						"output_name": "out",
+						"output_type": "string",
+					},
 				},
 			},
 		},

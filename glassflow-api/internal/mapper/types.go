@@ -45,12 +45,11 @@ func ExtractEventValue(dataType KafkaDataType, data any) (zero any, _ error) {
 }
 
 func ConvertValueFromJson(columnType ClickHouseDataType, fieldType KafkaDataType, result gjson.Result) (any, error) {
-	if !result.Exists() {
-		return nil, nil
-	}
-
-	// Check if the value is explicitly null
-	if result.Type == gjson.Null {
+	if !result.Exists() || result.Type == gjson.Null {
+		// Map types cannot be NULL in ClickHouse, return empty map instead
+		if strings.HasPrefix(string(columnType), "Map(") {
+			return map[string]string{}, nil
+		}
 		return nil, nil
 	}
 
@@ -81,6 +80,10 @@ func ConvertValue(columnType ClickHouseDataType, fieldType KafkaDataType, data a
 	// If data is nil, pass it through to let ClickHouse handle null validation
 	// HOTFIX: This is a temporary, will be moved up and sent to DLQ as a proper solution.
 	if data == nil {
+		// Map types cannot be NULL in ClickHouse, return empty map instead
+		if strings.HasPrefix(string(columnType), "Map(") {
+			return map[string]string{}, nil
+		}
 		return nil, nil
 	}
 
@@ -91,43 +94,43 @@ func ConvertValue(columnType ClickHouseDataType, fieldType KafkaDataType, data a
 		}
 		return ExtractEventValue(internal.KafkaTypeBool, data)
 	case internal.CHTypeInt8, internal.CHTypeLCInt8:
-		if fieldType != internal.KafkaTypeInt {
-			return zero, fmt.Errorf("mismatched types: expected %s, got %s", internal.KafkaTypeInt, fieldType)
+		if fieldType != internal.KafkaTypeInt && fieldType != internal.KafkaTypeUint {
+			return zero, fmt.Errorf("mismatched types: expected %s or %s, got %s", internal.KafkaTypeInt, internal.KafkaTypeUint, fieldType)
 		}
 		return ParseInt8(data)
 	case internal.CHTypeInt16, internal.CHTypeLCInt16:
-		if fieldType != internal.KafkaTypeInt {
-			return zero, fmt.Errorf("mismatched types: expected %s, got %s", internal.KafkaTypeInt, fieldType)
+		if fieldType != internal.KafkaTypeInt && fieldType != internal.KafkaTypeUint {
+			return zero, fmt.Errorf("mismatched types: expected %s or %s, got %s", internal.KafkaTypeInt, internal.KafkaTypeUint, fieldType)
 		}
 		return ParseInt16(data)
 	case internal.CHTypeInt32, internal.CHTypeLCInt32:
-		if fieldType != internal.KafkaTypeInt {
-			return zero, fmt.Errorf("mismatched types: expected %s, got %s", internal.KafkaTypeInt, fieldType)
+		if fieldType != internal.KafkaTypeInt && fieldType != internal.KafkaTypeUint {
+			return zero, fmt.Errorf("mismatched types: expected %s or %s, got %s", internal.KafkaTypeInt, internal.KafkaTypeUint, fieldType)
 		}
 		return ParseInt32(data)
 	case internal.CHTypeInt64, internal.CHTypeLCInt64:
-		if fieldType != internal.KafkaTypeInt {
-			return zero, fmt.Errorf("mismatched types: expected %s, got %s", internal.KafkaTypeInt, fieldType)
+		if fieldType != internal.KafkaTypeInt && fieldType != internal.KafkaTypeUint {
+			return zero, fmt.Errorf("mismatched types: expected %s or %s, got %s", internal.KafkaTypeInt, internal.KafkaTypeUint, fieldType)
 		}
 		return ParseInt64(data)
 	case internal.CHTypeUInt8, internal.CHTypeLCUInt8:
-		if fieldType != internal.KafkaTypeUint {
-			return zero, fmt.Errorf("mismatched types: expected %s, got %s", internal.KafkaTypeUint, fieldType)
+		if fieldType != internal.KafkaTypeUint && fieldType != internal.KafkaTypeInt {
+			return zero, fmt.Errorf("mismatched types: expected %s or %s, got %s", internal.KafkaTypeUint, internal.KafkaTypeInt, fieldType)
 		}
 		return ParseUint8(data)
 	case internal.CHTypeUInt16, internal.CHTypeLCUInt16:
-		if fieldType != internal.KafkaTypeUint {
-			return zero, fmt.Errorf("mismatched types: expected %s, got %s", internal.KafkaTypeUint, fieldType)
+		if fieldType != internal.KafkaTypeUint && fieldType != internal.KafkaTypeInt {
+			return zero, fmt.Errorf("mismatched types: expected %s or %s, got %s", internal.KafkaTypeUint, internal.KafkaTypeInt, fieldType)
 		}
 		return ParseUint16(data)
 	case internal.CHTypeUInt32, internal.CHTypeLCUInt32:
-		if fieldType != internal.KafkaTypeUint {
-			return zero, fmt.Errorf("mismatched types: expected %s, got %s", internal.KafkaTypeUint, fieldType)
+		if fieldType != internal.KafkaTypeUint && fieldType != internal.KafkaTypeInt {
+			return zero, fmt.Errorf("mismatched types: expected %s or %s, got %s", internal.KafkaTypeUint, internal.KafkaTypeInt, fieldType)
 		}
 		return ParseUint32(data)
 	case internal.CHTypeUInt64, internal.CHTypeLCUInt64:
-		if fieldType != internal.KafkaTypeUint {
-			return zero, fmt.Errorf("mismatched types: expected %s, got %s", internal.KafkaTypeUint, fieldType)
+		if fieldType != internal.KafkaTypeUint && fieldType != internal.KafkaTypeInt {
+			return zero, fmt.Errorf("mismatched types: expected %s or %s, got %s", internal.KafkaTypeUint, internal.KafkaTypeInt, fieldType)
 		}
 		return ParseUint64(data)
 	case internal.CHTypeFloat32, internal.CHTypeLCFloat32:
@@ -234,7 +237,7 @@ func GetDefaultValueForKafkaType(kafkaType KafkaDataType) (any, error) {
 // convertMapToStringMap converts map[string]any to map[string]string for ClickHouse compatibility
 func convertMapToStringMap(data any) (map[string]string, error) {
 	if data == nil {
-		return nil, nil
+		return map[string]string{}, nil
 	}
 
 	mapData, ok := data.(map[string]any)
@@ -275,7 +278,7 @@ func convertMapToStringMap(data any) (map[string]string, error) {
 // convertMapArrayToStringMapArray converts []any containing maps to []map[string]string for ClickHouse compatibility
 func convertMapArrayToStringMapArray(data []any) ([]map[string]string, error) {
 	if data == nil {
-		return nil, nil
+		return []map[string]string{}, nil
 	}
 
 	result := make([]map[string]string, 0, len(data))

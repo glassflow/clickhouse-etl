@@ -6,7 +6,7 @@ type Role string
 
 func (r Role) Valid() bool {
 	switch r {
-	case internal.RoleSink, internal.RoleJoin, internal.RoleIngestor, internal.RoleETL, internal.RoleDeduplicator, internal.RoleOLTPReceiver:
+	case internal.RoleSink, internal.RoleJoin, internal.RoleIngestor, internal.RoleETL, internal.RoleDeduplicator, internal.RoleOLTPReceiver, internal.RoleMigrateData:
 		return true
 	default:
 		return false

@@ -10,8 +10,8 @@ export default function PipelineError({ error, reset }: { error: Error & { diges
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)] gap-6 px-4">
-      <h2 className="text-2xl font-semibold text-foreground">Pipeline error</h2>
-      <p className="text-sm text-content text-center max-w-md">{error.message || 'Failed to load pipeline.'}</p>
+      <h2 className="title-3 text-[var(--color-foreground-neutral)]">Pipeline error</h2>
+      <p className="body-3 text-[var(--color-foreground-neutral-faded)] text-center max-w-md">{error.message || 'Failed to load pipeline.'}</p>
       <div className="flex gap-3">
         <Button onClick={() => reset()} variant="primary" size="custom" className="flex items-center gap-2">
           Try again

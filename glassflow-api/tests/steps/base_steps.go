@@ -536,7 +536,24 @@ func (b *BaseTestSuite) publishEvents(count int, dataTable *godog.Table, subject
 				if strings.HasPrefix(headerName, "NATS-") {
 					natsHeaders[headerName[5:]] = cell.Value
 				} else {
-					event[headerName] = cell.Value
+					val := cell.Value
+					// "null" produces JSON null; "<missing>" omits the field entirely
+					if val == "null" {
+						event[headerName] = nil
+						continue
+					}
+					if val == "<missing>" {
+						continue
+					}
+					// Try to parse JSON objects/arrays so they get marshaled as nested structures
+					if len(val) > 0 && (val[0] == '{' || val[0] == '[') {
+						var parsed any
+						if jsonErr := json.Unmarshal([]byte(val), &parsed); jsonErr == nil {
+							event[headerName] = parsed
+							continue
+						}
+					}
+					event[headerName] = val
 				}
 			}
 		}

@@ -121,7 +121,7 @@ function mapClickHouseTypeToJsonType(clickhouseType: string): string {
   if (unwrapped.startsWith('float') || unwrapped.startsWith('decimal')) return 'float'
   if (unwrapped.startsWith('date') || unwrapped.startsWith('datetime')) return 'string'
   if (unwrapped.startsWith('array')) return 'array'
-  if (unwrapped.startsWith('map')) return 'bytes'
+  if (unwrapped.startsWith('map')) return 'map'
 
   return 'string'
 }
@@ -150,21 +150,10 @@ export async function hydrateClickhouseDestination(pipelineConfig: any) {
     }))
   }
 
-  // Decode base64 password if it's encoded
-  let decodedPassword = sink.password || ''
-  try {
-    // Check if password is base64 encoded by trying to decode it
-    if (sink.password && typeof sink.password === 'string') {
-      const decoded = atob(sink.password)
-      // If decoding succeeds and doesn't contain control characters, use decoded version
-      if (decoded && !/[\x00-\x1F\x7F]/.test(decoded)) {
-        decodedPassword = decoded
-      }
-    }
-  } catch (error) {
-    // If decoding fails, use original password (might not be base64 encoded)
-    decodedPassword = sink.password || ''
-  }
+  // The backend decrypts the password before serialising the API response, so sink.password
+  // (set by the V3 adapter from connection_params.password) is already plaintext and can be
+  // used directly for ClickHouse metadata calls.
+  const decodedPassword = sink.password ?? sink.connection_params?.password ?? ''
 
   // 1. Set the basic destination config (pass schema.fields for V2 format support).
   // For deployed pipelines (pipeline_id present), treat as "existing table" only.

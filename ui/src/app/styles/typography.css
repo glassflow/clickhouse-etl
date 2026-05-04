@@ -131,6 +131,21 @@
   letter-spacing: var(--letter-spacing-featured-3);
 }
 
+/* ================== Caption ================== */
+.caption-1 {
+  font-size: var(--font-size-caption-1);
+  line-height: var(--line-height-caption-1);
+  font-family: var(--font-family-body);
+  letter-spacing: var(--letter-spacing-caption-1);
+}
+
+.caption-2 {
+  font-size: var(--font-size-caption-2);
+  line-height: var(--line-height-caption-2);
+  font-family: var(--font-family-body);
+  letter-spacing: var(--letter-spacing-caption-2);
+}
+
 .subtitle-2 {
   color: var(--text-primary);
   font-family: var(--font-family-body);

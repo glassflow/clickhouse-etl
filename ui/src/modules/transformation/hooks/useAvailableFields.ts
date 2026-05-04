@@ -12,6 +12,7 @@ export interface AvailableField {
 
 /**
  * Hook to derive available fields from multiple sources with priority:
+ * 0. Override fields (e.g. OTLP predefined schema) — returned immediately if provided
  * 1. Schema fields from KafkaTypeVerification (respects added/removed fields)
  * 2. Fields extracted from the effective event data
  * 3. Fields extracted from existing transformation configurations (fallback)
@@ -19,14 +20,20 @@ export interface AvailableField {
  * @param schemaFields - Schema fields from KafkaTypeVerification step
  * @param effectiveEventData - Event data with schema modifications applied
  * @param transformationFields - Existing transformation field configurations
+ * @param overrideFields - Optional fields that take highest priority (e.g. OTLP schema)
  * @returns Array of available fields with name and type
  */
 export function useAvailableFields(
   schemaFields: SchemaField[] | undefined,
   effectiveEventData: any,
-  transformationFields: TransformationField[]
+  transformationFields: TransformationField[],
+  overrideFields?: Array<{ name: string; type: string }>,
 ): AvailableField[] {
   return useMemo((): AvailableField[] => {
+    if (overrideFields && overrideFields.length > 0) {
+      return overrideFields
+    }
+
     // First priority: Use schema fields from KafkaTypeVerification if available
     // This ensures we respect added/removed fields from the type verification step
     if (schemaFields && schemaFields.length > 0) {
@@ -75,5 +82,5 @@ export function useAvailableFields(
     }
 
     return []
-  }, [schemaFields, effectiveEventData, transformationFields])
+  }, [schemaFields, effectiveEventData, transformationFields, overrideFields])
 }

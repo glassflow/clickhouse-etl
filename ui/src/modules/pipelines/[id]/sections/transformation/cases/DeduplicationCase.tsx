@@ -10,6 +10,17 @@ interface DeduplicationCaseProps extends TransformationCaseBaseProps {
   hasDedup: boolean
 }
 
+function GroupLabel({ label }: { label: string }) {
+  return (
+    <div className="flex items-center gap-2 mt-2">
+      <span className="caption-2 uppercase tracking-widest font-semibold text-[var(--color-foreground-neutral-faded)] opacity-50 whitespace-nowrap">
+        {label}
+      </span>
+      <div className="h-px flex-1 bg-[var(--surface-border)] opacity-30" />
+    </div>
+  )
+}
+
 /**
  * Single topic case - covers deduplication or ingest only pipelines
  */
@@ -26,8 +37,8 @@ export function DeduplicationCase({
   pipeline,
 }: DeduplicationCaseProps) {
   return (
-    <div className="flex flex-col gap-4">
-      {/* Top card: Topic */}
+    <div className="flex flex-col gap-2.5">
+      <GroupLabel label="Data Source" />
       <SingleCard
         label={['Topic']}
         value={[topic.name]}
@@ -38,11 +49,9 @@ export function DeduplicationCase({
         validation={validation}
         selected={activeStep === StepKeys.TOPIC_SELECTION_1}
       />
-
-      {/* Type Verification card */}
       <TypeVerificationCard onStepClick={onStepClick} disabled={disabled} activeStep={activeStep} topicIndex={0} />
 
-      {/* Middle card: Deduplication Key (only if dedup is enabled) */}
+      <GroupLabel label="Processing" />
       {hasDedup && (
         <DeduplicationKeyCard
           onStepClick={onStepClick}
@@ -52,16 +61,12 @@ export function DeduplicationCase({
           topicIndex={0}
         />
       )}
-
-      {/* Filter card (only if filters feature is enabled) */}
       {isFiltersEnabled() && (
         <FilterCard onStepClick={onStepClick} disabled={disabled} validation={validation} activeStep={activeStep} />
       )}
-
-      {/* Transformation card (if stateless transformations are enabled) */}
       <TransformationCard onStepClick={onStepClick} disabled={disabled} activeStep={activeStep} pipeline={pipeline} />
 
-      {/* Bottom card: Destination Table and Schema Mapping */}
+      <GroupLabel label="Destination" />
       <DoubleColumnCard
         label={['Destination Table', 'Schema Mapping']}
         value={[destinationTable, `${totalSourceFields} fields → ${totalDestinationColumns} columns`]}
