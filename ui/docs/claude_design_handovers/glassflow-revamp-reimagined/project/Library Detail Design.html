@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>GlassFlow · Library detail surfaces</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<link rel="stylesheet" href="styles/base.css"/>
+<link rel="stylesheet" href="styles/theme.css"/>
+<link rel="stylesheet" href="styles/canvas.css"/>
+<link rel="stylesheet" href="styles/pipeline-canvas.css"/>
+<link rel="stylesheet" href="styles/bridge.css"/>
+<link rel="stylesheet" href="styles/library.css"/>
+<style>
+  html, body { height: 100%; }
+  body { background: #070708; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="components/shell.jsx"></script>
+<script type="text/babel" src="components/canvas-primitives.jsx"></script>
+<script type="text/babel" src="components/bridge-primitives.jsx"></script>
+<script type="text/babel" src="components/library-detail-artboards.jsx"></script>
+
+<script type="text/babel">
+const { DesignCanvas, DCSection, DCArtboard } = window;
+const { ArtLibDedupDetail, ArtLibFilterDetail, ArtLibJoinDetail, ArtLibTemplates } = window;
+
+function App() {
+  return (
+    <DesignCanvas
+      title="GlassFlow · Library detail surfaces"
+      subtitle="T-08 · T-09 · T-10 · T-11. The four library items that aren't yet first-class — Dedup, Filters, Joins, Templates — each promoted to a versioned, pinned, named asset with its own detail page. All four reuse the schema-detail layout (timeline + used-by + version pills) plus one item-specific affordance: a window viz for dedup, a rule-builder + match preview for filters, a two-stream pivot for joins, and a browse-and-clone grid for templates."
+    >
+      <DCSection
+        id="dedup"
+        title="1 · Dedup config detail (T-08)"
+        subtitle="Reusable dedup as a first-class library asset. Same shape as Schema detail but with dedup-specific config fields and a window-behaviour visualisation that shows what's being kept vs dropped against a real recent sample. Avoids the trap of users not understanding why their dedup window is or isn't catching duplicates."
+      >
+        <DCArtboard id="lib-dedup" label="Dedup detail · orders-dedup · v1 deployed, v2 latest" width={1680} height={1660}>
+          <ArtLibDedupDetail/>
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection
+        id="filter"
+        title="2 · Filter detail (T-09)"
+        subtitle="Named filter with a typed rule-builder (where/and/or, groups, expressions) and a live preview against the last 1k events from its source. Sample matched/dropped events show why each event passed or failed — solves the 'I don't trust my filter' problem without leaving the surface. Inline filter expressions (the YAML way) graduate up to library items, gaining versions, used-by, and diffability."
+      >
+        <DCArtboard id="lib-filter" label="Filter detail · high-value-orders · v3 (all on latest)" width={1680} height={1640}>
+          <ArtLibFilterDetail/>
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection
+        id="join"
+        title="3 · Join detail (T-10)"
+        subtitle="Temporal join definition: left primary stream + right enrichment stream + key + window + join mode. The two-stream pivot makes the structure obvious — orange/blue colour-coding carries through to the output schema (which fields came from which side). Real metrics (match rate, p95 lag) are visible on the detail page so users see the join is healthy without going to Observability."
+      >
+        <DCArtboard id="lib-join" label="Join detail · orders-with-customer · v1 deployed, v2 latest" width={1680} height={1640}>
+          <ArtLibJoinDetail/>
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection
+        id="templates"
+        title="4 · Templates index (T-11)"
+        subtitle="Browse-and-clone surface. Featured row (most-used + new) + filter rail by use-case/source/sink + grid. Each card shows the topology as a row of node chips so the shape is legible at a glance. 'Use template' creates a draft pipeline with placeholder connections, dropping the user into Create's draft state — replaces the blank canvas as the new-pipeline default."
+      >
+        <DCArtboard id="lib-templates" label="Templates index · 14 templates, featured + filtered" width={1680} height={1480}>
+          <ArtLibTemplates/>
+        </DCArtboard>
+      </DCSection>
+    </DesignCanvas>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>GlassFlow · Schema Evolution</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<link rel="stylesheet" href="styles/base.css"/>
+<link rel="stylesheet" href="styles/theme.css"/>
+<link rel="stylesheet" href="styles/canvas.css"/>
+<link rel="stylesheet" href="styles/bridge.css"/>
+<link rel="stylesheet" href="styles/observability.css"/>
+<link rel="stylesheet" href="styles/schema-evo.css"/>
+<style>
+  html, body { height: 100%; }
+  body { background: #070708; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="components/shell.jsx"></script>
+<script type="text/babel" src="components/canvas-primitives.jsx"></script>
+<script type="text/babel" src="components/bridge-primitives.jsx"></script>
+<script type="text/babel" src="components/observability-primitives.jsx"></script>
+<script type="text/babel" src="components/tweaks-panel.jsx"></script>
+<script type="text/babel" src="components/schema-evo-artboards1.jsx"></script>
+<script type="text/babel" src="components/schema-evo-artboards2.jsx"></script>
+
+<script type="text/babel">
+const { DesignCanvas, DCSection, DCArtboard } = window;
+const { ArtSEHub, ArtSEDiff, ArtSEImpact, ArtSEPlan, ArtSECutover, ArtSEVerify } = window;
+const { TweaksPanel, useTweaks, TweakSection, TweakRadio, TweakSelect, TweakToggle } = window;
+
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "automation": "express",
+  "severity": "multi",
+  "affected": "many",
+  "ai_role": "sidebar",
+  "show_sample_preview": true
+}/*EDITMODE-END*/;
+
+function App() {
+  const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+
+  return (
+    <>
+      <DesignCanvas
+        title="GlassFlow · Schema evolution"
+        subtitle="T-06 · Phase B Recovery. The surface that runs when an upstream schema change threatens live pipelines. Six artboards walk the full loop: hub (where users land) → diff (review the change) → impact (3-col blast radius) → plan (AI-drafted steps) → cutover (dual-write monitor with always-visible rollback) → verify (post-migration close-out). AI is a collapsible sidebar throughout — never modal — so users stay in flow. Express mode (AI drafts + executes) and Manual mode (step-by-step approval) are switchable per migration."
+      >
+        <DCSection
+          id="hub"
+          title="1 · Entry hub"
+          subtitle="Single landing surface for three legitimate entries: from a DLQ schema-mismatch cluster, from a proactive Inbox alert when a producer registers a breaking version, or from Library when authoring a new version. Hero summarises the change in one sentence; AI line names the likely migration shape so users decide before they dig deeper."
+        >
+          <DCArtboard id="se-hub" label="Hub · 3 entry sources · 7 affected pipelines" width={1620} height={1620}>
+            <ArtSEHub/>
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection
+          id="diff"
+          title="2 · Review change"
+          subtitle="Side-by-side diff (not unified) — easier to scan when fields rename. Live sample-data preview tabs (live / as-v4 / after-migration) ground the abstract diff in real failures. AI sidebar is conversational so questions feel cheap; users can ask 'what if we add a default?' and see the plan reshape immediately."
+        >
+          <DCArtboard id="se-diff" label="Diff · v3 → v4 · 3 breaking · 1 narrowing" width={1620} height={1500}>
+            <ArtSEDiff/>
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection
+          id="impact"
+          title="3 · Impact analysis"
+          subtitle="Three-column blast radius: Safe / Needs migration / Will break. The clearest possible surface for honest consequences. Owner-outreach panel makes 'send a Slack' first-class — most schema migrations stall on coordination, not technology, so we built coordination directly into the flow."
+        >
+          <DCArtboard id="se-impact" label="Impact · 2 safe · 2 fixable · 3 blocking" width={1620} height={1380}>
+            <ArtSEImpact/>
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection
+          id="plan"
+          title="4 · Migration plan (Express · AI-led)"
+          subtitle="Four steps: add field with default, dual-write old name as alias, defensive cast with parse_or_dlq fallback, canary cutover with auto-pause guards. Each step carries a why-block and the YAML it'll execute, so users review the reasoning, not just the action. Manual mode (top-right toggle) hides the why-blocks and forces explicit approval per step."
+        >
+          <DCArtboard id="se-plan" label="Plan · 4 steps · ~38 min · 1 step running" width={1620} height={1500}>
+            <ArtSEPlan/>
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection
+          id="cutover"
+          title="5 · Cutover · canary stage"
+          subtitle="Big dual-write monitor above the fold, live cutover log below. Auto-canary advances 10 → 25 → 50 → 75 → 100% with success-rate guard; user can pause/advance manually at any gate. Rollback button is always visible in BOTH the title row AND the safety card — a destructive escape hatch should never require scrolling."
+        >
+          <DCArtboard id="se-cutover" label="Cutover · 25% on v4 · 99.78% ok · DLQ 0.21%" width={1620} height={1280}>
+            <ArtSECutover/>
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection
+          id="verify"
+          title="6 · Migration complete · verify"
+          subtitle="Closes the loop. Banner answers 'is it done?' instantly; below the fold is what remains (residual DLQ to triage, rollback window to schedule, doc updates Bridge flagged) so the migration doesn't quietly leave loose ends. Saving the migration as a reusable template is how recurring patterns become 1-click flows over time."
+        >
+          <DCArtboard id="se-verify" label="Done · v4 100% · 7/7 pipelines · 41:22 elapsed" width={1620} height={1320}>
+            <ArtSEVerify/>
+          </DCArtboard>
+        </DCSection>
+      </DesignCanvas>
+
+      <TweaksPanel title="Tweaks · Schema evolution">
+        <TweakSection title="Automation level">
+          <TweakRadio
+            value={t.automation}
+            onChange={v => setTweak('automation', v)}
+            options={[
+              { value: 'express', label: 'Express · AI-led' },
+              { value: 'manual',  label: 'Manual · step-by-step' },
+            ]}
+          />
+          <p style={{margin:'8px 0 0', fontSize:11, color:'var(--color-gray-dark-500)', lineHeight:1.5}}>
+            Express drafts + executes the plan; Manual forces user approval per step.
+          </p>
+        </TweakSection>
+
+        <TweakSection title="Change severity (story shown on diff/impact)">
+          <TweakRadio
+            value={t.severity}
+            onChange={v => setTweak('severity', v)}
+            options={[
+              { value: 'one',   label: '1 breaking field' },
+              { value: 'multi', label: 'Rename + add + type' },
+            ]}
+          />
+        </TweakSection>
+
+        <TweakSection title="Affected pipelines">
+          <TweakRadio
+            value={t.affected}
+            onChange={v => setTweak('affected', v)}
+            options={[
+              { value: 'one',  label: '1 pipeline' },
+              { value: 'many', label: '7 pipelines' },
+            ]}
+          />
+        </TweakSection>
+
+        <TweakSection title="AI assistant placement">
+          <TweakSelect
+            value={t.ai_role}
+            onChange={v => setTweak('ai_role', v)}
+            options={[
+              { value: 'sidebar',  label: 'Sidebar · collapsible (current)' },
+              { value: 'inline',   label: 'Inline · embedded cards' },
+              { value: 'footer',   label: 'Footer · chat strip' },
+              { value: 'off',      label: 'Off · manual only' },
+            ]}
+          />
+        </TweakSection>
+
+        <TweakSection title="Display options">
+          <TweakToggle
+            label="Live sample-data preview"
+            value={t.show_sample_preview}
+            onChange={v => setTweak('show_sample_preview', v)}
+          />
+        </TweakSection>
+      </TweaksPanel>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>GlassFlow · Library ↔ Canvas bridge</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<link rel="stylesheet" href="styles/base.css"/>
+<link rel="stylesheet" href="styles/theme.css"/>
+<link rel="stylesheet" href="styles/canvas.css"/>
+<link rel="stylesheet" href="styles/pipeline-canvas.css"/>
+<link rel="stylesheet" href="styles/bridge.css"/>
+<style>
+  html, body { height: 100%; }
+  body { background: #070708; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="components/shell.jsx"></script>
+<script type="text/babel" src="components/canvas-primitives.jsx"></script>
+<script type="text/babel" src="components/bridge-primitives.jsx"></script>
+<script type="text/babel" src="components/bridge-artboards1.jsx"></script>
+<script type="text/babel" src="components/bridge-artboards2.jsx"></script>
+
+<script type="text/babel">
+const { DesignCanvas, DCSection, DCArtboard } = window;
+
+function App() {
+  return (
+    <DesignCanvas
+      title="GlassFlow · Library ↔ Canvas bridge"
+      subtitle="Pinned-vs-live model · blast radius · drift & upgrade flow"
+    >
+      <DCSection
+        id="model"
+        title="1 · Mental model"
+        subtitle="Connections are always live (no pin). Schemas & configs are pinned on deploy. Upgrading is explicit."
+      >
+        <DCArtboard id="conn-edit" label="Connection edit · blast radius (always live)" width={1680} height={1240}>
+          <ArtBridgeConnEdit/>
+        </DCArtboard>
+        <DCArtboard id="schema-ver" label="Schema versions · timeline + used-by"        width={1680} height={1600}>
+          <ArtBridgeSchemaVersions/>
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection
+        id="surface"
+        title="2 · Where drift shows up"
+        subtitle="Pipeline-side surfaces: the detail tab, and inside the canvas itself."
+      >
+        <DCArtboard id="pipeline-links" label="Pipeline detail · Library links tab"     width={1680} height={1340}>
+          <ArtBridgePipelineDetail/>
+        </DCArtboard>
+        <DCArtboard id="canvas-drift"   label="In-canvas · update-available indicator"  width={1680} height={940}>
+          <ArtBridgeCanvasIndicator/>
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection
+        id="upgrade"
+        title="3 · Upgrade flows"
+        subtitle="Per-pipeline upgrade (product team) vs bulk rollout from Library (platform team)."
+      >
+        <DCArtboard id="upgrade-modal" label="Per-pipeline upgrade · modal"              width={1680} height={1120}>
+          <ArtBridgeUpgrade/>
+        </DCArtboard>
+        <DCArtboard id="bulk-rollout"  label="Bulk rollout from Library schema detail"   width={1680} height={1720}>
+          <ArtBridgeBulkRollout/>
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection
+        id="overview"
+        title="4 · Org-level overview"
+        subtitle="The Pipelines list answers: what rolled-out changes haven't landed yet?"
+      >
+        <DCArtboard id="drift-tab" label="Pipelines list · Drift tab grouped by library item" width={1680} height={1180}>
+          <ArtBridgeDriftOverview/>
+        </DCArtboard>
+      </DCSection>
+    </DesignCanvas>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

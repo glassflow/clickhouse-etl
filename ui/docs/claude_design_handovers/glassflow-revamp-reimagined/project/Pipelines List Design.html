@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>GlassFlow · Pipelines list</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<link rel="stylesheet" href="styles/base.css"/>
+<link rel="stylesheet" href="styles/theme.css"/>
+<link rel="stylesheet" href="styles/canvas.css"/>
+<link rel="stylesheet" href="styles/bridge.css"/>
+<link rel="stylesheet" href="styles/observability.css"/>
+<link rel="stylesheet" href="styles/pipelines-list.css"/>
+<style>
+  html, body { height: 100%; }
+  body { background: #070708; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="components/shell.jsx"></script>
+<script type="text/babel" src="components/canvas-primitives.jsx"></script>
+<script type="text/babel" src="components/bridge-primitives.jsx"></script>
+<script type="text/babel" src="components/observability-primitives.jsx"></script>
+<script type="text/babel" src="components/tweaks-panel.jsx"></script>
+<script type="text/babel" src="components/pipelines-list-artboards1.jsx"></script>
+<script type="text/babel" src="components/pipelines-list-artboards2.jsx"></script>
+
+<script type="text/babel">
+const { DesignCanvas, DCSection, DCArtboard } = window;
+const { ArtPLDefault, ArtPLByTeam, ArtPLByHealth, ArtPLBulk, ArtPLEmpty } = window;
+const { TweaksPanel, useTweaks, TweakSection, TweakRadio, TweakSelect, TweakToggle } = window;
+
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "density": "table",
+  "grouping": "flat",
+  "show_sparklines": true,
+  "show_tags": true
+}/*EDITMODE-END*/;
+
+function App() {
+  const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+
+  return (
+    <>
+      <DesignCanvas
+        title="GlassFlow · Pipelines list"
+        subtitle="T-21 · The pipeline index — the page you land on when you click 'Pipelines' in the nav. Distinct from the Dashboard (which is health-first KPIs); this is the inventory + triage surface. Five artboards: default flat view, grouped by team, grouped by health (triage), bulk-action mode with saved-view drawer, empty first-run state. Search and saved views are the IA spine — pick the slice that matters to you, pin it, return to it."
+      >
+        <DCSection
+          id="default"
+          title="1 · Default view · flat table"
+          subtitle="Sortable dense table sorted by status (errors float to the top by default — triage beats alphabet). Search bar accepts free text or operators (env:prod, tier:1, dlq:>0); filter chips below give one-click toggles for the dimensions teams actually use. Sparklines are subtle — just enough to spot a flat line at a glance without dominating the row."
+        >
+          <DCArtboard id="pl-default" label="Default · 142 pipelines · sorted by status" width={1620} height={1100}>
+            <ArtPLDefault/>
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection
+          id="by-team"
+          title="2 · Grouped by team"
+          subtitle="Same table, collapsed group headers carrying team rollups (count, ok/warn/err counts, total throughput). The right framing for a TPM or eng manager scanning ownership; group rows answer 'is anyone's team on fire?' before you expand a single row."
+        >
+          <DCArtboard id="pl-byteam" label="By team · 5 teams · checkout & risk on fire" width={1620} height={1380}>
+            <ArtPLByTeam/>
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection
+          id="by-health"
+          title="3 · Grouped by health · triage mode"
+          subtitle="Health summary strip up top is the answer to 'what should I look at first?' Errors float to their own group with reason text inline so you can decide whether to click in without expanding. Saved-view 'DLQ watch' is pre-selected — this is the on-call view."
+        >
+          <DCArtboard id="pl-byhealth" label="By health · 2 errors · 1 warn · 9 healthy" width={1620} height={1380}>
+            <ArtPLByHealth/>
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection
+          id="bulk"
+          title="4 · Bulk actions + saved-view drawer"
+          subtitle="Multi-select shows the bulk bar with what's homogeneous about the selection ('all owned by jin@') so destructive actions surface their blast radius. Save-as-view drawer captures the current filter combination as a sharable, optionally-team-scoped saved view — the bridge from ad-hoc filtering to durable team rituals."
+        >
+          <DCArtboard id="pl-bulk" label="Bulk · 6 selected · save as team view" width={1620} height={1100}>
+            <ArtPLBulk/>
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection
+          id="empty"
+          title="5 · Empty state · first run"
+          subtitle="Pictograph teaches the I→T→S grammar visually before any UI words. Three CTAs map to the three real entry points (create from scratch, import existing config, generate with AI). Quick-start cards seed the most-used pipeline shapes — every one is a real Library template, not aspirational copy."
+        >
+          <DCArtboard id="pl-empty" label="Empty · zero pipelines · 3 quick-starts" width={1620} height={1000}>
+            <ArtPLEmpty/>
+          </DCArtboard>
+        </DCSection>
+      </DesignCanvas>
+
+      <TweaksPanel title="Tweaks · Pipelines list">
+        <TweakSection title="Density">
+          <TweakRadio
+            value={t.density}
+            onChange={v => setTweak('density', v)}
+            options={[
+              { value: 'table',  label: 'Dense table' },
+              { value: 'hybrid', label: 'Hybrid' },
+              { value: 'cards',  label: 'Cards' },
+            ]}
+          />
+          <p style={{margin:'8px 0 0', fontSize:11, color:'var(--color-gray-dark-500)', lineHeight:1.5}}>
+            Table is the default; cards trade density for readability when scanning a small set.
+          </p>
+        </TweakSection>
+
+        <TweakSection title="Grouping">
+          <TweakSelect
+            value={t.grouping}
+            onChange={v => setTweak('grouping', v)}
+            options={[
+              { value: 'flat',   label: 'Flat (no grouping)' },
+              { value: 'team',   label: 'Team' },
+              { value: 'env',    label: 'Environment' },
+              { value: 'health', label: 'Health (triage)' },
+              { value: 'type',   label: 'Pipeline type' },
+            ]}
+          />
+        </TweakSection>
+
+        <TweakSection title="Display options">
+          <TweakToggle
+            label="Throughput sparklines"
+            value={t.show_sparklines}
+            onChange={v => setTweak('show_sparklines', v)}
+          />
+          <TweakToggle
+            label="Tags column"
+            value={t.show_tags}
+            onChange={v => setTweak('show_tags', v)}
+          />
+        </TweakSection>
+      </TweaksPanel>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

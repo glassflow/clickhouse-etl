@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>GlassFlow · DLQ Replay</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<link rel="stylesheet" href="styles/base.css"/>
+<link rel="stylesheet" href="styles/theme.css"/>
+<link rel="stylesheet" href="styles/canvas.css"/>
+<link rel="stylesheet" href="styles/bridge.css"/>
+<link rel="stylesheet" href="styles/observability.css"/>
+<link rel="stylesheet" href="styles/dlq.css"/>
+<style>
+  html, body { height: 100%; }
+  body { background: #070708; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="components/shell.jsx"></script>
+<script type="text/babel" src="components/canvas-primitives.jsx"></script>
+<script type="text/babel" src="components/bridge-primitives.jsx"></script>
+<script type="text/babel" src="components/observability-primitives.jsx"></script>
+<script type="text/babel" src="components/dlq-artboards1.jsx"></script>
+<script type="text/babel" src="components/dlq-artboards2.jsx"></script>
+
+<script type="text/babel">
+const { DesignCanvas, DCSection, DCArtboard } = window;
+const { ArtDLQInbox, ArtDLQList, ArtDLQInspector, ArtDLQConfirm, ArtDLQProgress, ArtDLQResults } = window;
+
+function App() {
+  return (
+    <DesignCanvas
+      title="GlassFlow · Dead-letter queue replay"
+      subtitle="T-DLQ. The triage-and-recover surface for failed messages — first-class, AI-mediated, safe by default. Six artboards walk the full flow: cross-pipeline inbox → per-pipeline triage list with AI-clustered errors → message inspector with diagnosis + payload + trace → confirm-replay modal with rate-limit + version targeting → live progress with rolling log → post-mortem with outcome breakdown and AI next-steps. Every screen surfaces an AI summary that explains the failure pattern in plain language and proposes a fix; raw clusters and individual messages remain inspectable so engineers stay in control."
+    >
+      <DCSection
+        id="inbox"
+        title="1 · Cross-pipeline inbox"
+        subtitle="Lands you on /dlq from the global nav. KPIs roll up backlog across all pipelines; AI banner names the top 3 clusters in one paragraph; pipeline cards show their own top errors so triage starts before you click in. Healthy pipelines are visible but de-emphasised — clean state has presence without taking visual weight."
+      >
+        <DCArtboard id="dlq-inbox" label="DLQ · cross-pipeline · 3 affected · 2,847 backlog" width={1620} height={1280}>
+          <ArtDLQInbox/>
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection
+        id="list"
+        title="2 · Per-pipeline triage"
+        subtitle="The default mode is Clusters, not Flat — humans triage classes of failure, not individual messages. Bulk-action bar appears only when rows are selected; AI banner is folded into the list (not a modal) so a fix is one click from the rows it pertains to. Toolbar pills are removable filter chips, not a separate filter dialog."
+      >
+        <DCArtboard id="dlq-list" label="DLQ · user-events-enrich · 3 clusters · 2,194 selected" width={1620} height={1320}>
+          <ArtDLQList/>
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection
+        id="inspect"
+        title="3 · Message inspector"
+        subtitle="Two-pane: compact list left, full message right. AI diagnosis card sits above the trace because 'why' beats 'what' for triage. Payload is JSON-syntax-highlighted with the failing field outlined in red. Headers are a definition list, not another card. Footer pins the three primary actions: replay, edit-and-replay, discard."
+      >
+        <DCArtboard id="dlq-inspector" label="DLQ · message detail · evt_8a14e2 · 2 of 2,194" width={1620} height={1180}>
+          <ArtDLQInspector/>
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection
+        id="confirm"
+        title="4 · Confirm replay"
+        subtitle="Modal, blocking. Summary mirrors the selection; replay-rate is editable but pre-filled with an AI suggestion explaining itself; version targeting is a first-class control because rolling-back-via-replay is the common pattern. Yellow heads-up block warns when conditions still suggest replay will fail. Dry-run is a peer to Replay so destructive actions have a rehearsal path."
+      >
+        <DCArtboard id="dlq-confirm" label="DLQ · confirm replay · 2,194 msgs · v18 · 10 msg/s" width={1620} height={1180}>
+          <ArtDLQConfirm/>
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection
+        id="progress"
+        title="5 · Replay in progress"
+        subtitle="One job, one page. Single fat progress bar, four stat tiles, live tail of the actual replay log so engineers can sanity-check successes and failures in real time. Below the fold: the underlying system metric that motivated this replay (pool health) and a running audit trail — both ground the replay in why-it's-happening, not just what."
+      >
+        <DCArtboard id="dlq-progress" label="DLQ · replaying · 1,360 / 2,194 · 9.8 msg/s" width={1620} height={1080}>
+          <ArtDLQProgress/>
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection
+        id="results"
+        title="6 · Replay results / post-mortem"
+        subtitle="Partial success is the realistic case. Outcome breakdown left, residual failures broken into AI clusters with action buttons attached (because each cluster has a different right move — replay-against-old-version vs investigate vs discard). Right rail is a story: what happened, what to do next, and the parent pipeline's recovered status, with one click back to its overview tab."
+      >
+        <DCArtboard id="dlq-results" label="DLQ · replay complete · 2,098 / 2,194 succeeded" width={1620} height={1080}>
+          <ArtDLQResults/>
+        </DCArtboard>
+      </DCSection>
+    </DesignCanvas>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

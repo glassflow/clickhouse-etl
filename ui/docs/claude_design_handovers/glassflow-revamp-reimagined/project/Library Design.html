@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>GlassFlow · Library + Schema exploration</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<link rel="stylesheet" href="styles/base.css"/>
+<link rel="stylesheet" href="styles/theme.css"/>
+<link rel="stylesheet" href="styles/canvas.css"/>
+<style>
+  html, body { height: 100%; }
+  body { background: #070708; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="components/shell.jsx"></script>
+<script type="text/babel" src="components/artboards1.jsx"></script>
+<script type="text/babel" src="components/artboards2.jsx"></script>
+
+<script type="text/babel">
+const { DesignCanvas, DCSection, DCArtboard } = window;
+
+function App() {
+  return (
+    <DesignCanvas title="GlassFlow · Library + Schema" subtitle="Phase 2 design exploration · static artboards for review & handoff">
+      <DCSection id="library" title="1 · Library home & empty state" subtitle="Entry points into the component library">
+        <DCArtboard id="lib-home"  label="Library home — Schemas view"     width={1440} height={940}>
+          <ArtLibraryHome/>
+        </DCArtboard>
+        <DCArtboard id="lib-empty" label="Empty state (first-run)"         width={1440} height={860}>
+          <ArtEmptyState/>
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection id="blueprint" title="2 · Schema as blueprint" subtitle="Blueprint = mutable template. Pipelines pin a snapshot.">
+        <DCArtboard id="schema-detail" label="Schema blueprint detail"     width={1440} height={1280}>
+          <ArtSchemaBlueprint/>
+        </DCArtboard>
+        <DCArtboard id="drift"         label="Drift reconciliation"        width={1440} height={1320}>
+          <ArtDriftReconcile/>
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection id="compat" title="3 · Compatibility & pipeline drift" subtitle="Warn + auto-suggest; never block.">
+        <DCArtboard id="compat-suggest" label="Compatibility warn + auto-suggest" width={1440} height={960}>
+          <ArtCompatSuggest/>
+        </DCArtboard>
+        <DCArtboard id="pipeline-drift" label="Pipeline detail with drift indicator" width={1440} height={1340}>
+          <ArtPipelineDrift/>
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection id="connections" title="4 · Connections" subtitle="Credentials — always live, no drift concept">
+        <DCArtboard id="kafka-conn" label="Kafka connection detail"        width={1440} height={1240}>
+          <ArtKafkaConn/>
+        </DCArtboard>
+        <DCArtboard id="ch-conn"    label="ClickHouse connection detail"   width={1440} height={1100}>
+          <ArtClickHouseConn/>
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection id="bridge" title="5 · Wizard ↔ Library bridge" subtitle="Phase 3 — library grows from wizard usage">
+        <DCArtboard id="wiz-bridge" label="Kafka step with library shortcut" width={1280} height={1040}>
+          <ArtWizardBridge/>
+        </DCArtboard>
+      </DCSection>
+    </DesignCanvas>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>GlassFlow · Create</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<link rel="stylesheet" href="styles/base.css"/>
+<link rel="stylesheet" href="styles/theme.css"/>
+<link rel="stylesheet" href="styles/canvas.css"/>
+<link rel="stylesheet" href="styles/create.css"/>
+<style>
+  html, body { height: 100%; }
+  body { background: #070708; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="components/shell.jsx"></script>
+<script type="text/babel" src="components/create-artboards.jsx"></script>
+
+<script type="text/babel">
+const { DesignCanvas, DCSection, DCArtboard } = window;
+const { ArtCreateLanding, ArtCreateTemplate, ArtCreateImport, ArtCreateReview } = window;
+
+function App() {
+  return (
+    <DesignCanvas
+      title="GlassFlow · Create"
+      subtitle="T-02 · The pipeline-creation surface. One landing page hosts five entry paths; each path converges on a shared Review step (T-12 prereq) before deploy. The canvas-only Create flow is intentionally a last resort — the brief calls out that 'novices must drop into a blank canvas' is a failure mode."
+    >
+      <DCSection
+        id="landing"
+        title="1 · Create landing — five paths"
+        subtitle="The new home for /create. Guided is featured (the brief's biggest gap was 'no recommended path for novices'). Template, Describe-in-English, Canvas, and Import are equal supporting paths. Below: recently used templates from the team and the user's own drafts so they can resume."
+      >
+        <DCArtboard id="cr-landing" label="Landing · five entry paths · drafts strip" width={1440} height={1240}>
+          <ArtCreateLanding/>
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection
+        id="template"
+        title="2 · Template detail — preview before commit"
+        subtitle="What you see after picking a template. Tells you exactly which Library components will be reused vs supplied, shows the topology, and previews the YAML you'd get. Reduces the 'I picked something and now I'm trapped in a wizard' anxiety."
+      >
+        <DCArtboard id="cr-template" label="Template detail · CDC fan-out" width={1440} height={920}>
+          <ArtCreateTemplate/>
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection
+        id="import"
+        title="3 · Import config — paste with live validation"
+        subtitle="The migration / CI handoff path. Live YAML editor on the left; validation panel on the right with severity-tagged issues, suggested fixes, and proactive 'reuse from Library' nudges. The Continue button is gated on errors — you can't ship a broken config from this surface."
+      >
+        <DCArtboard id="cr-import" label="Import · paste YAML · 2 errors + 1 reuse nudge" width={1440} height={1020}>
+          <ArtCreateImport/>
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection
+        id="review"
+        title="4 · Review &amp; deploy — the universal final step"
+        subtitle="Every path (guided / template / AI / canvas / import) ends here. Validation results, expected impact, the components this pipeline will use (existing vs new), the actual YAML side-by-side. Deploy is locked to staging by default; promotion to production is a separate, explicit action."
+      >
+        <DCArtboard id="cr-review" label="Review · validated · 4 components · staging" width={1440} height={1120}>
+          <ArtCreateReview/>
+        </DCArtboard>
+      </DCSection>
+    </DesignCanvas>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

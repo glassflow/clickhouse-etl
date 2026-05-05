@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>GlassFlow · Design Handover Index</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<link rel="stylesheet" href="styles/base.css"/>
+<link rel="stylesheet" href="styles/theme.css"/>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: #070708; font-family: Inter, system-ui, sans-serif; color: #e2e4e9; }
+
+  .layout {
+    min-height: 100%;
+    padding: 48px 40px 80px;
+    max-width: 860px;
+    margin: 0 auto;
+  }
+
+  .header {
+    margin-bottom: 48px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    padding-bottom: 32px;
+  }
+
+  .wordmark {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .wordmark-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #5b7cf6;
+    box-shadow: 0 0 8px rgba(91,124,246,0.6);
+  }
+
+  .wordmark-text {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.5);
+  }
+
+  h1 {
+    font-size: 28px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: #fff;
+    margin-bottom: 8px;
+  }
+
+  .subtitle {
+    font-size: 14px;
+    color: rgba(255,255,255,0.4);
+    line-height: 1.5;
+  }
+
+  .section-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.25);
+    margin-bottom: 16px;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 12px;
+    margin-bottom: 40px;
+  }
+
+  .card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 18px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 10px;
+    text-decoration: none;
+    color: inherit;
+    transition: background 0.15s, border-color 0.15s, transform 0.12s;
+    cursor: pointer;
+  }
+
+  .card:hover {
+    background: rgba(255,255,255,0.06);
+    border-color: rgba(91,124,246,0.3);
+    transform: translateY(-1px);
+  }
+
+  .card-icon {
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    font-size: 16px;
+  }
+
+  .card-body {}
+  .card-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.85);
+    margin-bottom: 2px;
+  }
+  .card-tag {
+    font-size: 11px;
+    color: rgba(255,255,255,0.3);
+  }
+
+  .badge {
+    margin-left: auto;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 4px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+  .badge-new { background: rgba(91,246,172,0.12); color: #5bf6ac; }
+  .badge-alt { background: rgba(246,184,91,0.12); color: #f6b85b; }
+
+  /* icon tints */
+  .ic-dashboard { background: rgba(91,124,246,0.12); }
+  .ic-canvas    { background: rgba(168,91,246,0.12); }
+  .ic-library   { background: rgba(91,246,172,0.12); }
+  .ic-obs       { background: rgba(246,91,91,0.12); }
+  .ic-create    { background: rgba(246,219,91,0.12); }
+  .ic-ai        { background: rgba(91,210,246,0.12); }
+  .ic-misc      { background: rgba(255,255,255,0.06); }
+</style>
+</head>
+<body>
+<div class="layout">
+  <header class="header">
+    <div class="wordmark">
+      <span class="wordmark-dot"></span>
+      <span class="wordmark-text">GlassFlow</span>
+    </div>
+    <h1>Design Handover</h1>
+    <p class="subtitle">Reimagined UI · v2.0 · 16 screens · open any file to inspect</p>
+  </header>
+
+  <div class="section-label">Core surfaces</div>
+  <div class="grid">
+    <a class="card" href="Dashboard Design.html" target="_blank">
+      <span class="card-icon ic-dashboard">🏠</span>
+      <div class="card-body">
+        <div class="card-name">Dashboard</div>
+        <div class="card-tag">control-plane home</div>
+      </div>
+      <span class="badge badge-new">New</span>
+    </a>
+    <a class="card" href="Overview Design.html" target="_blank">
+      <span class="card-icon ic-dashboard">📊</span>
+      <div class="card-body">
+        <div class="card-name">Pipeline Overview</div>
+        <div class="card-tag">pipeline detail view</div>
+      </div>
+    </a>
+    <a class="card" href="Pipeline Overview Design.html" target="_blank">
+      <span class="card-icon ic-dashboard">🔀</span>
+      <div class="card-body">
+        <div class="card-name">Pipeline Overview Alt</div>
+        <div class="card-tag">alternative layout</div>
+      </div>
+    </a>
+    <a class="card" href="Pipelines List Design.html" target="_blank">
+      <span class="card-icon ic-dashboard">📋</span>
+      <div class="card-body">
+        <div class="card-name">Pipelines List</div>
+        <div class="card-tag">all pipelines index</div>
+      </div>
+    </a>
+  </div>
+
+  <div class="section-label">Canvas &amp; creation</div>
+  <div class="grid">
+    <a class="card" href="Canvas Design.html" target="_blank">
+      <span class="card-icon ic-canvas">🕸</span>
+      <div class="card-body">
+        <div class="card-name">Canvas</div>
+        <div class="card-tag">visual pipeline builder</div>
+      </div>
+      <span class="badge badge-new">New</span>
+    </a>
+    <a class="card" href="Create Design.html" target="_blank">
+      <span class="card-icon ic-create">✨</span>
+      <div class="card-body">
+        <div class="card-name">Create Pipeline</div>
+        <div class="card-tag">wizard / step flow</div>
+      </div>
+    </a>
+    <a class="card" href="Bridge Design.html" target="_blank">
+      <span class="card-icon ic-canvas">🌉</span>
+      <div class="card-body">
+        <div class="card-name">Bridge</div>
+        <div class="card-tag">connector config</div>
+      </div>
+    </a>
+    <a class="card" href="Review Config Design.html" target="_blank">
+      <span class="card-icon ic-create">✅</span>
+      <div class="card-body">
+        <div class="card-name">Review Config</div>
+        <div class="card-tag">pre-deploy review</div>
+      </div>
+    </a>
+  </div>
+
+  <div class="section-label">Library</div>
+  <div class="grid">
+    <a class="card" href="Library Design.html" target="_blank">
+      <span class="card-icon ic-library">📚</span>
+      <div class="card-body">
+        <div class="card-name">Library</div>
+        <div class="card-tag">reusable components</div>
+      </div>
+      <span class="badge badge-new">New</span>
+    </a>
+    <a class="card" href="Library Detail Design.html" target="_blank">
+      <span class="card-icon ic-library">🔍</span>
+      <div class="card-body">
+        <div class="card-name">Library Detail</div>
+        <div class="card-tag">component detail view</div>
+      </div>
+    </a>
+    <a class="card" href="Versions Design.html" target="_blank">
+      <span class="card-icon ic-library">🏷</span>
+      <div class="card-body">
+        <div class="card-name">Versions</div>
+        <div class="card-tag">version history panel</div>
+      </div>
+    </a>
+  </div>
+
+  <div class="section-label">Observability &amp; ops</div>
+  <div class="grid">
+    <a class="card" href="Observability Design.html" target="_blank">
+      <span class="card-icon ic-obs">📈</span>
+      <div class="card-body">
+        <div class="card-name">Observability</div>
+        <div class="card-tag">metrics &amp; logs</div>
+      </div>
+    </a>
+    <a class="card" href="DLQ Replay Design.html" target="_blank">
+      <span class="card-icon ic-obs">♻️</span>
+      <div class="card-body">
+        <div class="card-name">DLQ Replay</div>
+        <div class="card-tag">dead-letter queue</div>
+      </div>
+      <span class="badge badge-new">New</span>
+    </a>
+    <a class="card" href="Schema Evolution Design.html" target="_blank">
+      <span class="card-icon ic-obs">🧬</span>
+      <div class="card-body">
+        <div class="card-name">Schema Evolution</div>
+        <div class="card-tag">schema change mgmt</div>
+      </div>
+    </a>
+  </div>
+
+  <div class="section-label">AI &amp; proposals</div>
+  <div class="grid">
+    <a class="card" href="AI Design.html" target="_blank">
+      <span class="card-icon ic-ai">🤖</span>
+      <div class="card-body">
+        <div class="card-name">AI Assistant</div>
+        <div class="card-tag">AI-assisted pipeline</div>
+      </div>
+      <span class="badge badge-new">New</span>
+    </a>
+    <a class="card" href="Design Proposal v2.html" target="_blank">
+      <span class="card-icon ic-misc">📄</span>
+      <div class="card-body">
+        <div class="card-name">Design Proposal v2</div>
+        <div class="card-tag">overview doc</div>
+      </div>
+      <span class="badge badge-alt">Doc</span>
+    </a>
+  </div>
+</div>
+</body>
+</html>

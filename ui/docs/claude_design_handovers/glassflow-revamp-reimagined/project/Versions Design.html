@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>GlassFlow · Versions</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<link rel="stylesheet" href="styles/base.css"/>
+<link rel="stylesheet" href="styles/theme.css"/>
+<link rel="stylesheet" href="styles/canvas.css"/>
+<link rel="stylesheet" href="styles/versions.css"/>
+<style>
+  html, body { height: 100%; }
+  body { background: #070708; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="components/shell.jsx"></script>
+<script type="text/babel" src="components/versions-artboards.jsx"></script>
+
+<script type="text/babel">
+const { DesignCanvas, DCSection, DCArtboard } = window;
+const { ArtVersionsTimeline, ArtVersionsBigDiff, ArtVersionsRollback, ArtVersionsEmpty } = window;
+
+function App() {
+  return (
+    <DesignCanvas
+      title="GlassFlow · Versions tab"
+      subtitle="T-03 · The rollback / change-history surface on Pipeline Detail. Spec: timeline list, side-by-side diff, deployment status per version, rollback confirm modal, draft-exists banner. Versions are the trust layer — every deploy is reversible, every change is attributable."
+    >
+      <DCSection
+        id="timeline"
+        title="1 · Timeline + side-by-side diff (default)"
+        subtitle="The default view: full version timeline on the left with deploy badges (LIVE · STAGING · PREV · ROLLED BACK · DRAFT), side-by-side YAML diff on the right with a topology delta strip and impact metrics. Draft banner at top because the user has unsaved canvas edits — important: drafts never silently overwrite the live version."
+      >
+        <DCArtboard id="ver-timeline" label="Timeline · v10 vs v12 · with draft banner" width={1440} height={1080}>
+          <ArtVersionsTimeline/>
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection
+        id="bigdiff"
+        title="2 · Structural diff (a transform was added)"
+        subtitle="A more dramatic diff: v9 → v10 added an entire PII-redact transform. Inline mode shows the full hunk; the topology strip up top makes the structural change legible without parsing YAML. The Visual mode (third toggle, not shown) opens the canvas with both versions overlaid."
+      >
+        <DCArtboard id="ver-bigdiff" label="Inline diff · v9 → v10 · +1 transform" width={1440} height={1080}>
+          <ArtVersionsBigDiff/>
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection
+        id="rollback"
+        title="3 · Rollback confirm modal — destructive on prod"
+        subtitle="The high-stakes path. Modal spells out exactly what reverts (dedup window, sink), what stays the same (schema pin), expected downtime, and gates the destructive button on typing the pipeline name. The same dialog pattern is reused for any destructive cross-cut: pause, delete, force-restart."
+      >
+        <DCArtboard id="ver-rollback" label="Rollback modal · v12 → v10 on prod" width={1440} height={1020}>
+          <ArtVersionsRollback/>
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection
+        id="empty"
+        title="4 · v1-only state"
+        subtitle="What a freshly-deployed pipeline shows. No diff to render yet, but we still show the v1 deploy as a real entry, with a clear 'when you change anything, it appears here' explainer. Avoids the empty-state-blankness trap."
+      >
+        <DCArtboard id="ver-empty" label="v1-only · first-deploy state" width={1440} height={780}>
+          <ArtVersionsEmpty/>
+        </DCArtboard>
+      </DCSection>
+    </DesignCanvas>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
