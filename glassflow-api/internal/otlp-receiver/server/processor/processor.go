@@ -20,6 +20,9 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 )
 
+// ErrReceiverOverloaded is returned when the processor has reached its concurrency limit.
+var ErrReceiverOverloaded = errors.New("receiver overloaded, try again later")
+
 type OTLPConfigFetcher interface {
 	GetOTLPConfig(ctx context.Context, pipelineID string) (models.OTLPConfig, error)
 }
@@ -27,12 +30,29 @@ type OTLPConfigFetcher interface {
 func NewProcessor(
 	otlpConfigFetcher OTLPConfigFetcher,
 	nc *client.NATSClient,
+	maxConcurrent int,
 ) *Processor {
 	return &Processor{
 		otlpConfigFetcher: otlpConfigFetcher,
 		natsWriterCache:   make(map[string]writerConfig),
 		nc:                nc,
+		sem:               make(chan struct{}, maxConcurrent),
 	}
+}
+
+// acquire tries to take a semaphore slot without blocking.
+// Returns false if the processor is at capacity.
+func (p *Processor) acquire() bool {
+	select {
+	case p.sem <- struct{}{}:
+		return true
+	default:
+		return false
+	}
+}
+
+func (p *Processor) release() {
+	<-p.sem
 }
 
 const natsWriterCacheTTL = 60 * time.Second
@@ -48,6 +68,7 @@ type Processor struct {
 	natsWriterCache   map[string]writerConfig
 	natsWriterMu      sync.RWMutex
 	nc                *client.NATSClient
+	sem               chan struct{}
 }
 
 func (p *Processor) getWriterConfig(
@@ -105,6 +126,11 @@ func (p *Processor) sendBatch(
 	pipelineID string,
 	messages []models.Message,
 ) error {
+	if !p.acquire() {
+		return ErrReceiverOverloaded
+	}
+	defer p.release()
+
 	err := retry.Do(
 		func() error {
 			cfg, err := p.getWriterConfig(ctx, pipelineID)
