@@ -10,6 +10,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/batch"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
 )
 
 // streamingState encapsulates all streaming-specific state
@@ -163,6 +164,70 @@ func (sc *StreamingComponent) Shutdown() {
 	})
 }
 
+// writeWithBackpressure calls WriteBatch and retries back-pressure failures with
+// exponential backoff. Hard failures are routed to the DLQ. While retrying it
+// calls InProgress() on the upstream JetStream messages so AckWait does not
+// expire and trigger redelivery.
+func (sc *StreamingComponent) writeWithBackpressure(ctx context.Context, upstream []models.Message, messages []models.Message) error {
+	backoff := internal.IngestorBackpressureInitialDelay
+	for {
+		failed := sc.writer.WriteBatch(ctx, messages)
+		if len(failed) == 0 {
+			return nil
+		}
+
+		var backpressure []models.FailedMessage
+		var hard []models.FailedMessage
+		for _, fm := range failed {
+			if stream.IsBackpressureErr(fm.Error) {
+				backpressure = append(backpressure, fm)
+			} else {
+				hard = append(hard, fm)
+			}
+		}
+
+		if len(hard) > 0 {
+			if err := sc.writeFailedBatch(ctx, hard); err != nil {
+				return fmt.Errorf("write failed batch: %w", err)
+			}
+		}
+
+		if len(backpressure) == 0 {
+			return nil
+		}
+
+		// Extend AckWait on upstream JetStream messages so the broker does not
+		// redeliver them while we wait for the output stream to drain.
+		for _, msg := range upstream {
+			if msg.JetstreamMsgOriginal == nil {
+				continue
+			}
+			if ipErr := msg.JetstreamMsgOriginal.InProgress(); ipErr != nil {
+				sc.log.WarnContext(ctx, "failed to extend ack-wait during back-pressure", "error", ipErr)
+			}
+		}
+
+		sc.log.WarnContext(ctx, "output stream back-pressure, retrying", "backoff", backoff, "pending", len(backpressure))
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(backoff):
+		}
+
+		backoff *= 2
+		if backoff > internal.IngestorBackpressureMaxDelay {
+			backoff = internal.IngestorBackpressureMaxDelay
+		}
+
+		// Retry only the back-pressure messages.
+		messages = make([]models.Message, 0, len(backpressure))
+		for _, fm := range backpressure {
+			messages = append(messages, fm.Message)
+		}
+	}
+}
+
 func (sc *StreamingComponent) writeFailedBatch(ctx context.Context, failedMessages []models.FailedMessage) error {
 	messages := make([]models.Message, 0, len(failedMessages))
 	for _, failedMessage := range failedMessages {
@@ -208,12 +273,8 @@ func (sc *StreamingComponent) ProcessBatch(ctx context.Context, batch []models.M
 		return sc.reader.Ack(ctx, batch)
 	}
 
-	failedMessages := sc.writer.WriteBatch(ctx, messages)
-	if len(failedMessages) > 0 {
-		err = sc.writeFailedBatch(ctx, failedMessages)
-		if err != nil {
-			return fmt.Errorf("write failed batch: %w", err)
-		}
+	if err = sc.writeWithBackpressure(ctx, batch, messages); err != nil {
+		return fmt.Errorf("write batch: %w", err)
 	}
 
 	for i, commit := range commits {
