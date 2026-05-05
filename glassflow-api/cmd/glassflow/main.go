@@ -89,6 +89,7 @@ type config struct {
 	UsageStatsInstallationID string `default:"" split_words:"true"`
 
 	OTLPConfigFetcherBaseURL string `default:"" split_words:"true"`
+	OTLPNatsChunkSize        int    `default:"1000" split_words:"true"`
 }
 
 var version = "dev"
