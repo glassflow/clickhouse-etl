@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
@@ -54,6 +56,42 @@ func NewTemporalJoinExecutor(
 	}
 }
 
+// publishJoinedMsg publishes the joined output to the results stream and
+// retries on back-pressure. While retrying it calls InProgress() on the
+// in-flight upstream message so the JetStream consumer's AckWait does not
+// elapse and trigger a redelivery. Both input subscribers stay paused for
+// the duration because the JoinComponent serialises handlers behind
+// handleMu — pausing one side pauses the whole component, which is what
+// the join's temporal-window semantics require.
+func (t *TemporalJoinExecutor) publishJoinedMsg(ctx context.Context, inflight jetstream.Msg, msg *nats.Msg) error {
+	backoff := internal.IngestorBackpressureInitialDelay
+	for {
+		err := t.resultsPublisher.PublishNatsMsg(ctx, msg)
+		if err == nil {
+			return nil
+		}
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		if !stream.IsBackpressureErr(err) {
+			return err
+		}
+		if ipErr := inflight.InProgress(); ipErr != nil {
+			t.log.WarnContext(ctx, "failed to extend ack-wait while waiting on back-pressure", "error", ipErr)
+		}
+		t.log.WarnContext(ctx, "results stream back-pressure, retrying publish", "backoff", backoff)
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(backoff):
+		}
+		backoff *= 2
+		if backoff > internal.IngestorBackpressureMaxDelay {
+			backoff = internal.IngestorBackpressureMaxDelay
+		}
+	}
+}
+
 func (t *TemporalJoinExecutor) storeToLeftStreamBuffer(ctx context.Context, key any, schemaVersionID string, value []byte) error {
 	keys := ""
 	keys, err := t.leftKVStore.GetString(ctx, key)
@@ -84,7 +122,7 @@ func (t *TemporalJoinExecutor) storeToLeftStreamBuffer(ctx context.Context, key 
 	return nil
 }
 
-func (t *TemporalJoinExecutor) getFromleftStreamBuffer(ctx context.Context, key any, rightSchemaVersionID string, rightStreamData []byte) error {
+func (t *TemporalJoinExecutor) getFromleftStreamBuffer(ctx context.Context, inflight jetstream.Msg, key any, rightSchemaVersionID string, rightStreamData []byte) error {
 	rawUUIDs, err := t.leftKVStore.GetString(ctx, key)
 	if err != nil {
 		if !errors.Is(err, jetstream.ErrKeyNotFound) {
@@ -129,7 +167,7 @@ func (t *TemporalJoinExecutor) getFromleftStreamBuffer(ctx context.Context, key 
 			return fmt.Errorf("failed to join data: %w", err)
 		}
 
-		err = t.resultsPublisher.PublishNatsMsg(ctx, msg)
+		err = t.publishJoinedMsg(ctx, inflight, msg)
 		if err != nil {
 			t.log.ErrorContext(ctx, "failed to publish joined data", "left_source", t.leftSourceName, "right_source", t.rightSourceName, "error", err)
 			return fmt.Errorf("failed to publish joined data: %w", err)
@@ -193,9 +231,10 @@ func (t *TemporalJoinExecutor) HandleLeftStreamEvents(ctx context.Context, msg j
 		return fmt.Errorf("failed to join data: %w", err)
 	}
 
-	err = t.resultsPublisher.PublishNatsMsg(ctx, outputMsg)
+	err = t.publishJoinedMsg(ctx, msg, outputMsg)
 	if err != nil {
-		t.log.ErrorContext(ctx, "failed to publish joined data", "error", err)
+		t.log.ErrorContext(ctx, "failed to publish joined data", "left_source", t.leftSourceName, "right_source", t.rightSourceName, "error", err)
+		return fmt.Errorf("failed to publish joined data: %w", err)
 	}
 
 	return nil
@@ -218,7 +257,7 @@ func (t *TemporalJoinExecutor) HandleRightStreamEvents(ctx context.Context, msg 
 		return fmt.Errorf("failed to put right stream message in KV store: %w", err)
 	}
 
-	err = t.getFromleftStreamBuffer(ctx, key, schemaVersionID, data)
+	err = t.getFromleftStreamBuffer(ctx, msg, key, schemaVersionID, data)
 	if err != nil {
 		t.log.ErrorContext(ctx, "failed to get left stream data from buffer", "key", key, "error", err)
 		return fmt.Errorf("failed to get left stream data from buffer: %w", err)
