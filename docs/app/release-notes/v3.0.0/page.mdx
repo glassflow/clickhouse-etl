@@ -7,6 +7,8 @@ description: Release notes for the GlassFlow ClickHouse ETL v3.0.0 — Pipeline 
 
 # Release Notes v3.0.0
 
+### Released: April 23, 2026
+
 Version 3.0.0 is a **major release** introducing the **Pipeline Config V3 format**, **OTLP source support** for ingesting OpenTelemetry logs, metrics, and traces alongside Kafka, **unrestricted downstream scaling**, and **inverted filter semantics**. A new **migrate-preview API** converts existing v2 pipeline configs to the v3 format in place. This product release is accompanied by [**Helm chart v0.5.16**](https://github.com/glassflow/charts/releases/tag/glassflow-etl-0.5.16); use the v0.5.16 chart when installing or upgrading to v3.0.0. The chart bundles operator chart v0.8.0 as a dependency, so upgrading the product chart upgrades the operator automatically.
 
 This release is **not wire-compatible with v2 pipeline configs** — existing pipelines must be migrated. Review the [Migration Notes](#migration-notes) before upgrading.
