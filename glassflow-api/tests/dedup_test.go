@@ -172,7 +172,7 @@ func createComponent(
 		Type:          models.RoutingTypeName,
 	})
 	require.NoError(t, err)
-	writer := batchNats.NewBatchWriter(js, subjectRouter)
+	writer := batchNats.NewBatchWriter(js, subjectRouter, 0)
 
 	var dlqWriter batch.BatchWriter
 	if dlqSubject != nil {
@@ -182,7 +182,7 @@ func createComponent(
 		})
 		require.NoError(t, err)
 
-		dlqWriter = batchNats.NewBatchWriter(js, dlqSubjectRouter)
+		dlqWriter = batchNats.NewBatchWriter(js, dlqSubjectRouter, 0)
 	}
 
 	role := internal.RoleDeduplicator

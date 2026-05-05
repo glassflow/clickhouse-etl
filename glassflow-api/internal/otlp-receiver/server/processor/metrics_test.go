@@ -42,7 +42,7 @@ func TestProcessMetrics(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	proc := processor.NewProcessor(&stubOTLPConfigFetcher{}, nc)
+	proc := processor.NewProcessor(&stubOTLPConfigFetcher{}, nc, 1000)
 
 	value := 42.5
 	req := &colmetricspb.ExportMetricsServiceRequest{
