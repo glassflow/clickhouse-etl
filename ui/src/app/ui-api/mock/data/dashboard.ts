@@ -166,7 +166,7 @@ const incidentPipelines: DashPipeline[] = [
 
 type Scenario = 'populated' | 'healthy' | 'incident'
 
-type ScenarioData = {
+export type ScenarioData = {
   stats: DashStats
   incidents: Incident[]
   activity: ActivityItem[]
@@ -179,7 +179,11 @@ const scenarios: Record<Scenario, ScenarioData> = {
   incident:  { stats: incidentStats,  incidents: incidentIncidents,   activity: incidentActivity,  pipelines: incidentPipelines },
 }
 
+function isScenario(k: string): k is Scenario {
+  return k in scenarios
+}
+
 export function getDashboardScenario(raw?: string | null): ScenarioData {
-  const key = (raw ?? 'populated') as Scenario
-  return scenarios[key] ?? scenarios.populated
+  const key = raw ?? 'populated'
+  return (isScenario(key) ? scenarios[key] : null) ?? scenarios.populated
 }
