@@ -119,6 +119,7 @@
   --color-orange-alpha-10: rgba(255, 162, 75, 0.1);
   --color-orange-alpha-15: rgba(255, 162, 75, 0.15);
   --color-orange-alpha-20: rgba(255, 162, 75, 0.2);
+  --color-orange-alpha-40: rgba(255, 162, 75, 0.4);
   --color-orange-gradient-hover: #ffcda2; /* surface-gradient-border hover color */
 
   /* Brown Colors */
@@ -138,6 +139,7 @@
   --color-red-800: #391b18; /* Keep existing - missing from Figma */
   --color-red-900: #532a26; /* Keep existing - missing from Figma */
   --color-red-950: #2a1614; /* Keep existing - missing from Figma */
+  --color-red-alpha-40: rgba(226, 44, 44, 0.4);  /* red-500 — crit border glow */
 
   /* Green/Positive Colors */
   --color-green-100: #ecfdf5; /* Keep existing - missing from Figma */
@@ -153,6 +155,7 @@
   --color-green-950: #1a241c; /* Keep existing - missing from Figma */
   --color-green-alpha-10: rgba(0, 211, 112, 0.1);
   --color-green-alpha-20: rgba(0, 211, 112, 0.2);
+  --color-green-alpha-30: rgba(0, 211, 112, 0.3);
 
   /* Yellow/Warning Colors */
   --color-yellow-100: #fffbeb;
@@ -166,6 +169,7 @@
   --color-yellow-800: #2b2410;
   --color-yellow-900: #40371b;
   --color-yellow-950: #2a2214; /* NEW */
+  --color-yellow-alpha-8:  rgba(247, 212, 120, 0.08); /* yellow-300 — warn icon/chip bg */
   --color-yellow-alpha-10: rgba(238, 213, 138, 0.1);
   --color-yellow-alpha-20: rgba(238, 213, 138, 0.2);
 
@@ -215,6 +219,7 @@
   --color-surface-subdued: #0c0c10;       /* pill backgrounds, table header row */
   --color-surface-element: #0e0e12;       /* version badge, CTA button, small UI chips */
   --color-surface-row-hover: rgba(255, 255, 255, 0.015); /* table / incident row hover */
+  --color-white-alpha-4: rgba(255, 255, 255, 0.04);     /* draft / inactive chip bg */
 
   /* Gray Colors */
   --color-gray-100: #e6e6e6;
