@@ -49,6 +49,11 @@ type KafkaMsgProcessor struct {
 	singleDedupSubject  string
 
 	pendingPublishesLimit int
+
+	// Back-pressure episode state. Mutated only from the single-goroutine
+	// processor driver, so no synchronization is needed.
+	activeBackpressure  bool
+	backpressureStartTS time.Time
 }
 
 func NewKafkaMsgProcessor(
@@ -129,11 +134,6 @@ func (k *KafkaMsgProcessor) setDedupHeader(headers nats.Header, dedupKeyStr stri
 		return
 	}
 
-	k.log.Debug("Setting deduplication header",
-		slog.String("topic", k.topic.Name),
-		slog.String("dedupKey", k.topic.Deduplication.ID),
-		slog.String("keyValue", dedupKeyStr),
-	)
 	headers.Set("Nats-Msg-Id", dedupKeyStr)
 }
 
@@ -176,11 +176,6 @@ func (k *KafkaMsgProcessor) getSubjectAndDedupKey(ctx context.Context, version s
 
 func (k *KafkaMsgProcessor) prepareMesssage(ctx context.Context, msg *kgo.Record) (*nats.Msg, error) {
 	version, err := k.schema.Validate(ctx, msg.Value)
-	k.log.Debug("Schema validation result",
-		slog.String("topic", k.topic.Name),
-		slog.String("version", version),
-		slog.Any("error", err))
-
 	if err != nil {
 		if models.IsIncompatibleSchemaError(err) || errors.Is(err, models.ErrSchemaNotFound) {
 			k.log.Error("Schema validation error has been detected for message",
@@ -240,6 +235,34 @@ func (k *KafkaMsgProcessor) prepareMesssage(ctx context.Context, msg *kgo.Record
 	k.setDedupHeader(nMsg.Header, dedupKeyStr)
 
 	return nMsg, nil
+}
+
+// bpStart marks the beginning of a back-pressure episode. Idempotent — extra
+// calls inside an active episode are no-ops, so the histogram observes one
+// duration per episode regardless of how many BP errors happen along the way.
+func (k *KafkaMsgProcessor) bpStart(ctx context.Context) {
+	if k.activeBackpressure {
+		return
+	}
+	k.activeBackpressure = true
+	k.backpressureStartTS = time.Now()
+	observability.RecordIngestorBackpressureStart(ctx)
+	k.log.InfoContext(ctx, "ingestor backpressure: start",
+		slog.String("pipeline_id", k.pipelineID))
+}
+
+// bpStop ends an active back-pressure episode and observes its duration.
+// No-op when no episode is active.
+func (k *KafkaMsgProcessor) bpStop(ctx context.Context) {
+	if !k.activeBackpressure {
+		return
+	}
+	dur := time.Since(k.backpressureStartTS).Seconds()
+	k.activeBackpressure = false
+	observability.RecordIngestorBackpressureStop(ctx, dur)
+	k.log.InfoContext(ctx, "ingestor backpressure: stop",
+		slog.String("pipeline_id", k.pipelineID),
+		slog.Float64("duration_seconds", dur))
 }
 
 func (k *KafkaMsgProcessor) ProcessBatch(ctx context.Context, batch []*kgo.Record) (*kgo.Record, error) {
@@ -368,7 +391,7 @@ func (k *KafkaMsgProcessor) processBatchAsync(ctx context.Context, batch []*kgo.
 		// 3. Wait for in-flight publishes to settle, then classify.
 		if len(futures) > 0 {
 			<-k.publisher.WaitForAsyncPublishAcks()
-			k.classifyFutures(s, futures)
+			k.classifyFutures(ctx, s, futures)
 			futures = futures[:0]
 		}
 
@@ -383,6 +406,7 @@ func (k *KafkaMsgProcessor) processBatchAsync(ctx context.Context, batch []*kgo.
 			return k.cleanupAndReturn(ctx, s, ctx.Err())
 		}
 		if s.cursor == len(s.batch) && len(s.backpressure) == 0 {
+			k.bpStop(ctx)
 			observability.RecordBytesProcessed(ctx, "ingestor", "out", s.outBytes)
 			return s.batch[len(s.batch)-1], nil
 		}
@@ -419,6 +443,7 @@ func (k *KafkaMsgProcessor) publishBackpressureSlice(ctx context.Context, s *asy
 		fut, err := k.publisher.PublishNatsMsgAsync(ctx, s.cachedMsgs[idx], k.pendingPublishesLimit)
 		if err != nil {
 			if stream.IsBackpressureErr(err) {
+				k.bpStart(ctx)
 				carry = append(carry, idx)
 				continue
 			}
@@ -469,6 +494,7 @@ func (k *KafkaMsgProcessor) publishFromCursor(ctx context.Context, s *asyncBatch
 		if err != nil {
 			if stream.IsBackpressureErr(err) {
 				// Throttle hit. Don't advance cursor — try again next iter.
+				k.bpStart(ctx)
 				return futures
 			}
 			s.savedErr = err
@@ -484,7 +510,7 @@ func (k *KafkaMsgProcessor) publishFromCursor(ctx context.Context, s *asyncBatch
 
 // classifyFutures inspects each in-flight future, marks completed indices, and
 // routes failures into either backpressure (retry) or dlqOnExit (fatal).
-func (k *KafkaMsgProcessor) classifyFutures(s *asyncBatchState, futures []pendingPublish) {
+func (k *KafkaMsgProcessor) classifyFutures(ctx context.Context, s *asyncBatchState, futures []pendingPublish) {
 	for _, p := range futures {
 		select {
 		case <-p.future.Ok():
@@ -494,6 +520,7 @@ func (k *KafkaMsgProcessor) classifyFutures(s *asyncBatchState, futures []pendin
 			}
 		case err := <-p.future.Err():
 			if stream.IsBackpressureErr(err) {
+				k.bpStart(ctx)
 				s.backpressure = append(s.backpressure, p.idx)
 				s.retries[p.idx]++
 				continue
@@ -528,6 +555,10 @@ func (k *KafkaMsgProcessor) advanceLastAckedIdx(s *asyncBatchState) {
 // partial progress is better than silently losing track of which records were
 // actually DLQ'd.
 func (k *KafkaMsgProcessor) cleanupAndReturn(ctx context.Context, s *asyncBatchState, cause error) (*kgo.Record, error) {
+	// Flush any active back-pressure episode so the duration histogram still
+	// gets observed when we exit on a fatal error or ctx cancellation.
+	k.bpStop(ctx)
+
 	// When the cleanup is triggered by ctx cancellation, the same ctx will
 	// fail on every DLQ push. Use a fresh, bounded ctx so we can still drain.
 	dlqCtx := ctx

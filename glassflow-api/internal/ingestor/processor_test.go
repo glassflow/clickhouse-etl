@@ -1,4 +1,4 @@
-package ingestor_test
+package ingestor
 
 import (
 	"context"
@@ -16,7 +16,6 @@ import (
 	"github.com/twmb/franz-go/pkg/kgo"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/ingestor"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
 )
@@ -122,9 +121,9 @@ func makeBatch(n int) []*kgo.Record {
 	return batch
 }
 
-func newProcessor(t *testing.T, pub stream.Publisher) *ingestor.KafkaMsgProcessor {
+func newProcessor(t *testing.T, pub stream.Publisher) *KafkaMsgProcessor {
 	t.Helper()
-	p, err := ingestor.NewKafkaMsgProcessor(
+	p, err := NewKafkaMsgProcessor(
 		"pipeline-test",
 		pub,
 		pub, // dlq publisher: reuse so we can count Publish() calls as DLQ writes
@@ -314,4 +313,60 @@ func TestProcessBatch_DLQFailureDuringCleanup(t *testing.T) {
 	// First DLQ push fails so nothing is marked completed; lastProcessed
 	// stays nil.
 	require.Nil(t, last)
+}
+
+// One BP cycle: throttle hits on the first publish call and clears on retry.
+// activeBackpressure must end up false once the batch fully drains.
+func TestProcessBatchAsync_BackpressureStartStop(t *testing.T) {
+	pub := newFakePublisher("out")
+	var firstPass atomic.Bool
+	firstPass.Store(true)
+
+	pub.setPublish(func(idx int, msg *nats.Msg) (jetstream.PubAckFuture, error) {
+		if firstPass.Load() && idx == 0 {
+			firstPass.Store(false)
+			return nil, stream.ErrStreamMaxPendingMsgs
+		}
+		return newOkFuture(msg), nil
+	})
+	p := newProcessor(t, pub)
+
+	require.False(t, p.activeBackpressure, "tracker should start clean")
+
+	batch := makeBatch(3)
+	last, err := p.ProcessBatch(context.Background(), batch)
+
+	require.NoError(t, err)
+	require.Same(t, batch[2], last)
+	require.False(t, p.activeBackpressure,
+		"episode must be closed once batch fully drains")
+	require.Equal(t, int32(0), pub.dlqCalls.Load(),
+		"throttle is retryable, never DLQ'd")
+}
+
+// Server-side NAK (stream-full) classified as backpressure during the future
+// drain phase exercises the classifyFutures hook. After the retry succeeds,
+// the tracker must end clean.
+func TestProcessBatchAsync_BackpressureFromAckNak(t *testing.T) {
+	pub := newFakePublisher("out")
+	const nakAt = 1
+	var nakReturned atomic.Bool
+
+	pub.setPublish(func(idx int, msg *nats.Msg) (jetstream.PubAckFuture, error) {
+		if idx == nakAt && !nakReturned.Load() {
+			nakReturned.Store(true)
+			return newErrFuture(msg, streamFullErr()), nil
+		}
+		return newOkFuture(msg), nil
+	})
+	p := newProcessor(t, pub)
+
+	batch := makeBatch(5)
+	last, err := p.ProcessBatch(context.Background(), batch)
+
+	require.NoError(t, err)
+	require.Same(t, batch[4], last)
+	require.False(t, p.activeBackpressure,
+		"NAK-driven episode must close after the retried record acks")
+	require.Equal(t, int32(0), pub.dlqCalls.Load())
 }
