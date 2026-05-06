@@ -60,10 +60,22 @@ export default async function DashboardPage({ searchParams }: Props) {
   const params = await (searchParams ?? Promise.resolve({} as Record<string, string>))
   const scenario = params.scenario ?? null
 
-  const [{ stats, incidents, activity }, pipelines] = await Promise.all([
-    fetchDashboardStats(scenario),
-    fetchDashboardPipelines(scenario),
-  ])
+  let stats: DashStats
+  let incidents: Incident[]
+  let activity: ActivityItem[]
+  let pipelines: DashPipeline[]
+
+  if (process.env.NEXT_PUBLIC_USE_MOCK_API === 'true') {
+    // Direct import avoids SSR self-fetch race — same process, zero network hop
+    const { getDashboardScenario } = await import('@/src/app/ui-api/mock/data/dashboard')
+    const data = getDashboardScenario(scenario)
+    ;({ stats, incidents, activity, pipelines } = data)
+  } else {
+    ;[{ stats, incidents, activity }, pipelines] = await Promise.all([
+      fetchDashboardStats(scenario),
+      fetchDashboardPipelines(scenario),
+    ])
+  }
 
   const state = determineDashboardState(pipelines, incidents, stats, activity)
 

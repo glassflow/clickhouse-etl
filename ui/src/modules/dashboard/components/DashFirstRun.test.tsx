@@ -33,10 +33,10 @@ describe('DashFirstRun', () => {
     expect(active).toHaveLength(4)
   })
 
-  it('Guided wizard tile links to /', () => {
+  it('Guided wizard tile links to /home', () => {
     render(<DashFirstRun />)
     const link = screen.getByRole('link', { name: /Guided wizard/ })
-    expect(link).toHaveAttribute('href', '/')
+    expect(link).toHaveAttribute('href', '/home')
   })
 
   it('Ask AI tile links to /pipelines/create/ai', () => {

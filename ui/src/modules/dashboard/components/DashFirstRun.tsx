@@ -14,7 +14,7 @@ const PATHS: PathDef[] = [
     icon: <WorkflowIcon size={14} />,
     name: 'Guided wizard',
     description: 'Step-by-step · ~3 min',
-    href: '/',
+    href: '/home',
   },
   {
     icon: <LayoutTemplateIcon size={14} />,
@@ -38,7 +38,7 @@ const PATHS: PathDef[] = [
     icon: <UploadIcon size={14} />,
     name: 'Import config',
     description: 'Paste YAML / JSON',
-    href: '/',
+    href: '/home',
   },
   {
     icon: <FlaskConicalIcon size={14} />,
