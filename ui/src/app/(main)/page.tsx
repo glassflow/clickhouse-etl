@@ -35,8 +35,8 @@ export default async function Home() {
   // If auth is disabled, check for pipelines and redirect accordingly
   if (!authEnabled) {
     const hasPipelines = await checkPipelines()
-    if (hasPipelines) redirect('/pipelines')
-    redirect('/home')
+    if (hasPipelines) redirect('/dashboard')
+    redirect('/dashboard')
   }
 
   // When auth is enabled, fetch session and pipeline list in parallel for redirect decision
@@ -45,8 +45,8 @@ export default async function Home() {
   const user = session?.user
 
   if (user) {
-    if (hasPipelines) redirect('/pipelines')
-    redirect('/home')
+    if (hasPipelines) redirect('/dashboard')
+    redirect('/dashboard')
   }
 
   // Unauthenticated: show marketing landing page for visitors arriving from glassflow.dev
