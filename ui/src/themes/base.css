@@ -210,6 +210,12 @@
   --color-gray-dark-900: #161617; /* Regular/elevation backgrounds, icon hover */
   --color-gray-dark-950: #0e0e10; /* Page background */
 
+  --color-surface-page: #070708;          /* dashboard page background */
+  --color-surface-card: #0a0a0d;          /* KPI cards, attention queue, chart cards, pipeline table */
+  --color-surface-subdued: #0c0c10;       /* pill backgrounds, table header row */
+  --color-surface-element: #0e0e12;       /* version badge, CTA button, small UI chips */
+  --color-surface-row-hover: rgba(255, 255, 255, 0.015); /* table / incident row hover */
+
   /* Gray Colors */
   --color-gray-100: #e6e6e6;
   --color-gray-200: #b0b0b0;

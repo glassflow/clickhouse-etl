@@ -442,6 +442,13 @@
   --select-content-foreground-color-disabled: var(--color-gray-300);
   --select-content-border-color-disabled: var(--color-gray-500);
 
+  /* ============ Dashboard Tokens ============ */
+  --dash-page-bg:      var(--color-surface-page);
+  --dash-card-bg:      var(--color-surface-card);
+  --dash-subdued-bg:   var(--color-surface-subdued);
+  --dash-element-bg:   var(--color-surface-element);
+  --dash-row-hover:    var(--color-surface-row-hover);
+
   /* ============ Observability ============ */
   /* Chart series — used in metrics drill-down component split */
   --obs-chart-ingestor: var(--color-blue-500);

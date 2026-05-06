@@ -33,6 +33,7 @@ export default defineConfig({
       'components/**/__tests__/**/*.{test,spec}.{ts,tsx}',
       'modules/canvas/**/*.{test,spec}.{ts,tsx}',
       'modules/library/**/*.{test,spec}.{ts,tsx}',
+      'modules/dashboard/**/*.{test,spec}.{ts,tsx}',
       'modules/observability/**/*.{test,spec}.{ts,tsx}',
       'modules/ai/**/*.{test,spec}.{ts,tsx}',
     ],
