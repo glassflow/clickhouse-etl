@@ -3,55 +3,71 @@ import { redirect } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
 import { getSessionSafely } from '@/src/lib/auth0'
 import { isAuthEnabled } from '@/src/utils/auth-config.server'
+import { getApiUrl } from '@/src/utils/mock-api'
+import { determineDashboardState } from '@/src/modules/dashboard/types'
+import type { DashPipeline, DashStats, Incident, ActivityItem } from '@/src/modules/dashboard/types'
 import { DashboardClient } from './DashboardClient'
-import type { ListPipelineConfig } from '@/src/types/pipeline'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-/**
- * Server-side pipeline fetch for SSR dashboard.
- * Calls the backend directly (same pattern as the redirect check in the root page.tsx).
- */
-async function fetchPipelinesSSR(): Promise<ListPipelineConfig[]> {
+async function fetchDashboardStats(scenario: string | null): Promise<{
+  stats: DashStats
+  incidents: Incident[]
+  activity: ActivityItem[]
+}> {
   try {
-    const baseUrl =
-      process.env.NEXT_PUBLIC_IN_DOCKER === 'true' ? 'http://ui:8080' : 'http://localhost:8080'
-    const res = await fetch(`${baseUrl}/ui-api/pipeline`, { cache: 'no-store' })
-    if (!res.ok) return []
-    const data = await res.json()
-    if (data?.success && Array.isArray(data.pipelines)) {
-      return data.pipelines as ListPipelineConfig[]
+    const qs = scenario ? `?scenario=${scenario}` : ''
+    const res = await fetch(getApiUrl(`dashboard/stats${qs}`), { cache: 'no-store' })
+    if (!res.ok) throw new Error('stats fetch failed')
+    return await res.json()
+  } catch {
+    return {
+      stats: {
+        activePipelines: 0, totalPipelines: 0,
+        eventsPerSec: 0, eventsPerSecDelta: 0,
+        errorRate: 0, errorRateDelta: 0,
+        dlqEvents: 0, dlqDelta: 0,
+        avgLagMs: 0, avgLagMsDelta: 0,
+        throughputIn: 0, throughputOut: 0, throughputLossPct: 0,
+        throughputSeries: { in: [], out: [] },
+      },
+      incidents: [],
+      activity: [],
     }
-    return []
+  }
+}
+
+async function fetchDashboardPipelines(scenario: string | null): Promise<DashPipeline[]> {
+  try {
+    const qs = scenario ? `?scenario=${scenario}` : ''
+    const res = await fetch(getApiUrl(`dashboard/pipelines${qs}`), { cache: 'no-store' })
+    if (!res.ok) throw new Error('pipelines fetch failed')
+    const data = await res.json()
+    return data.pipelines ?? []
   } catch {
     return []
   }
 }
 
-export default async function DashboardPage() {
-  const authEnabled = isAuthEnabled()
+type Props = { searchParams?: Promise<Record<string, string>> }
 
+export default async function DashboardPage({ searchParams }: Props) {
+  const authEnabled = isAuthEnabled()
   if (authEnabled) {
     const session = await getSessionSafely()
-    if (!session?.user) {
-      redirect('/')
-    }
+    if (!session?.user) redirect('/')
   }
 
-  const pipelines = await fetchPipelinesSSR()
+  const params = await (searchParams ?? Promise.resolve({} as Record<string, string>))
+  const scenario = params.scenario ?? null
 
-  const stats = {
-    total: pipelines.length,
-    running: pipelines.filter((p) => {
-      const s = (p.status as string | undefined)?.toLowerCase()
-      return s === 'running' || s === 'active'
-    }).length,
-    error: pipelines.filter((p) => {
-      const s = (p.status as string | undefined)?.toLowerCase()
-      return s === 'error' || s === 'failed'
-    }).length,
-  }
+  const [{ stats, incidents, activity }, pipelines] = await Promise.all([
+    fetchDashboardStats(scenario),
+    fetchDashboardPipelines(scenario),
+  ])
+
+  const state = determineDashboardState(pipelines, incidents, stats, activity)
 
   return (
     <Suspense
@@ -62,7 +78,7 @@ export default async function DashboardPage() {
         </div>
       }
     >
-      <DashboardClient initialPipelines={pipelines} stats={stats} />
+      <DashboardClient state={state} />
     </Suspense>
   )
 }
