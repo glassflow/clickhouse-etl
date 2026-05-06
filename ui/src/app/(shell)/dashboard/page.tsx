@@ -1,6 +1,4 @@
-import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
-import { Loader2 } from 'lucide-react'
 import { getSessionSafely } from '@/src/lib/auth0'
 import { isAuthEnabled } from '@/src/utils/auth-config.server'
 import { getApiUrl } from '@/src/utils/mock-api'
@@ -69,16 +67,5 @@ export default async function DashboardPage({ searchParams }: Props) {
 
   const state = determineDashboardState(pipelines, incidents, stats, activity)
 
-  return (
-    <Suspense
-      fallback={
-        <div className="flex items-center justify-center min-h-[60vh] gap-3">
-          <Loader2 className="h-7 w-7 animate-spin text-[var(--color-foreground-primary)]" />
-          <p className="body-3 text-[var(--color-foreground-neutral-faded)]">Loading dashboard…</p>
-        </div>
-      }
-    >
-      <DashboardClient state={state} />
-    </Suspense>
-  )
+  return <DashboardClient state={state} />
 }
