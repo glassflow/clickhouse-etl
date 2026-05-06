@@ -445,41 +445,44 @@ export interface MockUsedByEntry {
   pipelineId: string
   pipelineName: string
   pinnedVersion?: string
+  health: 'ok' | 'warn' | 'err'
+  status: 'active' | 'stopped'
+  drift: boolean
 }
 
 export const mockUsedBy: Record<string, MockUsedByEntry[]> = {
   // schema-001 (Transaction Events) — used by two pipelines
   'schema-001': [
-    { pipelineId: 'pipeline-001', pipelineName: 'Deduplication Pipeline', pinnedVersion: '2.0.0' },
-    { pipelineId: 'pipeline-003', pipelineName: 'Ingest Only Pipeline', pinnedVersion: '1.1.0' },
+    { pipelineId: 'pipeline-001', pipelineName: 'Deduplication Pipeline', pinnedVersion: '2.0.0', health: 'ok', status: 'active', drift: false },
+    { pipelineId: 'pipeline-003', pipelineName: 'Ingest Only Pipeline', pinnedVersion: '1.1.0', health: 'warn', status: 'active', drift: true },
   ],
   // schema-002 (User Profile) — used by one pipeline
   'schema-002': [
-    { pipelineId: 'pipeline-002', pipelineName: 'Deduplication & Join Pipeline', pinnedVersion: '1.0.0' },
+    { pipelineId: 'pipeline-002', pipelineName: 'Deduplication & Join Pipeline', pinnedVersion: '1.0.0', health: 'ok', status: 'active', drift: false },
   ],
   // kafka-001 (Local Kafka) — used by three pipelines (no pinned version for connections)
   'kafka-001': [
-    { pipelineId: 'pipeline-001', pipelineName: 'Deduplication Pipeline' },
-    { pipelineId: 'pipeline-002', pipelineName: 'Deduplication & Join Pipeline' },
-    { pipelineId: 'pipeline-003', pipelineName: 'Ingest Only Pipeline' },
+    { pipelineId: 'pipeline-001', pipelineName: 'Deduplication Pipeline', health: 'ok', status: 'active', drift: false },
+    { pipelineId: 'pipeline-002', pipelineName: 'Deduplication & Join Pipeline', health: 'ok', status: 'active', drift: false },
+    { pipelineId: 'pipeline-003', pipelineName: 'Ingest Only Pipeline', health: 'err', status: 'stopped', drift: true },
   ],
   // kafka-002 (Production Kafka) — one pipeline
   'kafka-002': [
-    { pipelineId: 'pipeline-005', pipelineName: 'Deduplication & Join Pipeline' },
+    { pipelineId: 'pipeline-005', pipelineName: 'Deduplication & Join Pipeline', health: 'warn', status: 'active', drift: true },
   ],
   // ch-001 (Local ClickHouse) — used by three pipelines
   'ch-001': [
-    { pipelineId: 'pipeline-001', pipelineName: 'Deduplication Pipeline' },
-    { pipelineId: 'pipeline-002', pipelineName: 'Deduplication & Join Pipeline' },
-    { pipelineId: 'pipeline-004', pipelineName: 'Join Pipeline' },
+    { pipelineId: 'pipeline-001', pipelineName: 'Deduplication Pipeline', health: 'ok', status: 'active', drift: false },
+    { pipelineId: 'pipeline-002', pipelineName: 'Deduplication & Join Pipeline', health: 'ok', status: 'active', drift: false },
+    { pipelineId: 'pipeline-004', pipelineName: 'Join Pipeline', health: 'warn', status: 'active', drift: true },
   ],
   // ch-002 (Production ClickHouse Cloud) — two pipelines
   'ch-002': [
-    { pipelineId: 'pipeline-003', pipelineName: 'Ingest Only Pipeline' },
-    { pipelineId: 'pipeline-005', pipelineName: 'Deduplication & Join Pipeline' },
+    { pipelineId: 'pipeline-003', pipelineName: 'Ingest Only Pipeline', health: 'err', status: 'stopped', drift: false },
+    { pipelineId: 'pipeline-005', pipelineName: 'Deduplication & Join Pipeline', health: 'ok', status: 'active', drift: false },
   ],
   // transform-001 (Anonymize PII) — one pipeline
   'transform-001': [
-    { pipelineId: 'pipeline-003', pipelineName: 'Ingest Only Pipeline', pinnedVersion: '1.1.0' },
+    { pipelineId: 'pipeline-003', pipelineName: 'Ingest Only Pipeline', pinnedVersion: '1.1.0', health: 'err', status: 'stopped', drift: true },
   ],
 }

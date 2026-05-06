@@ -20,6 +20,9 @@ export type UsedByEntry = {
   pipelineId: string
   pipelineName: string
   pinnedVersion?: string
+  health: 'ok' | 'warn' | 'err'
+  status: 'active' | 'stopped'
+  drift: boolean
 }
 
 interface FetchState<T> {
