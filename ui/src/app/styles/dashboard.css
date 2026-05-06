@@ -23,7 +23,7 @@
 }
 .dash-header-l { display: flex; flex-direction: column; gap: 4px; }
 .dash-title {
-  font-family: var(--font-archivo);
+  font-family: var(--font-family-title);
   font-size: 22px;
   font-weight: 600;
   letter-spacing: -0.01em;
@@ -57,7 +57,7 @@
   white-space: nowrap;
 }
 .dash-pill .label {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-family-mono);
   font-size: 10px;
   color: var(--color-gray-dark-500);
   text-transform: uppercase;
@@ -89,7 +89,7 @@
   overflow: hidden;
 }
 .dash-kpi .label {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-family-mono);
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -97,7 +97,7 @@
   margin-bottom: 10px;
 }
 .dash-kpi .value {
-  font-family: var(--font-archivo);
+  font-family: var(--font-family-title);
   font-size: 28px;
   font-weight: 600;
   letter-spacing: -0.02em;
@@ -116,7 +116,7 @@
 }
 .dash-kpi .delta {
   font-size: 11px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-family-mono);
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -155,7 +155,7 @@
 }
 .healthy-banner .hb-body { flex: 1; }
 .healthy-banner .hb-title {
-  font-family: var(--font-archivo);
+  font-family: var(--font-family-title);
   font-size: 13px;
   font-weight: 600;
   color: var(--color-foreground-neutral);
@@ -167,7 +167,7 @@
   line-height: 1.5;
 }
 .healthy-banner .hb-meta {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-family-mono);
   font-size: 11px;
   color: var(--color-gray-dark-500);
 }
@@ -200,7 +200,7 @@
   border-bottom: 1px solid var(--color-gray-dark-800);
 }
 .dash-card-h h3 {
-  font-family: var(--font-archivo);
+  font-family: var(--font-family-title);
   font-size: 14px;
   font-weight: 600;
   margin: 0;
@@ -208,7 +208,7 @@
   color: var(--color-foreground-neutral);
 }
 .dash-card-h .dash-count {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-family-mono);
   font-size: 10.5px;
   color: var(--color-gray-dark-500);
   margin-left: 8px;
@@ -217,7 +217,7 @@
   font-size: 11.5px;
   color: var(--color-gray-dark-100);
   cursor: pointer;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-family-mono);
   text-decoration: none;
   background: none;
   border: none;
@@ -257,7 +257,7 @@
 .attn-row.warn .attn-icon { background: var(--color-yellow-alpha-8); color: var(--color-yellow-400); }
 .attn-row.info .attn-icon { background: var(--color-blue-750); color: var(--color-blue-500); }
 .attn-body .attn-title {
-  font-family: var(--font-archivo);
+  font-family: var(--font-family-title);
   font-size: 13px;
   font-weight: 600;
   color: var(--color-foreground-neutral);
@@ -265,7 +265,7 @@
   letter-spacing: -0.005em;
 }
 .attn-pipe {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-family-mono);
   font-weight: 500;
   font-size: 11.5px;
   color: var(--color-orange-300);
@@ -284,7 +284,7 @@
   display: flex;
   gap: 14px;
   font-size: 10.5px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-family-mono);
   color: var(--color-gray-dark-500);
 }
 .attn-meta-sep { color: var(--color-gray-dark-700); }
@@ -321,14 +321,14 @@
 .thru-card { padding: 18px; }
 .thru-totals { display: flex; gap: 24px; margin-bottom: 16px; }
 .thru-blk .thru-lbl {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-family-mono);
   font-size: 9.5px;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--color-gray-dark-500);
 }
 .thru-blk .thru-val {
-  font-family: var(--font-archivo);
+  font-family: var(--font-family-title);
   font-size: 18px;
   font-weight: 600;
   color: var(--color-foreground-neutral);
@@ -347,7 +347,7 @@
   display: flex;
   gap: 14px;
   font-size: 10.5px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-family-mono);
   color: var(--color-gray-dark-100);
   margin-top: 10px;
 }
@@ -383,12 +383,12 @@
 .activity-text { color: var(--color-gray-100); line-height: 1.4; }
 .activity-text b { color: var(--color-foreground-neutral); font-weight: 600; }
 .activity-pipe {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-family-mono);
   font-size: 11px;
   color: var(--color-orange-300);
 }
 .activity-when {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-family-mono);
   font-size: 10.5px;
   color: var(--color-gray-dark-500);
 }
@@ -409,7 +409,7 @@
   border-bottom: 1px solid var(--color-gray-dark-800);
 }
 .dash-table-h h3 {
-  font-family: var(--font-archivo);
+  font-family: var(--font-family-title);
   font-size: 14px;
   font-weight: 600;
   margin: 0;
@@ -432,7 +432,7 @@
   color: var(--color-orange-300);
 }
 .dash-filter-n {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-family-mono);
   font-size: 10px;
   margin-left: 4px;
   color: var(--color-gray-dark-500);
@@ -440,7 +440,7 @@
 .dash-filter-chip.is-active .dash-filter-n { color: var(--color-orange-300); }
 .dash-table table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .dash-table th {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-family-mono);
   font-size: 10px;
   font-weight: 500;
   letter-spacing: 0.1em;
@@ -462,7 +462,7 @@
 .dash-table tr:hover td { background: var(--dash-row-hover); }
 .dash-table td.r { text-align: right; }
 .pipe-name {
-  font-family: var(--font-archivo);
+  font-family: var(--font-family-title);
   font-weight: 600;
   color: var(--color-foreground-neutral);
   font-size: 13px;
@@ -471,7 +471,7 @@
   gap: 8px;
 }
 .pipe-ver {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-family-mono);
   font-size: 10px;
   font-weight: 400;
   color: var(--color-gray-dark-500);
@@ -480,7 +480,7 @@
   border-radius: 3px;
 }
 .pipe-route {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-family-mono);
   font-size: 11px;
   color: var(--color-gray-dark-100);
   display: flex;
@@ -495,7 +495,7 @@
   padding: 3px 8px;
   border-radius: 4px;
   font-size: 11px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-family-mono);
   font-weight: 500;
   letter-spacing: 0.02em;
 }
@@ -511,7 +511,7 @@
 .status-chip.draft  { background: var(--color-white-alpha-4); color: var(--color-gray-100); border: 1px solid var(--color-gray-dark-700); }
 .status-chip.draft .dot { background: var(--color-gray-dark-100); }
 .metric-cell {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-family-mono);
   font-size: 12px;
   color: var(--color-foreground-neutral);
 }
@@ -562,7 +562,7 @@
   box-shadow: 0 8px 24px -4px var(--color-orange-alpha-40);
 }
 .empty-card h2 {
-  font-family: var(--font-archivo);
+  font-family: var(--font-family-title);
   font-size: 22px;
   font-weight: 600;
   letter-spacing: -0.01em;
@@ -617,7 +617,7 @@
   color: var(--color-gray-dark-100);
 }
 .empty-path-name {
-  font-family: var(--font-archivo);
+  font-family: var(--font-family-title);
   font-size: 12.5px;
   font-weight: 600;
   color: var(--color-foreground-neutral);
@@ -629,7 +629,7 @@
   line-height: 1.45;
 }
 .empty-foot {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-family-mono);
   font-size: 11px;
   color: var(--color-gray-dark-500);
 }
