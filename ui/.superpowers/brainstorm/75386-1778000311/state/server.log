@@ -1,0 +1,7 @@
+{"type":"server-started","port":59137,"host":"127.0.0.1","url_host":"localhost","url":"http://localhost:59137","screen_dir":"/Users/vladimir.cutkovic/Documents/code/glassflow/clickhouse-etl/ui/.superpowers/brainstorm/75386-1778000311/content","state_dir":"/Users/vladimir.cutkovic/Documents/code/glassflow/clickhouse-etl/ui/.superpowers/brainstorm/75386-1778000311/state"}
+{"type":"screen-added","file":"/Users/vladimir.cutkovic/Documents/code/glassflow/clickhouse-etl/ui/.superpowers/brainstorm/75386-1778000311/content/dashboard-layout.html"}
+{"type":"screen-added","file":"/Users/vladimir.cutkovic/Documents/code/glassflow/clickhouse-etl/ui/.superpowers/brainstorm/75386-1778000311/content/dashboard-v2.html"}
+{"type":"screen-added","file":"/Users/vladimir.cutkovic/Documents/code/glassflow/clickhouse-etl/ui/.superpowers/brainstorm/75386-1778000311/content/dashboard-v3.html"}
+{"type":"screen-added","file":"/Users/vladimir.cutkovic/Documents/code/glassflow/clickhouse-etl/ui/.superpowers/brainstorm/75386-1778000311/content/dashboard-v4.html"}
+{"type":"screen-added","file":"/Users/vladimir.cutkovic/Documents/code/glassflow/clickhouse-etl/ui/.superpowers/brainstorm/75386-1778000311/content/dashboard-v5.html"}
+{"type":"server-stopped","reason":"idle timeout"}
