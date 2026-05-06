@@ -171,6 +171,11 @@ func reconstructJoinConfig(transformations map[string]Transformation) (models.Jo
 		if err := json.Unmarshal(joinTrans.Config, &joinConfig); err != nil {
 			return joinConfig, fmt.Errorf("unmarshal join config: %w", err)
 		}
+		// v3-native pipelines store the component ID in the blob and it matches join_configs.join_id;
+		// only fall back to the DB row ID for v2 blobs that lack it.
+		if joinConfig.ID == "" {
+			joinConfig.ID = joinTrans.ID
+		}
 	}
 	return joinConfig, nil
 }
@@ -192,6 +197,11 @@ func reconstructStatelessTransformationConfig(transformations map[string]Transfo
 	if statelessTrans, ok := transformations["stateless_transformation"]; ok {
 		if err := json.Unmarshal(statelessTrans.Config, &statelessConfig); err != nil {
 			return statelessConfig, fmt.Errorf("unmarshal stateless transformation config: %w", err)
+		}
+		// v3-native blobs already carry the deterministic component ID; only backfill from the DB row
+		// for v2 blobs that lack it.
+		if statelessConfig.ID == "" {
+			statelessConfig.ID = statelessTrans.ID
 		}
 	}
 	return statelessConfig, nil

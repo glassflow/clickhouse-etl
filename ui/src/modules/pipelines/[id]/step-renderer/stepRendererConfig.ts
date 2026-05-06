@@ -11,6 +11,7 @@ import { JoinConfigurator } from '@/src/modules/join/JoinConfigurator'
 import { FilterConfigurator } from '@/src/modules/filter/FilterConfigurator'
 import { TransformationConfigurator } from '@/src/modules/transformation/TransformationConfigurator'
 import { PipelineResourcesConfigurator } from '@/src/modules/resources/PipelineResourcesConfigurator'
+import { OtlpDeduplicationStep } from '@/src/modules/otlp/components/OtlpDeduplicationStep'
 import { isFiltersEnabled } from '@/src/config/feature-flags'
 import type { ComponentType } from 'react'
 
@@ -97,6 +98,11 @@ export const STEP_RENDERER_CONFIG: Record<StepKeys, StepConfig | undefined> = {
     component: KafkaTypeVerification,
     title: 'Verify Field Types',
     description: 'Review and adjust the inferred data types for Kafka event fields.',
+  },
+  [StepKeys.OTLP_DEDUPLICATION]: {
+    component: OtlpDeduplicationStep,
+    title: 'OTLP Deduplication',
+    description: 'Configure deduplication settings for OTLP data',
   },
   // Steps used in wizard flow (not in StandaloneStepRenderer)
   [StepKeys.REVIEW_CONFIGURATION]: undefined,

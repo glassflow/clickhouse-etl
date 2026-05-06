@@ -222,22 +222,19 @@
 /* ── Smooth expand/collapse (CSS transition variant) ─────────────────────── */
 
 .smooth-expand {
-  transition: max-height 0.28s var(--ease-out-quart),
-              opacity    0.22s var(--ease-out-quart),
-              transform  0.22s var(--ease-out-quart);
+  transition: max-height 0.25s ease-in-out,
+              opacity    0.2s  ease-in-out;
   overflow: hidden;
 }
 
 .smooth-expand.collapsed {
   max-height: 0;
   opacity: 0;
-  transform: translateY(-6px);
 }
 
 .smooth-expand.expanded {
-  max-height: 500px;
+  max-height: 600px;
   opacity: 1;
-  transform: translateY(0);
 }
 
 /* ── Reduced motion ──────────────────────────────────────────────────────── */

@@ -124,11 +124,13 @@ func mainDeduplicatorV2(
 	batchWriter := batchNats.NewBatchWriter(
 		nc.JetStream(),
 		outputRouter,
+		0,
 	)
 
 	dlqWriter := batchNats.NewBatchWriter(
 		nc.JetStream(),
 		dlqSubjectRouter,
+		0,
 	)
 
 	componentSignal, err := componentsignals.NewPublisher(nc)

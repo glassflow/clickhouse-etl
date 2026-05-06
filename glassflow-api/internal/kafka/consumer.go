@@ -251,6 +251,16 @@ func (c *Consumer) consumeLoop(ctx context.Context) error {
 }
 
 func (c *Consumer) handleBatchMessages(ctx context.Context) error {
+	// Don't poll while a batch is still in flight: franz-go's polled cursor
+	// advances on every successful poll, so polling past unprocessed records
+	// would let CommitUncommittedOffsets advance past records the processor
+	// hasn't yet acked. processBatch clears c.batch on both success and
+	// failure, so this branch is defensive — but the invariant is load-
+	// bearing for offset correctness, so the check stays.
+	if len(c.batch) > 0 {
+		return c.processBatch(ctx)
+	}
+
 	// Poll for messages
 	pollCtx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
@@ -330,6 +340,10 @@ func (c *Consumer) processBatch(ctx context.Context) error {
 	return nil
 }
 
+// commitBatch commits the franz-go polled cursor. Safe only because
+// handleBatchMessages refuses to poll while c.batch is non-empty — that
+// invariant guarantees the polled cursor never extends past records the
+// processor hasn't yet driven to completion.
 func (c *Consumer) commitBatch(ctx context.Context) error {
 	if err := c.client.CommitUncommittedOffsets(ctx); err != nil {
 		c.log.Error("Failed to commit offsets", slog.Any("error", err))

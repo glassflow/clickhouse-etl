@@ -10,9 +10,11 @@ import type { TableColumn } from '../types'
 import type { MappingMode } from '../types'
 import { useStore } from '@/src/store'
 import { isOtlpSource } from '@/src/config/source-types'
+import { isRegistrySchema } from '@/src/modules/kafka/utils/schemaSource'
 
 export interface UseClickhouseMapperEventFieldsParams {
   mode: MappingMode
+  destinationPath: 'create' | 'existing'
   selectedTopic: any
   primaryTopic: any
   secondaryTopic: any
@@ -33,6 +35,7 @@ export interface UseClickhouseMapperEventFieldsParams {
  */
 export function useClickhouseMapperEventFields({
   mode,
+  destinationPath,
   selectedTopic,
   primaryTopic,
   secondaryTopic,
@@ -64,13 +67,19 @@ export function useClickhouseMapperEventFields({
       const otlpFieldNames = otlpStore.schemaFields.map((f) => f.name)
       setEventFields(otlpFieldNames)
 
-      if (clickhouseDestination?.mapping?.length > 0) return
+      // For the 'create' path, the auto-generate effect in ClickhouseMapper builds columns
+      // from scratch using orderByOptions (these event fields). Auto-mapping here would apply
+      // stale existing-table columns that haven't been cleared by the sync effect yet.
+      if (destinationPath === 'create') return
+      if (clickhouseDestination?.mapping?.some((col: any) => col.eventField)) return
       if (mappedColumns.length > 0) {
         const fieldTypeMap = new Map(otlpStore.schemaFields.map((f) => [f.name, f.type]))
         const updatedColumns = [...mappedColumns]
+        let hasChanges = false
         updatedColumns.forEach((col, index) => {
           const matchingField = findBestMatchingField(col.name, otlpFieldNames)
           if (matchingField) {
+            hasChanges = true
             updatedColumns[index] = {
               ...col,
               eventField: matchingField,
@@ -78,8 +87,10 @@ export function useClickhouseMapperEventFields({
             }
           }
         })
-        setMappedColumns(updatedColumns)
-        setClickhouseDestination({ ...clickhouseDestination, mapping: updatedColumns })
+        if (hasChanges) {
+          setMappedColumns(updatedColumns)
+          setClickhouseDestination({ ...clickhouseDestination, mapping: updatedColumns })
+        }
       }
       return
     }
@@ -95,16 +106,49 @@ export function useClickhouseMapperEventFields({
         setEventFields(transformedFields)
         const fieldTypeMap = new Map(intermediarySchema.map((field) => [field.name, field.type]))
 
-        if (clickhouseDestination?.mapping?.length > 0) return
+        if (clickhouseDestination?.mapping?.some((col: any) => col.eventField)) return
         if (mappedColumns.length > 0 && transformedFields.length > 0) {
           const updatedColumns = [...mappedColumns]
+          let hasChanges = false
           updatedColumns.forEach((col, index) => {
             const matchingField = findBestMatchingField(col.name, transformedFields)
             if (matchingField) {
+              hasChanges = true
               const fieldType = fieldTypeMap.get(matchingField) || 'string'
               updatedColumns[index] = { ...col, eventField: matchingField, jsonType: fieldType }
             }
           })
+          if (hasChanges) {
+            setMappedColumns(updatedColumns)
+            setClickhouseDestination({ ...clickhouseDestination, mapping: updatedColumns })
+          }
+        }
+      }
+      return
+    }
+
+    // Registry schema takes priority: use topic.schema.fields when available
+    if (isRegistrySchema(selectedTopic?.schemaSource) && selectedTopic?.schema?.fields?.length > 0) {
+      const schemaFields = selectedTopic.schema.fields.filter((f: any) => !f.isRemoved)
+      const fieldNames = schemaFields.map((f: any) => f.name)
+      setEventFields(fieldNames)
+      if (clickhouseDestination?.mapping?.some((col: any) => col.eventField)) return
+      if (mappedColumns.length > 0 && fieldNames.length > 0) {
+        const fieldTypeMap = new Map<string, string>(schemaFields.map((f: any) => [f.name as string, (f.userType || f.type || 'string') as string]))
+        const updatedColumns = [...mappedColumns]
+        let hasChanges = false
+        updatedColumns.forEach((col, index) => {
+          const matchingField = findBestMatchingField(col.name, fieldNames)
+          if (matchingField) {
+            hasChanges = true
+            updatedColumns[index] = {
+              ...col,
+              eventField: matchingField,
+              jsonType: fieldTypeMap.get(matchingField) || 'string',
+            }
+          }
+        })
+        if (hasChanges) {
           setMappedColumns(updatedColumns)
           setClickhouseDestination({ ...clickhouseDestination, mapping: updatedColumns })
         }
@@ -118,12 +162,14 @@ export function useClickhouseMapperEventFields({
       const fields = extractEventFields(data)
       setEventFields(fields)
 
-      if (clickhouseDestination?.mapping?.length > 0) return
+      if (clickhouseDestination?.mapping?.some((col: any) => col.eventField)) return
       if (mappedColumns.length > 0 && fields.length > 0) {
         const updatedColumns = [...mappedColumns]
+        let hasChanges = false
         updatedColumns.forEach((col, index) => {
           const matchingField = findBestMatchingField(col.name, fields)
           if (matchingField) {
+            hasChanges = true
             const verifiedType = getVerifiedTypeFromTopic(selectedTopic, matchingField)
             updatedColumns[index] = {
               ...col,
@@ -132,16 +178,21 @@ export function useClickhouseMapperEventFields({
             }
           }
         })
-        setMappedColumns(updatedColumns)
-        setClickhouseDestination({ ...clickhouseDestination, mapping: updatedColumns })
+        if (hasChanges) {
+          setMappedColumns(updatedColumns)
+          setClickhouseDestination({ ...clickhouseDestination, mapping: updatedColumns })
+        }
       }
     }
   }, [
     mode,
+    destinationPath,
     isOtlp,
     otlpStore.schemaFields,
     selectedEvent?.event,
     selectedTopic,
+    selectedTopic?.schemaSource,
+    selectedTopic?.schema?.fields,
     clickhouseDestination,
     mappedColumns,
     setMappedColumns,
@@ -186,7 +237,7 @@ export function useClickhouseMapperEventFields({
       mappedColumns.length === 0
     )
       return
-    if (clickhouseDestination?.mapping?.length > 0) return
+    if (clickhouseDestination?.mapping?.some((col: any) => col.eventField)) return
 
     const updatedColumns = [...mappedColumns]
     let hasChanges = false

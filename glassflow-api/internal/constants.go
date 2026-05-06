@@ -58,6 +58,7 @@ const (
 	RoleDeduplicator = "dedup"
 	RoleETL          = ""
 	RoleOLTPReceiver = "oltp-receiver"
+	RoleMigrateData  = "migrate-data"
 
 	// DLQ constants
 	DLQDefaultBatchSize = 1
@@ -177,6 +178,15 @@ const (
 	IngestorInitialRetryDelay = 500 * time.Millisecond
 	IngestorMaxRetryDelay     = 5 * time.Second
 	IngestorMaxRetryWait      = 10 * time.Minute
+
+	// Backoff between iterations of processBatchAsync's internal retry loop
+	// when the batch is not yet fully published due to backpressure.
+	IngestorBackpressureInitialDelay = 50 * time.Millisecond
+	IngestorBackpressureMaxDelay     = 5 * time.Second
+
+	// Period between JetStream StreamInfo samples used for the
+	// gfm_stream_depth and gfm_stream_depth_ratio gauges.
+	IngestorStreamDepthSampleInterval = 10 * time.Second
 
 	// Orchestrator constants
 	ShutdownTimeout = 30 * time.Second

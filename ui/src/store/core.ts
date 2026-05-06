@@ -97,6 +97,8 @@ interface CoreStoreProps {
   // New incremental state management fields
   lastSavedConfig: Pipeline | undefined
   saveHistory: Pipeline[]
+  // Schema binding selection (topic name → selected version, undefined = current binding)
+  selectedBindingVersions: Record<string, string | undefined>
 }
 
 interface CoreStore extends CoreStoreProps {
@@ -136,6 +138,10 @@ interface CoreStore extends CoreStoreProps {
   hydrateSection: (section: string, config: PipelineConfigForHydration) => Promise<void>
   discardSection: (section: string) => Promise<void>
   discardSections: (sections: string[]) => void
+  // Schema binding selection actions
+  setSelectedBindingVersion: (topicName: string, version: string | undefined) => void
+  resetBindingSelection: () => void
+  isViewingHistoricalBinding: () => boolean
 }
 
 export interface CoreSlice {
@@ -164,6 +170,7 @@ export const initialCoreStore: CoreStoreProps = {
   // Initialize incremental state management fields
   lastSavedConfig: undefined,
   saveHistory: [],
+  selectedBindingVersions: {},
 }
 
 export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
@@ -560,8 +567,10 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
           case 'otlp':
             hydrateOtlpSource(config)
             break
-          case 'all':
-            if (config.source?.type && isOtlpSource(config.source.type)) {
+          case 'all': {
+            const cfg = config as any
+            const sourceType: string = cfg.sources?.[0]?.type ?? cfg.source?.type ?? ''
+            if (sourceType && isOtlpSource(sourceType)) {
               hydrateOtlpSource(config)
             } else {
               hydrateKafkaConnection(config)
@@ -574,6 +583,7 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
             await hydrateClickhouseDestination(config)
             await hydrateResources(config)
             break
+          }
           default:
             structuredLogger.warn('Unknown section for hydration', { section })
         }
@@ -617,6 +627,24 @@ export const createCoreSlice: StateCreator<CoreSlice> = (set, get) => ({
       } else {
         structuredLogger.warn('No lastSavedConfig available for sections discard')
       }
+    },
+    setSelectedBindingVersion: (topicName: string, version: string | undefined) =>
+      set((state) => ({
+        coreStore: {
+          ...state.coreStore,
+          selectedBindingVersions: {
+            ...state.coreStore.selectedBindingVersions,
+            [topicName]: version,
+          },
+        },
+      })),
+    resetBindingSelection: () =>
+      set((state) => ({
+        coreStore: { ...state.coreStore, selectedBindingVersions: {} },
+      })),
+    isViewingHistoricalBinding: () => {
+      const { selectedBindingVersions } = get().coreStore
+      return Object.values(selectedBindingVersions).some((v) => v !== undefined)
     },
   },
 })

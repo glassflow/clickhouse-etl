@@ -5,11 +5,11 @@ description: 'Learn about supported data formats and nested JSON handling in Gla
 
 # Supported Data Formats
 
-GlassFlow currently supports **JSON** as the primary data format for Kafka topics.
+GlassFlow currently supports **JSON** as the primary data format for all sources.
 
 ## JSON Format
 
-GlassFlow exclusively supports JSON data format for Kafka topics. This means all messages consumed from Kafka topics must be valid JSON objects.
+GlassFlow exclusively supports JSON data format. All messages consumed from sources must be valid JSON objects. For Kafka sources, messages in topics must be JSON. For OTLP sources, the OTLP protobuf payload is automatically flattened to JSON by GlassFlow.
 
 **Example JSON Message:**
 ```json
@@ -53,79 +53,43 @@ Example event with nested fields:
 <summary>Full pipeline configuration example</summary>
 ```json
 {
-  "version": "v2",
+  "version": "v3",
   "pipeline_id": "kafka-to-clickhouse-pipeline",
-  "source": {
-    "type": "kafka",
-    "connection_params": {
-      "brokers": ["kafka-broker-0:9092"],
-      "protocol": "SASL_SSL",
-      "mechanism": "PLAINTEXT",
-      "username": "<user>",
-      "password": "<password>",
-    },
-    "topics": [
-      {
-        "name": "users",
-        "schema": {
-          "type": "json",
-          "fields": [
-            {
-              "name": "user.id",
-              "type": "string"
-            },
-            {
-              "name": "user.profile.name",
-              "type": "string"
-            },
-            {
-              "name": "user.profile.email",
-              "type": "string"
-            },
-            {
-              "name": "created_at",
-              "type": "datetime"
-            }
-          ]
-        }
-      }
-    ]
-  },
+  "sources": [
+    {
+      "type": "kafka",
+      "source_id": "users",
+      "connection_params": {
+        "brokers": ["kafka-broker-0:9092"],
+        "protocol": "SASL_SSL",
+        "mechanism": "PLAIN",
+        "username": "<user>",
+        "password": "<password>"
+      },
+      "topic": "users",
+      "schema_fields": [
+        {"name": "user.id", "type": "string"},
+        {"name": "user.profile.name", "type": "string"},
+        {"name": "user.profile.email", "type": "string"},
+        {"name": "created_at", "type": "datetime"}
+      ]
+    }
+  ],
   "sink": {
     "type": "clickhouse",
-    "host": "clickhouse-server",
-    "port": "9000",
-    "database": "default",
-    "username": "default",
-    "password": "c2VjcmV0",
-    "table": "users"
-  },
-  "schema": {
-    "fields": [
-      {
-        "source_id": "users",
-        "field_name": "user.id",
-        "column_name": "user_id",
-        "column_type": "UUID"
-      },
-      {
-        "source_id": "users",
-        "field_name": "user.profile.name",
-        "column_name": "user_name",
-        "column_type": "string"
-      },
-      {
-        "source_id": "users",
-        "field_name": "user.profile.email",
-        "column_name": "user_email",
-        "column_type": "string"
-      },
-      {
-        "source_id": "users",
-        "field_name": "created_at",
-        "column_name": "created_at",
-        "column_type": "DateTime"
-      }
+    "connection_params": {
+      "host": "clickhouse-server",
+      "port": "9000",
+      "database": "default",
+      "username": "default",
+      "password": "secret"
+    },
+    "table": "users",
+    "mapping": [
+      {"name": "user.id", "column_name": "user_id", "column_type": "UUID"},
+      {"name": "user.profile.name", "column_name": "user_name", "column_type": "String"},
+      {"name": "user.profile.email", "column_name": "user_email", "column_type": "String"},
+      {"name": "created_at", "column_name": "created_at", "column_type": "DateTime"}
     ]
   }
 }

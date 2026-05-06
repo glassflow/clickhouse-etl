@@ -5,7 +5,7 @@ import { structuredLogger } from '@/src/observability'
 import Join from '../../images/join.svg'
 import IngestOnly from '../../images/ingest-only.svg'
 import KafkaIcon from '../../images/kafka.svg'
-import { ArrowUpTrayIcon, SignalIcon, DocumentTextIcon, MapIcon, ChartBarIcon } from '@heroicons/react/24/outline'
+import { ArrowUpTrayIcon, SignalIcon } from '@heroicons/react/24/outline'
 import { SourceType } from '@/src/config/source-types'
 import { useStore } from '@/src/store'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -63,7 +63,6 @@ export default function HomePageClient() {
   const [activePipelinesCount, setActivePipelinesCount] = useState(0)
   const [showPipelineLimitModal, setShowPipelineLimitModal] = useState(false)
   const [selectedSource, setSelectedSource] = useState<'kafka' | 'otlp' | null>(null)
-  const [selectedOtlpSignal, setSelectedOtlpSignal] = useState<SourceType | null>(null)
   const { setPipelineName, setPipelineId, topicCount, enterCreateMode, hydrateFromConfig, setSourceType } = coreStore
   const { isDocker, isLocal } = usePlatformDetection()
 
@@ -118,12 +117,11 @@ export default function HomePageClient() {
     setIsNavigating(false) // Reset navigation state when opening modal
   }
 
-  const handleOtlpSignalClick = (signal: SourceType) => {
+  const handleOtlpClick = () => {
     if ((isDocker || isLocal) && activePipelinesCount > 0) {
       setShowPipelineLimitModal(true)
       return
     }
-    setSelectedOtlpSignal(signal)
     setPendingTopicCount(1)
     setIsCreatePipelineModalVisible(true)
     setIsNavigating(false)
@@ -163,11 +161,10 @@ export default function HomePageClient() {
       setPipelineId(finalPipelineId)
 
       // Set source type based on selection
-      if (selectedSource === 'otlp' && selectedOtlpSignal) {
-        setSourceType(selectedOtlpSignal)
-        // Initialize the OTLP store with signal type (populates schemaFields) and
-        // source ID. These must be set AFTER resetForNewPipeline which clears them.
-        otlpStore.setSignalType(selectedOtlpSignal)
+      if (selectedSource === 'otlp') {
+        // Default to Logs; user picks the specific signal type in OtlpSignalTypeStep.
+        setSourceType(SourceType.OTLP_LOGS)
+        otlpStore.setSignalType(SourceType.OTLP_LOGS)
         otlpStore.setSourceId(`${finalPipelineId}-source`)
       } else {
         setSourceType(SourceType.KAFKA)
@@ -233,7 +230,8 @@ export default function HomePageClient() {
     setIsNavigating(true)
 
     try {
-      const importedTopicCount = config.source?.topics?.length || 1
+      const importedTopicCount =
+        (config as any).sources?.length || config.source?.topics?.length || 1
 
       // Reset pipeline state for the imported configuration
       resetForNewPipeline(importedTopicCount)
@@ -285,7 +283,7 @@ export default function HomePageClient() {
             <Card variant="selectable" className={cn(selectedSource === 'kafka' && 'active', 'h-16 sm:h-20 lg:h-24 w-full !p-0')}>
               <button
                 className="flex items-center justify-center px-4 sm:px-6 w-full h-full cursor-pointer"
-                onClick={() => { setSelectedSource('kafka'); setSelectedOtlpSignal(null) }}
+                onClick={() => setSelectedSource('kafka')}
               >
                 <Image src={KafkaIcon} alt="Kafka" width={24} height={24} className="sm:w-9 sm:h-9" />
                 <span className="ml-3 sm:ml-4 text-sm sm:text-lg font-medium text-muted-foreground">
@@ -296,7 +294,7 @@ export default function HomePageClient() {
             <Card variant="selectable" className={cn(selectedSource === 'otlp' && 'active', 'h-16 sm:h-20 lg:h-24 w-full !p-0')}>
               <button
                 className="flex items-center justify-center px-4 sm:px-6 w-full h-full cursor-pointer"
-                onClick={() => { setSelectedSource('otlp'); setSelectedOtlpSignal(null) }}
+                onClick={() => { setSelectedSource('otlp'); handleOtlpClick() }}
               >
                 <SignalIcon className="w-6 h-6 sm:w-9 sm:h-9 text-[var(--color-foreground-neutral-faded)]" />
                 <span className="ml-3 sm:ml-4 text-sm sm:text-lg font-medium text-muted-foreground">
@@ -336,50 +334,6 @@ export default function HomePageClient() {
                   <Image src={Join} alt="Join" width={24} height={24} className="sm:w-9 sm:h-9" />
                   <span className="ml-3 sm:ml-4 text-sm sm:text-lg font-medium text-[var(--color-foreground-neutral)]">
                     Multi-Topic Pipeline
-                  </span>
-                </button>
-              </Card>
-            </div>
-          </section>
-        )}
-
-        {/* Section 2b: OTLP — Select signal type */}
-        {selectedSource === 'otlp' && (
-          <section className="flex flex-col gap-3 sm:gap-4 w-full animate-fadeIn" aria-labelledby="section-signal-heading">
-            <h2 id="section-signal-heading" className="subtitle-2 text-content text-xs sm:text-sm font-medium mb-3">
-              Select signal type
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 w-full">
-              <Card variant="selectable" className={cn(selectedOtlpSignal === SourceType.OTLP_LOGS && 'active', 'h-16 sm:h-20 lg:h-24 w-full !p-0')}>
-                <button
-                  className="flex items-center justify-center px-4 sm:px-6 w-full h-full cursor-pointer"
-                  onClick={() => handleOtlpSignalClick(SourceType.OTLP_LOGS)}
-                >
-                  <DocumentTextIcon className="w-6 h-6 sm:w-9 sm:h-9 text-[var(--color-foreground-neutral-faded)]" />
-                  <span className="ml-3 sm:ml-4 text-sm sm:text-lg font-medium text-[var(--color-foreground-neutral)]">
-                    Logs
-                  </span>
-                </button>
-              </Card>
-              <Card variant="selectable" className={cn(selectedOtlpSignal === SourceType.OTLP_TRACES && 'active', 'h-16 sm:h-20 lg:h-24 w-full !p-0')}>
-                <button
-                  className="flex items-center justify-center px-4 sm:px-6 w-full h-full cursor-pointer"
-                  onClick={() => handleOtlpSignalClick(SourceType.OTLP_TRACES)}
-                >
-                  <MapIcon className="w-6 h-6 sm:w-9 sm:h-9 text-[var(--color-foreground-neutral-faded)]" />
-                  <span className="ml-3 sm:ml-4 text-sm sm:text-lg font-medium text-[var(--color-foreground-neutral)]">
-                    Traces
-                  </span>
-                </button>
-              </Card>
-              <Card variant="selectable" className={cn(selectedOtlpSignal === SourceType.OTLP_METRICS && 'active', 'h-16 sm:h-20 lg:h-24 w-full !p-0')}>
-                <button
-                  className="flex items-center justify-center px-4 sm:px-6 w-full h-full cursor-pointer"
-                  onClick={() => handleOtlpSignalClick(SourceType.OTLP_METRICS)}
-                >
-                  <ChartBarIcon className="w-6 h-6 sm:w-9 sm:h-9 text-[var(--color-foreground-neutral-faded)]" />
-                  <span className="ml-3 sm:ml-4 text-sm sm:text-lg font-medium text-[var(--color-foreground-neutral)]">
-                    Metrics
                   </span>
                 </button>
               </Card>

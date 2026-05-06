@@ -15,6 +15,7 @@ Install the GlassFlow Python SDK using pip:
 pip install glassflow>=3.6.0
 ```
 
+> **Pipeline version notice**: The default pipeline version is now `v3`. If you have existing `v2` configurations, see [Migrating from V2 to V3](#migrating-from-v2-to-v3) below. Pipeline version `v2` is deprecated and will be removed in a future release.
 
 ## Basic Usage
 
@@ -232,7 +233,125 @@ Export a pipeline configuration to a YAML file:
 pipeline.to_yaml(yaml_path="<my-pipeline-config.yaml>")
 ```
 
+## OTLP Source Pipelines
+
+GlassFlow can ingest OpenTelemetry signals directly without a Kafka cluster. Add an OTLP source to the `sources` array — no `schema_fields` or `connection_params` needed. GlassFlow manages the OTLP receiver endpoint.
+
+Join is not supported for OTLP source pipelines. Deduplication, filter, and stateless transforms are configured through the `transforms` array.
+
+```python
+pipeline_config = {
+    "version": "v3",
+    "pipeline_id": "otel-logs-pipeline",
+    "sources": [
+        {
+            "type": "otlp.logs",
+            "source_id": "logs"
+        }
+    ],
+    "transforms": [
+        {
+            "type": "dedup",
+            "source_id": "logs",
+            "config": {
+                "key": "trace_id",
+                "time_window": "5m"
+            }
+        }
+    ],
+    "sink": {
+        "type": "clickhouse",
+        "connection_params": {
+            "host": "clickhouse.example.com",
+            "port": "9000",
+            "database": "otel",
+            "username": "default",
+            "password": "mysecret",
+            "secure": True
+        },
+        "table": "otel_logs",
+        "mapping": [
+            {"name": "timestamp",     "column_name": "Timestamp",     "column_type": "DateTime64(9)"},
+            {"name": "severity_text", "column_name": "SeverityText", "column_type": "LowCardinality(String)"},
+            {"name": "body",          "column_name": "Body",          "column_type": "String"},
+            {"name": "trace_id",      "column_name": "TraceId",      "column_type": "String"}
+        ]
+    }
+}
+
+pipeline = client.create_pipeline(pipeline_config)
+```
+
+For complete examples with full column mappings for logs, traces, and metrics, see [OTLP Source Examples](/sources/otlp/examples).
+
+## Pipeline Resources
+
+Use `resources` to set CPU, memory, replica counts, and storage limits per component. This is optional — omit it to use GlassFlow's defaults.
+
+```python
+pipeline_config = {
+    "version": "v3",
+    "pipeline_id": "my-pipeline-id",
+    # ... sources, transforms, sink ...
+    "resources": {
+        "sources": [
+            {
+                "source_id": "orders",
+                "replicas": 2,
+                "requests": {"cpu": "250m", "memory": "256Mi"},
+                "limits":   {"cpu": "500m", "memory": "512Mi"}
+            }
+        ],
+        "transform": [
+            {
+                "source_id": "orders",
+                "replicas": 1,
+                "storage":  {"size": "10Gi"},
+                "requests": {"cpu": "500m", "memory": "512Mi"},
+                "limits":   {"cpu": "1000m", "memory": "1Gi"}
+            }
+        ],
+        "sink": {
+            "replicas": 1,
+            "requests": {"cpu": "250m", "memory": "256Mi"},
+            "limits":   {"cpu": "500m", "memory": "512Mi"}
+        },
+        "nats": {
+            "stream": {
+                "max_age":   "24h",
+                "max_bytes": "10Gi"
+            }
+        }
+    }
+}
+```
+
+The following resource fields are **immutable** — they must be set at creation time and cannot be changed by `pipeline.update()`:
+
+| Field | Reason |
+|-------|--------|
+| `transform[].storage.size` | Underlying volume cannot be resized |
+| `nats.stream.max_age` | JetStream stream config is immutable |
+| `nats.stream.max_bytes` | JetStream stream config is immutable |
+
+## Migrating from V2 to V3
+
+Pipeline version `v2` is deprecated. See the [Pipeline Configuration Reference](/configuration/pipeline-config-reference#v2-reference-deprecated) for the full V2 → V3 migration table.
+
+Key structural changes:
+
+| V2 | V3 |
+|----|-----|
+| `source` (singular) with `topics[]` | `sources[]` array, one entry per topic |
+| Dedup nested in topic | `transforms[]` with `type: "dedup"` |
+| Top-level `filter`, `stateless_transformation` | `transforms[]` with `type: "filter"` / `"stateless"` |
+| `join.sources[]` with `orientation` | `join.left_source` / `join.right_source` |
+| `schema.fields[]` | `sink.mapping[]` |
+| `pipeline_resources` | `resources` with per-source entries |
+| Flat sink fields (host, port, ...) | `sink.connection_params` nested object |
+| Sink password base64-encoded | Sink password plain text |
+
 ## Next Steps
 
-- Explore the [Pipeline JSON Reference](/configuration/pipeline-json-reference) documentation for detailed configuration options
+- Explore the [Pipeline Configuration Reference](/configuration/pipeline-config-reference) documentation for detailed configuration options
 - Learn about [monitoring and observability](/usage-guide#verifying-data-flow) for your pipelines

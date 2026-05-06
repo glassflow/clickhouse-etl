@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Create the fraud detection pipeline via the GlassFlow Python SDK."""
 
-import base64
 import json
 import os
 import sys
@@ -20,15 +19,11 @@ PIPELINE_JSON = os.path.join(
 with open(PIPELINE_JSON) as f:
     raw = f.read()
 
-# ClickHouse sink expects the password field as base64 in the API payload; keep .env plaintext for scripts.
-_ch_pw = os.environ["CLICKHOUSE_PASSWORD"]
-_clickhouse_password_b64 = base64.b64encode(_ch_pw.encode()).decode()
-
 replacements = {
     "${KAFKA_USERNAME}": os.environ["KAFKA_USERNAME"],
     "${KAFKA_PASSWORD}": os.environ["KAFKA_PASSWORD"],
     "${CLICKHOUSE_USER}": os.environ["CLICKHOUSE_USER"],
-    "${CLICKHOUSE_PASSWORD}": _clickhouse_password_b64,
+    "${CLICKHOUSE_PASSWORD}": os.environ["CLICKHOUSE_PASSWORD"],
 }
 for placeholder, value in replacements.items():
     raw = raw.replace(placeholder, value)

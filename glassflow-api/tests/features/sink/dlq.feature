@@ -33,6 +33,10 @@ Feature: Clickhouse ETL sink dlq
                 },
                 "sink": {
                     "type": "clickhouse",
+                    "clickhouse_connection_params": {
+                        "database": "default",
+                        "table": "events_test_dlq"
+                    },
                     "stream_id": "test_stream",
                     "source_id": "topic-1",
                     "batch": {
@@ -82,4 +86,80 @@ Feature: Clickhouse ETL sink dlq
         And Wait until all messages are processed
         And I gracefully stop ClickHouse sink
         Then the ClickHouse table "default.events_test_dlq" should contain 0 rows
+        Then dlq should contain 4 events
+
+    Scenario: DLQ, sink points at a non-existent table, all events should land in DLQ
+        And a stream consumer with config
+            """json
+            {
+                "stream": "test_stream",
+                "subject": "test_subject",
+                "consumer": "test_consumer",
+                "ack_wait": "1m"
+            }
+            """
+        And a pipeline with configuration
+            """json
+            {
+                "pipeline_id": "test-pipeline-dlq-2",
+                "source_type": "kafka",
+                "name": "test-pipeline-dlq-2",
+                "source": {
+                    "type": "kafka",
+                    "kafka_topics": []
+                },
+                "sink": {
+                    "type": "clickhouse",
+                    "clickhouse_connection_params": {
+                        "database": "default",
+                        "table": "does_not_exist"
+                    },
+                    "stream_id": "test_stream",
+                    "source_id": "topic-1",
+                    "batch": {
+                        "max_batch_size": 4
+                    },
+                    "config": [
+                        {
+                            "source_field": "event_id",
+                            "source_type": "string",
+                            "destination_field": "event_id",
+                            "destination_type": "UUID"
+                        },
+                        {
+                            "source_field": "name",
+                            "source_type": "string",
+                            "destination_field": "name",
+                            "destination_type": "String"
+                        }
+                    ]
+                },
+                "schema_versions": {
+                    "topic-1": {
+                        "source_id": "topic-1",
+                        "version_id": "1",
+                        "data_type": "json",
+                        "fields": [
+                            {
+                                "name": "event_id",
+                                "type": "string"
+                            },
+                            {
+                                "name": "name",
+                                "type": "string"
+                            }
+                        ]
+                    }
+                }
+            }
+            """
+        When I publish 4 events to the stream
+            | event_id                             | name      | NATS-Schema-Version-Id |
+            | c9e26b3f-b902-4fb4-91fd-87e6d5185a0c | Joe       | 1                      |
+            | 123d97da-7e1f-4c81-b87b-23e741aa410a | Michael   | 1                      |
+            | 5e76cfe8-3432-464b-9d85-272287df22e7 | Frank     | 1                      |
+            | 8f96cfe8-3432-464b-9d85-272287df22e7 | Elizabeth | 1                      |
+        And I run ClickHouse sink
+        And Wait until all messages are processed
+        And I gracefully stop ClickHouse sink
         Then dlq should contain 4 events

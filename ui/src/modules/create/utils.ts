@@ -12,6 +12,7 @@ import { ReviewConfiguration } from '../review/ReviewConfiguration'
 import { PipelineResourcesConfigurator } from '../resources/PipelineResourcesConfigurator'
 import { JoinConfigurator } from '../join/JoinConfigurator'
 import { OtlpSignalTypeStep } from '../otlp/components/OtlpSignalTypeStep'
+import { OtlpDeduplicationStep } from '../otlp/components/OtlpDeduplicationStep'
 import { OperationKeys } from '@/src/config/constants'
 import { isOtlpSource } from '@/src/config/source-types'
 import type { SidebarStep } from './WizardSidebar'
@@ -94,6 +95,10 @@ const sidebarStepConfig: Record<StepKeys, Omit<SidebarStep, 'id' | 'key'>> = {
   [StepKeys.OTLP_SIGNAL_TYPE]: {
     title: 'Select Signal Type',
     parent: null,
+  },
+  [StepKeys.OTLP_DEDUPLICATION]: {
+    title: 'Deduplication',
+    parent: StepKeys.OTLP_SIGNAL_TYPE,
   },
 }
 
@@ -224,6 +229,7 @@ export const getTwoTopicJourney = (): StepKeys[] => {
 export const getOtlpJourney = (): StepKeys[] => {
   const steps: StepKeys[] = [
     StepKeys.OTLP_SIGNAL_TYPE,
+    StepKeys.OTLP_DEDUPLICATION,
   ]
 
   if (isFiltersEnabled()) {
@@ -562,6 +568,7 @@ export const componentsMap = {
   [StepKeys.PIPELINE_RESOURCES]: PipelineResourcesConfigurator,
   [StepKeys.REVIEW_CONFIGURATION]: ReviewConfiguration,
   [StepKeys.OTLP_SIGNAL_TYPE]: OtlpSignalTypeStep,
+  [StepKeys.OTLP_DEDUPLICATION]: OtlpDeduplicationStep,
 }
 
 // Helper function to convert journey array to component map

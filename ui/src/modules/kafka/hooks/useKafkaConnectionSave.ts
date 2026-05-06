@@ -28,6 +28,7 @@ export function useKafkaConnectionSave(options: UseKafkaConnectionSaveOptions) {
     setKafkaSaslScram512,
     setKafkaDelegationTokens,
     setKafkaConnection,
+    setKafkaSchemaRegistry,
   } = kafkaStore
 
   const saveConnectionData = useCallback(
@@ -104,6 +105,10 @@ export function useKafkaConnectionSave(options: UseKafkaConnectionSaveOptions) {
         setKafkaDelegationTokens(values.delegationTokens)
       }
 
+      if (values.schemaRegistry) {
+        setKafkaSchemaRegistry(values.schemaRegistry)
+      }
+
       if (standalone && toggleEditMode) {
         coreStore.markAsDirty()
         if (shouldInvalidateDependents) {
@@ -138,6 +143,7 @@ export function useKafkaConnectionSave(options: UseKafkaConnectionSaveOptions) {
       setKafkaSaslScram256,
       setKafkaSaslScram512,
       setKafkaDelegationTokens,
+      setKafkaSchemaRegistry,
       coreStore,
     ],
   )

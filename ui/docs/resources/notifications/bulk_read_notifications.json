@@ -1,0 +1,8 @@
+kiran@Mac ~ % curl -X PATCH "http://localhost:8082/api/notifications/read-bulk" \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "notification_ids": [
+      "0dd2b471-b758-46bc-9ded-71f130348797","9eb8d16a-d31c-445e-b054-e99a0d27ede4"
+    ]
+  }'

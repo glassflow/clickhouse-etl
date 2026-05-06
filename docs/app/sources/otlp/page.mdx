@@ -1,0 +1,94 @@
+---
+title: 'OTLP'
+asIndexPage: true
+description: 'Ingest OpenTelemetry logs, traces, and metrics into ClickHouse via the native OTLP receiver — no Kafka cluster required'
+---
+import { Callout } from 'nextra/components'
+
+# OTLP Source
+
+OTLP source pipelines let GlassFlow ingest OpenTelemetry data directly via the OTLP protocol. GlassFlow runs its own OTLP receiver that accepts data on the standard OTLP ports, so you do not need a Kafka cluster to get observability data into ClickHouse.
+
+This is ideal when your services are already instrumented with OpenTelemetry and you want a lightweight path from OTel SDKs or Collectors to ClickHouse.
+
+## Prerequisites
+
+The OTLP receiver must be enabled in your GlassFlow Helm installation. If it is not already running, upgrade your release to enable it:
+
+```bash
+helm upgrade glassflow glassflow/glassflow-etl \
+  --set otlpReceiver.enabled=true
+```
+
+Verify the receiver pod is running:
+
+```bash
+kubectl get pods -n glassflow -l app=glassflow-otlp-receiver
+```
+
+## Configuration
+
+Each OTLP source is an entry in the `sources` array. OTLP sources do not need `schema_fields` — the schema is predefined per signal type.
+
+```json
+"sources": [
+  {
+    "type": "otlp.logs",
+    "source_id": "logs"
+  }
+]
+```
+
+### Signal Types
+
+| Source Type | Description | Use Case |
+|---|---|---|
+| `otlp.logs` | OpenTelemetry log records | Application logs, structured logging |
+| `otlp.traces` | Distributed trace spans | Request tracing, latency analysis |
+| `otlp.metrics` | Metric data points (gauge, sum, histogram, summary) | Infrastructure monitoring, SLIs |
+
+### Protocols
+
+The GlassFlow OTLP receiver accepts data over two protocols:
+
+| Protocol | Port | Description |
+|---|---|---|
+| gRPC | `4317` | Standard OTLP/gRPC |
+| HTTP/JSON | `4318` | Standard OTLP/HTTP with endpoints `/v1/logs`, `/v1/traces`, `/v1/metrics` |
+
+### Required Header
+
+<Callout type="important">
+  Every OTLP request **must** include the `x-glassflow-pipeline-id` header. This header routes the incoming data to the correct pipeline.
+</Callout>
+
+```
+x-glassflow-pipeline-id: <your-pipeline-id>
+```
+
+### Features
+
+| Feature | Supported | Details |
+|---------|-----------|---------|
+| Deduplication | Yes | [Deduplication](/transformations/deduplication) |
+| Temporal Joins | No | |
+| Filter | Yes | [Filter](/transformations/filter) |
+| Stateless Transformation | Yes | [Stateless Transformation](/transformations/stateless-transformation) |
+
+## Pipeline Stop and Terminate Behaviour
+
+Because the OTLP receiver is a shared component that stays running across all pipelines, it is important to understand what happens to in-flight data when you stop or terminate an OTLP pipeline.
+
+- **Stop and Terminate**: In both cases, pipeline components scale to zero but NATS JetStream streams are **preserved**. Any data already ingested but not yet written to ClickHouse remains in the streams and will be processed when the pipeline is resumed. Because the OTLP receiver is a shared component, it **continues accepting incoming data** for the stopped/terminated pipeline — new events are published to NATS JetStream and buffered until the pipeline is resumed. The difference between stop and terminate is that stop drains in-flight messages before scaling down, while terminate scales down immediately.
+- **Delete**: NATS JetStream streams are only **deleted** when the pipeline itself is deleted. This is the only operation that permanently removes buffered data.
+
+<Callout type="info">
+  While a pipeline is stopped or terminated, the OTLP receiver keeps buffering incoming data into NATS JetStream. If the pipeline stays in this state for an extended period, monitor the stream size against your `max_bytes` and `max_age` limits to avoid data eviction (see [Scaling Guide](/installation/kubernetes/scaling)).
+</Callout>
+
+## Next Steps
+
+- [Examples](/sources/otlp/examples) -- ClickStack-compatible tables and full pipeline configs for logs, traces, and metrics
+- [Sending Data](/sources/otlp/sending-data) -- OTel Collector configs, SDK instrumentation
+- [Schema Reference](/sources/otlp/schema-reference) -- field tables for logs, traces, and metrics
+- [Pipeline Configuration Reference](/configuration/pipeline-config-reference) -- full configuration reference

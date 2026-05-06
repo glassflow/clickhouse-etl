@@ -15,6 +15,7 @@ export enum StepKeys {
   REVIEW_CONFIGURATION = 'review-configuration',
   DEPLOY_PIPELINE = 'deploy-pipeline',
   OTLP_SIGNAL_TYPE = 'otlp-signal-type',
+  OTLP_DEDUPLICATION = 'otlp-deduplication',
 }
 
 export enum EventDataFormat {
@@ -273,9 +274,16 @@ export const stepsMetadata = {
   [StepKeys.OTLP_SIGNAL_TYPE]: {
     key: StepKeys.OTLP_SIGNAL_TYPE,
     title: 'OTLP Source',
-    description: 'Select your OpenTelemetry signal type and configure deduplication.',
+    description: 'Select your OpenTelemetry signal type.',
     formTitle: 'OTLP Source Configuration',
-    formDescription: 'Choose the type of OpenTelemetry data to ingest and optionally configure deduplication.',
+    formDescription: 'Choose the type of OpenTelemetry data to ingest.',
+  },
+  [StepKeys.OTLP_DEDUPLICATION]: {
+    key: StepKeys.OTLP_DEDUPLICATION,
+    title: 'Deduplication',
+    description: 'Optionally deduplicate incoming OTLP data by a key field.',
+    formTitle: 'Deduplication',
+    formDescription: 'Deduplicate incoming data by a key field within a time window.',
   },
 }
 

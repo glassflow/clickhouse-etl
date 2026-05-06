@@ -13,13 +13,8 @@ This guide will walk you through the process of creating and managing data pipel
 Before creating your pipeline, ensure you have:
 
 1. GlassFlow running locally (see [Installation Guide](/installation))
-2. Access to your Kafka cluster
+2. A configured data source ([Kafka](/sources/kafka) or [OTLP](/sources/otlp))
 3. Access to your ClickHouse database
-4. The following information ready:
-   - Kafka connection details
-   - ClickHouse connection details
-   - Source topic names
-   - Target table names
 
 ## Creating a Pipeline
 
@@ -66,10 +61,10 @@ Once your pipeline is running, you can scale the ingestor, transform, and sink c
 
 ## Verifying Data Flow
 
-1. **Check Kafka Topics**
-   - Verify data is being produced
+1. **Check Your Source**
+   - Verify data is being produced (e.g., Kafka topic messages, OTLP signals)
    - Check message format
-   - Monitor topic health
+   - Monitor source health
 
 2. **Monitor ClickHouse**
    - Verify data arrival

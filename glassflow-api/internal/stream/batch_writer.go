@@ -42,7 +42,7 @@ func (w *NatsAsyncBatchWriter) WriteNatsBatch(ctx context.Context, messages []*n
 		if msg.Subject == "" {
 			msg.Subject = w.publisher.GetSubject()
 		}
-		fut, err := w.publisher.PublishNatsMsgAsync(msg, w.pendingPublishesLimit)
+		fut, err := w.publisher.PublishNatsMsgAsync(ctx, msg, w.pendingPublishesLimit)
 		if err != nil {
 			w.log.Error("Failed to publish message async",
 				slog.Any("error", err),

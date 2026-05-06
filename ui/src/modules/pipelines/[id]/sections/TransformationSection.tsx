@@ -14,6 +14,7 @@ import { isOtlpSource } from '@/src/config/source-types'
 import { isFiltersEnabled } from '@/src/config/feature-flags'
 import { FilterCard, TransformationCard } from './transformation/cards'
 import DoubleColumnCard from '../DoubleColumnCard'
+import SingleColumnCard from '../SingleColumnCard'
 
 interface TransformationSectionProps {
   pipeline: any
@@ -38,6 +39,7 @@ function TransformationSection({ pipeline, onStepClick, disabled, validation, ac
   const joinStore = useStore((state) => state.joinStore)
   const clickhouseDestinationStore = useStore((state) => state.clickhouseDestinationStore)
   const coreStore = useStore((state) => state.coreStore)
+  const otlpStore = useStore((state) => state.otlpStore)
 
   // Use proper selectors for deduplication to ensure reactivity
   const dedup0 = useStore((state) => state.deduplicationStore.getDeduplication(0))
@@ -119,8 +121,31 @@ function TransformationSection({ pipeline, onStepClick, disabled, validation, ac
 
   // OTLP source: no Kafka topics — skip the topic info card and wire up the destination card
   if (isOtlp) {
+    // Dedup from store (populated by hydration); fall back to raw pipeline dedup config
+    const pipelineOtlpDedup = pipeline?.source?.deduplication
+    const v3Transforms = (pipeline as any)?.transforms || []
+    const hasOtlpDedup = otlpStore.deduplication?.enabled === true
+      || pipelineOtlpDedup?.enabled === true
+      || v3Transforms.some((t: any) => t.type === 'dedup')
+    const otlpDedupKey = otlpStore.deduplication?.key
+      || pipelineOtlpDedup?.key
+      || v3Transforms.find((t: any) => t.type === 'dedup')?.config?.key
+      || 'N/A'
+
     sectionContent = (
       <div className="flex flex-col gap-4">
+        {hasOtlpDedup && (
+          <SingleColumnCard
+            label={['Deduplication Key']}
+            value={[otlpDedupKey]}
+            orientation="center"
+            width="full"
+            onClick={() => onStepClick(StepKeys.OTLP_DEDUPLICATION)}
+            disabled={disabled}
+            validation={validation.deduplicationValidation}
+            selected={activeStep === StepKeys.OTLP_DEDUPLICATION}
+          />
+        )}
         {isFiltersEnabled() && (
           <FilterCard onStepClick={onStepClick} disabled={disabled} validation={validation} activeStep={activeStep} />
         )}

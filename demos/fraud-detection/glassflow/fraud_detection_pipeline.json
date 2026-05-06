@@ -1,112 +1,75 @@
 {
-  "version": "v2",
+  "version": "v3",
   "pipeline_id": "fraud-detection-logins-tested",
   "name": "Fraud Detection Logins Tested",
-  "source": {
-    "type": "kafka",
-    "connection_params": {
-      "brokers": [
-        "kafka.kafka.svc.cluster.local:9092"
-      ],
-      "protocol": "SASL_PLAINTEXT",
-      "mechanism": "PLAIN",
-      "username": "${KAFKA_USERNAME}",
-      "password": "${KAFKA_PASSWORD}"
-    },
-    "topics": [
-      {
-        "name": "login-attempts",
-        "consumer_group_initial_offset": "earliest",
-        "deduplication": {
-          "enabled": true,
-          "id_field": "event_id",
-          "id_field_type": "string",
-          "time_window": "1h"
-        }
+  "sources": [
+    {
+      "type": "kafka",
+      "source_id": "login-attempts",
+      "connection_params": {
+        "brokers": ["kafka.kafka.svc.cluster.local:9092"],
+        "protocol": "SASL_PLAINTEXT",
+        "mechanism": "PLAIN",
+        "username": "${KAFKA_USERNAME}",
+        "password": "${KAFKA_PASSWORD}"
+      },
+      "topic": "login-attempts",
+      "consumer_group_initial_offset": "earliest",
+      "schema_fields": [
+        {"name": "event_id", "type": "string"},
+        {"name": "event_time", "type": "string"},
+        {"name": "user_id", "type": "string"},
+        {"name": "ip_address", "type": "string"},
+        {"name": "device_id", "type": "string"},
+        {"name": "country", "type": "string"},
+        {"name": "status", "type": "string"},
+        {"name": "failure_reason", "type": "string"}
+      ]
+    }
+  ],
+  "transforms": [
+    {
+      "type": "filter",
+      "source_id": "login-attempts",
+      "config": {
+        "expression": "status != 'failed'"
       }
-    ]
-  },
-  "filter": {
-    "enabled": true,
-    "expression": "status != 'failed'"
-  },
+    },
+    {
+      "type": "dedup",
+      "source_id": "login-attempts",
+      "config": {
+        "key": "event_id",
+        "time_window": "1h"
+      }
+    }
+  ],
   "sink": {
     "type": "clickhouse",
-    "host": "clickhouse.clickhouse.svc.cluster.local",
-    "port": "9000",
-    "http_port": "8123",
-    "database": "default",
-    "username": "${CLICKHOUSE_USER}",
-    "password": "${CLICKHOUSE_PASSWORD}",
+    "connection_params": {
+      "host": "clickhouse.clickhouse.svc.cluster.local",
+      "port": "9000",
+      "http_port": "8123",
+      "database": "default",
+      "username": "${CLICKHOUSE_USER}",
+      "password": "${CLICKHOUSE_PASSWORD}",
+      "secure": false
+    },
     "table": "fraud_login_events",
-    "secure": false,
     "max_batch_size": 500,
-    "max_delay_time": "10s"
-  },
-  "schema": {
-    "fields": [
-      {
-        "source_id": "login-attempts",
-        "name": "event_id",
-        "type": "string",
-        "column_name": "event_id",
-        "column_type": "UUID"
-      },
-      {
-        "source_id": "login-attempts",
-        "name": "event_time",
-        "type": "string",
-        "column_name": "event_time",
-        "column_type": "DateTime"
-      },
-      {
-        "source_id": "login-attempts",
-        "name": "user_id",
-        "type": "string",
-        "column_name": "user_id",
-        "column_type": "String"
-      },
-      {
-        "source_id": "login-attempts",
-        "name": "ip_address",
-        "type": "string",
-        "column_name": "ip_address",
-        "column_type": "String"
-      },
-      {
-        "source_id": "login-attempts",
-        "name": "device_id",
-        "type": "string",
-        "column_name": "device_id",
-        "column_type": "String"
-      },
-      {
-        "source_id": "login-attempts",
-        "name": "country",
-        "type": "string",
-        "column_name": "country",
-        "column_type": "String"
-      },
-      {
-        "source_id": "login-attempts",
-        "name": "status",
-        "type": "string",
-        "column_name": "status",
-        "column_type": "LowCardinality(String)"
-      },
-      {
-        "source_id": "login-attempts",
-        "name": "failure_reason",
-        "type": "string",
-        "column_name": "failure_reason",
-        "column_type": "LowCardinality(String)"
-      }
+    "max_delay_time": "10s",
+    "mapping": [
+      {"name": "event_id", "column_name": "event_id", "column_type": "UUID"},
+      {"name": "event_time", "column_name": "event_time", "column_type": "DateTime"},
+      {"name": "user_id", "column_name": "user_id", "column_type": "String"},
+      {"name": "ip_address", "column_name": "ip_address", "column_type": "String"},
+      {"name": "device_id", "column_name": "device_id", "column_type": "String"},
+      {"name": "country", "column_name": "country", "column_type": "String"},
+      {"name": "status", "column_name": "status", "column_type": "LowCardinality(String)"},
+      {"name": "failure_reason", "column_name": "failure_reason", "column_type": "LowCardinality(String)"}
     ]
   },
   "metadata": {
-    "tags": [
-      "tutorial",
-      "fraud-detection"
-    ]
+    "tags": ["tutorial", "fraud-detection"]
   }
 }

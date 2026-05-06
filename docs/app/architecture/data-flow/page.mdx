@@ -5,13 +5,13 @@ description: 'Understanding how data flows through GlassFlow pipelines'
 
 # Data Flow
 
-This document explains how data flows through a GlassFlow pipeline and how the acknowledgment mechanism ensures reliable data processing from Kafka to ClickHouse.
+This document explains how data flows through a GlassFlow pipeline and how the acknowledgment mechanism ensures reliable data processing from source to ClickHouse.
 
 ## Overview
 
 GlassFlow processes data through multiple stages, each with its own acknowledgment mechanism to ensure data reliability and prevent data loss. The pipeline uses a two-phase acknowledgment system:
 
-1. **Kafka Consumer Acknowledgment**: Commits offsets only after successful processing.
+1. **Source Acknowledgment**: The source-specific mechanism (Kafka offset commits or OTLP HTTP/gRPC response codes) confirms ingestion only after successful processing.
 2. **NATS JetStream Acknowledgment**: Acknowledges messages after successful writes to downstream components.
 
 ## Data Flow Architecture
@@ -20,27 +20,47 @@ A typical GlassFlow pipeline follows this flow:
 
 ![Data Flow Architecture](/assets/architecture_data_flow.png)
 
-### Stage 1: Kafka to NATS JetStream (Ingestor)
+### Stage 1: Source to NATS JetStream (Ingestor)
 
-The **Ingestor** component consumes messages from Kafka topics and publishes them to NATS JetStream streams.
+The **Ingestor** component consumes messages from the configured source and publishes them to NATS JetStream streams. The ingestion behaviour depends on the source type.
 
-#### Process
+#### Kafka Source
 
 1. Kafka consumer polls for messages in batches.
-2. Each message is transformed and published to a NATS JetStream stream.
+2. Each message is published to a NATS JetStream stream.
 3. Kafka offsets are committed only after all messages in the batch are successfully published to NATS.
 
-#### Acknowledgment
+**Acknowledgment**
 
 - Kafka uses **manual offset commits** (auto-commit is disabled).
 - Offsets are committed only after the entire batch is successfully published to NATS JetStream.
 - If publishing fails, the batch is not committed, and Kafka will redeliver the messages.
 
-#### Failure Handling
+**Failure Handling**
 
 - If a message cannot be published to NATS, it is sent to the Dead Letter Queue (DLQ).
 - The Kafka offset is still committed for that message to prevent reprocessing.
 - Failed messages can be retrieved from the DLQ for manual inspection or reprocessing.
+
+#### OTLP Source
+
+1. The shared [OTLP Receiver](/architecture/kubernetes-components#otlp-receiver) accepts OpenTelemetry data over gRPC (port 4317) or HTTP (port 4318).
+2. The receiver flattens the OTLP protobuf payload into a JSON structure and routes it to the correct pipeline using the `x-glassflow-pipeline-id` header.
+3. Flattened messages are published to NATS JetStream.
+
+**Acknowledgment**
+
+- The OTLP Receiver returns a success response to the sender only after messages are successfully published to NATS JetStream.
+- If publishing fails, the receiver returns an error response, signalling the sender (collector or SDK) to retry.
+
+**Failure Handling**
+
+- If a message cannot be published to NATS, the receiver returns an error to the sender.
+- The OpenTelemetry Collector or SDK will retry delivery based on its own retry configuration.
+
+**Stopped Pipeline Behaviour**
+
+The OTLP receiver is a shared component that does not check pipeline status. When an OTLP pipeline is **stopped or terminated**, the receiver continues accepting incoming data and publishing it to NATS JetStream. Streams are preserved in both cases — messages accumulate until the pipeline is resumed, subject to the stream's `max_bytes` and `max_age` limits. Streams are only deleted when the pipeline itself is deleted. See [OTLP Source — Pipeline Stop and Terminate Behaviour](/sources/otlp#pipeline-stop-and-terminate-behaviour) for details.
 
 ### Stage 2: NATS JetStream Processing
 
@@ -60,7 +80,7 @@ The **Transformations** stage runs in a single pod and can apply up to three ope
 
 #### Filter
 
-If a **filter** is configured for the pipeline, filter expressions are evaluated on messages read from NATS JetStream. Events that match the filter expression are **dropped** and not forwarded to downstream components. Events that do not match the filter expression continue through deduplication, stateless transformations, join, and sink.
+If a **filter** is configured for the pipeline, filter expressions are evaluated on messages read from NATS JetStream. Events that match the filter expression **pass through** and continue through deduplication, stateless transformations, join, and sink. Events that do not match the filter expression are **dropped** and not forwarded to downstream components.
 
 If the filter expression cannot be evaluated for a message (for example, due to a type error), that message is sent to the DLQ with the error details and then acknowledged so it is not retried endlessly. Other messages in the batch that pass the filter continue through the pipeline.
 
