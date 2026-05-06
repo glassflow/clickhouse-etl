@@ -1,11 +1,11 @@
 'use client'
 
-import { XCircleIcon, GitBranchIcon, InfoIcon } from 'lucide-react'
+import { AlertTriangleIcon, XCircleIcon, InfoIcon } from 'lucide-react'
 import type { Incident, IncidentSeverity } from '../types'
 
 function SeverityIcon({ severity }: { severity: IncidentSeverity }) {
   if (severity === 'crit') return <XCircleIcon size={14} aria-hidden="true" />
-  if (severity === 'warn') return <GitBranchIcon size={14} aria-hidden="true" />
+  if (severity === 'warn') return <AlertTriangleIcon size={14} aria-hidden="true" />
   return <InfoIcon size={14} aria-hidden="true" />
 }
 
