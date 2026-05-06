@@ -1,6 +1,6 @@
 # Observability Stack v2 — OTel + GlassFlow + ClickHouse + HyperDX
 
-A **traces-only** observability demo: synthetic spans flow through the OpenTelemetry Collector (tail sampling), then through **GlassFlow** over OTLP (stateful **deduplication** on `span_id` + stateless **masking**), into **ClickHouse**, viewable in **HyperDX**.
+A **traces-only** observability demo: synthetic spans flow through the OpenTelemetry Collector (tail sampling), then through **GlassFlow** over OTLP (stateful **deduplication** on `trace_id` + `span_id` + stateless **masking**), into **ClickHouse**, viewable in **HyperDX**.
 
 ```text
 TelemetryGen → OTel Collector → GlassFlow (OTLP) → ClickHouse → HyperDX
@@ -14,7 +14,7 @@ GlassFlow is installed from the published Helm chart by default: **`glassflow/gl
 
 | Problem | Where it is handled | What to verify |
 | --- | --- | --- |
-| Retry / duplicate spans | GlassFlow dedupe (`span_id`, 1h window) | ClickHouse: no duplicate `span_id` within the TTL window |
+| Retry / duplicate spans | GlassFlow dedupe (`trace_id` + `span_id`, 1h window) | ClickHouse: no duplicate `(TraceId, SpanId)` pair within the TTL window |
 | Compliance masking | GlassFlow **stateless** transformation | `user_email` / `demo_ssn` in `SpanAttributes` are redacted |
 | Cost / noise (keep errors, sample OK) | OTel **tail_sampling** (~10% non-errors + all `ERROR`) | Ratio of `StatusCode` in `otel_traces` vs generator rates |
 
@@ -69,13 +69,13 @@ then `GLASSFLOW_API_URL=http://localhost:18080 make deploy-pipelines`.
 | Component | Namespace | Purpose |
 | --- | --- | --- |
 | OTel Collector | `otel` | Receives OTLP, tail-samples, exports traces to GlassFlow |
-| GlassFlow | `glassflow` | OTLP ingest, `span_id` deduplication, stateless masking, ClickHouse sink |
+| GlassFlow | `glassflow` | OTLP ingest, composite trace/span deduplication, stateless masking, ClickHouse sink |
 | HyperDX + ClickHouse | `hyperdx` | Storage and UI |
 | TelemetryGen Job | `otel` | Two containers: mostly OK spans + fewer ERROR spans, with demo PII attributes |
 
 ## GlassFlow pipeline
 
-A single pipeline **`otlp-traces`** is defined in [`glassflow-pipelines/traces-pipeline.json`](./glassflow-pipelines/traces-pipeline.json): `version` v3, `sources[]` with `otlp.traces`, a `dedup` transform on `span_id`, a `stateless` transform that rewrites demo `ResourceAttributes` and `SpanAttributes` with redacted `user_email` and `demo_ssn` values, ClickHouse `sink.connection_params`, and sink-level `mapping`. The ClickHouse DDL is [`clickhouse/create_otel_tables.sql`](./clickhouse/create_otel_tables.sql) (`otel_traces` only) using ClickStack-compatible trace column names; `ServiceName` is derived from `ResourceAttributes['service.name']`, while `Events` and `Links` use `Array(Map(String, String))`.
+A single pipeline **`otlp-traces`** is defined in [`glassflow-pipelines/traces-pipeline.json`](./glassflow-pipelines/traces-pipeline.json): `version` v3, `sources[]` with `otlp.traces`, a `dedup` transform on a composite `trace_id` + `span_id` key, a `stateless` transform that rewrites demo `ResourceAttributes` and `SpanAttributes` with redacted `user_email` and `demo_ssn` values, ClickHouse `sink.connection_params`, and sink-level `mapping`. The ClickHouse DDL is [`clickhouse/create_otel_tables.sql`](./clickhouse/create_otel_tables.sql) (`otel_traces` only) using ClickStack-compatible trace column names; `ServiceName` is derived from `ResourceAttributes['service.name']`, while `Events` and `Links` use `Array(Map(String, String))`.
 
 ## Documentation
 

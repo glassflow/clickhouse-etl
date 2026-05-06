@@ -13,7 +13,7 @@
       "type": "dedup",
       "source_id": "traces",
       "config": {
-        "key": "span_id",
+        "key": "{\"trace_id\":trace_id,\"span_id\":span_id}",
         "time_window": "1h"
       }
     },

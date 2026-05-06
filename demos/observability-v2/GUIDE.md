@@ -4,14 +4,14 @@ This walkthrough matches the **single-signal** demo: **traces** from TelemetryGe
 
 ## Story: three problems, three places in the pipeline
 
-1. **Duplicates (retries)** — The same logical span may be exported more than once. GlassFlow performs **stateful deduplication** on `span_id` with a **1 hour** window before writes to ClickHouse.
+1. **Duplicates (retries)** — The same logical span may be exported more than once. GlassFlow performs **stateful deduplication** on a composite `trace_id` + `span_id` key with a **1 hour** window before writes to ClickHouse.
 2. **Compliance (PII)** — Span attributes may contain sensitive values. This demo applies **masking in GlassFlow** using a **stateless** transformation, so ClickHouse never stores raw `user_email` / `demo_ssn` values.
 3. **Cost control (error-prioritized sampling)** — You want **all error traces** and a **small fraction of successful** traces. The collector runs **tail_sampling**: `status_code` policy for `ERROR`, plus **probabilistic 10%** for the remainder. GlassFlow still dedupes whatever arrives.
 
 ### Before vs After
 
 - **Before (intent):** TelemetryGen emits ~45 spans/s with `Ok` and ~5 spans/s with `Error`, each with `user_email` and `demo_ssn` attributes. Raw OTLP would show those values and full volume.
-- **After (ClickHouse):** Query `otel_traces`: attributes should show `[REDACTED]`, error rows should be far more complete than OK rows relative to ingest, and duplicate `span_id` values within 1h should collapse to one row.
+- **After (ClickHouse):** Query `otel_traces`: attributes should show `[REDACTED]`, error rows should be far more complete than OK rows relative to ingest, and duplicate `(TraceId, SpanId)` pairs within 1h should collapse to one row.
 
 ---
 
@@ -31,7 +31,7 @@ This walkthrough matches the **single-signal** demo: **traces** from TelemetryGe
 │                                                       ▼             │
 │                                            ┌─────────────────────┐  │
 │                                            │ GlassFlow           │  │
-│                                            │ dedup (span_id,1h)  │  │
+│                                            │ dedup (trace+span,1h)│  │
 │                                            │ stateless masking   │  │
 │                                            │ → ClickHouse sink   │  │
 │                                            └──────────┬──────────┘  │
@@ -125,7 +125,7 @@ In another shell:
 make deploy-pipelines
 ```
 
-This POSTs [`glassflow-pipelines/traces-pipeline.json`](./glassflow-pipelines/traces-pipeline.json). Its shape follows the current V3 docs: root **`version`: `"v3"`**, **`sources[]`** with **`type: "otlp.traces"`** and **`source_id`**, a **`transforms[]`** dedup step on **`span_id`**, a **`stateless`** step that passes through mapped trace fields while rewriting the demo `resource_attributes` and `attributes` maps to redacted `user_email` / `demo_ssn` values, ClickHouse **`sink.connection_params`**, and sink-level **`mapping`**. OTLP sources do not define **`schema_fields`** because GlassFlow uses the predefined OTLP schema, and the API rejects source-level resource overrides for OTLP sources. `ServiceName` is derived in ClickHouse from `ResourceAttributes['service.name']` because this API exposes `resource_attributes` but rejects `resource_attributes.service.name` as a mapping field. `events` and `links` are stored as `Array(Map(String, String))` because the sink validator does not accept ClickHouse `Nested(...)` target types.
+This POSTs [`glassflow-pipelines/traces-pipeline.json`](./glassflow-pipelines/traces-pipeline.json). Its shape follows the current V3 docs: root **`version`: `"v3"`**, **`sources[]`** with **`type: "otlp.traces"`** and **`source_id`**, a **`transforms[]`** dedup step using the composite GJSON key **`{"trace_id":trace_id,"span_id":span_id}`**, a **`stateless`** step that passes through mapped trace fields while rewriting the demo `resource_attributes` and `attributes` maps to redacted `user_email` / `demo_ssn` values, ClickHouse **`sink.connection_params`**, and sink-level **`mapping`**. OTLP sources do not define **`schema_fields`** because GlassFlow uses the predefined OTLP schema, and the API rejects source-level resource overrides for OTLP sources. `ServiceName` is derived in ClickHouse from `ResourceAttributes['service.name']` because this API exposes `resource_attributes` but rejects `resource_attributes.service.name` as a mapping field. `events` and `links` are stored as `Array(Map(String, String))` because the sink validator does not accept ClickHouse `Nested(...)` target types.
 
 ---
 
@@ -175,10 +175,21 @@ In GlassFlow, open **Pipelines** and confirm **`otlp-traces`** is running. In Hy
 
 ## Step 7 — Verify in ClickHouse
 
-Use ClickStack's in-cluster ClickHouse service user:
+For a quick in-cluster smoke test, run a one-shot query:
 
 ```bash
 kubectl exec -n hyperdx deploy/hyperdx-clickstack-clickhouse -- \
+  clickhouse-client \
+    --host=hyperdx-clickstack-clickhouse.hyperdx.svc.cluster.local \
+    --user=otelcollector \
+    --password=otelcollectorpass \
+    --query "SELECT 1"
+```
+
+For an interactive ClickHouse shell, add `-it`:
+
+```bash
+kubectl exec -it -n hyperdx deploy/hyperdx-clickstack-clickhouse -- \
   clickhouse-client \
     --host=hyperdx-clickstack-clickhouse.hyperdx.svc.cluster.local \
     --user=otelcollector \
@@ -198,12 +209,12 @@ GROUP BY StatusCode
 ORDER BY n DESC;
 ```
 
-### Dedupe on `span_id` (within GlassFlow window)
+### Dedupe on `(TraceId, SpanId)` (within GlassFlow window)
 
 ```sql
-SELECT SpanId, count() AS c
+SELECT TraceId, SpanId, count() AS c
 FROM otel_traces
-GROUP BY SpanId
+GROUP BY TraceId, SpanId
 HAVING c > 1
 LIMIT 20;
 ```
@@ -254,7 +265,7 @@ make cluster-delete
 | Broker | Kafka required | None |
 | Signals | Logs + metrics + traces (v1 scope) | **Traces only** |
 | Sampling / PII | Not highlighted | OTel **tail_sampling** + GlassFlow **stateless** masking |
-| Dedupe | GlassFlow post-Kafka | GlassFlow on OTLP stream (`span_id`, 1h) |
+| Dedupe | GlassFlow post-Kafka | GlassFlow on OTLP stream (`trace_id` + `span_id`, 1h) |
 
 ---
 
