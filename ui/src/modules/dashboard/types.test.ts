@@ -47,6 +47,12 @@ describe('determineDashboardState', () => {
     expect(state.kind).toBe('incident')
   })
 
+  it('returns populated when incident count is exactly 5', () => {
+    const five = Array(5).fill(incident)
+    const state = determineDashboardState([runPipeline], five, stats, activity)
+    expect(state.kind).toBe('populated')
+  })
+
   it('returns incident when incident count exceeds 5', () => {
     const many = Array(6).fill(incident)
     const state = determineDashboardState([runPipeline], many, stats, activity)
