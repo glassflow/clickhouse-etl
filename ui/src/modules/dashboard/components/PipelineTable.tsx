@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { SquareIcon, BarChartIcon, MoreHorizontalIcon } from 'lucide-react'
 import type { DashPipeline, DashPipelineStatus } from '../types'
 
-type FilterKey = 'all' | DashPipelineStatus
+type FilterKey = 'all' | 'run' | 'deg' | 'paused' | 'draft'
 
 const FILTERS: { key: FilterKey; label: string }[] = [
   { key: 'all',    label: 'All' },
@@ -81,7 +81,6 @@ export function PipelineTable({ pipelines }: Props) {
     deg:    pipelines.filter((p) => p.status === 'deg').length,
     paused: pipelines.filter((p) => p.status === 'paused').length,
     draft:  pipelines.filter((p) => p.status === 'draft').length,
-    fail:   pipelines.filter((p) => p.status === 'fail').length,
   }
 
   const visible = active === 'all' ? pipelines : pipelines.filter((p) => p.status === active)

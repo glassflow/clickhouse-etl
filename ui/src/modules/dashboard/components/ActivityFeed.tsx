@@ -1,5 +1,3 @@
-'use client'
-
 import type { ActivityItem } from '../types'
 
 type Props = { items: ActivityItem[]; showViewLog?: boolean }

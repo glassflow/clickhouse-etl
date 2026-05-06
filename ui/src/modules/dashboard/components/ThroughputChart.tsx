@@ -14,8 +14,9 @@ function SvgChart({ inSeries, outSeries }: ChartProps) {
   const w = 640, h = 130, pad = 8
   const all = [...inSeries, ...outSeries]
   if (all.length === 0) return null
-  const max = Math.max(...all) * 1.1 || 1
   const N = inSeries.length
+  if (N < 2) return null
+  const max = Math.max(...all) * 1.1 || 1
   const stepX = (w - pad * 2) / (N - 1)
   const yFor = (v: number) => h - pad - (v / max) * (h - pad * 2)
   const polyIn = inSeries.map((v, i) => `${pad + i * stepX},${yFor(v)}`).join(' ')
@@ -48,7 +49,7 @@ export function ThroughputChart({ stats, isIncidentState }: Props) {
   const title = isIncidentState ? 'Throughput · with incident overlay' : 'Throughput'
   return (
     <div className="dash-card thru-card">
-      <div className="dash-card-h" style={{ padding: 0, marginBottom: 12, borderBottom: 'none' }}>
+      <div className="dash-card-h !p-0 mb-3 border-b-0">
         <h3>{title}</h3>
         <a href="/observability" className="dash-link">Open in observability →</a>
       </div>
