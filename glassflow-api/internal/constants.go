@@ -184,6 +184,10 @@ const (
 	IngestorBackpressureInitialDelay = 50 * time.Millisecond
 	IngestorBackpressureMaxDelay     = 5 * time.Second
 
+	// Period between JetStream StreamInfo samples used for the
+	// gfm_stream_depth and gfm_stream_depth_ratio gauges.
+	IngestorStreamDepthSampleInterval = 10 * time.Second
+
 	// Orchestrator constants
 	ShutdownTimeout = 30 * time.Second
 

@@ -27,6 +27,8 @@ type IngestorRunner struct {
 	component component.Component
 	c         chan error
 	doneCh    chan struct{}
+
+	samplerCancel context.CancelFunc
 }
 
 func NewIngestorRunner(
@@ -151,6 +153,8 @@ func (i *IngestorRunner) Start(ctx context.Context) error {
 
 	i.component = component
 
+	i.startStreamSamplers(ctx)
+
 	go func() {
 		component.Start(ctx, i.c)
 		close(i.c)
@@ -160,6 +164,68 @@ func (i *IngestorRunner) Start(ctx context.Context) error {
 	}()
 
 	return nil
+}
+
+// startStreamSamplers resolves the streams the ingestor publishes into from
+// its runtime config, then spawns one StreamSampler per unique stream. Each
+// sampler runs until samplerCancel is called from Shutdown.
+//
+// Subjects map onto streams differently across orchestrators (local: one
+// stream covers all sharded subjects; K8s: one stream per replica), so the
+// stream set is discovered via JetStream's StreamNameBySubject rather than
+// inferred from naming conventions.
+func (i *IngestorRunner) startStreamSamplers(ctx context.Context) {
+	subjects := ingestorOutputSubjects(i.runtimeCfg)
+	if len(subjects) == 0 {
+		return
+	}
+
+	samplerCtx, cancel := context.WithCancel(ctx)
+	i.samplerCancel = cancel
+
+	js := i.nc.JetStream()
+	streams := make(map[string]struct{}, len(subjects))
+	for _, subj := range subjects {
+		name, err := js.StreamNameBySubject(samplerCtx, subj)
+		if err != nil {
+			i.log.WarnContext(ctx, "stream sampler: skipping subject (no stream bound)",
+				slog.String("subject", subj),
+				slog.Any("error", err))
+			continue
+		}
+		streams[name] = struct{}{}
+	}
+
+	for name := range streams {
+		s := stream.NewStreamSampler(js, name, i.log)
+		go s.Run(samplerCtx)
+		i.log.InfoContext(ctx, "stream sampler started",
+			slog.String("stream", name),
+			slog.String("pipeline_id", i.pipelineCfg.Status.PipelineID))
+	}
+}
+
+// ingestorOutputSubjects returns every distinct subject the ingestor will
+// publish to under the given runtime config.
+func ingestorOutputSubjects(c models.IngestorRuntimeConfig) []string {
+	if c.DedupSubjectCount > 0 && c.DedupSubjectPrefix != "" {
+		out := make([]string, c.DedupSubjectCount)
+		for i := range out {
+			out[i] = fmt.Sprintf("%s.%d", c.DedupSubjectPrefix, i)
+		}
+		return out
+	}
+	if c.TotalSubjectCount > 1 && c.OutputSubjectPrefix != "" {
+		out := make([]string, c.TotalSubjectCount)
+		for i := range out {
+			out[i] = fmt.Sprintf("%s.%d", c.OutputSubjectPrefix, i)
+		}
+		return out
+	}
+	if c.OutputSubject == "" {
+		return nil
+	}
+	return []string{c.OutputSubject}
 }
 
 func (i *IngestorRunner) getTopicConfig() (models.KafkaTopicsConfig, error) {
@@ -174,6 +240,10 @@ func (i *IngestorRunner) getTopicConfig() (models.KafkaTopicsConfig, error) {
 
 func (i *IngestorRunner) Shutdown() {
 	i.log.Debug("Stopping ingestor", slog.String("pipelineId", i.pipelineCfg.Status.PipelineID), slog.String("topic", i.topicName))
+	if i.samplerCancel != nil {
+		i.samplerCancel()
+		i.samplerCancel = nil
+	}
 	if i.component != nil {
 		i.component.Stop(component.WithNoWait(true))
 	}
