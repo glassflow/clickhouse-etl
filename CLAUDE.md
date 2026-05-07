@@ -1,6 +1,6 @@
 # clickhouse-etl
 
-GlassFlow's core ETL engine — streams data from Kafka into ClickHouse with deduplication, joins, filtering, and schema mapping. The main binary (`glassflow-api`) selects its role at runtime via a `-role` flag.
+GlassFlow's core ETL engine — streams data from multiple sources into ClickHouse with deduplication, joins, filtering, and schema mapping. The main binary (`glassflow-api`) selects its role at runtime via a `-role` flag.
 
 ## Repo layout
 
@@ -30,7 +30,7 @@ nats-kafka-bridge/      # NATS↔Kafka bridge service
 ## Data flow
 
 ```
-Kafka → Ingestor → NATS JetStream → [Dedup] → [Join] → [Transform/Filter] → Sink → ClickHouse
+Source Connector → Ingestor → NATS JetStream → [Dedup] → [Join] → [Transform/Filter] → Sink → ClickHouse
                                                                                ↓
                                                                         Dead-Letter Queue
 ```
