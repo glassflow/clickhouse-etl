@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm test:run *)",
+      "Bash(pnpm exec tsc --noEmit)",
+      "Bash(pnpm tsc --noEmit)",
+      "Bash(pnpm lint *)"
+    ]
+  }
+}

@@ -16,7 +16,14 @@ export async function POST(request: Request) {
       description: body.description ?? null,
       folderId: body.folderId ?? null,
       tags: body.tags ?? [],
+      source: body.source ?? 'manual',
+      registryUrl: body.registryUrl ?? null,
       fields: body.fields,
+      fieldCount: body.fields?.length ?? 0,
+      pipelineCount: 0,
+      latestVersion: null,
+      hasDrift: false,
+      usedByCount: 0,
     })
     return NextResponse.json(schema, { status: 201 })
   } catch {
