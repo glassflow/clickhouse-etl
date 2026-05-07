@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import { MoreHorizontalIcon, PencilIcon, Trash2Icon, FolderIcon } from 'lucide-react'
 import { Card } from '@/src/components/ui/card'
@@ -22,15 +23,24 @@ import type { LibrarySchema, LibraryFolder } from '@/src/hooks/useLibraryConnect
 
 type SchemaListProps = {
   schemas: LibrarySchema[]
-  searchQuery: string
-  onEdit: (id: string) => void
-  onDelete: (id: string) => void
+  searchQuery?: string
+  onEdit?: (id: string) => void
+  onDelete?: (id: string) => void
   folders?: LibraryFolder[]
 }
 
+const SOURCE_CHIPS = [
+  { key: 'all', label: 'All' },
+  { key: 'kafka', label: 'Kafka' },
+  { key: 'otlp', label: 'OTLP' },
+  { key: 'manual', label: 'Manual' },
+] as const
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function SchemaList({ schemas, searchQuery, onEdit, onDelete, folders = [] }: SchemaListProps) {
+export function SchemaList({ schemas, searchQuery = '', onEdit = () => {}, onDelete = () => {}, folders = [] }: SchemaListProps) {
+  const [sourceFilter, setSourceFilter] = useState<'all' | 'kafka' | 'otlp' | 'manual'>('all')
+
   const q = searchQuery.trim().toLowerCase()
 
   const filtered = q
@@ -42,7 +52,11 @@ export function SchemaList({ schemas, searchQuery, onEdit, onDelete, folders = [
       )
     : schemas
 
-  if (filtered.length === 0) {
+  const sourceFiltered = sourceFilter === 'all'
+    ? filtered
+    : filtered.filter(s => s.source === sourceFilter)
+
+  if (sourceFiltered.length === 0 && filtered.length === 0) {
     return (
       <EmptyState
         heading={q ? 'No matches' : 'No schemas yet'}
@@ -52,10 +66,36 @@ export function SchemaList({ schemas, searchQuery, onEdit, onDelete, folders = [
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      {filtered.map((schema) => (
-        <SchemaCard key={schema.id} schema={schema} onEdit={onEdit} onDelete={onDelete} folders={folders} />
-      ))}
+    <div>
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
+        {SOURCE_CHIPS.map(c => (
+          <button
+            key={c.key}
+            type="button"
+            onClick={() => setSourceFilter(c.key)}
+            className={[
+              'px-3 py-1 rounded-full caption-1 border transition-colors',
+              sourceFilter === c.key
+                ? 'bg-[var(--surface-bg)] border-[var(--color-gray-dark-300)] text-[var(--text-primary)]'
+                : 'border-[var(--surface-border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]',
+            ].join(' ')}
+          >
+            {c.label}
+          </button>
+        ))}
+      </div>
+      {sourceFiltered.length === 0 ? (
+        <EmptyState
+          heading="No matches"
+          copy={`No schemas match the selected filter.`}
+        />
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {sourceFiltered.map((schema) => (
+            <SchemaCard key={schema.id} schema={schema} onEdit={onEdit} onDelete={onDelete} folders={folders} />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -82,18 +122,23 @@ function SchemaCard({
   const remaining = fields.length - previewFields.length
 
   return (
-    <Card variant="dark" className="group flex flex-col gap-0 p-0 overflow-hidden hover:border-[var(--color-gray-dark-300)] transition-colors">
+    <Card variant="dark" className={`group flex flex-col gap-0 p-0 overflow-hidden hover:border-[var(--color-gray-dark-300)] transition-colors ${schema.hasDrift ? 'schema-card-drift' : ''}`}>
       <div className="flex flex-col gap-2.5 p-4 flex-1">
         {/* Header */}
         <div className="flex items-start gap-2.5">
           <LibraryTypeGlyph type="schema" size="md" />
           <div className="flex-1 min-w-0">
-            <Link
-              href={`/library/schemas/${id}`}
-              className="title-6 text-[var(--text-primary)] hover:text-[var(--color-foreground-primary)] transition-colors line-clamp-1 block"
-            >
-              {name}
-            </Link>
+            <div className="flex items-center gap-2 min-w-0">
+              <Link
+                href={`/library/schemas/${id}`}
+                className="title-6 text-[var(--text-primary)] hover:text-[var(--color-foreground-primary)] transition-colors line-clamp-1 block"
+              >
+                {name}
+              </Link>
+              {schema.latestVersion && (
+                <Badge variant="secondary" className="shrink-0 caption-2">{schema.latestVersion}</Badge>
+              )}
+            </div>
             <p className="caption-1 text-[var(--text-tertiary)] font-mono mt-0.5">
               schema · {updated}
             </p>

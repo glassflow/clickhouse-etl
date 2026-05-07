@@ -109,3 +109,8 @@
     padding: 0 2rem;
   }
 }
+
+/* Library schema drift indicator */
+.schema-card-drift {
+  border-color: var(--color-yellow-600) !important;
+}
