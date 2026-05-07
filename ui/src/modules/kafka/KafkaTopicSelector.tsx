@@ -14,6 +14,7 @@ import { useKafkaTopicSelectorState } from '@/src/modules/kafka/hooks/useKafkaTo
 import { useTopicSelectorTopics } from '@/src/modules/kafka/hooks/useTopicSelectorTopics'
 import TopicChangeConfirmationModal from '@/src/modules/kafka/components/TopicChangeConfirmationModal'
 import { RegistrySchemaPanel } from '@/src/modules/kafka/components/RegistrySchemaPanel'
+import { isSchemaRegistryEnabled } from '@/src/config/feature-flags'
 
 export function KafkaTopicSelector({
   steps,
@@ -248,7 +249,7 @@ export function KafkaTopicSelector({
   }
 
   const renderSchemaSourceSection = () => {
-    if (!kafkaStore?.schemaRegistry?.enabled) return null
+    if (!isSchemaRegistryEnabled() || !kafkaStore?.schemaRegistry?.enabled) return null
 
     return (
       <div className="mt-4">
