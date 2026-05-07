@@ -90,6 +90,7 @@ type config struct {
 
 	OTLPConfigFetcherBaseURL  string `default:"" split_words:"true"`
 	OTLPMaxConcurrentRequests int    `default:"50" split_words:"true"`
+	OTLPNatsChunkSize         int    `default:"1000" split_words:"true"`
 }
 
 var version = "dev"

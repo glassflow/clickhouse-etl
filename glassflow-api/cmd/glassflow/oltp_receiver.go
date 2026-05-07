@@ -18,7 +18,7 @@ func mainOLTPReceiver(
 	log *slog.Logger,
 ) error {
 	fetcher := configFetcher.New(cfg.OTLPConfigFetcherBaseURL)
-	otlpDataProcessor := otlp_processor.NewProcessor(fetcher, nc, cfg.OTLPMaxConcurrentRequests)
+	otlpDataProcessor := otlp_processor.NewProcessor(fetcher, nc, cfg.OTLPMaxConcurrentRequests, cfg.OTLPNatsChunkSize)
 	r, err := oltp_receiver.New(log, otlpDataProcessor)
 	if err != nil {
 		return err

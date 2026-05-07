@@ -20,27 +20,49 @@ type subjectRouter interface {
 type BatchWriter struct {
 	js            jetstream.JetStream
 	subjectRouter subjectRouter
+	chunkSize     int
 }
 
-// NewBatchWriter creates a new NATS async batch writer
+// NewBatchWriter creates a new NATS async batch writer.
+// chunkSize controls how many messages are published per async round-trip;
+// use a value <= 0 to publish all messages in a single chunk.
 func NewBatchWriter(
 	js jetstream.JetStream,
 	subjectRouter subjectRouter,
+	chunkSize int,
 ) *BatchWriter {
-	batchWriter := &BatchWriter{
+	return &BatchWriter{
 		js:            js,
 		subjectRouter: subjectRouter,
+		chunkSize:     chunkSize,
 	}
-
-	return batchWriter
 }
 
-// WriteBatch writes a batch of messages to NATS asynchronously
-func (w *BatchWriter) WriteBatch(_ context.Context, messages []models.Message) []models.FailedMessage {
+// WriteBatch writes a batch of messages to NATS asynchronously.
+// Messages are published in chunks to cap peak memory usage from in-flight futures.
+func (w *BatchWriter) WriteBatch(ctx context.Context, messages []models.Message) []models.FailedMessage {
 	if len(messages) == 0 {
 		return nil
 	}
 
+	chunkSize := w.chunkSize
+	if chunkSize <= 0 {
+		chunkSize = len(messages)
+	}
+
+	var failedMessages []models.FailedMessage
+	for i := 0; i < len(messages); i += chunkSize {
+		end := i + chunkSize
+		if end > len(messages) {
+			end = len(messages)
+		}
+		failed := w.writeChunk(ctx, messages[i:end])
+		failedMessages = append(failedMessages, failed...)
+	}
+	return failedMessages
+}
+
+func (w *BatchWriter) writeChunk(_ context.Context, messages []models.Message) []models.FailedMessage {
 	futures := make([]jetstream.PubAckFuture, 0, len(messages))
 	var failedMessages []models.FailedMessage
 
@@ -49,7 +71,6 @@ func (w *BatchWriter) WriteBatch(_ context.Context, messages []models.Message) [
 
 		future, err := w.js.PublishMsgAsync(natsMsg)
 		if err != nil {
-			// Failed to queue for async publishing - treat as failed message
 			failedMessages = append(failedMessages, models.FailedMessage{
 				Message: models.Message{
 					Type:            models.MessageTypeNatsMsg,
@@ -67,7 +88,6 @@ func (w *BatchWriter) WriteBatch(_ context.Context, messages []models.Message) [
 		return failedMessages
 	}
 
-	// Wait for all async publishes to complete
 	<-w.js.PublishAsyncComplete()
 
 	for _, future := range futures {

@@ -31,12 +31,14 @@ func NewProcessor(
 	otlpConfigFetcher OTLPConfigFetcher,
 	nc *client.NATSClient,
 	maxConcurrent int,
+	natsChunkSize int,
 ) *Processor {
 	return &Processor{
 		otlpConfigFetcher: otlpConfigFetcher,
 		natsWriterCache:   make(map[string]writerConfig),
 		nc:                nc,
 		sem:               make(chan struct{}, maxConcurrent),
+		natsChunkSize:     natsChunkSize,
 	}
 }
 
@@ -69,6 +71,7 @@ type Processor struct {
 	natsWriterMu      sync.RWMutex
 	nc                *client.NATSClient
 	sem               chan struct{}
+	natsChunkSize     int
 }
 
 func (p *Processor) getWriterConfig(
@@ -92,7 +95,7 @@ func (p *Processor) getWriterConfig(
 		return writerConfig{}, fmt.Errorf("subjectrouter.New: %w", err)
 	}
 
-	newWriterConfig := nats.NewBatchWriter(p.nc.JetStream(), subjectRouter)
+	newWriterConfig := nats.NewBatchWriter(p.nc.JetStream(), subjectRouter, p.natsChunkSize)
 
 	p.natsWriterMu.Lock()
 	defer p.natsWriterMu.Unlock()

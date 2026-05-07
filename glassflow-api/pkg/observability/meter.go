@@ -40,6 +40,12 @@ var (
 	BytesProcessed           metric.Int64Counter
 	ReceiverRequestCount     metric.Int64Counter
 	ReceiverRequestDuration  metric.Float64Histogram
+
+	IngestorBackpressureActive   metric.Int64Gauge
+	IngestorBackpressureEvents   metric.Int64Counter
+	IngestorBackpressureDuration metric.Float64Histogram
+	StreamDepth                  metric.Int64Gauge
+	StreamDepthRatio             metric.Float64Gauge
 )
 
 // pipelineID is set once at component startup (not used by the API which handles multiple pipelines).
@@ -110,6 +116,18 @@ func InitMetrics(cfg *Config) error {
 	ReceiverRequestDuration = mustCreateHistogram(m, GfMetricPrefix+"_"+"receiver_request_duration_seconds",
 		"Duration of receiver requests in seconds")
 
+	IngestorBackpressureActive = mustCreateInt64Gauge(m, GfMetricPrefix+"_"+"ingestor_backpressure_active",
+		"1 while the ingestor is in back-pressure, 0 otherwise")
+	IngestorBackpressureEvents = mustCreateCounter(m, GfMetricPrefix+"_"+"ingestor_backpressure_events_total",
+		"Total number of times the ingestor entered back-pressure")
+	IngestorBackpressureDuration = mustCreateBackpressureDurationHistogram(m,
+		GfMetricPrefix+"_"+"ingestor_backpressure_duration_seconds",
+		"Duration of each ingestor back-pressure episode in seconds")
+	StreamDepth = mustCreateInt64Gauge(m, GfMetricPrefix+"_"+"stream_depth",
+		"Number of messages currently stored in a JetStream stream")
+	StreamDepthRatio = mustCreateGauge(m, GfMetricPrefix+"_"+"stream_depth_ratio",
+		"Stream depth divided by max_messages, 0.0-1.0")
+
 	return nil
 }
 
@@ -127,6 +145,31 @@ func mustCreateGauge(m metric.Meter, name, description string) metric.Float64Gau
 		panic(fmt.Sprintf("failed to create gauge %s: %v", name, err))
 	}
 	return gauge
+}
+
+func mustCreateInt64Gauge(m metric.Meter, name, description string) metric.Int64Gauge {
+	gauge, err := m.Int64Gauge(name, metric.WithDescription(description), metric.WithUnit("1"))
+	if err != nil {
+		panic(fmt.Sprintf("failed to create int64 gauge %s: %v", name, err))
+	}
+	return gauge
+}
+
+// mustCreateBackpressureDurationHistogram uses seconds-to-minutes buckets so
+// that long episodes are observable. The default histogram factory uses
+// millisecond-scale buckets, which would clip every backpressure observation
+// at the top bucket.
+func mustCreateBackpressureDurationHistogram(m metric.Meter, name, description string) metric.Float64Histogram {
+	histogram, err := m.Float64Histogram(name,
+		metric.WithDescription(description),
+		metric.WithUnit("s"),
+		metric.WithExplicitBucketBoundaries(
+			0.1, 0.5, 1, 2.5, 5, 10, 30, 60, 120, 300, 600, 1800,
+		))
+	if err != nil {
+		panic(fmt.Sprintf("failed to create histogram %s: %v", name, err))
+	}
+	return histogram
 }
 
 func mustCreateHistogram(m metric.Meter, name, description string) metric.Float64Histogram {
@@ -274,4 +317,42 @@ func RecordReceiverRequest(ctx context.Context, component, transport, status, pi
 	if ReceiverRequestDuration != nil {
 		ReceiverRequestDuration.Record(ctx, duration, metric.WithAttributes(attrs...))
 	}
+}
+
+func RecordIngestorBackpressureStart(ctx context.Context) {
+	if IngestorBackpressureActive == nil {
+		return
+	}
+	attrs := metric.WithAttributes(attribute.String("pipeline_id", pipelineID))
+	IngestorBackpressureActive.Record(ctx, 1, attrs)
+	IngestorBackpressureEvents.Add(ctx, 1, attrs)
+}
+
+func RecordIngestorBackpressureStop(ctx context.Context, duration float64) {
+	if IngestorBackpressureActive == nil {
+		return
+	}
+	attrs := metric.WithAttributes(attribute.String("pipeline_id", pipelineID))
+	IngestorBackpressureActive.Record(ctx, 0, attrs)
+	IngestorBackpressureDuration.Record(ctx, duration, attrs)
+}
+
+func RecordStreamDepth(ctx context.Context, streamName string, depth int64) {
+	if StreamDepth == nil {
+		return
+	}
+	StreamDepth.Record(ctx, depth, metric.WithAttributes(
+		attribute.String("pipeline_id", pipelineID),
+		attribute.String("stream", streamName),
+	))
+}
+
+func RecordStreamDepthRatio(ctx context.Context, streamName string, ratio float64) {
+	if StreamDepthRatio == nil {
+		return
+	}
+	StreamDepthRatio.Record(ctx, ratio, metric.WithAttributes(
+		attribute.String("pipeline_id", pipelineID),
+		attribute.String("stream", streamName),
+	))
 }
