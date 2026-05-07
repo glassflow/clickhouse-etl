@@ -162,7 +162,11 @@ export interface MockSchema {
   description: string | null
   folderId: string | null
   tags: string[]
+  source: string
+  registryUrl: string | null
   fields: SchemaField[]
+  fieldCount: number
+  pipelineCount: number
   createdAt: string
   updatedAt: string
   latestVersion: string | null
@@ -177,6 +181,8 @@ export const mockSchemas: MockSchema[] = [
     description: 'Kafka event schema for payment transaction events',
     folderId: 'folder-001',
     tags: ['payments', 'events'],
+    source: 'kafka',
+    registryUrl: null,
     fields: [
       { name: 'transaction_id', type: 'string', nullable: false },
       { name: 'transaction_date', type: 'string', nullable: false },
@@ -189,6 +195,8 @@ export const mockSchemas: MockSchema[] = [
       { name: 'currency', type: 'string', nullable: false },
       { name: 'location', type: 'string', nullable: true },
     ],
+    fieldCount: 10,
+    pipelineCount: 2,
     createdAt: '2024-01-08T08:00:00Z',
     updatedAt: '2024-02-10T12:00:00Z',
     latestVersion: '2.0.0',
@@ -201,6 +209,8 @@ export const mockSchemas: MockSchema[] = [
     description: 'User profile snapshot schema for identity events',
     folderId: 'folder-001',
     tags: ['users', 'identity'],
+    source: 'kafka',
+    registryUrl: null,
     fields: [
       { name: 'user_id', type: 'string', nullable: false },
       { name: 'email', type: 'string', nullable: false },
@@ -209,6 +219,8 @@ export const mockSchemas: MockSchema[] = [
       { name: 'created_at', type: 'string', nullable: false },
       { name: 'is_verified', type: 'boolean', nullable: false },
     ],
+    fieldCount: 6,
+    pipelineCount: 1,
     createdAt: '2024-01-09T10:00:00Z',
     updatedAt: '2024-01-20T09:00:00Z',
     latestVersion: '1.0.0',
@@ -221,6 +233,8 @@ export const mockSchemas: MockSchema[] = [
     description: 'Web and mobile click/interaction event schema',
     folderId: null,
     tags: ['analytics', 'clickstream'],
+    source: 'otlp',
+    registryUrl: null,
     fields: [
       { name: 'session_id', type: 'string', nullable: false },
       { name: 'user_id', type: 'string', nullable: true },
@@ -231,6 +245,8 @@ export const mockSchemas: MockSchema[] = [
       { name: 'timestamp', type: 'string', nullable: false },
       { name: 'duration_ms', type: 'number', nullable: true },
     ],
+    fieldCount: 8,
+    pipelineCount: 0,
     createdAt: '2024-01-14T13:00:00Z',
     updatedAt: '2024-01-14T13:00:00Z',
     latestVersion: '1.2.0',
@@ -448,6 +464,64 @@ function redactEmail(email) {
     changeSummary: 'Hash user_id in addition to redacting email',
     createdAt: '2024-02-08T11:00:00Z',
     createdBy: 'vladimir@glassflow.dev',
+  },
+]
+
+// ─── Dedup configs ────────────────────────────────────────────────────────────
+
+export type MockDedupConfig = {
+  id: string; name: string; description: string | null
+  folderId: string | null; tags: string[]
+  keyFields: string[]; secondaryKeyFields: string[]
+  windowDuration: string; windowType: 'tumbling' | 'sliding'
+  timeAttribute: 'event_time' | 'processing_time'
+  onDuplicate: 'keep_first' | 'keep_last'
+  lateEventPolicy: 'pass_through' | 'drop'
+  stateBackend: 'nats-kv' | 'memory'
+  latestVersion: string; usedByCount: number; hasDrift: boolean
+  createdAt: string; updatedAt: string
+}
+
+export const mockDedupConfigs: MockDedupConfig[] = [
+  {
+    id: 'dedup-1',
+    name: 'Order event dedup',
+    description: 'Removes duplicate order events within a 10-minute window',
+    folderId: null,
+    tags: ['production', 'orders'],
+    keyFields: ['orderId'],
+    secondaryKeyFields: ['eventType'],
+    windowDuration: '10m',
+    windowType: 'tumbling',
+    timeAttribute: 'event_time',
+    onDuplicate: 'keep_first',
+    lateEventPolicy: 'pass_through',
+    stateBackend: 'nats-kv',
+    latestVersion: 'v2',
+    usedByCount: 3,
+    hasDrift: false,
+    createdAt: '2026-01-15T10:00:00Z',
+    updatedAt: '2026-04-20T14:30:00Z',
+  },
+  {
+    id: 'dedup-2',
+    name: 'Click stream dedup',
+    description: 'Session-level click deduplication',
+    folderId: null,
+    tags: ['analytics'],
+    keyFields: ['sessionId', 'clickId'],
+    secondaryKeyFields: [],
+    windowDuration: '5m',
+    windowType: 'sliding',
+    timeAttribute: 'processing_time',
+    onDuplicate: 'keep_last',
+    lateEventPolicy: 'drop',
+    stateBackend: 'memory',
+    latestVersion: 'v1',
+    usedByCount: 1,
+    hasDrift: true,
+    createdAt: '2026-02-10T09:00:00Z',
+    updatedAt: '2026-05-01T11:00:00Z',
   },
 ]
 

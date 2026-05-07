@@ -30,13 +30,29 @@ export interface ClickhouseConnection {
   updatedAt: string
 }
 
+export interface LibraryConnection {
+  id: string
+  kind: 'kafka' | 'clickhouse'
+  name: string
+  description: string | null
+  folderId: string | null
+  tags: string[]
+  config: Record<string, unknown>
+  createdAt: string
+  updatedAt: string
+}
+
 export interface LibrarySchema {
   id: string
   name: string
   description: string | null
   folderId: string | null
   tags: string[]
+  source: string
+  registryUrl: string | null
   fields: SchemaField[]
+  fieldCount: number
+  pipelineCount: number
   createdAt: string
   updatedAt: string
   latestVersion: string | null
@@ -135,4 +151,31 @@ export interface LibraryTransform {
 
 export function useLibraryTransforms() {
   return useLibraryFetch<LibraryTransform[]>(getApiUrl('library/transforms'))
+}
+
+// ─── Dedup configs ────────────────────────────────────────────────────────────
+
+export interface LibraryDedupConfig {
+  id: string
+  name: string
+  description: string | null
+  folderId: string | null
+  tags: string[]
+  keyFields: string[]
+  secondaryKeyFields: string[]
+  windowDuration: string
+  windowType: 'tumbling' | 'sliding'
+  timeAttribute: 'event_time' | 'processing_time'
+  onDuplicate: 'keep_first' | 'keep_last'
+  lateEventPolicy: 'pass_through' | 'drop'
+  stateBackend: 'nats-kv' | 'memory'
+  latestVersion: string
+  usedByCount: number
+  hasDrift: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export function useLibraryDedupConfigs() {
+  return useLibraryFetch<LibraryDedupConfig[]>(getApiUrl('library/dedup'))
 }

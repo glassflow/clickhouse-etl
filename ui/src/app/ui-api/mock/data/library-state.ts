@@ -17,6 +17,7 @@ import {
   mockTransforms,
   mockTransformVersions,
   mockUsedBy,
+  mockDedupConfigs,
   type MockFolder,
   type MockKafkaConnection,
   type MockClickhouseConnection,
@@ -25,6 +26,7 @@ import {
   type MockTransform,
   type MockTransformVersion,
   type MockUsedByEntry,
+  type MockDedupConfig,
 } from './library'
 
 // ─── In-memory stores ─────────────────────────────────────────────────────────
@@ -406,4 +408,33 @@ export function publishTransformVersion(
   })
 
   return version
+}
+
+// ─── Dedup configs ────────────────────────────────────────────────────────────
+
+const dedupConfigs = new Map<string, MockDedupConfig>()
+
+function initDedupConfigs() {
+  mockDedupConfigs.forEach(d => dedupConfigs.set(d.id, { ...d }))
+}
+initDedupConfigs()
+
+export function listDedupConfigs(): MockDedupConfig[] {
+  return Array.from(dedupConfigs.values())
+}
+
+export function getDedupConfig(id: string): MockDedupConfig | undefined {
+  return dedupConfigs.get(id)
+}
+
+export function updateDedupConfig(id: string, patch: Partial<MockDedupConfig>): MockDedupConfig | null {
+  const existing = dedupConfigs.get(id)
+  if (!existing) return null
+  const updated = { ...existing, ...patch, updatedAt: new Date().toISOString() }
+  dedupConfigs.set(id, updated)
+  return updated
+}
+
+export function deleteDedupConfig(id: string): boolean {
+  return dedupConfigs.delete(id)
 }
