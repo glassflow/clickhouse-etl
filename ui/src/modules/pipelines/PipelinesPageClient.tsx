@@ -4,7 +4,7 @@ import React, { useEffect, useState, useCallback } from 'react'
 import { Loader2 } from 'lucide-react'
 import { PipelinesList } from '@/src/modules/pipelines/PipelinesList'
 import { structuredLogger } from '@/src/observability'
-import { NoPipelines } from '@/src/modules/pipelines/NoPipelines'
+import { PipelinesEmptyState } from '@/src/modules/pipelines/components/PipelinesEmptyState'
 
 import { getPipelines } from '@/src/api/pipeline-api'
 import { ListPipelineConfig, PipelineStatus } from '@/src/types/pipeline'
@@ -86,7 +86,7 @@ export default function PipelinesPageClient() {
             onUpdatePipelineTags={updatePipelineTags}
           />
         ) : (
-          <NoPipelines />
+          <PipelinesEmptyState />
         )}
       </div>
     </div>
