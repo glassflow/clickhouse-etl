@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"errors"
 
 	coltracepb "go.opentelemetry.io/proto/otlp/collector/trace/v1"
 	"google.golang.org/grpc/codes"
@@ -9,6 +10,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
 
 type traceServiceServer struct {
@@ -29,6 +31,9 @@ func (s *traceServiceServer) Export(
 		return nil, status.Error(codes.InvalidArgument, "missing x-glassflow-pipeline-id header")
 	}
 	if err := s.processor.ProcessTraces(ctx, vals[0], req); err != nil {
+		if errors.Is(err, models.ErrReceiverOverloaded) || errors.Is(err, models.ErrStreamBackpressure) {
+			return nil, status.Error(codes.ResourceExhausted, err.Error())
+		}
 		return nil, status.Errorf(codes.Internal, "processing traces: %v", err)
 	}
 	return &coltracepb.ExportTraceServiceResponse{}, nil

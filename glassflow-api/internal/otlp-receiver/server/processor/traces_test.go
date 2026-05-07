@@ -42,7 +42,7 @@ func TestProcessTraces(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	proc := processor.NewProcessor(&stubOTLPConfigFetcher{}, nc, 1000)
+	proc := processor.NewProcessor(&stubOTLPConfigFetcher{}, nc, 50, 1000)
 
 	req := &coltracepb.ExportTraceServiceRequest{
 		ResourceSpans: []*tracev1.ResourceSpans{

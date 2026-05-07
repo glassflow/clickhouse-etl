@@ -71,3 +71,9 @@ var ErrSignalSent = errors.New("signal to stop component is sent")
 var ErrSchemaIDIsMissingInHeader = errors.New("schema id is missing in header")
 var ErrValidateSchema = errors.New("failed to validate data")
 var ErrDeduplicateData = errors.New("failed to deduplicate data")
+
+// ErrReceiverOverloaded is returned when the OTLP receiver has reached its concurrency limit.
+var ErrReceiverOverloaded = errors.New("receiver overloaded, try again later")
+
+// ErrStreamBackpressure is returned when the NATS stream is full and all publish retries are exhausted.
+var ErrStreamBackpressure = errors.New("stream back-pressure, try again later")

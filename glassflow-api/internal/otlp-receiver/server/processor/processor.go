@@ -16,6 +16,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
 	subjectrouter "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/subject/router"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 )
@@ -27,14 +28,31 @@ type OTLPConfigFetcher interface {
 func NewProcessor(
 	otlpConfigFetcher OTLPConfigFetcher,
 	nc *client.NATSClient,
+	maxConcurrent int,
 	natsChunkSize int,
 ) *Processor {
 	return &Processor{
 		otlpConfigFetcher: otlpConfigFetcher,
 		natsWriterCache:   make(map[string]writerConfig),
 		nc:                nc,
+		sem:               make(chan struct{}, maxConcurrent),
 		natsChunkSize:     natsChunkSize,
 	}
+}
+
+// acquire tries to take a semaphore slot without blocking.
+// Returns false if the processor is at capacity.
+func (p *Processor) acquire() bool {
+	select {
+	case p.sem <- struct{}{}:
+		return true
+	default:
+		return false
+	}
+}
+
+func (p *Processor) release() {
+	<-p.sem
 }
 
 const natsWriterCacheTTL = 60 * time.Second
@@ -50,6 +68,7 @@ type Processor struct {
 	natsWriterCache   map[string]writerConfig
 	natsWriterMu      sync.RWMutex
 	nc                *client.NATSClient
+	sem               chan struct{}
 	natsChunkSize     int
 }
 
@@ -108,6 +127,11 @@ func (p *Processor) sendBatch(
 	pipelineID string,
 	messages []models.Message,
 ) error {
+	if !p.acquire() {
+		return models.ErrReceiverOverloaded
+	}
+	defer p.release()
+
 	err := retry.Do(
 		func() error {
 			cfg, err := p.getWriterConfig(ctx, pipelineID)
@@ -132,7 +156,10 @@ func (p *Processor) sendBatch(
 			if len(failedMessages) > 0 {
 				p.invalidateNatsWriter(pipelineID)
 				messages = extractMessages(failedMessages)
-				return fmt.Errorf("write batch: %w", failedMessages[0].Error)
+				if stream.IsBackpressureErr(failedMessages[0].Error) {
+					return fmt.Errorf("write batch: %w", failedMessages[0].Error)
+				}
+				return retry.Unrecoverable(fmt.Errorf("write batch: %w", failedMessages[0].Error))
 			}
 
 			return nil
@@ -142,6 +169,9 @@ func (p *Processor) sendBatch(
 		retry.LastErrorOnly(true),
 	)
 	if err != nil {
+		if stream.IsBackpressureErr(errors.Unwrap(err)) || stream.IsBackpressureErr(err) {
+			return fmt.Errorf("%w: %w", models.ErrStreamBackpressure, err)
+		}
 		return err
 	}
 

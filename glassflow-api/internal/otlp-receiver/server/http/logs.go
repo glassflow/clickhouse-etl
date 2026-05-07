@@ -1,11 +1,13 @@
 package http
 
 import (
+	"errors"
 	nethttp "net/http"
 
 	collogspb "go.opentelemetry.io/proto/otlp/collector/logs/v1"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
 
 func (h handler) exportLogs(w nethttp.ResponseWriter, r *nethttp.Request) {
@@ -22,6 +24,11 @@ func (h handler) exportLogs(w nethttp.ResponseWriter, r *nethttp.Request) {
 	}
 
 	if err := h.otlpDataProcessor.ProcessLogs(r.Context(), pipelineID, req); err != nil {
+		if errors.Is(err, models.ErrReceiverOverloaded) || errors.Is(err, models.ErrStreamBackpressure) {
+			w.Header().Set("Retry-After", "1")
+			nethttp.Error(w, err.Error(), nethttp.StatusTooManyRequests)
+			return
+		}
 		nethttp.Error(w, err.Error(), nethttp.StatusInternalServerError)
 		return
 	}
