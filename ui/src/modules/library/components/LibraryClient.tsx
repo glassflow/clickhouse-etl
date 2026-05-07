@@ -5,7 +5,6 @@ import { PlusIcon, SearchIcon, SortAscIcon, UploadIcon, LibraryBigIcon } from 'l
 import { Button } from '@/src/components/ui/button'
 import { Input } from '@/src/components/ui/input'
 import { Crumbs } from '@/src/components/ui/crumbs'
-import { EmptyState } from '@/src/components/ui/empty-state'
 import {
   useKafkaConnections,
   useClickhouseConnections,
@@ -13,6 +12,7 @@ import {
   useLibraryFolders,
   useLibraryTransforms,
   useLibraryDedupConfigs,
+  useLibraryFilterConfigs,
   type KafkaConnection,
   type ClickhouseConnection,
   type LibrarySchema,
@@ -23,6 +23,7 @@ import { ConnectionsList } from './ConnectionsList'
 import { SchemaList } from './SchemaList'
 import { TransformsList } from './TransformsList'
 import { DedupConfigsList } from './DedupConfigsList'
+import { FilterConfigsList } from './FilterConfigsList'
 import { KafkaConnectionFormModal } from './KafkaConnectionFormModal'
 import { ClickHouseConnectionFormModal } from './ClickHouseConnectionFormModal'
 import { TransformFormModal } from './TransformFormModal'
@@ -113,6 +114,7 @@ export function LibraryClient() {
   const transforms = useLibraryTransforms()
   const folders = useLibraryFolders()
   const dedupConfigs = useLibraryDedupConfigs()
+  const filterConfigs = useLibraryFilterConfigs()
 
   // ─── Folder + tag filtering ────────────────────────────────────────────────
 
@@ -147,7 +149,7 @@ export function LibraryClient() {
     clickhouse: chItems.length,
     schemas: schemaItems.length,
     dedup: dedupConfigs.data?.length ?? 0,
-    filter: 0,
+    filter: filterConfigs.data?.length ?? 0,
     transforms: transformItems.length,
   }
 
@@ -327,6 +329,7 @@ export function LibraryClient() {
             schemas={schemas}
             transforms={transforms}
             dedupConfigs={dedupConfigs}
+            filterConfigs={filterConfigs}
             onEditKafka={handleEditKafka}
             onDeleteKafka={handleDeleteKafka}
             onEditCH={handleEditCH}
@@ -377,6 +380,7 @@ type SectionContentProps = {
   schemas: ReturnType<typeof useLibrarySchemas>
   transforms: ReturnType<typeof useLibraryTransforms>
   dedupConfigs: ReturnType<typeof useLibraryDedupConfigs>
+  filterConfigs: ReturnType<typeof useLibraryFilterConfigs>
   onEditKafka: (id: string) => void
   onDeleteKafka: (id: string) => Promise<void>
   onEditCH: (id: string) => void
@@ -400,6 +404,7 @@ function SectionContent({
   schemas,
   transforms,
   dedupConfigs,
+  filterConfigs,
   onEditKafka,
   onDeleteKafka,
   onEditCH,
@@ -475,13 +480,8 @@ function SectionContent({
   }
 
   if (activeSection === 'filter') {
-    return (
-      <EmptyState
-        heading="Filter configs coming soon"
-        copy="Filter configs saved from pipeline wizards will appear here."
-        cta={{ label: 'Go to Pipelines', href: '/pipelines' }}
-      />
-    )
+    if (filterConfigs.isLoading) return <LibraryGridSkeleton />
+    return <FilterConfigsList configs={filterConfigs.data ?? []} />
   }
 
   // "all" section — grouped view
