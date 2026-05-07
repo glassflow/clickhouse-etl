@@ -165,6 +165,9 @@ export interface MockSchema {
   fields: SchemaField[]
   createdAt: string
   updatedAt: string
+  latestVersion: string | null
+  hasDrift: boolean
+  usedByCount: number
 }
 
 export const mockSchemas: MockSchema[] = [
@@ -188,6 +191,9 @@ export const mockSchemas: MockSchema[] = [
     ],
     createdAt: '2024-01-08T08:00:00Z',
     updatedAt: '2024-02-10T12:00:00Z',
+    latestVersion: '2.0.0',
+    hasDrift: true,
+    usedByCount: 2,
   },
   {
     id: 'schema-002',
@@ -205,6 +211,9 @@ export const mockSchemas: MockSchema[] = [
     ],
     createdAt: '2024-01-09T10:00:00Z',
     updatedAt: '2024-01-20T09:00:00Z',
+    latestVersion: '1.0.0',
+    hasDrift: false,
+    usedByCount: 1,
   },
   {
     id: 'schema-003',
@@ -224,6 +233,9 @@ export const mockSchemas: MockSchema[] = [
     ],
     createdAt: '2024-01-14T13:00:00Z',
     updatedAt: '2024-01-14T13:00:00Z',
+    latestVersion: '1.2.0',
+    hasDrift: false,
+    usedByCount: 0,
   },
 ]
 

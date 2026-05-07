@@ -39,6 +39,9 @@ export interface LibrarySchema {
   fields: SchemaField[]
   createdAt: string
   updatedAt: string
+  latestVersion: string | null
+  hasDrift: boolean
+  usedByCount: number
 }
 
 export interface LibraryFolder {
