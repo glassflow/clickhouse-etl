@@ -108,7 +108,7 @@ export function PipelinesToolbar({
             onClick={() => onDensityChange(mode)}
             className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
               densityMode === mode
-                ? 'bg-[var(--color-foreground-primary)] text-white'
+                ? 'bg-[var(--color-foreground-primary)] text-[var(--button-primary-text)]'
                 : 'text-[var(--color-foreground-neutral-faded)] hover:text-[var(--color-foreground-neutral)]'
             }`}
           >
