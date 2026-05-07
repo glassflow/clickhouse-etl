@@ -17,9 +17,9 @@ func TestErrStreamBackpressure_WrapsBackpressureError(t *testing.T) {
 	// Wrapping ErrStreamBackpressure over a back-pressure cause should be
 	// detectable with errors.Is on both sentinels.
 	cause := stream.ErrStreamMaxPendingMsgs
-	wrapped := fmt.Errorf("%w: %w", ErrStreamBackpressure, cause)
+	wrapped := fmt.Errorf("%w: %w", models.ErrStreamBackpressure, cause)
 
-	require.True(t, errors.Is(wrapped, ErrStreamBackpressure))
+	require.True(t, errors.Is(wrapped, models.ErrStreamBackpressure))
 	require.True(t, errors.Is(wrapped, stream.ErrStreamMaxPendingMsgs))
 }
 

@@ -7,7 +7,7 @@ import (
 	coltracepb "go.opentelemetry.io/proto/otlp/collector/trace/v1"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/otlp-receiver/server/processor"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
 
 func (h handler) exportTraces(w nethttp.ResponseWriter, r *nethttp.Request) {
@@ -24,12 +24,12 @@ func (h handler) exportTraces(w nethttp.ResponseWriter, r *nethttp.Request) {
 	}
 
 	if err := h.otlpDataProcessor.ProcessTraces(r.Context(), pipelineID, req); err != nil {
-		if errors.Is(err, processor.ErrReceiverOverloaded) {
+		if errors.Is(err, models.ErrReceiverOverloaded) {
 			w.Header().Set("Retry-After", "1")
-			nethttp.Error(w, err.Error(), nethttp.StatusServiceUnavailable)
+			nethttp.Error(w, err.Error(), nethttp.StatusTooManyRequests)
 			return
 		}
-		if errors.Is(err, processor.ErrStreamBackpressure) {
+		if errors.Is(err, models.ErrStreamBackpressure) {
 			w.Header().Set("Retry-After", "1")
 			nethttp.Error(w, err.Error(), nethttp.StatusTooManyRequests)
 			return

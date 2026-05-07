@@ -21,12 +21,6 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 )
 
-// ErrReceiverOverloaded is returned when the processor has reached its concurrency limit.
-var ErrReceiverOverloaded = errors.New("receiver overloaded, try again later")
-
-// ErrStreamBackpressure is returned when the NATS stream is full and all retries are exhausted.
-var ErrStreamBackpressure = errors.New("stream back-pressure, try again later")
-
 type OTLPConfigFetcher interface {
 	GetOTLPConfig(ctx context.Context, pipelineID string) (models.OTLPConfig, error)
 }
@@ -134,7 +128,7 @@ func (p *Processor) sendBatch(
 	messages []models.Message,
 ) error {
 	if !p.acquire() {
-		return ErrReceiverOverloaded
+		return models.ErrReceiverOverloaded
 	}
 	defer p.release()
 
@@ -176,7 +170,7 @@ func (p *Processor) sendBatch(
 	)
 	if err != nil {
 		if stream.IsBackpressureErr(errors.Unwrap(err)) || stream.IsBackpressureErr(err) {
-			return fmt.Errorf("%w: %w", ErrStreamBackpressure, err)
+			return fmt.Errorf("%w: %w", models.ErrStreamBackpressure, err)
 		}
 		return err
 	}

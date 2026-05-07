@@ -10,7 +10,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/otlp-receiver/server/processor"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
 
 type metricServiceServer struct {
@@ -31,10 +31,10 @@ func (s *metricServiceServer) Export(
 		return nil, status.Error(codes.InvalidArgument, "missing x-glassflow-pipeline-id header")
 	}
 	if err := s.processor.ProcessMetrics(ctx, vals[0], req); err != nil {
-		if errors.Is(err, processor.ErrReceiverOverloaded) {
+		if errors.Is(err, models.ErrReceiverOverloaded) {
 			return nil, status.Error(codes.ResourceExhausted, err.Error())
 		}
-		if errors.Is(err, processor.ErrStreamBackpressure) {
+		if errors.Is(err, models.ErrStreamBackpressure) {
 			return nil, status.Error(codes.ResourceExhausted, err.Error())
 		}
 		return nil, status.Errorf(codes.Internal, "processing metrics: %v", err)
