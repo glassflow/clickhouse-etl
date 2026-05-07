@@ -16,7 +16,7 @@ interface PipelinesToolbarProps {
   availableTags: string[]
   densityMode: DensityMode
   onDensityChange: (mode: DensityMode) => void
-  filterButtonRef: React.RefObject<HTMLButtonElement>
+  filterButtonRef: React.RefObject<HTMLButtonElement | null>
   isFilterMenuOpen: boolean
   onFilterMenuToggle: () => void
 }

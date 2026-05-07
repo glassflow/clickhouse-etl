@@ -7,7 +7,7 @@ import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 import { ListPipelineConfig } from '@/src/types/pipeline'
 import { PipelinesTable } from '@/src/modules/pipelines/PipelinesTable'
 import { MobilePipelinesList } from '@/src/modules/pipelines/MobilePipelinesList'
-import { CreateIcon, FilterIcon } from '@/src/components/icons'
+import { CreateIcon } from '@/src/components/icons'
 import { InfoModal, ModalResult } from '@/src/components/common/InfoModal'
 import StopPipelineModal from './components/StopPipelineModal'
 import TerminatePipelineModal from './components/TerminatePipelineModal'
@@ -15,8 +15,7 @@ import DeletePipelineModal from './components/DeletePipelineModal'
 import RenamePipelineModal from './components/RenamePipelineModal'
 import EditPipelineModal from './components/EditPipelineModal'
 import PipelineTagsModal from './components/PipelineTagsModal'
-import { PipelineFilterMenu, FilterState } from './PipelineFilterMenu'
-import { FilterChip } from './FilterChip'
+import { PipelineFilterMenu } from './PipelineFilterMenu'
 import { useFiltersFromUrl } from './utils/filterUrl'
 import { useStopPipelineModal, useRenamePipelineModal, useEditPipelineModal, useTerminatePipelineModal } from './hooks'
 import { PipelineStatus } from '@/src/types/pipeline'
@@ -28,6 +27,13 @@ import { useMultiplePipelineState, usePipelineOperations, usePipelineMonitoring 
 import { getPipelineListColumns } from './columns/pipelineListColumns'
 import { usePipelineListOperations } from './usePipelineListOperations'
 import { DownloadFormatModal, type DownloadFormat } from '@/src/components/common/DownloadFormatModal'
+import { useBulkSelection } from './hooks/useBulkSelection'
+import { useListSearch } from './hooks/useListSearch'
+import { useSavedViews } from './hooks/useSavedViews'
+import { PipelinesToolbar } from './components/PipelinesToolbar'
+import { SavedViewsStrip } from './components/SavedViewsStrip'
+import { BulkActionBar } from './components/BulkActionBar'
+import { BulkTagModal } from './components/BulkTagModal'
 
 type PipelinesListProps = {
   pipelines: ListPipelineConfig[]
@@ -78,24 +84,13 @@ export function PipelinesList({
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false)
   const filterButtonRef = React.useRef<HTMLButtonElement>(null)
 
-  const [selectedPipelineIds, setSelectedPipelineIds] = useState<Set<string>>(new Set())
+  const [densityMode, setDensityMode] = useState<'table' | 'hybrid' | 'cards'>('table')
+  const search = useListSearch()
+  const bulk = useBulkSelection()
+  const savedViews = useSavedViews({ onFiltersChange: setFilters, initialFilters: filters })
 
-  const handleToggleSelect = useCallback((pipelineId: string) => {
-    setSelectedPipelineIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(pipelineId)) {
-        next.delete(pipelineId)
-      } else {
-        next.add(pipelineId)
-      }
-      return next
-    })
-  }, [])
-
-  const isSelected = useCallback(
-    (pipelineId: string) => selectedPipelineIds.has(pipelineId),
-    [selectedPipelineIds],
-  )
+  const [isBulkTagModalVisible, setIsBulkTagModalVisible] = useState(false)
+  const [isBulkLoading, setIsBulkLoading] = useState(false)
 
   const [tagsModalPipeline, setTagsModalPipeline] = useState<ListPipelineConfig | null>(null)
   const [isTagsModalVisible, setIsTagsModalVisible] = useState(false)
@@ -198,10 +193,8 @@ export function PipelinesList({
     return Array.from(tagSet).sort((a, b) => a.localeCompare(b))
   }, [pipelines])
 
-  // Filter pipelines based on active filters
   const filteredPipelines = useMemo(() => {
-    return pipelines.filter((pipeline) => {
-      // Apply status filter
+    const statusHealthTagFiltered = pipelines.filter((pipeline) => {
       if (filters.status.length > 0) {
         const effectiveStatus = getEffectiveStatus(pipeline)
         if (!filters.status.includes(effectiveStatus)) {
@@ -209,7 +202,6 @@ export function PipelinesList({
         }
       }
 
-      // Apply health filter
       if (filters.health.length > 0) {
         const healthStatus = pipeline.health_status || 'stable'
         if (!filters.health.includes(healthStatus)) {
@@ -228,9 +220,9 @@ export function PipelinesList({
 
       return true
     })
-  }, [pipelines, filters, pipelineStatuses])
+    return search.filterBySearch(statusHealthTagFiltered)
+  }, [pipelines, filters, pipelineStatuses, search.filterBySearch])
 
-  // Count pipelines that block new pipeline creation using effective status (active or paused)
   const activePipelinesCount = useMemo(() => {
     return pipelines.filter((p) => {
       const eff = pipelineStatuses[p.pipeline_id] ?? (p.status as PipelineStatus)
@@ -238,20 +230,113 @@ export function PipelinesList({
     }).length
   }, [pipelines, pipelineStatuses])
 
-  // Check if new pipeline creation should show limitation modal
   const shouldShowPipelineLimitModal = useMemo(() => {
-    // Only show modal for local and docker platforms
     if (!isDocker && !isLocal) {
       return false
     }
-
-    // Show modal if there are active or paused pipelines blocking new creation
     return activePipelinesCount > 0
   }, [isDocker, isLocal, activePipelinesCount])
 
   useEffect(() => {
     analytics.page.pipelines({})
-  }, [])
+  }, [analytics])
+
+  useEffect(() => {
+    bulk.clearSelection()
+  }, [filters])
+
+  const handleBulkStop = useCallback(async () => {
+    setIsBulkLoading(true)
+    try {
+      for (const id of bulk.selectedIds) {
+        const pipeline = pipelines.find((p) => p.pipeline_id === id)
+        if (pipeline) await handleStop(pipeline)
+      }
+    } finally {
+      bulk.clearSelection()
+      setIsBulkLoading(false)
+    }
+  }, [bulk.selectedIds, pipelines, handleStop])
+
+  const handleBulkResume = useCallback(async () => {
+    setIsBulkLoading(true)
+    try {
+      for (const id of bulk.selectedIds) {
+        const pipeline = pipelines.find((p) => p.pipeline_id === id)
+        if (pipeline) await handleResume(pipeline)
+      }
+    } finally {
+      bulk.clearSelection()
+      setIsBulkLoading(false)
+    }
+  }, [bulk.selectedIds, pipelines, handleResume])
+
+  const handleBulkTerminate = useCallback(async () => {
+    setIsBulkLoading(true)
+    try {
+      for (const id of bulk.selectedIds) {
+        const pipeline = pipelines.find((p) => p.pipeline_id === id)
+        if (pipeline) await handleTerminate(pipeline)
+      }
+    } finally {
+      bulk.clearSelection()
+      setIsBulkLoading(false)
+    }
+  }, [bulk.selectedIds, pipelines, handleTerminate])
+
+  const handleBulkDelete = useCallback(async () => {
+    setIsBulkLoading(true)
+    try {
+      for (const id of bulk.selectedIds) {
+        const pipeline = pipelines.find((p) => p.pipeline_id === id)
+        if (pipeline) await handleDelete(pipeline)
+      }
+    } finally {
+      bulk.clearSelection()
+      setIsBulkLoading(false)
+    }
+  }, [bulk.selectedIds, pipelines, handleDelete])
+
+  const handleBulkAddTagsConfirm = useCallback(async (tags: string[]) => {
+    if (!tags.length) return
+    setIsBulkLoading(true)
+    try {
+      for (const id of bulk.selectedIds) {
+        const pipeline = pipelines.find((p) => p.pipeline_id === id)
+        if (!pipeline) continue
+        const existingTags = pipeline.metadata?.tags || []
+        const merged = Array.from(new Set([...existingTags, ...tags]))
+        await updatePipelineMetadata(id, { tags: merged })
+        onUpdatePipelineTags?.(id, merged)
+      }
+      notify({
+        variant: 'success',
+        title: 'Tags added',
+        description: `Tags added to ${bulk.selectedCount} pipelines.`,
+        channel: 'toast',
+      })
+    } catch (error) {
+      handleApiError(error, { operation: 'add tags' })
+    } finally {
+      setIsBulkTagModalVisible(false)
+      bulk.clearSelection()
+      setIsBulkLoading(false)
+    }
+  }, [bulk.selectedIds, bulk.selectedCount, pipelines, onUpdatePipelineTags])
+
+  const getRowClassName = useCallback(
+    (pipeline: ListPipelineConfig): string => {
+      const effectiveStatus = getEffectiveStatus(pipeline) as string
+      if (effectiveStatus === 'failed') {
+        return 'border-l-2 border-[var(--color-foreground-critical)] bg-[color-mix(in_srgb,var(--color-foreground-critical)_4%,transparent)]'
+      }
+      if (pipeline.health_status === 'unstable' && effectiveStatus !== 'failed') {
+        return 'border-l-2 border-[var(--color-foreground-warning)] bg-[color-mix(in_srgb,var(--color-foreground-warning)_3%,transparent)]'
+      }
+      return ''
+    },
+    [getEffectiveStatus],
+  )
 
   const columns = useMemo(
     () =>
@@ -267,8 +352,8 @@ export function PipelinesList({
         onDelete: openDeleteConfirmModal,
         onDownload: handleOpenDownloadModal,
         onManageTags: handleManageTags,
-        onToggleSelect: handleToggleSelect,
-        isSelected,
+        onToggleSelect: bulk.toggleRow,
+        isSelected: bulk.isSelected,
       }),
     [
       isPipelineLoading,
@@ -282,18 +367,16 @@ export function PipelinesList({
       openDeleteConfirmModal,
       handleOpenDownloadModal,
       handleManageTags,
-      handleToggleSelect,
-      isSelected,
+      bulk.toggleRow,
+      bulk.isSelected,
     ],
   )
 
   const handleCreate = () => {
-    // Check if we're on a platform with limitations and there are active pipelines
     if (shouldShowPipelineLimitModal) {
       setShowPipelineLimitModal(true)
       return
     }
-
     router.push('/home')
   }
 
@@ -338,88 +421,50 @@ export function PipelinesList({
 
     if (result === ModalResult.YES) {
       // Stay on pipelines page to manage active pipelines
-      // The user can pause/delete the active pipeline from here
     }
   }
 
-  // Filter handlers
-  const handleClearStatusFilters = () => {
-    setFilters({ ...filters, status: [] })
-  }
-
-  const handleClearHealthFilters = () => {
-    setFilters({ ...filters, health: [] })
-  }
-
-  const handleClearTagFilters = () => {
-    setFilters({ ...filters, tags: [] })
-  }
-
-  const getStatusLabels = () => {
-    return filters.status.map((s) => s.charAt(0).toUpperCase() + s.slice(1))
-  }
-
-  const getHealthLabels = () => {
-    return filters.health.map((h) => h.charAt(0).toUpperCase() + h.slice(1))
-  }
-
-  const getTagLabels = () => {
-    return filters.tags
-  }
-
   return (
-    <div className="flex flex-col w-full gap-6">
-      {/* Header with title, filter button, chips, and new pipeline button */}
-      <div className="flex items-center justify-between w-full flex-wrap gap-3">
-        <div className="flex items-center gap-3 flex-wrap">
-          <h1 className="text-xl sm:text-2xl font-semibold">Pipelines</h1>
-          <button
-            ref={filterButtonRef}
-            onClick={() => setIsFilterMenuOpen(!isFilterMenuOpen)}
-            className="p-2 hover:opacity-70 rounded-lg transition-opacity duration-200 relative"
-            aria-label="Filter pipelines"
-          >
-            <FilterIcon size={20} className="text-[var(--color-foreground-neutral-faded)]" />
-            {(filters.status.length > 0 || filters.health.length > 0) && (
-              <span
-                className="absolute top-1 right-1 w-2 h-2 rounded-full"
-                style={{ background: 'linear-gradient(134deg, var(--button-primary-gradient-start), var(--button-primary-gradient-end))' }}
-              />
-            )}
-          </button>
-
-          {/* Filter chips - inline with title and button */}
-          {filters.status.length > 0 && (
-            <FilterChip
-              label="Status"
-              values={getStatusLabels()}
-              onRemove={handleClearStatusFilters}
-              onClick={() => setIsFilterMenuOpen(true)}
-            />
-          )}
-          {filters.health.length > 0 && (
-            <FilterChip
-              label="Health"
-              values={getHealthLabels()}
-              onRemove={handleClearHealthFilters}
-              onClick={() => setIsFilterMenuOpen(true)}
-            />
-          )}
-          {filters.tags.length > 0 && (
-            <FilterChip
-              label="Tags"
-              values={getTagLabels()}
-              onRemove={handleClearTagFilters}
-              onClick={() => setIsFilterMenuOpen(true)}
-            />
-          )}
-        </div>
-
+    <div className="flex flex-col w-full gap-4">
+      {/* Header row: title + new pipeline button */}
+      <div className="flex items-center justify-between w-full">
+        <h1 className="text-xl sm:text-2xl font-semibold">Pipelines</h1>
         <Button variant="primary" size="custom" onClick={handleCreate}>
           <CreateIcon className="action-icon" size={16} />
           New Pipeline
         </Button>
       </div>
+
+      {/* Saved views tab strip */}
+      <SavedViewsStrip
+        views={savedViews.views}
+        activeViewId={savedViews.activeViewId}
+        onSelectView={savedViews.selectView}
+        onSaveCurrentView={(name) => savedViews.saveCurrentView(name, filters)}
+        onDeleteView={savedViews.deleteView}
+        getPipelineCount={(view) => {
+          if (view.id === savedViews.activeViewId) return filteredPipelines.length
+          return pipelines.filter((p) => {
+            if (view.filters.status.length > 0 && !view.filters.status.includes(getEffectiveStatus(p))) return false
+            if (view.filters.health.length > 0 && !view.filters.health.includes(p.health_status || 'stable')) return false
+            return true
+          }).length
+        }}
+      />
+
+      {/* Toolbar: search, filter button, chips, density toggle */}
+      <PipelinesToolbar
+        searchQuery={search.searchQuery}
+        onSearchChange={search.setSearchQuery}
+        filters={filters}
+        onFiltersChange={setFilters}
+        availableTags={availableTags}
+        densityMode={densityMode}
+        onDensityChange={setDensityMode}
+        filterButtonRef={filterButtonRef}
+        isFilterMenuOpen={isFilterMenuOpen}
+        onFilterMenuToggle={() => setIsFilterMenuOpen(!isFilterMenuOpen)}
+      />
 
       {/* Filter Menu */}
       <PipelineFilterMenu
@@ -431,11 +476,26 @@ export function PipelinesList({
         availableTags={availableTags}
       />
 
+      {/* Bulk action bar */}
+      {bulk.selectedCount > 0 && (
+        <BulkActionBar
+          selectedCount={bulk.selectedCount}
+          totalVisible={filteredPipelines.length}
+          onStop={handleBulkStop}
+          onResume={handleBulkResume}
+          onTerminate={handleBulkTerminate}
+          onDelete={handleBulkDelete}
+          onAddTag={() => setIsBulkTagModalVisible(true)}
+          isLoading={isBulkLoading}
+        />
+      )}
+
       {/* Desktop/Tablet Table */}
       <div className="hidden md:block">
         <PipelinesTable
           data={filteredPipelines}
           columns={columns}
+          rowClassName={getRowClassName}
           emptyMessage="No pipelines found. Adjust your filters or create a new pipeline to get started."
           onRowClick={(pipeline) => router.push(`/pipelines/${pipeline.pipeline_id}`)}
         />
@@ -467,58 +527,45 @@ export function PipelinesList({
         onCancel={handleTagsModalClose}
         isSaving={isSavingTags}
       />
-
       <StopPipelineModal
         visible={isStopModalVisible}
-        onOk={async () => {
-          if (!stopSelectedPipeline) return
-          closeStopModal()
-          await handleStopConfirm(stopSelectedPipeline)
-        }}
+        onOk={async () => { if (!stopSelectedPipeline) return; closeStopModal(); await handleStopConfirm(stopSelectedPipeline) }}
         onCancel={closeStopModal}
       />
       <RenamePipelineModal
         visible={isRenameModalVisible}
         currentName={renameSelectedPipeline?.name || ''}
-        onOk={async (newName) => {
-          if (!renameSelectedPipeline || !newName) return
-          closeRenameModal()
-          await handleRenameConfirm(renameSelectedPipeline, newName)
-        }}
+        onOk={async (newName) => { if (!renameSelectedPipeline || !newName) return; closeRenameModal(); await handleRenameConfirm(renameSelectedPipeline, newName) }}
         onCancel={closeRenameModal}
       />
       <EditPipelineModal
         visible={isEditModalVisible}
-        onOk={async () => {
-          if (!editSelectedPipeline) return
-          closeEditModal()
-          await handleEditConfirm(editSelectedPipeline)
-        }}
+        onOk={async () => { if (!editSelectedPipeline) return; closeEditModal(); await handleEditConfirm(editSelectedPipeline) }}
         onCancel={closeEditModal}
       />
       <TerminatePipelineModal
         visible={isTerminateModalVisible}
-        onOk={async () => {
-          if (!deleteSelectedPipeline) return
-          closeTerminateModal()
-          await handleTerminateConfirm(deleteSelectedPipeline)
-        }}
+        onOk={async () => { if (!deleteSelectedPipeline) return; closeTerminateModal(); await handleTerminateConfirm(deleteSelectedPipeline) }}
         onCancel={closeTerminateModal}
       />
-
       <DeletePipelineModal
         visible={isDeleteConfirmVisible}
         pipelineName={deleteConfirmPipeline?.name}
         onOk={handleDeleteConfirm}
         onCancel={closeDeleteConfirmModal}
       />
-
       <DownloadFormatModal
         visible={!!downloadModalPipeline}
         onDownload={handleDownloadWithFormat}
         onCancel={() => setDownloadModalPipeline(null)}
       />
-
+      <BulkTagModal
+        visible={isBulkTagModalVisible}
+        selectedCount={bulk.selectedCount}
+        onAddTags={handleBulkAddTagsConfirm}
+        onCancel={() => setIsBulkTagModalVisible(false)}
+        isLoading={isBulkLoading}
+      />
       <InfoModal
         visible={showPipelineLimitModal}
         title="Pipeline Limit Reached"
