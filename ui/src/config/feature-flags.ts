@@ -93,3 +93,17 @@ export const isTransformationsEnabled = (): boolean => {
 export const isNotificationsEnabled = (): boolean => {
   return getFeatureFlag('NEXT_PUBLIC_NOTIFICATIONS_ENABLED')
 }
+
+/**
+ * Check if external schema registry feature is enabled.
+ * Controls visibility of schema registry configuration in the Kafka connection form,
+ * the registry schema panel in topic selection, the schema source indicator in type
+ * verification, the schema registry row in the review step, and the schema bindings
+ * section in pipeline details.
+ * Hidden by default — must be explicitly set to 'true' to activate.
+ *
+ * @env NEXT_PUBLIC_SCHEMA_REGISTRY_ENABLED - Set to 'true' to enable schema registry
+ */
+export const isSchemaRegistryEnabled = (): boolean => {
+  return getFeatureFlag('NEXT_PUBLIC_SCHEMA_REGISTRY_ENABLED')
+}

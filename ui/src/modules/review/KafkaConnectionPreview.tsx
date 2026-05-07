@@ -1,3 +1,5 @@
+import { isSchemaRegistryEnabled } from '@/src/config/feature-flags'
+
 export function KafkaConnectionPreview({ kafkaStore }: { kafkaStore: any }) {
   if (!kafkaStore) return <div>Not configured</div>
 
@@ -36,7 +38,7 @@ export function KafkaConnectionPreview({ kafkaStore }: { kafkaStore: any }) {
         </>
       ) : null}
 
-      {kafkaStore.schemaRegistry?.enabled && (
+      {isSchemaRegistryEnabled() && kafkaStore.schemaRegistry?.enabled && (
         <>
           <div className="text-sm text-muted-foreground">Schema Registry:</div>
           <div>{kafkaStore.schemaRegistry.url}</div>

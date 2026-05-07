@@ -9,6 +9,7 @@ import { hydrateFromSchemaBinding } from '@/src/store/hydration/schema-binding'
 import { getPipelineForBinding } from '@/src/api/pipeline-api'
 import { structuredLogger } from '@/src/observability'
 import type { SchemaRegistryFormType } from '@/src/scheme/kafka.scheme'
+import { isSchemaRegistryEnabled } from '@/src/config/feature-flags'
 
 export interface SchemaBindingsSectionHandle {
   refresh: () => void
@@ -45,6 +46,8 @@ const SchemaBindingsSection = forwardRef<SchemaBindingsSectionHandle, SchemaBind
     const isViewingHistorical = coreStore.isViewingHistoricalBinding()
 
     const topicNames = Object.keys(bindingsPerTopic)
+
+    if (!isSchemaRegistryEnabled()) return null
 
     // Don't render anything until discovery has run and found no bindings at all
     if (!isLoading && topicNames.length === 0) {

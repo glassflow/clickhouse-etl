@@ -6,6 +6,7 @@ import { FieldErrors } from 'react-hook-form'
 import { KafkaConnectionFormType } from '@/src/scheme'
 import { AUTH_OPTIONS } from '@/src/config/constants'
 import { useEffect, useState } from 'react'
+import { isSchemaRegistryEnabled } from '@/src/config/feature-flags'
 import { SECURITY_PROTOCOL_OPTIONS_SASL, SECURITY_PROTOCOL_OPTIONS } from '@/src/config/constants'
 import { Switch } from '@/src/components/ui/switch'
 import {
@@ -308,7 +309,7 @@ export const KafkaConnectionFormRenderer = ({
     >
       <div>{renderBaseForm({ authMethod, readOnly })}</div>
       <div>{renderAuthForm({ readOnly: readOnly })}</div>
-      <SchemaRegistrySection schemaRegistryError={schemaRegistryError} readOnly={readOnly} />
+      {isSchemaRegistryEnabled() && <SchemaRegistrySection schemaRegistryError={schemaRegistryError} readOnly={readOnly} />}
     </div>
   )
 }
