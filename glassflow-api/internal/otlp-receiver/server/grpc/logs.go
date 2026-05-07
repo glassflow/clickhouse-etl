@@ -31,10 +31,7 @@ func (s *logServiceServer) Export(
 		return nil, status.Error(codes.InvalidArgument, "missing x-glassflow-pipeline-id header")
 	}
 	if err := s.processor.ProcessLogs(ctx, vals[0], req); err != nil {
-		if errors.Is(err, models.ErrReceiverOverloaded) {
-			return nil, status.Error(codes.ResourceExhausted, err.Error())
-		}
-		if errors.Is(err, models.ErrStreamBackpressure) {
+		if errors.Is(err, models.ErrReceiverOverloaded) || errors.Is(err, models.ErrStreamBackpressure) {
 			return nil, status.Error(codes.ResourceExhausted, err.Error())
 		}
 		return nil, status.Errorf(codes.Internal, "processing logs: %v", err)

@@ -24,12 +24,7 @@ func (h handler) exportTraces(w nethttp.ResponseWriter, r *nethttp.Request) {
 	}
 
 	if err := h.otlpDataProcessor.ProcessTraces(r.Context(), pipelineID, req); err != nil {
-		if errors.Is(err, models.ErrReceiverOverloaded) {
-			w.Header().Set("Retry-After", "1")
-			nethttp.Error(w, err.Error(), nethttp.StatusTooManyRequests)
-			return
-		}
-		if errors.Is(err, models.ErrStreamBackpressure) {
+		if errors.Is(err, models.ErrReceiverOverloaded) || errors.Is(err, models.ErrStreamBackpressure) {
 			w.Header().Set("Retry-After", "1")
 			nethttp.Error(w, err.Error(), nethttp.StatusTooManyRequests)
 			return
