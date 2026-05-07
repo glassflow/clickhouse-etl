@@ -1,10 +1,11 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
+import type { UsedByEntry } from '@/src/hooks/useLibraryDetail'
 import { ConnectionBlastRadiusDialog } from '../ConnectionBlastRadiusDialog'
 
-const usedBy = [
-  { pipelineId: 'p1', pipelineName: 'orders-prod' },
-  { pipelineId: 'p2', pipelineName: 'orders-stg' },
+const usedBy: UsedByEntry[] = [
+  { pipelineId: 'p1', pipelineName: 'orders-prod', health: 'ok', status: 'active', drift: false },
+  { pipelineId: 'p2', pipelineName: 'orders-stg', health: 'ok', status: 'active', drift: false },
 ]
 
 describe('ConnectionBlastRadiusDialog', () => {

@@ -24,6 +24,9 @@ export type UsedByEntry = {
   pipelineId: string
   pipelineName: string
   pinnedVersion?: string
+  health: 'ok' | 'warn' | 'err'
+  status: 'active' | 'stopped'
+  drift: boolean
 }
 
 export async function findPipelinesUsingKafkaConnection(
@@ -92,5 +95,8 @@ async function findPipelinesByResource(
     pipelineId,
     pipelineName: nameById.get(pipelineId) ?? pipelineId,
     pinnedVersion: info.pinnedVersion ?? undefined,
+    health: 'ok' as const,
+    status: 'active' as const,
+    drift: false,
   }))
 }
