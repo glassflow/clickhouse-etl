@@ -36,6 +36,7 @@ export interface PipelinesTableProps {
   className?: string
   onRowClick?: (item: ListPipelineConfig) => void
   isLoading?: boolean
+  rowClassName?: (item: ListPipelineConfig) => string
 }
 
 export function PipelinesTable({
@@ -45,6 +46,7 @@ export function PipelinesTable({
   className,
   onRowClick,
   isLoading = false,
+  rowClassName,
 }: PipelinesTableProps) {
   const gridTemplateColumns = columns.map((col) => col.width || '1fr').join(' ')
   const [sortColumn, setSortColumn] = useState<string | null>(null)
@@ -217,7 +219,7 @@ export function PipelinesTable({
         {sortedData.map((item) => (
           <div
             key={item.pipeline_id}
-            className={cn('table-row', onRowClick && 'cursor-pointer')}
+            className={cn('table-row', onRowClick && 'cursor-pointer', rowClassName?.(item))}
             onClick={() => onRowClick?.(item)}
             style={{ gridTemplateColumns }}
           >

@@ -151,3 +151,26 @@ describe('PipelinesTable', () => {
     expect(screen.getByText('Loading...')).toBeInTheDocument()
   })
 })
+
+describe('rowClassName', () => {
+  const columns: TableColumn<ListPipelineConfig>[] = [
+    { key: 'name', header: 'Name', render: (item) => item.name },
+  ]
+
+  it('applies rowClassName result to each row', () => {
+    const rowClassName = (item: ListPipelineConfig) =>
+      item.pipeline_id === 'p1' ? 'highlight-row' : ''
+    const { container } = render(
+      <PipelinesTable data={mockData} columns={columns} rowClassName={rowClassName} />,
+    )
+    const rows = container.querySelectorAll('.table-row')
+    expect(rows[0].className).toContain('highlight-row')
+    expect(rows[1].className).not.toContain('highlight-row')
+  })
+
+  it('renders normally when rowClassName is not provided', () => {
+    const { container } = render(<PipelinesTable data={mockData} columns={columns} />)
+    const rows = container.querySelectorAll('.table-row')
+    expect(rows[0].className).toContain('table-row')
+  })
+})
