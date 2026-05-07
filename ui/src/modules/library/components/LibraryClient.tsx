@@ -12,6 +12,7 @@ import {
   useLibrarySchemas,
   useLibraryFolders,
   useLibraryTransforms,
+  useLibraryDedupConfigs,
   type KafkaConnection,
   type ClickhouseConnection,
   type LibrarySchema,
@@ -21,6 +22,7 @@ import {
 import { ConnectionsList } from './ConnectionsList'
 import { SchemaList } from './SchemaList'
 import { TransformsList } from './TransformsList'
+import { DedupConfigsList } from './DedupConfigsList'
 import { KafkaConnectionFormModal } from './KafkaConnectionFormModal'
 import { ClickHouseConnectionFormModal } from './ClickHouseConnectionFormModal'
 import { TransformFormModal } from './TransformFormModal'
@@ -110,6 +112,7 @@ export function LibraryClient() {
   const schemas = useLibrarySchemas()
   const transforms = useLibraryTransforms()
   const folders = useLibraryFolders()
+  const dedupConfigs = useLibraryDedupConfigs()
 
   // ─── Folder + tag filtering ────────────────────────────────────────────────
 
@@ -143,7 +146,7 @@ export function LibraryClient() {
     kafka: kafkaItems.length,
     clickhouse: chItems.length,
     schemas: schemaItems.length,
-    dedup: 0,
+    dedup: dedupConfigs.data?.length ?? 0,
     filter: 0,
     transforms: transformItems.length,
   }
@@ -323,6 +326,7 @@ export function LibraryClient() {
             clickhouse={clickhouse}
             schemas={schemas}
             transforms={transforms}
+            dedupConfigs={dedupConfigs}
             onEditKafka={handleEditKafka}
             onDeleteKafka={handleDeleteKafka}
             onEditCH={handleEditCH}
@@ -372,6 +376,7 @@ type SectionContentProps = {
   clickhouse: ReturnType<typeof useClickhouseConnections>
   schemas: ReturnType<typeof useLibrarySchemas>
   transforms: ReturnType<typeof useLibraryTransforms>
+  dedupConfigs: ReturnType<typeof useLibraryDedupConfigs>
   onEditKafka: (id: string) => void
   onDeleteKafka: (id: string) => Promise<void>
   onEditCH: (id: string) => void
@@ -394,6 +399,7 @@ function SectionContent({
   clickhouse,
   schemas,
   transforms,
+  dedupConfigs,
   onEditKafka,
   onDeleteKafka,
   onEditCH,
@@ -463,12 +469,16 @@ function SectionContent({
     )
   }
 
-  if (activeSection === 'dedup' || activeSection === 'filter') {
-    const label = activeSection === 'dedup' ? 'Dedup configs' : 'Filter configs'
+  if (activeSection === 'dedup') {
+    if (dedupConfigs.isLoading) return <LibraryGridSkeleton />
+    return <DedupConfigsList configs={dedupConfigs.data ?? []} />
+  }
+
+  if (activeSection === 'filter') {
     return (
       <EmptyState
-        heading={`${label} coming soon`}
-        copy="Dedup and filter configs saved from pipeline wizards will appear here. For now, create them directly within a pipeline."
+        heading="Filter configs coming soon"
+        copy="Filter configs saved from pipeline wizards will appear here."
         cta={{ label: 'Go to Pipelines', href: '/pipelines' }}
       />
     )
