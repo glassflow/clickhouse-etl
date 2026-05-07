@@ -525,6 +525,59 @@ export const mockDedupConfigs: MockDedupConfig[] = [
   },
 ]
 
+// ─── Filter configs ───────────────────────────────────────────────────────────
+
+export type MockFilterRule = { id: string; field: string; operator: string; value: string | null }
+export type MockFilterRuleGroup = { id: string; combinator: 'and' | 'or'; rules: Array<MockFilterRule | MockFilterRuleGroup> }
+export type MockFilterConfig = {
+  id: string; name: string; description: string | null
+  folderId: string | null; tags: string[]
+  boundSchemaId: string | null
+  rules: Array<MockFilterRule | MockFilterRuleGroup>
+  latestVersion: string; usedByCount: number
+  createdAt: string; updatedAt: string
+}
+
+export const mockFilterConfigs: MockFilterConfig[] = [
+  {
+    id: 'filter-1',
+    name: 'High-value orders',
+    description: 'Passes only orders with amount > 1000',
+    folderId: null,
+    tags: ['production', 'orders'],
+    boundSchemaId: null,
+    rules: [
+      { id: 'r1', field: 'amount', operator: 'gt', value: '1000' },
+    ],
+    latestVersion: 'v1',
+    usedByCount: 2,
+    createdAt: '2026-01-20T10:00:00Z',
+    updatedAt: '2026-04-15T09:00:00Z',
+  },
+  {
+    id: 'filter-2',
+    name: 'Error events only',
+    description: 'Passes log lines with severity=error or severity=fatal',
+    folderId: null,
+    tags: ['observability'],
+    boundSchemaId: null,
+    rules: [
+      {
+        id: 'g1',
+        combinator: 'or',
+        rules: [
+          { id: 'r2', field: 'severity', operator: 'eq', value: 'error' },
+          { id: 'r3', field: 'severity', operator: 'eq', value: 'fatal' },
+        ],
+      },
+    ],
+    latestVersion: 'v3',
+    usedByCount: 4,
+    createdAt: '2026-02-05T14:00:00Z',
+    updatedAt: '2026-05-02T08:30:00Z',
+  },
+]
+
 // ─── Used-by (pre-wired to mock pipelines) ────────────────────────────────────
 
 export interface MockUsedByEntry {

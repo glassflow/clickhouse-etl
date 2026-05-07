@@ -179,3 +179,49 @@ export interface LibraryDedupConfig {
 export function useLibraryDedupConfigs() {
   return useLibraryFetch<LibraryDedupConfig[]>(getApiUrl('library/dedup'))
 }
+
+// ─── Filter configs ───────────────────────────────────────────────────────────
+
+export type LibraryFilterOperator =
+  | 'eq'
+  | 'neq'
+  | 'gt'
+  | 'gte'
+  | 'lt'
+  | 'lte'
+  | 'contains'
+  | 'not_contains'
+  | 'starts_with'
+  | 'is_null'
+  | 'is_not_null'
+
+export interface LibraryFilterRule {
+  id: string
+  field: string
+  operator: LibraryFilterOperator
+  value: string | null
+}
+
+export interface LibraryFilterRuleGroup {
+  id: string
+  combinator: 'and' | 'or'
+  rules: Array<LibraryFilterRule | LibraryFilterRuleGroup>
+}
+
+export interface LibraryFilterConfig {
+  id: string
+  name: string
+  description: string | null
+  folderId: string | null
+  tags: string[]
+  boundSchemaId: string | null
+  rules: Array<LibraryFilterRule | LibraryFilterRuleGroup>
+  latestVersion: string
+  usedByCount: number
+  createdAt: string
+  updatedAt: string
+}
+
+export function useLibraryFilterConfigs() {
+  return useLibraryFetch<LibraryFilterConfig[]>(getApiUrl('library/filter'))
+}
