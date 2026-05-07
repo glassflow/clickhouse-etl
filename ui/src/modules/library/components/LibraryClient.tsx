@@ -43,9 +43,15 @@ async function deleteResource(url: string): Promise<boolean> {
 
 function sortItems<T extends { name: string; updatedAt: string }>(
   items: T[],
-  sortBy: 'updated' | 'name',
+  sortBy: 'updated' | 'name' | 'usage',
 ): T[] {
   if (sortBy === 'name') return [...items].sort((a, b) => a.name.localeCompare(b.name))
+  if (sortBy === 'usage')
+    return [...items].sort(
+      (a, b) =>
+        ((b as Record<string, unknown>).usedByCount as number ?? 0) -
+        ((a as Record<string, unknown>).usedByCount as number ?? 0),
+    )
   return [...items].sort(
     (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
   )
@@ -97,7 +103,7 @@ export function LibraryClient() {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null)
   const [selectedTag, setSelectedTag] = useState<string | null>(null)
-  const [sortBy, setSortBy] = useState<'updated' | 'name'>('updated')
+  const [sortBy, setSortBy] = useState<'updated' | 'name' | 'usage'>('updated')
 
   // Modal state
   const [kafkaModalOpen, setKafkaModalOpen] = useState(false)
@@ -244,28 +250,6 @@ export function LibraryClient() {
       {/* Breadcrumb */}
       <Crumbs crumbs={[{ label: 'Library', href: '/library' }, { label: title }]} />
 
-      {/* Page header */}
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <h1 className="title-2 text-[var(--text-primary)]">{title}</h1>
-          <p className="body-3 text-[var(--text-secondary)]">{description}</p>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {activeSection === 'schemas' && (
-            <Button variant="secondary" size="sm">
-              <UploadIcon size={13} className="mr-1.5" />
-              Import
-            </Button>
-          )}
-          {canAdd && (
-            <Button variant="primary" size="sm" onClick={handleAddClick}>
-              <PlusIcon size={14} className="mr-1.5" />
-              {addLabel}
-            </Button>
-          )}
-        </div>
-      </div>
-
       {/* Main layout: sidebar + content */}
       <div className="flex gap-8">
         <LibrarySideNav
@@ -273,6 +257,7 @@ export function LibraryClient() {
           onSectionChange={(s) => {
             setActiveSection(s)
             setSearchQuery('')
+            if (s !== 'schemas' && sortBy === 'usage') setSortBy('updated')
           }}
           counts={counts}
           folders={foldersData}
@@ -284,9 +269,31 @@ export function LibraryClient() {
         />
 
         {/* Content area */}
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 flex flex-col gap-5">
+          {/* Section header — aligned with content, not sidebar */}
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex flex-col gap-1">
+              <h1 className="title-2 text-[var(--text-primary)]">{title}</h1>
+              <p className="body-3 text-[var(--text-secondary)]">{description}</p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {activeSection === 'schemas' && (
+                <Button variant="secondary" size="sm">
+                  <UploadIcon size={13} className="mr-1.5" />
+                  Import
+                </Button>
+              )}
+              {canAdd && (
+                <Button variant="primary" size="sm" onClick={handleAddClick}>
+                  <PlusIcon size={14} className="mr-1.5" />
+                  {addLabel}
+                </Button>
+              )}
+            </div>
+          </div>
+
           {/* Filter bar */}
-          <div className="flex items-center gap-3 flex-wrap mb-5">
+          <div className="flex items-center gap-3 flex-wrap">
             {/* Search */}
             <div className="relative flex-1 min-w-[180px] max-w-[360px]">
               <SearchIcon
@@ -310,6 +317,7 @@ export function LibraryClient() {
                 options={[
                   { value: 'updated', label: 'Updated' },
                   { value: 'name', label: 'Name' },
+                  ...(activeSection === 'schemas' ? [{ value: 'usage' as const, label: 'Usage' }] : []),
                 ]}
               />
             </div>

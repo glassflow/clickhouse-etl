@@ -38,7 +38,19 @@ describe('SchemaDetail', () => {
     render(<SchemaDetail schema={mockSchema} usedBy={mockUsedBy} />)
     expect(screen.getByText('Field')).toBeInTheDocument()
     expect(screen.getByText('Type')).toBeInTheDocument()
-    expect(screen.getByText('Nullable')).toBeInTheDocument()
+    expect(screen.getByText('Required')).toBeInTheDocument()
+  })
+
+  it('shows required badge for non-nullable fields', () => {
+    render(<SchemaDetail schema={mockSchema} usedBy={mockUsedBy} />)
+    const badges = screen.getAllByText('required')
+    expect(badges.length).toBe(2)
+  })
+
+  it('shows Edit fields and Duplicate buttons', () => {
+    render(<SchemaDetail schema={mockSchema} usedBy={mockUsedBy} />)
+    expect(screen.getByRole('button', { name: /Edit fields/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Duplicate/i })).toBeInTheDocument()
   })
 
   it('renders each field row', () => {

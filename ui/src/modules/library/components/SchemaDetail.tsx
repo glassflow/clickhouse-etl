@@ -6,32 +6,10 @@ import { Card } from '@/src/components/ui/card'
 import { Button } from '@/src/components/ui/button'
 import { Badge } from '@/src/components/ui/badge'
 import { SchemaVersionTimeline } from './SchemaVersionTimeline'
+import { UsedByTable } from './UsedByTable'
 import { useSchemaVersions } from '@/src/hooks/useLibraryDetail'
 import type { LibrarySchema } from '@/src/hooks/useLibraryConnections'
 import type { UsedByEntry } from '@/src/hooks/useLibraryDetail'
-
-function UsedByRow({ entry }: { entry: UsedByEntry }) {
-  const colorMap = { ok: 'success', warn: 'warning', err: 'error' } as const
-  return (
-    <tr className="border-b border-[var(--surface-border)] last:border-0">
-      <td className="py-2.5 pr-4">
-        <span className="body-3 text-[var(--text-primary)]">{entry.pipelineName}</span>
-      </td>
-      <td className="py-2.5 pr-4">
-        {entry.pinnedVersion
-          ? <Badge variant="secondary">{entry.pinnedVersion}</Badge>
-          : <span className="caption-1 text-[var(--text-secondary)]">latest</span>
-        }
-      </td>
-      <td className="py-2.5 pr-4">
-        <Badge variant={colorMap[entry.health]}>{entry.status}</Badge>
-      </td>
-      <td className="py-2.5">
-        {entry.drift && <Badge variant="warning">drift</Badge>}
-      </td>
-    </tr>
-  )
-}
 
 type Props = {
   schema: LibrarySchema
@@ -60,14 +38,30 @@ export function SchemaDetail({ schema, usedBy }: Props) {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => router.back()} aria-label="Back">
-          <ArrowLeftIcon size={16} />
-        </Button>
-        <h1 className="title-4 text-[var(--text-primary)]">{schema.name}</h1>
-        {schema.latestVersion && <Badge variant="secondary">{schema.latestVersion}</Badge>}
-        {schema.hasDrift && <Badge variant="warning">drift</Badge>}
-        <Badge variant="outline" className="capitalize">{schema.source}</Badge>
+      {/* Header */}
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={() => router.back()} aria-label="Back">
+            <ArrowLeftIcon size={16} />
+          </Button>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="title-4 text-[var(--text-primary)]">{schema.name}</h1>
+              {schema.latestVersion && <Badge variant="secondary" className="font-mono">{schema.latestVersion}</Badge>}
+              {schema.hasDrift && <Badge variant="warning">drift</Badge>}
+              <Badge variant="outline" className="capitalize">{schema.source}</Badge>
+            </div>
+            {schema.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-1.5">
+                {schema.tags.map(t => <Badge key={t} variant="secondary">{t}</Badge>)}
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button variant="ghost" size="sm">Duplicate</Button>
+          <Button variant="primary" size="sm">Edit fields</Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-6">
@@ -83,24 +77,29 @@ export function SchemaDetail({ schema, usedBy }: Props) {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-[var(--surface-border)]">
-                    <th className="text-left caption-1 text-[var(--text-secondary)] pb-2 pr-4">Field</th>
-                    <th className="text-left caption-1 text-[var(--text-secondary)] pb-2 pr-4">Type</th>
-                    <th className="text-left caption-1 text-[var(--text-secondary)] pb-2 pr-4">Nullable</th>
-                    <th className="text-left caption-1 text-[var(--text-secondary)] pb-2">Description</th>
+                    <th className="text-left caption-1 text-[var(--text-tertiary)] pb-2 pr-4 w-6">#</th>
+                    <th className="text-left caption-1 text-[var(--text-tertiary)] pb-2 pr-4">Field</th>
+                    <th className="text-left caption-1 text-[var(--text-tertiary)] pb-2 pr-4">Type</th>
+                    <th className="text-left caption-1 text-[var(--text-tertiary)] pb-2 pr-4">Required</th>
+                    <th className="text-left caption-1 text-[var(--text-tertiary)] pb-2">Description</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {schema.fields.map(f => (
+                  {schema.fields.map((f, i) => (
                     <tr key={f.name} className="border-b border-[var(--surface-border)] last:border-0">
+                      <td className="py-2.5 pr-4 caption-1 text-[var(--text-tertiary)]">{i + 1}</td>
                       <td className="py-2.5 pr-4 font-mono body-3 text-[var(--text-primary)]">{f.name}</td>
                       <td className="py-2.5 pr-4">
-                        <Badge variant="secondary">{f.type}</Badge>
+                        <span className="font-mono caption-1 text-[var(--text-secondary)]">{f.type}</span>
                       </td>
-                      <td className="py-2.5 pr-4 body-3 text-[var(--text-secondary)]">
-                        {f.nullable ? 'yes' : 'no'}
+                      <td className="py-2.5 pr-4">
+                        {!f.nullable
+                          ? <Badge variant="success" className="text-[10px] h-[18px]">required</Badge>
+                          : <span className="caption-1 text-[var(--text-tertiary)]">optional</span>
+                        }
                       </td>
                       <td className="py-2.5 body-3 text-[var(--text-secondary)]">
-                        {(f as { description?: string }).description ?? '—'}
+                        {(f as { description?: string }).description ?? <span className="text-[var(--text-tertiary)]">—</span>}
                       </td>
                     </tr>
                   ))}
@@ -113,26 +112,10 @@ export function SchemaDetail({ schema, usedBy }: Props) {
             <h2 className="title-6 text-[var(--text-primary)] mb-3">
               Used by
               {usedBy.length > 0 && (
-                <span className="ml-2 caption-1 text-[var(--text-secondary)]">{usedBy.length}</span>
+                <span className="ml-2 caption-1 text-[var(--text-secondary)]">{usedBy.length} pipeline{usedBy.length !== 1 ? 's' : ''}</span>
               )}
             </h2>
-            {usedBy.length === 0 ? (
-              <p className="body-3 text-[var(--text-secondary)]">Not used by any pipeline.</p>
-            ) : (
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-[var(--surface-border)]">
-                    <th className="text-left caption-1 text-[var(--text-secondary)] pb-2 pr-4">Pipeline</th>
-                    <th className="text-left caption-1 text-[var(--text-secondary)] pb-2 pr-4">Version</th>
-                    <th className="text-left caption-1 text-[var(--text-secondary)] pb-2 pr-4">Status</th>
-                    <th className="text-left caption-1 text-[var(--text-secondary)] pb-2">Drift</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {usedBy.map(e => <UsedByRow key={e.pipelineId} entry={e} />)}
-                </tbody>
-              </table>
-            )}
+            <UsedByTable entries={usedBy} />
           </Card>
         </div>
 
@@ -150,14 +133,6 @@ export function SchemaDetail({ schema, usedBy }: Props) {
                   <span className="body-3 text-[var(--text-primary)]">{value}</span>
                 </div>
               ))}
-              {schema.tags.length > 0 && (
-                <div className="flex items-start gap-4 py-2">
-                  <span className="body-3 text-[var(--text-secondary)] w-24 shrink-0">Tags</span>
-                  <div className="flex flex-wrap gap-1">
-                    {schema.tags.map(t => <Badge key={t} variant="secondary">{t}</Badge>)}
-                  </div>
-                </div>
-              )}
             </div>
           </Card>
 

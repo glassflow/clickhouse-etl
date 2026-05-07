@@ -28,14 +28,20 @@ describe('DedupConfigDetail', () => {
 
   it('shows key fields', () => {
     render(<DedupConfigDetail config={mockConfig} usedBy={mockUsedBy} />)
-    expect(screen.getByText('orderId')).toBeInTheDocument()
+    expect(screen.getAllByText('orderId').length).toBeGreaterThan(0)
   })
 
   it('shows window type and duration kv-rows', () => {
     render(<DedupConfigDetail config={mockConfig} usedBy={mockUsedBy} />)
     expect(screen.getByText(/Window type/i)).toBeInTheDocument()
-    expect(screen.getByText('tumbling')).toBeInTheDocument()
-    expect(screen.getByText('10m')).toBeInTheDocument()
+    expect(screen.getAllByText('tumbling').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('10m').length).toBeGreaterThan(0)
+  })
+
+  it('renders YAML preview panel', () => {
+    render(<DedupConfigDetail config={mockConfig} usedBy={mockUsedBy} />)
+    expect(screen.getByText(/YAML preview/i)).toBeInTheDocument()
+    expect(screen.getByText(/key_fields/)).toBeInTheDocument()
   })
 
   it('shows used-by pipeline', () => {

@@ -23,9 +23,24 @@ describe('SchemaList', () => {
     expect(screen.getByRole('button', { name: /Manual/i })).toBeInTheDocument()
   })
 
-  it('shows version badge on each card', () => {
+  it('shows version in card meta line', () => {
     render(<SchemaList schemas={[base]} />)
-    expect(screen.getByText('v2')).toBeInTheDocument()
+    expect(screen.getByText(/kafka.*v2/)).toBeInTheDocument()
+  })
+
+  it('shows usage filter chips', () => {
+    render(<SchemaList schemas={[base]} />)
+    expect(screen.getByRole('button', { name: /Any usage/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Used$/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Unused$/i })).toBeInTheDocument()
+  })
+
+  it('filters by usage — unused hides used schema', async () => {
+    const unused: LibrarySchema = { ...base, id: 'su', name: 'unused_one', usedByCount: 0 }
+    render(<SchemaList schemas={[base, unused]} />)
+    await userEvent.click(screen.getByRole('button', { name: /^Unused$/i }))
+    expect(screen.queryByText('events')).not.toBeInTheDocument()
+    expect(screen.getByText('unused_one')).toBeInTheDocument()
   })
 
   it('shows drift indicator on drifted schema card', () => {

@@ -1,11 +1,13 @@
 'use client'
-import { ArrowLeftIcon } from 'lucide-react'
+import { ArrowLeftIcon, CheckCircle2Icon, PencilIcon, ActivityIcon } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { Card } from '@/src/components/ui/card'
 import { Button } from '@/src/components/ui/button'
 import { Badge } from '@/src/components/ui/badge'
+import { LibraryTypeGlyph } from './LibraryTypeGlyph'
 import type { LibraryConnection } from '@/src/hooks/useLibraryConnections'
 import type { UsedByEntry } from '@/src/hooks/useLibraryDetail'
+import { UsedByTable } from './UsedByTable'
 
 const PASSWORD_KEYS = new Set(['password', 'secret', 'token', 'apiKey', 'api_key', 'sasl_password'])
 
@@ -42,19 +44,6 @@ function configLabel(key: string): string {
   return labels[key] ?? key.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase())
 }
 
-function UsedByPill({ entry }: { entry: UsedByEntry }) {
-  const colorMap = { ok: 'success', warn: 'warning', err: 'error' } as const
-  return (
-    <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-[var(--surface-bg)] border border-[var(--surface-border)]">
-      <Badge variant={colorMap[entry.health]} className="w-2 h-2 p-0 rounded-full" />
-      <span className="body-3 text-[var(--text-primary)]">{entry.pipelineName}</span>
-      {entry.drift && (
-        <span className="caption-1 text-[var(--color-yellow-500)]">drift</span>
-      )}
-    </div>
-  )
-}
-
 type Props = {
   connection: LibraryConnection
   usedBy: UsedByEntry[]
@@ -64,18 +53,60 @@ export function ConnectionDetail({ connection, usedBy }: Props) {
   const router = useRouter()
   const configEntries = Object.entries(connection.config ?? {})
 
+  const isKafka = connection.kind === 'kafka'
+  const glyphType = isKafka ? 'kafka' : 'clickhouse'
+
+  const kafkaHealthRows = [
+    { label: 'Last tested', value: '2 min ago · ok' },
+    { label: 'Broker latency', value: '12 ms (avg)' },
+    { label: 'Topics visible', value: '247' },
+    { label: 'Active consumers', value: String(usedBy.length) },
+  ]
+  const chHealthRows = [
+    { label: 'Last tested', value: '4 min ago · ok' },
+    { label: 'Insert latency p95', value: '180 ms' },
+    { label: 'Server version', value: '24.3.2.1' },
+    { label: 'Replicas', value: '3' },
+  ]
+  const healthRows = isKafka ? kafkaHealthRows : chHealthRows
+
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => router.back()} aria-label="Back">
-          <ArrowLeftIcon size={16} />
-        </Button>
-        <span className="w-5 h-5 rounded bg-[var(--surface-border)]" />
-        <h1 className="title-4 text-[var(--text-primary)]">{connection.name}</h1>
-        <Badge variant="secondary" className="capitalize">{connection.kind}</Badge>
-        {connection.description && (
-          <span className="body-3 text-[var(--text-secondary)]">{connection.description}</span>
-        )}
+      {/* Header */}
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={() => router.back()} aria-label="Back">
+            <ArrowLeftIcon size={16} />
+          </Button>
+          <LibraryTypeGlyph type={glyphType} size="md" />
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="title-4 text-[var(--text-primary)]">{connection.name}</h1>
+              <Badge variant="success">
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--color-green-500)] mr-1.5" />
+                reachable
+              </Badge>
+            </div>
+            {connection.description && (
+              <p className="body-3 text-[var(--text-secondary)] mt-0.5">{connection.description}</p>
+            )}
+            {connection.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-1.5">
+                {connection.tags.map(t => <Badge key={t} variant="secondary">{t}</Badge>)}
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button variant="secondary" size="sm">
+            <CheckCircle2Icon size={13} className="mr-1.5" />
+            Test connection
+          </Button>
+          <Button variant="primary" size="sm">
+            <PencilIcon size={13} className="mr-1.5" />
+            Edit
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-6">
@@ -96,38 +127,27 @@ export function ConnectionDetail({ connection, usedBy }: Props) {
                 <span className="ml-2 caption-1 text-[var(--text-secondary)]">{usedBy.length} pipeline{usedBy.length !== 1 ? 's' : ''}</span>
               )}
             </h2>
-            {usedBy.length === 0 ? (
-              <p className="body-3 text-[var(--text-secondary)]">Not used by any pipeline.</p>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
-                {usedBy.map(e => <UsedByPill key={e.pipelineId} entry={e} />)}
-              </div>
-            )}
+            <UsedByTable entries={usedBy} />
           </Card>
         </div>
 
         <div className="flex flex-col gap-4">
           <Card variant="dark" className="p-5">
-            <h2 className="title-6 text-[var(--text-primary)] mb-3">Health</h2>
-            <div className="flex items-center gap-2">
-              <Badge variant="success">Reachable</Badge>
-              <span className="caption-1 text-[var(--text-secondary)]">Last checked just now</span>
+            <div className="flex items-center gap-2 mb-3">
+              <ActivityIcon size={14} className="text-[var(--text-tertiary)]" />
+              <h2 className="title-6 text-[var(--text-primary)]">Health</h2>
             </div>
+            {healthRows.map(({ label, value }) => (
+              <KVRow key={label} label={label} value={value} />
+            ))}
           </Card>
 
           <Card variant="dark" className="p-5">
             <h2 className="title-6 text-[var(--text-primary)] mb-3">Metadata</h2>
             <KVRow label="Created" value={new Date(connection.createdAt).toLocaleDateString()} />
             <KVRow label="Updated" value={new Date(connection.updatedAt).toLocaleDateString()} />
-            {connection.tags.length > 0 && (
-              <div className="flex items-start gap-4 py-2.5">
-                <span className="body-3 text-[var(--text-secondary)] w-40 shrink-0">Tags</span>
-                <div className="flex flex-wrap gap-1">
-                  {connection.tags.map(t => (
-                    <Badge key={t} variant="secondary">{t}</Badge>
-                  ))}
-                </div>
-              </div>
+            {connection.folderId && (
+              <KVRow label="Folder" value={connection.folderId} />
             )}
           </Card>
 

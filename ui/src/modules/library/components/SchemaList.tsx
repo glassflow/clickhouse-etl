@@ -7,7 +7,6 @@ import { Card } from '@/src/components/ui/card'
 import { Badge } from '@/src/components/ui/badge'
 import { Button } from '@/src/components/ui/button'
 import { EmptyState } from '@/src/components/ui/empty-state'
-import { Skeleton } from '@/src/components/ui/skeleton'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,10 +35,17 @@ const SOURCE_CHIPS = [
   { key: 'manual', label: 'Manual' },
 ] as const
 
+const USAGE_CHIPS = [
+  { key: 'any', label: 'Any usage' },
+  { key: 'used', label: 'Used' },
+  { key: 'unused', label: 'Unused' },
+] as const
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function SchemaList({ schemas, searchQuery = '', onEdit = () => {}, onDelete = () => {}, folders = [] }: SchemaListProps) {
   const [sourceFilter, setSourceFilter] = useState<'all' | 'kafka' | 'otlp' | 'manual'>('all')
+  const [usageFilter, setUsageFilter] = useState<'any' | 'used' | 'unused'>('any')
 
   const q = searchQuery.trim().toLowerCase()
 
@@ -56,7 +62,13 @@ export function SchemaList({ schemas, searchQuery = '', onEdit = () => {}, onDel
     ? filtered
     : filtered.filter(s => s.source === sourceFilter)
 
-  if (sourceFiltered.length === 0 && filtered.length === 0) {
+  const finalFiltered = usageFilter === 'any'
+    ? sourceFiltered
+    : usageFilter === 'used'
+      ? sourceFiltered.filter(s => s.usedByCount > 0)
+      : sourceFiltered.filter(s => s.usedByCount === 0)
+
+  if (finalFiltered.length === 0 && filtered.length === 0) {
     return (
       <EmptyState
         heading={q ? 'No matches' : 'No schemas yet'}
@@ -67,31 +79,27 @@ export function SchemaList({ schemas, searchQuery = '', onEdit = () => {}, onDel
 
   return (
     <div>
-      <div className="flex items-center gap-2 mb-4 flex-wrap">
-        {SOURCE_CHIPS.map(c => (
-          <button
-            key={c.key}
-            type="button"
-            onClick={() => setSourceFilter(c.key)}
-            className={[
-              'px-3 py-1 rounded-full caption-1 border transition-colors',
-              sourceFilter === c.key
-                ? 'bg-[var(--surface-bg)] border-[var(--color-gray-dark-300)] text-[var(--text-primary)]'
-                : 'border-[var(--surface-border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]',
-            ].join(' ')}
-          >
-            {c.label}
-          </button>
-        ))}
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
+        <FilterChips
+          chips={SOURCE_CHIPS}
+          value={sourceFilter}
+          onChange={(v) => setSourceFilter(v as typeof sourceFilter)}
+        />
+        <div className="w-px h-4 bg-[var(--surface-border)]" />
+        <FilterChips
+          chips={USAGE_CHIPS}
+          value={usageFilter}
+          onChange={(v) => setUsageFilter(v as typeof usageFilter)}
+        />
       </div>
-      {sourceFiltered.length === 0 ? (
+      {finalFiltered.length === 0 ? (
         <EmptyState
           heading="No matches"
-          copy={`No schemas match the selected filter.`}
+          copy="No schemas match the selected filters."
         />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {sourceFiltered.map((schema) => (
+          {finalFiltered.map((schema) => (
             <SchemaCard key={schema.id} schema={schema} onEdit={onEdit} onDelete={onDelete} folders={folders} />
           ))}
         </div>
@@ -101,8 +109,6 @@ export function SchemaList({ schemas, searchQuery = '', onEdit = () => {}, onDel
 }
 
 // ─── Card ─────────────────────────────────────────────────────────────────────
-
-const PREVIEW_FIELD_COUNT = 3
 
 function SchemaCard({
   schema,
@@ -115,14 +121,13 @@ function SchemaCard({
   onDelete: (id: string) => void
   folders: LibraryFolder[]
 }) {
-  const { id, name, description, tags, fields, folderId, updatedAt } = schema
+  const { id, name, description, tags, fields, folderId, updatedAt, source, latestVersion, hasDrift, usedByCount } = schema
   const folderName = folderId ? (folders.find((f) => f.id === folderId)?.name ?? null) : null
   const updated = formatRelativeTime(updatedAt)
-  const previewFields = fields.slice(0, PREVIEW_FIELD_COUNT)
-  const remaining = fields.length - previewFields.length
+  const metaLine = [source, latestVersion, updated].filter(Boolean).join(' · ')
 
   return (
-    <Card variant="dark" className={`group flex flex-col gap-0 p-0 overflow-hidden hover:border-[var(--color-gray-dark-300)] transition-colors ${schema.hasDrift ? 'schema-card-drift' : ''}`}>
+    <Card variant="dark" className={`group flex flex-col gap-0 p-0 overflow-hidden hover:border-[var(--color-gray-dark-300)] transition-colors ${hasDrift ? 'schema-card-drift' : ''}`}>
       <div className="flex flex-col gap-2.5 p-4 flex-1">
         {/* Header */}
         <div className="flex items-start gap-2.5">
@@ -135,13 +140,11 @@ function SchemaCard({
               >
                 {name}
               </Link>
-              {schema.latestVersion && (
-                <Badge variant="secondary" className="shrink-0 caption-2">{schema.latestVersion}</Badge>
+              {hasDrift && (
+                <span className="caption-1 text-[var(--color-yellow-400)] shrink-0">drift</span>
               )}
             </div>
-            <p className="caption-1 text-[var(--text-tertiary)] font-mono mt-0.5">
-              schema · {updated}
-            </p>
+            <p className="caption-1 text-[var(--text-tertiary)] font-mono mt-0.5">{metaLine}</p>
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -182,23 +185,6 @@ function SchemaCard({
           </div>
         )}
 
-        {/* Field preview pills */}
-        {previewFields.length > 0 && (
-          <div className="flex flex-wrap gap-1">
-            {previewFields.map((field) => (
-              <Badge key={field.name} variant="outline" className="font-mono caption-2">
-                {field.name}
-                <span className="text-[var(--text-tertiary)]">:{field.type}</span>
-              </Badge>
-            ))}
-            {remaining > 0 && (
-              <Badge variant="secondary" className="caption-2">
-                +{remaining}
-              </Badge>
-            )}
-          </div>
-        )}
-
         {/* Tags */}
         {tags && tags.length > 0 && (
           <div className="flex flex-wrap gap-1">
@@ -213,12 +199,8 @@ function SchemaCard({
 
       {/* Stats footer */}
       <div className="flex items-center gap-4 px-4 py-2.5 border-t border-[var(--surface-border)]">
-        <StatCell label="fields">
-          <strong>{fields.length}</strong>
-        </StatCell>
-        <StatCell label="pipelines">
-          <PipelineUsagePlaceholder />
-        </StatCell>
+        <StatCell label="fields">{fields.length}</StatCell>
+        <StatCell label="pipelines">{usedByCount}</StatCell>
       </div>
     </Card>
   )
@@ -235,6 +217,32 @@ function StatCell({ label, children }: { label: string; children: React.ReactNod
   )
 }
 
-function PipelineUsagePlaceholder() {
-  return <Skeleton width={20} height={11} className="inline-block align-middle" />
+function FilterChips<T extends string>({
+  chips,
+  value,
+  onChange,
+}: {
+  chips: ReadonlyArray<{ key: T; label: string }>
+  value: T
+  onChange: (v: T) => void
+}) {
+  return (
+    <div className="flex items-center gap-1.5">
+      {chips.map((c) => (
+        <button
+          key={c.key}
+          type="button"
+          onClick={() => onChange(c.key)}
+          className={[
+            'px-2.5 py-1 rounded-full caption-1 border transition-colors',
+            value === c.key
+              ? 'bg-[var(--surface-bg)] border-[var(--color-gray-dark-300)] text-[var(--text-primary)]'
+              : 'border-[var(--surface-border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]',
+          ].join(' ')}
+        >
+          {c.label}
+        </button>
+      ))}
+    </div>
+  )
 }
