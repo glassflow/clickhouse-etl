@@ -1,6 +1,6 @@
 import React from 'react'
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, fireEvent } from '@testing-library/react'
 import { getPipelineListColumns } from './pipelineListColumns'
 import type { ListPipelineConfig } from '@/src/types/pipeline'
 
@@ -101,19 +101,26 @@ describe('type glyphs', () => {
   })
 })
 
+const dlqStats = (n: number) => ({
+  total_messages: n,
+  unconsumed_messages: n,
+  last_received_at: null,
+  last_consumed_at: null,
+})
+
 describe('DLQ column coloring', () => {
   it('0 events → neutral faded class', () => {
-    const container = renderCell('dlqStats', { dlq_stats: { unconsumed_messages: 0 } })
+    const container = renderCell('dlqStats', { dlq_stats: dlqStats(0) })
     expect(container.querySelector('[class*="neutral-faded"]')).toBeTruthy()
   })
 
   it('50 events → warning class', () => {
-    const container = renderCell('dlqStats', { dlq_stats: { unconsumed_messages: 50 } })
+    const container = renderCell('dlqStats', { dlq_stats: dlqStats(50) })
     expect(container.querySelector('[class*="warning"]')).toBeTruthy()
   })
 
   it('100 events → critical class', () => {
-    const container = renderCell('dlqStats', { dlq_stats: { unconsumed_messages: 100 } })
+    const container = renderCell('dlqStats', { dlq_stats: dlqStats(100) })
     expect(container.querySelector('[class*="critical"]')).toBeTruthy()
   })
 })
@@ -122,7 +129,7 @@ describe('name column sub-line', () => {
   it('shows DLQ sub-line when health is unstable and DLQ > 0', () => {
     const container = renderCell('name', {
       health_status: 'unstable',
-      dlq_stats: { unconsumed_messages: 5 },
+      dlq_stats: dlqStats(5),
     })
     expect(container.textContent).toContain('events in DLQ')
   })
@@ -130,7 +137,7 @@ describe('name column sub-line', () => {
   it('hides sub-line when health is stable', () => {
     const container = renderCell('name', {
       health_status: 'stable',
-      dlq_stats: { unconsumed_messages: 5 },
+      dlq_stats: dlqStats(5),
     })
     expect(container.textContent).not.toContain('events in DLQ')
   })
@@ -138,7 +145,7 @@ describe('name column sub-line', () => {
   it('hides sub-line when DLQ is 0', () => {
     const container = renderCell('name', {
       health_status: 'unstable',
-      dlq_stats: { unconsumed_messages: 0 },
+      dlq_stats: dlqStats(0),
     })
     expect(container.textContent).not.toContain('events in DLQ')
   })
