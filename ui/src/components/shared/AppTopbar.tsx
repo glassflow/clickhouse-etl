@@ -182,7 +182,7 @@ export function AppTopbar({ onCreateClick }: AppTopbarProps) {
       className="sticky top-0 z-50 h-14 flex-shrink-0 flex items-center border-b border-[var(--surface-border)] bg-[var(--elevated-background)]"
       aria-label="Application navigation"
     >
-      <div className="flex items-center w-full max-w-[var(--main-container-width)] mx-auto px-6 gap-8 h-full">
+      <div className="flex items-center w-full max-w-[var(--shell-max-width)] mx-auto px-6 gap-8 h-full">
         {/* Logo */}
         <Link
           href="/dashboard"

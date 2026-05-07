@@ -15,6 +15,7 @@
   :root {
     /* Layout */
     --main-container-width: 1240px;
+    --shell-max-width: 1920px;
     --max-content-width: 2560px;
     --hero-container-width: 1024px;
 
