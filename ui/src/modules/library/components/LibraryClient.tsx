@@ -240,7 +240,7 @@ export function LibraryClient() {
   // ─── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col gap-6 animate-fadeIn max-w-[var(--main-container-width)] mx-auto w-full">
+    <div className="flex flex-col gap-6 animate-fadeIn w-full">
       {/* Breadcrumb */}
       <Crumbs crumbs={[{ label: 'Library', href: '/library' }, { label: title }]} />
 
