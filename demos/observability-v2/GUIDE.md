@@ -75,7 +75,7 @@ To remove them later: `make repos-remove`.
 
 ### GlassFlow chart
 
-The demo default is the published **`glassflow/glassflow-etl`** chart pinned to **`GLASSFLOW_CHART_VERSION=0.5.16`**.
+The demo default is the published **`glassflow/glassflow-etl`** chart pinned to **`GLASSFLOW_CHART_VERSION=0.5.17`**.
 
 ### Align GlassFlow values with the chart (recommended)
 
@@ -83,7 +83,7 @@ Diff your overrides against the chart defaults:
 
 ```bash
 helm repo update glassflow
-helm show values glassflow/glassflow-etl --version 0.5.16
+helm show values glassflow/glassflow-etl --version 0.5.17
 ```
 
 The demo file is [`k8s/helm-values/glassflow.values.yaml`](./k8s/helm-values/glassflow.values.yaml) (`sources.otlpReceiver.enabled: true`, kind-sized resources, `ui.kafkaGateway.enabled: false`, etc.).
@@ -91,7 +91,7 @@ The demo file is [`k8s/helm-values/glassflow.values.yaml`](./k8s/helm-values/gla
 ```bash
 helm search repo glassflow/glassflow-etl
 kubectl create ns glassflow
-helm upgrade --install glassflow glassflow/glassflow-etl --namespace glassflow -f k8s/helm-values/glassflow.values.yaml --version 0.5.16 --wait --timeout 10m
+helm upgrade --install glassflow glassflow/glassflow-etl --namespace glassflow -f k8s/helm-values/glassflow.values.yaml --version 0.5.17 --wait --timeout 10m
 ```
 
 ---

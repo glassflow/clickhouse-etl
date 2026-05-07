@@ -8,7 +8,7 @@ TelemetryGen → OTel Collector → GlassFlow (OTLP) → ClickHouse → HyperDX
 
 There is **no Kafka**. GlassFlow’s OTLP receiver accepts gRPC from the collector; routing uses the `x-glassflow-pipeline-id: otlp-traces` header.
 
-GlassFlow is installed from the published Helm chart by default: **`glassflow/glassflow-etl`** at chart version **`0.5.16`**. The OTLP receiver is enabled in [`k8s/helm-values/glassflow.values.yaml`](./k8s/helm-values/glassflow.values.yaml), matching the [GlassFlow OTLP source docs](https://docs.glassflow.dev/sources/otlp). Smoke-test rendering without a cluster: **`make test-glassflow-chart`**.
+GlassFlow is installed from the published Helm chart by default: **`glassflow/glassflow-etl`** at chart version **`0.5.17`**. The OTLP receiver is enabled in [`k8s/helm-values/glassflow.values.yaml`](./k8s/helm-values/glassflow.values.yaml), matching the [GlassFlow OTLP source docs](https://docs.glassflow.dev/sources/otlp). Smoke-test rendering without a cluster: **`make test-glassflow-chart`**.
 
 ## What this demo shows
 

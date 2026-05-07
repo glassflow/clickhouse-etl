@@ -17,7 +17,7 @@ CLICKHOUSE_ADMIN_PASSWORD ?=
 CLICKHOUSE_DEPLOYMENT  ?= hyperdx-clickstack-clickhouse
 CLUSTER_NAME           ?= observability-v2
 GLASSFLOW_CHART        ?= glassflow/glassflow-etl
-GLASSFLOW_CHART_VERSION ?= 0.5.16
+GLASSFLOW_CHART_VERSION ?= 0.5.17
 _GLASSFLOW_VERSION_ARG := $(if $(filter %.tgz,$(GLASSFLOW_CHART)),,--version $(GLASSFLOW_CHART_VERSION))
 
 # ---------------------------------------------------------------------------
