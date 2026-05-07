@@ -78,6 +78,25 @@ export function PipelinesList({
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false)
   const filterButtonRef = React.useRef<HTMLButtonElement>(null)
 
+  const [selectedPipelineIds, setSelectedPipelineIds] = useState<Set<string>>(new Set())
+
+  const handleToggleSelect = useCallback((pipelineId: string) => {
+    setSelectedPipelineIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(pipelineId)) {
+        next.delete(pipelineId)
+      } else {
+        next.add(pipelineId)
+      }
+      return next
+    })
+  }, [])
+
+  const isSelected = useCallback(
+    (pipelineId: string) => selectedPipelineIds.has(pipelineId),
+    [selectedPipelineIds],
+  )
+
   const [tagsModalPipeline, setTagsModalPipeline] = useState<ListPipelineConfig | null>(null)
   const [isTagsModalVisible, setIsTagsModalVisible] = useState(false)
   const [isSavingTags, setIsSavingTags] = useState(false)
@@ -248,6 +267,8 @@ export function PipelinesList({
         onDelete: openDeleteConfirmModal,
         onDownload: handleOpenDownloadModal,
         onManageTags: handleManageTags,
+        onToggleSelect: handleToggleSelect,
+        isSelected,
       }),
     [
       isPipelineLoading,
@@ -261,6 +282,8 @@ export function PipelinesList({
       openDeleteConfirmModal,
       handleOpenDownloadModal,
       handleManageTags,
+      handleToggleSelect,
+      isSelected,
     ],
   )
 

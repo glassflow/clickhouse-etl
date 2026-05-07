@@ -6,10 +6,7 @@ import { Badge } from '@/src/components/ui/badge'
 import { ListPipelineConfig, PipelineStatus } from '@/src/types/pipeline'
 import { TableColumn } from '@/src/modules/pipelines/PipelinesTable'
 import { TableContextMenu } from '@/src/modules/pipelines/TableContextMenu'
-import {
-  getPipelineStatusLabel,
-  getPipelineStatusVariant,
-} from '@/src/utils/pipeline-status-display'
+import { getPipelineStatusLabel } from '@/src/utils/pipeline-status-display'
 import { formatNumber, formatCreatedAt } from '@/src/utils/common.client'
 import Loader from '@/src/images/loader-small.svg'
 
@@ -25,36 +22,51 @@ export interface PipelineListColumnsConfig {
   onDelete: (pipeline: ListPipelineConfig) => void
   onDownload: (pipeline: ListPipelineConfig) => void
   onManageTags: (pipeline: ListPipelineConfig) => void
+  onToggleSelect: (pipelineId: string) => void
+  isSelected: (pipelineId: string) => boolean
+}
+
+const STATUS_DOT_CLASS: Record<string, string> = {
+  active: 'bg-[var(--color-foreground-positive)]',
+  resuming: 'bg-[var(--color-foreground-warning)]',
+  pausing: 'bg-[var(--color-foreground-warning)]',
+  paused: 'bg-[var(--color-foreground-neutral-faded)]',
+  stopping: 'bg-[var(--color-foreground-neutral-faded)]',
+  stopped: 'bg-[var(--color-foreground-neutral-faded)]',
+  failed: 'bg-[var(--color-foreground-critical)]',
+  terminated: 'bg-[var(--color-foreground-neutral-faded)]',
+}
+
+type TypeGlyph = { label: string; color: string }
+
+function deriveTypeGlyphs(transformationType: string | undefined): TypeGlyph[] {
+  const t = (transformationType || '').toLowerCase()
+  const glyphs: TypeGlyph[] = [{ label: 'I', color: 'text-[var(--color-foreground-info)]' }]
+  if (t.includes('join')) glyphs.push({ label: 'J', color: 'text-[var(--color-foreground-warning)]' })
+  if (t.includes('dedup')) glyphs.push({ label: 'D', color: 'text-[var(--color-purple-300)]' })
+  if (t.includes('filter')) glyphs.push({ label: 'F', color: 'text-[var(--color-foreground-positive)]' })
+  if (t.includes('transform')) glyphs.push({ label: 'T', color: 'text-[var(--color-foreground-primary)]' })
+  return glyphs
 }
 
 function TagsCell({ tags }: { tags: string[] }) {
   if (!tags || tags.length === 0) {
-    return <span className="text-sm text-muted-foreground">No tags</span>
+    return <span className="text-sm text-[var(--color-foreground-neutral-faded)]">No tags</span>
   }
-
   const visibleTags = tags.slice(0, 3)
   const remaining = tags.length - visibleTags.length
-
   return (
     <div className="flex flex-wrap items-center gap-1">
       {visibleTags.map((tag) => (
-        <Badge
-          key={tag}
-          variant="outline"
-          className="rounded-full px-2 py-0.5 text-xs font-medium"
-        >
+        <Badge key={tag} variant="outline" className="rounded-full px-2 py-0.5 text-xs font-medium">
           {tag}
         </Badge>
       ))}
       {remaining > 0 && (
-        <span className="text-xs text-muted-foreground">+{remaining} more</span>
+        <span className="text-xs text-[var(--color-foreground-neutral-faded)]">+{remaining} more</span>
       )}
     </div>
   )
-}
-
-function getStabilityLabel(status: string) {
-  return status === 'stable' ? 'Stable' : 'Unstable'
 }
 
 export function getPipelineListColumns(
@@ -72,9 +84,33 @@ export function getPipelineListColumns(
     onDelete,
     onDownload,
     onManageTags,
+    onToggleSelect,
+    isSelected,
   } = config
 
   return [
+    {
+      key: 'select',
+      header: '',
+      width: '36px',
+      sortable: false,
+      render: (pipeline) => (
+        <div
+          onClick={(e) => {
+            e.stopPropagation()
+            onToggleSelect(pipeline.pipeline_id)
+          }}
+          className="flex items-center justify-center"
+        >
+          <input
+            type="checkbox"
+            checked={isSelected(pipeline.pipeline_id)}
+            onChange={() => {}}
+            className="w-4 h-4 cursor-pointer accent-[var(--color-foreground-primary)]"
+          />
+        </div>
+      ),
+    },
     {
       key: 'name',
       header: 'Name',
@@ -82,20 +118,21 @@ export function getPipelineListColumns(
       sortable: true,
       render: (pipeline) => {
         const isLoading = isPipelineLoading(pipeline.pipeline_id)
+        const dlqCount = pipeline.dlq_stats?.unconsumed_messages ?? 0
+        const showSubLine = pipeline.health_status === 'unstable' && dlqCount > 0
         return (
           <div className="flex items-center gap-2">
             {isLoading && (
-              <div className="flex items-center gap-1">
-                <Image
-                  src={Loader}
-                  alt="Loading"
-                  width={16}
-                  height={16}
-                  className="animate-spin"
-                />
-              </div>
+              <Image src={Loader} alt="Loading" width={16} height={16} className="animate-spin" />
             )}
-            <span className="font-medium">{pipeline.name}</span>
+            <div className="flex flex-col gap-0.5">
+              <span className="font-medium">{pipeline.name}</span>
+              {showSubLine && (
+                <span className="text-xs font-mono text-[var(--color-foreground-critical)]">
+                  {dlqCount.toLocaleString()} events in DLQ
+                </span>
+              )}
+            </div>
           </div>
         )
       },
@@ -106,7 +143,22 @@ export function getPipelineListColumns(
       width: '2fr',
       sortable: true,
       sortKey: 'transformation_type',
-      render: (pipeline) => pipeline.transformation_type || 'None',
+      render: (pipeline) => {
+        const glyphs = deriveTypeGlyphs(pipeline.transformation_type)
+        const label = pipeline.transformation_type || 'None'
+        return (
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-0.5">
+              {glyphs.map((g) => (
+                <span key={g.label} className={`text-xs font-mono font-bold ${g.color}`}>
+                  {g.label}
+                </span>
+              ))}
+            </div>
+            <span className="text-sm">{label}</span>
+          </div>
+        )
+      },
     },
     {
       key: 'tags',
@@ -116,27 +168,6 @@ export function getPipelineListColumns(
       render: (pipeline) => <TagsCell tags={pipeline.metadata?.tags || []} />,
     },
     {
-      key: 'health',
-      header: 'Health',
-      width: '1fr',
-      align: 'left',
-      sortable: true,
-      sortKey: 'health_status',
-      render: (pipeline) => {
-        const healthStatus = pipeline.health_status || 'stable'
-        return (
-          <div className="flex flex-row items-center justify-start gap-2 text-content">
-            {healthStatus === 'stable' ? (
-              <div className="w-3 h-3 rounded-full bg-green-500 items-center" />
-            ) : (
-              <div className="w-3 h-3 rounded-full bg-red-500 items-center" />
-            )}
-            {getStabilityLabel(healthStatus)}
-          </div>
-        )
-      },
-    },
-    {
       key: 'dlqStats',
       header: 'Events in DLQ',
       width: '1fr',
@@ -144,11 +175,17 @@ export function getPipelineListColumns(
       sortable: true,
       sortKey: 'dlq_stats.unconsumed_messages',
       render: (pipeline) => {
-        const unconsumedEvents = pipeline.dlq_stats?.unconsumed_messages || 0
+        const count = pipeline.dlq_stats?.unconsumed_messages ?? 0
+        let colorClass = 'text-[var(--color-foreground-neutral-faded)]'
+        let weightClass = ''
+        if (count >= 100) {
+          colorClass = 'text-[var(--color-foreground-critical)]'
+          weightClass = 'font-bold'
+        } else if (count >= 1) {
+          colorClass = 'text-[var(--color-foreground-warning)]'
+        }
         return (
-          <div className="flex flex-row items-center justify-start gap-1 text-content">
-            {formatNumber(unconsumedEvents)}
-          </div>
+          <span className={`${colorClass} ${weightClass}`}>{formatNumber(count)}</span>
         )
       },
     },
@@ -156,18 +193,18 @@ export function getPipelineListColumns(
       key: 'status',
       header: 'Status',
       width: '1fr',
-      align: 'center',
+      align: 'left',
       sortable: true,
       render: (pipeline) => {
         const effectiveStatus = getEffectiveStatus(pipeline)
+        const dotClass = STATUS_DOT_CLASS[effectiveStatus] ?? 'bg-[var(--color-foreground-neutral-faded)]'
         return (
-          <div className="flex flex-row items-center justify-center gap-2 text-content w-full">
-            <Badge
-              className="rounded-xl my-2 mx-4"
-              variant={getPipelineStatusVariant(effectiveStatus)}
-            >
-              {getPipelineStatusLabel(effectiveStatus)}
-            </Badge>
+          <div className="flex items-center gap-2">
+            <span
+              className={`w-2 h-2 rounded-full shrink-0 ${dotClass}`}
+              data-status={effectiveStatus}
+            />
+            <span className="font-mono text-xs">{getPipelineStatusLabel(effectiveStatus)}</span>
           </div>
         )
       },

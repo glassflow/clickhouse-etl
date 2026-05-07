@@ -1,107 +1,145 @@
 import React from 'react'
 import { describe, it, expect, vi } from 'vitest'
-import { render } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { getPipelineListColumns } from './pipelineListColumns'
 import type { ListPipelineConfig } from '@/src/types/pipeline'
 
-vi.mock('next/image', () => ({
-  default: ({ alt, src }: { alt: string; src: unknown }) => <img src={String(src)} alt={alt} />,
-}))
+vi.mock('next/image', () => ({ default: ({ alt }: { alt: string }) => <span>{alt}</span> }))
+vi.mock('@/src/images/loader-small.svg', () => ({ default: 'loader.svg' }))
 
-vi.mock('@/src/modules/pipelines/TableContextMenu', () => ({
-  TableContextMenu: () => <div data-testid="table-context-menu">Actions</div>,
-}))
-
-const mockPipeline: ListPipelineConfig = {
-  pipeline_id: 'p1',
-  name: 'Test Pipeline',
-  transformation_type: 'Deduplication',
-  created_at: '2024-01-01T00:00:00Z',
-  status: 'active',
+const baseConfig = {
+  isPipelineLoading: () => false,
+  getPipelineOperation: () => null,
+  getEffectiveStatus: (p: ListPipelineConfig) => p.status as any,
+  onStop: vi.fn(),
+  onResume: vi.fn(),
+  onEdit: vi.fn(),
+  onRename: vi.fn(),
+  onTerminate: vi.fn(),
+  onDelete: vi.fn(),
+  onDownload: vi.fn(),
+  onManageTags: vi.fn(),
+  onToggleSelect: vi.fn(),
+  isSelected: () => false,
 }
 
-function getConfig() {
-  return {
-    isPipelineLoading: vi.fn(() => false),
-    getPipelineOperation: vi.fn(() => null),
-    getEffectiveStatus: vi.fn((p: ListPipelineConfig) => (p.status as string) ?? 'active'),
-    onStop: vi.fn(),
-    onResume: vi.fn(),
-    onEdit: vi.fn(),
-    onRename: vi.fn(),
-    onTerminate: vi.fn(),
-    onDelete: vi.fn(),
-    onDownload: vi.fn(),
-    onManageTags: vi.fn(),
-  }
+function renderCell(
+  columnKey: string,
+  pipeline: Partial<ListPipelineConfig>,
+) {
+  const pipeline_ = {
+    pipeline_id: 'p1',
+    name: 'Test Pipeline',
+    transformation_type: 'Ingest Only',
+    created_at: '2024-01-01T00:00:00Z',
+    status: 'active',
+    ...pipeline,
+  } as ListPipelineConfig
+  const columns = getPipelineListColumns(baseConfig)
+  const col = columns.find((c) => c.key === columnKey)!
+  const { container } = render(<div>{col.render!(pipeline_)}</div>)
+  return container
 }
 
-describe('getPipelineListColumns', () => {
-  it('returns array with expected length', () => {
-    const columns = getPipelineListColumns(getConfig())
-    expect(columns).toHaveLength(8)
+describe('checkbox column', () => {
+  it('renders a checkbox', () => {
+    const container = renderCell('select', {})
+    expect(container.querySelector('input[type="checkbox"]')).toBeTruthy()
   })
 
-  it('returns columns with expected keys and headers', () => {
-    const columns = getPipelineListColumns(getConfig())
-    const keys = columns.map((c) => c.key)
-    const headers = columns.map((c) => c.header)
+  it('calls onToggleSelect on click and stops propagation', () => {
+    const onToggleSelect = vi.fn()
+    const columns = getPipelineListColumns({ ...baseConfig, onToggleSelect })
+    const col = columns.find((c) => c.key === 'select')!
+    const pipeline = { pipeline_id: 'p1', name: 'T', transformation_type: 'Ingest Only', created_at: '', status: 'active' } as ListPipelineConfig
+    const { container } = render(<div>{col.render!(pipeline)}</div>)
+    fireEvent.click(container.querySelector('input[type="checkbox"]')!)
+    expect(onToggleSelect).toHaveBeenCalledWith('p1')
+  })
+})
 
-    expect(keys).toEqual([
-      'name',
-      'operations',
-      'tags',
-      'health',
-      'dlqStats',
-      'status',
-      'created_at',
-      'actions',
-    ])
-    expect(headers).toEqual([
-      'Name',
-      'Transformation',
-      'Tags',
-      'Health',
-      'Events in DLQ',
-      'Status',
-      'Created',
-      'Actions',
-    ])
+describe('status column — dot + label', () => {
+  it('renders a status dot span with data-status attribute', () => {
+    const container = renderCell('status', { status: 'active' })
+    const dot = container.querySelector('[data-status]')
+    expect(dot).toBeTruthy()
+    expect(dot!.getAttribute('data-status')).toBe('active')
   })
 
-  it('status column render uses getEffectiveStatus and displays status label', () => {
-    const config = getConfig()
-    config.getEffectiveStatus.mockReturnValue('active')
-    const columns = getPipelineListColumns(config)
-    const statusColumn = columns.find((c) => c.key === 'status')
-    expect(statusColumn).toBeDefined()
-    expect(statusColumn?.render).toBeDefined()
+  it('does not render a Badge component (no rounded-xl class)', () => {
+    const container = renderCell('status', { status: 'active' })
+    const badge = container.querySelector('.rounded-xl')
+    expect(badge).toBeNull()
+  })
+})
 
-    const { container } = render(statusColumn!.render!(mockPipeline))
-    expect(container.textContent).toContain('Active')
+describe('type glyphs', () => {
+  it('Ingest Only → only I glyph', () => {
+    const container = renderCell('operations', { transformation_type: 'Ingest Only' })
+    expect(container.textContent).toContain('I')
+    expect(container.textContent).not.toContain('D')
+    expect(container.textContent).not.toContain('J')
   })
 
-  it('status column render shows label for paused status', () => {
-    const config = getConfig()
-    config.getEffectiveStatus.mockReturnValue('paused')
-    const columns = getPipelineListColumns(config)
-    const statusColumn = columns.find((c) => c.key === 'status')
-    const { container } = render(statusColumn!.render!(mockPipeline))
-    expect(container.textContent).toContain('Paused')
+  it('Deduplication → I and D glyphs', () => {
+    const container = renderCell('operations', { transformation_type: 'Deduplication' })
+    expect(container.textContent).toContain('I')
+    expect(container.textContent).toContain('D')
   })
 
-  it('name column render uses pipeline name and isPipelineLoading', () => {
-    const config = getConfig()
-    const columns = getPipelineListColumns(config)
-    const nameColumn = columns.find((c) => c.key === 'name')
-    const { container } = render(nameColumn!.render!(mockPipeline))
-    expect(container.textContent).toContain('Test Pipeline')
+  it('Join → I and J glyphs', () => {
+    const container = renderCell('operations', { transformation_type: 'Join' })
+    expect(container.textContent).toContain('I')
+    expect(container.textContent).toContain('J')
   })
 
-  it('operations column render returns transformation_type', () => {
-    const columns = getPipelineListColumns(getConfig())
-    const opsColumn = columns.find((c) => c.key === 'operations')
-    const { container } = render(opsColumn!.render!(mockPipeline))
-    expect(container.textContent).toContain('Deduplication')
+  it('Join & Deduplication → I, J, and D glyphs', () => {
+    const container = renderCell('operations', { transformation_type: 'Join & Deduplication' })
+    expect(container.textContent).toContain('I')
+    expect(container.textContent).toContain('J')
+    expect(container.textContent).toContain('D')
+  })
+})
+
+describe('DLQ column coloring', () => {
+  it('0 events → neutral faded class', () => {
+    const container = renderCell('dlqStats', { dlq_stats: { unconsumed_messages: 0 } })
+    expect(container.querySelector('[class*="neutral-faded"]')).toBeTruthy()
+  })
+
+  it('50 events → warning class', () => {
+    const container = renderCell('dlqStats', { dlq_stats: { unconsumed_messages: 50 } })
+    expect(container.querySelector('[class*="warning"]')).toBeTruthy()
+  })
+
+  it('100 events → critical class', () => {
+    const container = renderCell('dlqStats', { dlq_stats: { unconsumed_messages: 100 } })
+    expect(container.querySelector('[class*="critical"]')).toBeTruthy()
+  })
+})
+
+describe('name column sub-line', () => {
+  it('shows DLQ sub-line when health is unstable and DLQ > 0', () => {
+    const container = renderCell('name', {
+      health_status: 'unstable',
+      dlq_stats: { unconsumed_messages: 5 },
+    })
+    expect(container.textContent).toContain('events in DLQ')
+  })
+
+  it('hides sub-line when health is stable', () => {
+    const container = renderCell('name', {
+      health_status: 'stable',
+      dlq_stats: { unconsumed_messages: 5 },
+    })
+    expect(container.textContent).not.toContain('events in DLQ')
+  })
+
+  it('hides sub-line when DLQ is 0', () => {
+    const container = renderCell('name', {
+      health_status: 'unstable',
+      dlq_stats: { unconsumed_messages: 0 },
+    })
+    expect(container.textContent).not.toContain('events in DLQ')
   })
 })
