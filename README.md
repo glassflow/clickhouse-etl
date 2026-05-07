@@ -31,7 +31,7 @@ GlassFlow is an open-source stream processing engine designed for high-volume da
 - **Stateless transformations**: Powered by the expr expression engine, enabling flexible data transformations using helper functions and standard operators (e.g., removing null values or replacing missing timestamps).
 - **Stateful transformations**: A built-in state store allows deduplication logic and temporal joins over configurable time windows.
 - **Filtering**: Drop events you don’t want to ingest into ClickHouse before they reach your tables.
-- **Ingest only**: Direct data transfer from Kafka to ClickHouse without transformations.
+- **Ingest only**: Direct data transfer from many sources to ClickHouse without transformations.
 - **Metrics & OTEL**: Built-in pipeline metrics with OpenTelemetry support.
 - **Dead-Letter-Queue**: Keep pipelines running when faulty events occur. Inspect failed events and reprocess them later.
 
