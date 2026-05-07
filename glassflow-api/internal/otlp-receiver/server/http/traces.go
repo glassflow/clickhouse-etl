@@ -29,6 +29,11 @@ func (h handler) exportTraces(w nethttp.ResponseWriter, r *nethttp.Request) {
 			nethttp.Error(w, err.Error(), nethttp.StatusServiceUnavailable)
 			return
 		}
+		if errors.Is(err, processor.ErrStreamBackpressure) {
+			w.Header().Set("Retry-After", "1")
+			nethttp.Error(w, err.Error(), nethttp.StatusTooManyRequests)
+			return
+		}
 		nethttp.Error(w, err.Error(), nethttp.StatusInternalServerError)
 		return
 	}

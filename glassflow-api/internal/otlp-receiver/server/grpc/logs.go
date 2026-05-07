@@ -34,6 +34,9 @@ func (s *logServiceServer) Export(
 		if errors.Is(err, processor.ErrReceiverOverloaded) {
 			return nil, status.Error(codes.ResourceExhausted, err.Error())
 		}
+		if errors.Is(err, processor.ErrStreamBackpressure) {
+			return nil, status.Error(codes.ResourceExhausted, err.Error())
+		}
 		return nil, status.Errorf(codes.Internal, "processing logs: %v", err)
 	}
 	return &collogspb.ExportLogsServiceResponse{}, nil

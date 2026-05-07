@@ -34,6 +34,9 @@ func (s *metricServiceServer) Export(
 		if errors.Is(err, processor.ErrReceiverOverloaded) {
 			return nil, status.Error(codes.ResourceExhausted, err.Error())
 		}
+		if errors.Is(err, processor.ErrStreamBackpressure) {
+			return nil, status.Error(codes.ResourceExhausted, err.Error())
+		}
 		return nil, status.Errorf(codes.Internal, "processing metrics: %v", err)
 	}
 	return &colmetricspb.ExportMetricsServiceResponse{}, nil

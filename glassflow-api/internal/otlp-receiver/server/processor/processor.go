@@ -16,12 +16,16 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
 	subjectrouter "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/subject/router"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 )
 
 // ErrReceiverOverloaded is returned when the processor has reached its concurrency limit.
 var ErrReceiverOverloaded = errors.New("receiver overloaded, try again later")
+
+// ErrStreamBackpressure is returned when the NATS stream is full and all retries are exhausted.
+var ErrStreamBackpressure = errors.New("stream back-pressure, try again later")
 
 type OTLPConfigFetcher interface {
 	GetOTLPConfig(ctx context.Context, pipelineID string) (models.OTLPConfig, error)
@@ -158,7 +162,10 @@ func (p *Processor) sendBatch(
 			if len(failedMessages) > 0 {
 				p.invalidateNatsWriter(pipelineID)
 				messages = extractMessages(failedMessages)
-				return fmt.Errorf("write batch: %w", failedMessages[0].Error)
+				if stream.IsBackpressureErr(failedMessages[0].Error) {
+					return fmt.Errorf("write batch: %w", failedMessages[0].Error)
+				}
+				return retry.Unrecoverable(fmt.Errorf("write batch: %w", failedMessages[0].Error))
 			}
 
 			return nil
@@ -168,6 +175,9 @@ func (p *Processor) sendBatch(
 		retry.LastErrorOnly(true),
 	)
 	if err != nil {
+		if stream.IsBackpressureErr(errors.Unwrap(err)) || stream.IsBackpressureErr(err) {
+			return fmt.Errorf("%w: %w", ErrStreamBackpressure, err)
+		}
 		return err
 	}
 
