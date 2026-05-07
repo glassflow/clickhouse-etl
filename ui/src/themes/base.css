@@ -188,6 +188,9 @@
   --color-blue-alpha-10: rgba(36, 149, 255, 0.1);
   --color-blue-alpha-20: rgba(36, 149, 255, 0.2);
 
+  /* Purple Colors */
+  --color-purple-300: #b794ff;
+
   /* Slate Colors */
   --color-slate-200: #c4d1f0; /* card-feedback border hover */
   --color-slate-300: #a5b9e4;
