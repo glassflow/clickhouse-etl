@@ -46,7 +46,7 @@ export function TimeRangePicker({
             className={cn(
               'px-2.5 py-1 rounded caption-1 transition-colors',
               selected
-                ? 'bg-[var(--color-background-elevation-raised)] text-[var(--text-primary)] shadow-[0_1px_0_rgba(0,0,0,0.3)]'
+                ? 'bg-[var(--color-background-elevation-raised)] text-[var(--text-primary)] shadow-[var(--shadow-xs-dark)]'
                 : 'text-[var(--color-foreground-neutral-faded)] hover:text-[var(--color-foreground-neutral)]',
             )}
           >

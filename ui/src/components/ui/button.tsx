@@ -14,7 +14,7 @@ const buttonVariants = cva(
         default:
           'bg-primary text-primary-foreground shadow-xs hover:bg-primary/90 disabled:opacity-50 disabled:pointer-events-none',
         primary:
-          'rounded-md bg-gradient-to-br from-[var(--button-primary-gradient-start)] to-[var(--button-primary-gradient-end)] shadow-[0px_0px_4px_0px_rgba(0,0,0,0.20),0px_4px_8px_0px_rgba(0,0,0,0.30)] hover:shadow-[0px_0px_6px_0px_rgba(0,0,0,0.25),0px_6px_12px_0px_rgba(0,0,0,0.35)] hover:opacity-90 active:bg-[var(--button-primary-gradient-end)] active:shadow-[var(--shadow-raised)] disabled:bg-gradient-to-br disabled:from-[var(--button-primary-gradient-disabled-start)] disabled:to-[var(--button-primary-gradient-disabled-end)] disabled:shadow-[0px_0px_2px_0px_rgba(0,0,0,0.10),0px_2px_4px_0px_rgba(0,0,0,0.15)] disabled:pointer-events-none text-[var(--button-primary-text)] btn-text',
+          'rounded-md bg-gradient-to-br from-[var(--button-primary-gradient-start)] to-[var(--button-primary-gradient-end)] shadow-[var(--shadow-pressed)] hover:shadow-[var(--shadow-primary-hover)] hover:opacity-90 active:bg-[var(--button-primary-gradient-end)] active:shadow-[var(--shadow-raised)] disabled:bg-gradient-to-br disabled:from-[var(--button-primary-gradient-disabled-start)] disabled:to-[var(--button-primary-gradient-disabled-end)] disabled:shadow-[var(--shadow-primary-disabled)] disabled:pointer-events-none text-[var(--button-primary-text)] btn-text',
         destructive:
           'bg-[var(--color-background-critical)] text-[var(--color-on-background-critical)] border border-[var(--color-border-critical)] shadow-[var(--btn-shadow)] hover:opacity-90 active:opacity-95 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 disabled:opacity-50 disabled:pointer-events-none',
         outline:
@@ -30,7 +30,7 @@ const buttonVariants = cva(
         card: 'btn-card',
         cardSecondary: 'btn-card-secondary',
         gradient:
-          'rounded-md bg-gradient-to-br from-[var(--button-primary-gradient-start)] to-[var(--button-primary-gradient-end)] shadow-[0px_0px_4px_0px_rgba(0,0,0,0.20),0px_4px_8px_0px_rgba(0,0,0,0.30)] hover:shadow-[0px_0px_6px_0px_rgba(0,0,0,0.25),0px_6px_12px_0px_rgba(0,0,0,0.35)] disabled:bg-gradient-to-br disabled:from-[var(--button-primary-gradient-disabled-start)] disabled:to-[var(--button-primary-gradient-disabled-end)] disabled:shadow-[0px_0px_2px_0px_rgba(0,0,0,0.10),0px_2px_4px_0px_rgba(0,0,0,0.15)] disabled:pointer-events-none',
+          'rounded-md bg-gradient-to-br from-[var(--button-primary-gradient-start)] to-[var(--button-primary-gradient-end)] shadow-[var(--shadow-pressed)] hover:shadow-[var(--shadow-primary-hover)] disabled:bg-gradient-to-br disabled:from-[var(--button-primary-gradient-disabled-start)] disabled:to-[var(--button-primary-gradient-disabled-end)] disabled:shadow-[var(--shadow-primary-disabled)] disabled:pointer-events-none',
       },
       size: {
         default: 'h-9 px-4 py-2 has-[>svg]:px-3',

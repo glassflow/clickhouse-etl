@@ -29,7 +29,7 @@ const DrawerContent = React.forwardRef<
       className={cn(
         'fixed top-0 z-50 h-full w-[480px] max-w-[90vw] flex flex-col',
         'bg-[var(--color-background-elevation-raised)] border-[var(--surface-border)]',
-        'shadow-[0_6px_18px_rgba(0,0,0,0.45)]',
+        'shadow-[var(--shadow-drawer)]',
         side === 'right' &&
           'right-0 border-l data-[state=open]:animate-drawerSlideInRight data-[state=closed]:animate-drawerSlideOutRight',
         side === 'left' &&
