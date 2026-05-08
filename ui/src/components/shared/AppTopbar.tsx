@@ -143,9 +143,10 @@ function HelpMenu() {
 
 type AppTopbarProps = {
   onCreateClick?: () => void
+  aiEnabled?: boolean
 }
 
-export function AppTopbar({ onCreateClick }: AppTopbarProps) {
+export function AppTopbar({ onCreateClick, aiEnabled }: AppTopbarProps) {
   const pathname = usePathname()
   const runtimeEnv = getRuntimeEnv()
   const isAuthEnabled = runtimeEnv?.NEXT_PUBLIC_AUTH0_ENABLED === 'true'
@@ -243,7 +244,7 @@ export function AppTopbar({ onCreateClick }: AppTopbarProps) {
         {/* Right side */}
         <div className="flex items-center gap-2 ml-auto shrink-0">
           <PlatformBadge />
-          <AiToggleButton compact />
+          {aiEnabled && <AiToggleButton compact />}
           {isAuthEnabled && <UserSection />}
           <NotificationBadge />
           <HelpMenu />
