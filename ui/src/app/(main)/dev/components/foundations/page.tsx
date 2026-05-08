@@ -1,6 +1,6 @@
 'use client'
 
-import { Section, PageHeader, Preview } from '../_components/Section'
+import { Section, PageHeader } from '../_components/Section'
 
 const typographyItems = [
   { class: 'title-1', label: 'title-1', sample: 'The quick brown fox' },
@@ -11,10 +11,27 @@ const typographyItems = [
   { class: 'title-6', label: 'title-6', sample: 'The quick brown fox jumps over the lazy dog' },
 ]
 
+const featuredItems = [
+  { class: 'featured-1', label: 'featured-1', sample: 'Featured display one' },
+  { class: 'featured-2', label: 'featured-2', sample: 'Featured display two' },
+  { class: 'featured-3', label: 'featured-3', sample: 'Featured display three — modal titles' },
+]
+
 const bodyItems = [
   { class: 'body-1', label: 'body-1', sample: 'The quick brown fox jumps over the lazy dog' },
   { class: 'body-2', label: 'body-2', sample: 'The quick brown fox jumps over the lazy dog' },
   { class: 'body-3', label: 'body-3', sample: 'The quick brown fox jumps over the lazy dog' },
+]
+
+const captionItems = [
+  { class: 'caption-1', label: 'caption-1', sample: 'Timestamp label · 2026-05-08 14:32' },
+  { class: 'caption-2', label: 'caption-2', sample: 'Badge micro-copy · status indicator' },
+]
+
+const monoItems = [
+  { class: 'mono-1', label: 'mono-1', sample: 'etl-prod-kafka-abc123' },
+  { class: 'mono-2', label: 'mono-2', sample: '2026-05-08T14:32:01Z' },
+  { class: 'mono-3', label: 'mono-3', sample: 'SELECT * FROM events LIMIT 100' },
 ]
 
 const utilityItems = [
@@ -24,7 +41,6 @@ const utilityItems = [
   { class: 'text-content', label: 'text-content', sample: 'Primary body content text' },
   { class: 'text-content-faded', label: 'text-content-faded', sample: 'Secondary faded content text' },
   { class: 'text-normal-accent', label: 'text-normal-accent', sample: 'Accent highlighted text' },
-  { class: 'text-brand-gradient', label: 'text-brand-gradient', sample: 'Brand gradient text effect' },
 ]
 
 const semanticColors = [
@@ -43,56 +59,108 @@ const surfaceTokens = [
   { token: '--surface-bg-raised', label: 'surface-bg-raised', description: 'Raised surface' },
   { token: '--surface-bg-overlay', label: 'surface-bg-overlay', description: 'Overlay surface' },
   { token: '--surface-bg-sunken', label: 'surface-bg-sunken', description: 'Sunken / inset areas' },
+  { token: '--surface-border', label: 'surface-border', description: 'Primary container border' },
+  { token: '--surface-border-subtle', label: 'surface-border-subtle', description: 'Lower-contrast nested border' },
+  { token: '--surface-fg', label: 'surface-fg', description: 'Surface foreground text' },
+  { token: '--surface-fg-muted', label: 'surface-fg-muted', description: 'Muted surface foreground' },
+  { token: '--surface-shadow', label: 'surface-shadow', description: 'Standard container shadow' },
+  { token: '--surface-shadow-overlay', label: 'surface-shadow-overlay', description: 'Elevated overlay shadow' },
 ]
 
 const textTokens = [
   { token: '--text-primary', label: 'text-primary' },
   { token: '--text-secondary', label: 'text-secondary' },
+  { token: '--text-heading', label: 'text-heading' },
   { token: '--text-accent', label: 'text-accent' },
   { token: '--text-link', label: 'text-link' },
+  { token: '--text-link-hover', label: 'text-link-hover' },
   { token: '--text-error', label: 'text-error' },
   { token: '--text-success', label: 'text-success' },
   { token: '--text-warning', label: 'text-warning' },
+  { token: '--text-inverse', label: 'text-inverse' },
+  { token: '--text-disabled', label: 'text-disabled' },
 ]
+
+const optionTokens = [
+  { token: '--option-bg', label: 'option-bg', description: 'Default item background' },
+  { token: '--option-bg-hover', label: 'option-bg-hover', description: 'Hovered item background' },
+  { token: '--option-bg-selected', label: 'option-bg-selected', description: 'Selected item background' },
+  { token: '--option-bg-highlighted', label: 'option-bg-highlighted', description: 'Keyboard-focused item' },
+  { token: '--option-fg-selected', label: 'option-fg-selected', description: 'Selected item text color' },
+  { token: '--option-fg-disabled', label: 'option-fg-disabled', description: 'Disabled item text color' },
+]
+
+const shadowTokens = [
+  { token: '--shadow-raised', label: 'shadow-raised', description: 'Cards, popovers' },
+  { token: '--shadow-overlay', label: 'shadow-overlay', description: 'Dialogs, drawers' },
+  { token: '--shadow-pressed', label: 'shadow-pressed', description: 'Pressed / active state' },
+  { token: '--shadow-neutral', label: 'shadow-neutral', description: 'Subtle separation' },
+]
+
+const zIndexTokens = [
+  { token: '--z-index-dropdown', value: '1000', description: 'Dropdown menus' },
+  { token: '--z-index-sticky', value: '1020', description: 'Sticky headers' },
+  { token: '--z-index-fixed', value: '1030', description: 'Fixed elements' },
+  { token: '--z-index-overlay', value: '1040', description: 'Modal backdrops' },
+  { token: '--z-index-modal', value: '1050', description: 'Modal dialogs' },
+  { token: '--z-index-tooltip', value: '1060', description: 'Tooltips' },
+]
+
+function ScaleRow({ cls, label, sample }: { cls: string; label: string; sample: string }) {
+  return (
+    <div className="flex items-baseline gap-6 rounded-lg border border-[var(--surface-border)] bg-[var(--surface-bg-sunken)] px-4 py-3">
+      <span className="shrink-0 w-24 text-xs font-mono text-[var(--color-foreground-primary)] text-right">
+        {label}
+      </span>
+      <span className={cls}>{sample}</span>
+    </div>
+  )
+}
 
 export default function FoundationsPage() {
   return (
     <div>
       <PageHeader
         title="Foundations"
-        description="Core design tokens: typography scale, semantic colors, surfaces, and text tokens."
+        description="Core design tokens: typography scales, semantic colors, surfaces, option system, shadows, and z-index."
       />
 
       <Section title="Title Scale" description="Archivo font — headings and card labels">
         <div className="space-y-3">
-          {typographyItems.map(({ class: cls, label, sample }) => (
-            <div
-              key={label}
-              className="flex items-baseline gap-6 rounded-lg border border-[var(--surface-border)] bg-[var(--surface-bg-sunken)] px-4 py-3"
-            >
-              <span
-                className="shrink-0 w-20 text-xs font-mono text-[var(--color-foreground-primary)] text-right"
-              >
-                {label}
-              </span>
-              <span className={cls}>{sample}</span>
-            </div>
+          {typographyItems.map((item) => (
+            <ScaleRow key={item.label} cls={item.class} label={item.label} sample={item.sample} />
+          ))}
+        </div>
+      </Section>
+
+      <Section title="Featured Scale" description="Archivo font — modal titles, hero numbers, prominent callout text">
+        <div className="space-y-3">
+          {featuredItems.map((item) => (
+            <ScaleRow key={item.label} cls={item.class} label={item.label} sample={item.sample} />
           ))}
         </div>
       </Section>
 
       <Section title="Body Scale" description="Inter font — UI text, form fields, body copy">
         <div className="space-y-3">
-          {bodyItems.map(({ class: cls, label, sample }) => (
-            <div
-              key={label}
-              className="flex items-baseline gap-6 rounded-lg border border-[var(--surface-border)] bg-[var(--surface-bg-sunken)] px-4 py-3"
-            >
-              <span className="shrink-0 w-20 text-xs font-mono text-[var(--color-foreground-primary)] text-right">
-                {label}
-              </span>
-              <span className={cls}>{sample}</span>
-            </div>
+          {bodyItems.map((item) => (
+            <ScaleRow key={item.label} cls={item.class} label={item.label} sample={item.sample} />
+          ))}
+        </div>
+      </Section>
+
+      <Section title="Caption Scale" description="Inter font — labels, timestamps, micro-copy below inputs">
+        <div className="space-y-3">
+          {captionItems.map((item) => (
+            <ScaleRow key={item.label} cls={item.class} label={item.label} sample={item.sample} />
+          ))}
+        </div>
+      </Section>
+
+      <Section title="Mono Scale" description="JetBrains Mono — IDs, timestamps, axis labels, code snippets. Use .mono-* not raw font-mono.">
+        <div className="space-y-3">
+          {monoItems.map((item) => (
+            <ScaleRow key={item.label} cls={item.class} label={item.label} sample={item.sample} />
           ))}
         </div>
       </Section>
@@ -135,9 +203,9 @@ export default function FoundationsPage() {
         </div>
       </Section>
 
-      <Section title="Surface Tokens" description="Container and elevation backgrounds">
+      <Section title="Surface Tokens" description="All 10 surface tokens — container backgrounds, borders, shadows">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {surfaceTokens.map(({ token, label, description }) => (
+          {surfaceTokens.slice(0, 4).map(({ token, label, description }) => (
             <div
               key={token}
               className="rounded-lg overflow-hidden border border-[var(--surface-border)]"
@@ -153,9 +221,20 @@ export default function FoundationsPage() {
             </div>
           ))}
         </div>
+        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {surfaceTokens.slice(4).map(({ token, label, description }) => (
+            <div
+              key={token}
+              className="flex items-center gap-3 rounded-lg border border-[var(--surface-border)] bg-[var(--surface-bg-sunken)] px-4 py-2.5"
+            >
+              <span className="text-xs font-mono text-[var(--color-foreground-primary)] w-44 shrink-0">{token}</span>
+              <span className="text-xs text-[var(--text-secondary)]">{description}</span>
+            </div>
+          ))}
+        </div>
       </Section>
 
-      <Section title="Text Tokens" description="Semantic text color tokens">
+      <Section title="Text Tokens" description="11 semantic text color tokens — use these not raw Tailwind text-* colors">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {textTokens.map(({ token, label }) => (
             <div
@@ -175,6 +254,62 @@ export default function FoundationsPage() {
               <span className="text-xs text-[var(--text-secondary)] font-mono ml-auto">{token}</span>
             </div>
           ))}
+        </div>
+      </Section>
+
+      <Section
+        title="Option Tokens"
+        description="Hover, selected, and highlighted states for list items, dropdowns, and comboboxes. Never implement these ad hoc."
+      >
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {optionTokens.map(({ token, label, description }) => (
+            <div
+              key={token}
+              className="flex items-center gap-3 rounded-lg border border-[var(--surface-border)] bg-[var(--surface-bg-sunken)] px-4 py-2.5"
+            >
+              <div
+                className="w-8 h-8 rounded shrink-0 border border-[var(--surface-border)]"
+                style={{ backgroundColor: `var(${token})` }}
+              />
+              <div>
+                <p className="text-xs font-mono text-[var(--color-foreground-primary)]">{label}</p>
+                <p className="text-xs text-[var(--text-secondary)] mt-0.5">{description}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      <Section title="Shadow Tokens" description="Four elevation levels — applied via box-shadow">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {shadowTokens.map(({ token, label, description }) => (
+            <div key={token} className="flex flex-col items-center gap-3">
+              <div
+                className="w-full h-16 rounded-lg bg-[var(--surface-bg-raised)]"
+                style={{ boxShadow: `var(${token})` }}
+              />
+              <div className="text-center">
+                <p className="text-xs font-mono text-[var(--color-foreground-primary)]">{label}</p>
+                <p className="text-xs text-[var(--text-secondary)] mt-0.5">{description}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-4">
+          <p className="text-xs text-[var(--text-secondary)] mb-3 uppercase tracking-widest">Z-index tokens (reference)</p>
+          <div className="rounded-lg border border-[var(--surface-border)] overflow-hidden">
+            {zIndexTokens.map(({ token, value, description }, i) => (
+              <div
+                key={token}
+                className={`flex items-center gap-4 px-4 py-2.5 ${i < zIndexTokens.length - 1 ? 'border-b border-[var(--surface-border)]' : ''}`}
+              >
+                <span className="text-xs font-mono text-[var(--color-foreground-primary)] w-40 shrink-0">{token}</span>
+                <span className="text-xs font-mono text-[var(--text-secondary)] w-12 shrink-0">{value}</span>
+                <span className="text-xs text-[var(--text-secondary)]">{description}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </Section>
 

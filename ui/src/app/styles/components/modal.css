@@ -73,9 +73,9 @@
 
 .modal-description {
   color: var(--color-foreground-neutral-faded);
-  font-size: 16px;
+  font-size: var(--font-size-body-2);
   font-weight: 400;
-  line-height: 1.5;
+  line-height: var(--line-height-body-2);
 }
 
 /* Modal content area */
@@ -217,14 +217,14 @@
 
 .step-title {
   color: var(--color-foreground-neutral-faded);
-  font-size: 24px;
+  font-size: var(--font-size-featured-2);
   font-weight: 600;
-  line-height: 2;
+  line-height: var(--line-height-featured-2);
 }
 
 .step-description {
   color: var(--color-foreground-neutral-faded);
-  font-size: 16px;
+  font-size: var(--font-size-body-2);
   font-weight: 400;
-  line-height: 1.2;
+  line-height: var(--line-height-featured-2);
 }

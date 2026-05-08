@@ -124,12 +124,19 @@ toast.success('Connected!', { id })`} />
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {[
             { cls: 'animate-fadeIn', label: 'animate-fadeIn', desc: 'Fade + translate up' },
+            { cls: 'animate-fadeInOpacity', label: 'animate-fadeInOpacity', desc: 'Opacity fade only' },
+            { cls: 'animate-fadeOut', label: 'animate-fadeOut', desc: 'Fade to transparent' },
             { cls: 'animate-slideDown', label: 'animate-slideDown', desc: 'Slide from top' },
             { cls: 'animate-slideDownFade', label: 'animate-slideDownFade', desc: 'Diagonal entrance' },
-            { cls: 'animate-pulse', label: 'animate-pulse', desc: 'Opacity pulse (1.5s)' },
             { cls: 'animate-slideUpFade', label: 'animate-slideUpFade', desc: 'Slide up from bottom' },
-            { cls: 'animate-fade-in-up', label: 'animate-fade-in-up', desc: 'Fade in from below' },
             { cls: 'animate-slideInFromRight', label: 'animate-slideInFromRight', desc: 'Slide from right' },
+            { cls: 'animate-fade-in-up', label: 'animate-fade-in-up', desc: 'Fade in from below' },
+            { cls: 'animate-section-enter', label: 'animate-section-enter', desc: 'Sidebar nav transitions' },
+            { cls: 'animate-pulse', label: 'animate-pulse', desc: 'Opacity pulse (1.5s)' },
+            { cls: 'animate-flow-dot', label: 'animate-flow-dot', desc: 'Canvas edge flow dot' },
+            { cls: 'animate-column-rise', label: 'animate-column-rise', desc: 'Chart bar entrance' },
+            { cls: 'animate-expand-down', label: 'animate-expand-down', desc: 'Expand from top' },
+            { cls: 'animate-collapse-up', label: 'animate-collapse-up', desc: 'Collapse to top' },
           ].map(({ cls, label, desc }) => (
             <div
               key={cls}
@@ -179,9 +186,17 @@ toast.success('Connected!', { id })`} />
 <div className="animate-fadeIn animate-delay-200">Second</div>
 <div className="animate-fadeIn animate-delay-300">Third</div>
 
-// Smooth expand/collapse (requires JS toggle)
+// Internal-only (do not use directly in product UI):
+// animate-skeletonShimmer — used inside <Skeleton>
+// animate-livePulse      — used inside <LiveIndicator>
+// animate-drawerSlide*   — used inside <Drawer>
+
+// Smooth expand/collapse — grid-template-rows, no layout thrash
+// Direct child must be a single wrapper element
 <div className={\`smooth-expand \${isOpen ? 'expanded' : 'collapsed'}\`}>
-  Expandable content
+  <div>{/* wrapper required */}
+    Expandable content
+  </div>
 </div>`} />
       </Section>
 

@@ -123,20 +123,75 @@ export default function DisplayPage() {
           </div>
         </div>
 
+        {/* Missing variants */}
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="flex flex-col gap-2">
+            <Card variant="default" className="p-4">
+              <CardHeader className="mb-3">
+                <CardTitle className="title-6 text-[var(--text-primary)]">Default Card</CardTitle>
+                <CardDescription>variant="default" — base surface + border</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="body-3 text-[var(--text-secondary)]">Bare container — minimal visual weight.</p>
+              </CardContent>
+            </Card>
+            <p className="text-xs text-[var(--text-secondary)] text-center">default</p>
+          </div>
+          <div className="flex flex-col gap-2">
+            <Card variant="regular" className="p-4">
+              <CardHeader className="mb-3">
+                <CardTitle className="title-6 text-[var(--text-primary)]">Regular Card</CardTitle>
+                <CardDescription>variant="regular" — warm gradient border</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="body-3 text-[var(--text-secondary)]">Elevated background with brown gradient border.</p>
+              </CardContent>
+            </Card>
+            <p className="text-xs text-[var(--text-secondary)] text-center">regular</p>
+          </div>
+          <div className="flex flex-col gap-2">
+            <Card variant="selectable" className="p-4 cursor-pointer">
+              <CardHeader className="mb-3">
+                <CardTitle className="title-6 text-[var(--text-primary)]">Selectable Card</CardTitle>
+                <CardDescription>variant="selectable" — card-button style</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="body-3 text-[var(--text-secondary)]">For selection UIs — pipeline creation, template pickers.</p>
+              </CardContent>
+            </Card>
+            <p className="text-xs text-[var(--text-secondary)] text-center">selectable</p>
+          </div>
+        </div>
+
+        {/* State modifiers */}
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="flex flex-col gap-2">
             <Card variant="dark" className="p-4 card-dark-selected">
-              <p className="title-6 text-[var(--text-primary)] mb-1">Selected State</p>
-              <p className="body-3 text-[var(--text-secondary)]">Add className="card-dark-selected" for selection highlight.</p>
+              <p className="title-6 text-[var(--text-primary)] mb-1">Dark — Selected</p>
+              <p className="body-3 text-[var(--text-secondary)]">className="card-dark-selected"</p>
             </Card>
-            <p className="text-xs text-[var(--text-secondary)] text-center">card-dark-selected modifier</p>
+            <p className="text-xs text-[var(--text-secondary)] text-center">card-dark-selected</p>
           </div>
           <div className="flex flex-col gap-2">
             <Card variant="dark" className="p-4 card-dark-error">
-              <p className="title-6 text-[var(--text-primary)] mb-1">Error State</p>
-              <p className="body-3 text-[var(--text-secondary)]">Add className="card-dark-error" for error highlight.</p>
+              <p className="title-6 text-[var(--text-primary)] mb-1">Dark — Error</p>
+              <p className="body-3 text-[var(--text-secondary)]">className="card-dark-error"</p>
             </Card>
-            <p className="text-xs text-[var(--text-secondary)] text-center">card-dark-error modifier</p>
+            <p className="text-xs text-[var(--text-secondary)] text-center">card-dark-error</p>
+          </div>
+          <div className="flex flex-col gap-2">
+            <Card variant="outline" className="p-4 card-outline-selected">
+              <p className="title-6 text-[var(--text-primary)] mb-1">Outline — Selected</p>
+              <p className="body-3 text-[var(--text-secondary)]">className="card-outline-selected"</p>
+            </Card>
+            <p className="text-xs text-[var(--text-secondary)] text-center">card-outline-selected</p>
+          </div>
+          <div className="flex flex-col gap-2">
+            <Card variant="outline" className="p-4 card-outline-error">
+              <p className="title-6 text-[var(--text-primary)] mb-1">Outline — Error</p>
+              <p className="body-3 text-[var(--text-secondary)]">className="card-outline-error"</p>
+            </Card>
+            <p className="text-xs text-[var(--text-secondary)] text-center">card-outline-error</p>
           </div>
         </div>
 

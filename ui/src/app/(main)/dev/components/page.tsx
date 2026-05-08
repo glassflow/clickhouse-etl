@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { ArrowRightIcon } from 'lucide-react'
+import { Card } from '@/src/components/ui/card'
 
 const categories = [
   {
@@ -76,20 +77,18 @@ export default function ComponentsOverviewPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {categories.map(({ href, title, description, count }) => (
-          <Link
-            key={href}
-            href={href}
-            className="group card-dark p-5 rounded-xl flex flex-col gap-3 hover:opacity-90 transition-opacity"
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="title-6 text-[var(--text-primary)]">{title}</h2>
-                <p className="body-3 text-[var(--text-secondary)] mt-1">{description}</p>
+          <Card key={href} variant="dark" className="group rounded-xl hover:opacity-90 transition-opacity">
+            <Link href={href} className="flex flex-col gap-3 p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="title-6 text-[var(--text-primary)]">{title}</h2>
+                  <p className="body-3 text-[var(--text-secondary)] mt-1">{description}</p>
+                </div>
+                <ArrowRightIcon className="size-4 text-[var(--text-secondary)] shrink-0 mt-0.5 group-hover:text-[var(--color-foreground-primary)] transition-colors" />
               </div>
-              <ArrowRightIcon className="size-4 text-[var(--text-secondary)] shrink-0 mt-0.5 group-hover:text-[var(--color-foreground-primary)] transition-colors" />
-            </div>
-            <p className="text-xs text-[var(--color-foreground-primary-faded)] font-mono">{count}</p>
-          </Link>
+              <p className="text-xs text-[var(--color-foreground-primary-faded)] font-mono">{count}</p>
+            </Link>
+          </Card>
         ))}
       </div>
     </div>

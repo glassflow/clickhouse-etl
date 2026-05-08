@@ -49,6 +49,9 @@ export default function ButtonsPage() {
           <Preview label="gradient">
             <Button variant="gradient">Gradient</Button>
           </Preview>
+          <Preview label="outline">
+            <Button variant="outline">Outline</Button>
+          </Preview>
         </VariantGrid>
         <CodeBlock code={`<Button variant="primary">Primary</Button>
 <Button variant="secondary">Secondary</Button>
@@ -92,11 +95,16 @@ export default function ButtonsPage() {
           <Preview label="text">
             <Button variant="ghost" size="text">Text size</Button>
           </Preview>
+          <Preview label="custom">
+            <Button variant="secondary" size="custom">Custom</Button>
+          </Preview>
         </div>
         <CodeBlock code={`<Button size="sm">Small</Button>
 <Button size="default">Default</Button>
 <Button size="lg">Large</Button>
-<Button size="icon"><PlusIcon /></Button>`} />
+<Button size="icon"><PlusIcon /></Button>
+{/* custom — min-w-9 min-h-9 px-3 py-2 gap-2 — for flexible-width icon+label combos */}
+<Button size="custom">Flexible</Button>`} />
       </Section>
 
       <Section title="With Icons">

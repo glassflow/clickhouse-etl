@@ -220,20 +220,26 @@
 .animate-delay-400 { animation-delay: 0.4s; }
 
 /* ── Smooth expand/collapse (CSS transition variant) ─────────────────────── */
+/* Uses grid-template-rows instead of max-height to avoid layout thrash.
+   Requires a single wrapper element as the direct child of .smooth-expand. */
 
 .smooth-expand {
-  transition: max-height 0.25s ease-in-out,
-              opacity    0.2s  ease-in-out;
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.25s ease-in-out,
+              opacity            0.2s  ease-in-out;
   overflow: hidden;
 }
 
+.smooth-expand > * { overflow: hidden; }
+
 .smooth-expand.collapsed {
-  max-height: 0;
+  grid-template-rows: 0fr;
   opacity: 0;
 }
 
 .smooth-expand.expanded {
-  max-height: 600px;
+  grid-template-rows: 1fr;
   opacity: 1;
 }
 

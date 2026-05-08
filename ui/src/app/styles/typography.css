@@ -48,6 +48,29 @@
   letter-spacing: var(--letter-spacing-title-6);
 }
 
+/* ================== Featured ================== */
+/* Display scale — modal titles, hero numbers, prominent callout text */
+.featured-1 {
+  font-size: var(--font-size-featured-1);
+  line-height: var(--line-height-featured-1);
+  font-family: var(--font-family-title);
+  letter-spacing: var(--letter-spacing-featured-1);
+}
+
+.featured-2 {
+  font-size: var(--font-size-featured-2);
+  line-height: var(--line-height-featured-2);
+  font-family: var(--font-family-title);
+  letter-spacing: var(--letter-spacing-featured-2);
+}
+
+.featured-3 {
+  font-size: var(--font-size-featured-3);
+  line-height: var(--line-height-featured-3);
+  font-family: var(--font-family-title);
+  letter-spacing: var(--letter-spacing-featured-3);
+}
+
 /* ================== Body ================== */
 .body-1 {
   font-size: var(--font-size-body-1);
@@ -92,6 +115,8 @@
 }
 
 /* ================== Utilities ================== */
+/* INTERNAL — used only in one-off hero/marketing contexts.
+   Do not use in product UI. See CLAUDE.md §1. */
 .text-brand-gradient {
   background: var(--text-gradient-brand);
   background-clip: text;
@@ -152,7 +177,7 @@
   font-size: var(--font-size-title-5);
   font-style: normal;
   font-weight: var(--font-weight-regular);
-  line-height: var(--line-height-featured-4);
+  line-height: var(--line-height-title-5);
   letter-spacing: var(--letter-spacing-title-5);
 }
 
