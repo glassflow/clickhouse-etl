@@ -8,6 +8,7 @@ import {
 } from '@xyflow/react'
 import { StateCreator } from 'zustand'
 import { validateCanvas, type ValidationResult } from '@/src/modules/canvas/canvas-validation'
+import type { CanvasHydration } from '@/src/modules/canvas/serializer'
 
 export type CanvasSourceType = 'kafka' | 'otlp.logs' | 'otlp.traces' | 'otlp.metrics'
 
@@ -41,6 +42,7 @@ export interface CanvasActions {
   markClean: () => void
   addNodeAt: (kind: string, position: { x: number; y: number }) => void
   removeNode: (id: string) => void
+  initFromConfig: (hydration: CanvasHydration) => void
 }
 
 export interface CanvasSlice {
@@ -212,5 +214,19 @@ export const createCanvasSlice: StateCreator<CanvasSlice> = (set, _get) => ({
           isDirty: true,
         },
       })),
+
+    initFromConfig: (hydration) => {
+      set((state) => ({
+        canvasStore: {
+          ...state.canvasStore,
+          nodes: hydration.nodes,
+          edges: hydration.edges,
+          nodeConfigs: hydration.nodeConfigs,
+          sourceType: hydration.sourceType,
+          activeNodeId: null,
+          isDirty: false,
+        },
+      }))
+    },
   },
 })
