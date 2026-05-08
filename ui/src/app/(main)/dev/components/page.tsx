@@ -44,6 +44,18 @@ const categories = [
     description: 'Alert variants and animation utility classes',
     count: 'Alert · Animations',
   },
+  {
+    href: '/dev/components/utilities',
+    title: 'Utilities',
+    description: 'Skeleton loaders, empty states, pills, sparklines, and indicator components',
+    count: 'Skeleton · EmptyState · Pill · Sparkline · LiveIndicator · KbdHint · Crumbs · ScopeBadge',
+  },
+  {
+    href: '/dev/components/drawers',
+    title: 'Drawers & Modals',
+    description: 'Side drawers and modal dialog patterns with canonical usage examples',
+    count: 'Drawer · ConfirmationModal · InfoModal · Modal shell',
+  },
 ]
 
 export default function ComponentsOverviewPage() {

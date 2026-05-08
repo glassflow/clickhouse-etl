@@ -12,6 +12,8 @@ const sections = [
   { href: '/dev/components/overlays', label: 'Overlays' },
   { href: '/dev/components/navigation', label: 'Navigation' },
   { href: '/dev/components/feedback', label: 'Feedback' },
+  { href: '/dev/components/utilities', label: 'Utilities' },
+  { href: '/dev/components/drawers', label: 'Drawers & Modals' },
 ]
 
 export function GalleryNav() {

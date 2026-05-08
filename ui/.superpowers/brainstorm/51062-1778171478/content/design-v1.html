@@ -1,0 +1,499 @@
+<style>
+:root {
+  --orange: #ff8c42;
+  --orange-faint: rgba(255,140,66,0.10);
+  --orange-border: rgba(255,140,66,0.22);
+  --green: #00d370;
+  --red: #ff4466;
+  --yellow: #ffc850;
+  --blue: #008cff;
+  --purple: #b794ff;
+  --bg: #08080a;
+  --surface: #0c0c10;
+  --surface2: #111116;
+  --border: rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.04);
+  --fg: #e8e8f0;
+  --fg-faded: #8a8a9e;
+  --fg-muted: #4a4a5e;
+}
+body { background: var(--bg); color: var(--fg); font-family: 'Inter', sans-serif; }
+h2 { font-size: 17px; font-weight: 600; margin: 0 0 4px; }
+.subtitle { font-size: 12px; color: var(--fg-faded); margin: 0 0 28px; }
+.section { margin-bottom: 36px; }
+.section-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--fg-muted); font-family: monospace; margin-bottom: 10px; }
+
+/* ─── Shell mockup wrapper ─── */
+.shell { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+
+/* ─── Page title row ─── */
+.title-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 24px 0;
+}
+.title-row h1 { font-size: 20px; font-weight: 700; margin: 0; font-family: 'Inter', sans-serif; letter-spacing: -0.02em; }
+.title-row .meta { font-size: 11px; color: var(--fg-faded); font-family: monospace; padding-left: 10px; }
+.btn-primary {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px; border-radius: 7px; font-size: 12px; font-weight: 500;
+  background: linear-gradient(135deg, #ff8c42, #ff5c1a);
+  color: #fff; border: none; cursor: pointer;
+}
+.btn-secondary {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 12px; border-radius: 7px; font-size: 12px; font-weight: 500;
+  background: var(--surface2); border: 1px solid var(--border); color: var(--fg-faded);
+}
+
+/* ─── Saved views strip ─── */
+.views-strip {
+  display: flex; align-items: flex-end; gap: 0;
+  border-bottom: 1px solid var(--border);
+  padding: 0 24px; margin-top: 16px;
+  overflow-x: auto;
+}
+.view-tab {
+  padding: 9px 14px 8px;
+  font-size: 12px; color: var(--fg-faded);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
+}
+.view-tab.active { color: var(--fg); border-bottom-color: var(--orange); }
+.view-tab .ct {
+  font-family: monospace; font-size: 10px;
+  padding: 1px 6px; border-radius: 99px;
+  background: var(--surface2); color: var(--fg-muted);
+}
+.view-tab.active .ct { background: var(--orange-faint); color: var(--orange); }
+.view-tab.add { color: var(--fg-muted); font-size: 11px; }
+.view-tab.add:hover { color: var(--orange); }
+.view-tab.shared { position: relative; padding-left: 22px; }
+.view-tab.shared::before {
+  content: ""; position: absolute; left: 8px; top: 50%; transform: translateY(-50%);
+  width: 6px; height: 6px; border-radius: 50%; background: var(--blue);
+}
+
+/* ─── Toolbar ─── */
+.toolbar {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--border);
+}
+.search-bar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 12px; border-radius: 7px;
+  background: var(--surface); border: 1px solid var(--border);
+  font-size: 12px; color: var(--fg-faded);
+  min-width: 220px; flex: 0 1 280px;
+}
+.search-bar .cursor { display: inline-block; width: 1px; height: 12px; background: var(--orange); animation: blink 1.1s steps(2) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+.filter-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 6px 10px; border-radius: 6px; font-size: 11px;
+  background: var(--surface); border: 1px solid var(--border); color: var(--fg-faded);
+  cursor: pointer;
+}
+.filter-chip.active { background: var(--orange-faint); border-color: var(--orange-border); color: var(--orange); }
+.filter-chip .val { color: var(--fg); font-family: monospace; font-size: 10.5px; }
+.filter-chip .x { color: var(--fg-muted); margin-left: 2px; }
+.filter-chip.active .x { color: var(--orange); }
+.filter-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--orange); }
+.spacer { flex: 1; }
+.density-toggle {
+  display: inline-flex; border: 1px solid var(--border); border-radius: 7px;
+  background: var(--surface); overflow: hidden;
+}
+.density-btn { padding: 6px 10px; font-size: 11px; color: var(--fg-muted); cursor: pointer; }
+.density-btn.on { background: var(--orange-faint); color: var(--orange); }
+
+/* ─── Table ─── */
+.table-container { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 16px 24px; }
+.table-header { background: var(--surface2); border-bottom: 1px solid var(--border); }
+.table-header-row {
+  display: grid;
+  grid-template-columns: 36px 2fr 2fr 2fr 1fr 1fr 1fr 1.5fr 1fr;
+  padding: 9px 16px; align-items: center;
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--fg-muted); font-family: monospace;
+}
+.table-row {
+  display: grid;
+  grid-template-columns: 36px 2fr 2fr 2fr 1fr 1fr 1fr 1.5fr 1fr;
+  padding: 11px 16px; align-items: center;
+  border-bottom: 1px solid var(--border2);
+  font-size: 12.5px; cursor: pointer;
+}
+.table-row:last-child { border-bottom: 0; }
+.table-row:hover { background: rgba(255,140,66,0.03); }
+.table-row.err { background: rgba(255,68,102,0.04); border-left: 2px solid rgba(255,68,102,0.4); padding-left: 14px; }
+.table-row.warn { background: rgba(255,200,80,0.03); border-left: 2px solid rgba(255,200,80,0.3); padding-left: 14px; }
+.table-row.selected { background: rgba(255,140,66,0.06); }
+
+/* Checkbox */
+.cb { width: 14px; height: 14px; border: 1.5px solid var(--border); border-radius: 3px; background: transparent; cursor: pointer; flex-shrink: 0; }
+.cb.on { background: var(--orange); border-color: var(--orange); position: relative; }
+.cb.on::after { content: ""; position: absolute; left: 3px; top: 0; width: 4px; height: 8px; border: solid #000; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.cb.mixed { background: var(--orange); border-color: var(--orange); position: relative; }
+.cb.mixed::after { content: ""; position: absolute; left: 2px; top: 5px; width: 8px; height: 2px; background: #000; }
+
+/* Status cell */
+.status-cell { display: inline-flex; align-items: center; gap: 6px; font-family: monospace; font-size: 11px; }
+.status-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.status-dot.run { background: var(--green); box-shadow: 0 0 0 3px rgba(0,211,112,0.18); }
+.status-dot.err { background: var(--red); }
+.status-dot.warn { background: var(--yellow); }
+.status-dot.paused { background: var(--fg-muted); }
+.status-dot.stopping { background: var(--yellow); }
+.s-run { color: var(--green); }
+.s-err { color: var(--red); }
+.s-warn { color: var(--yellow); }
+.s-paused { color: var(--fg-faded); }
+
+/* Name cell */
+.name-cell { display: flex; flex-direction: column; gap: 2px; overflow: hidden; }
+.name-cell .n { font-weight: 500; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.name-cell .reason { font-size: 10px; font-family: monospace; color: var(--red); }
+.name-cell .reason.warn { color: var(--yellow); }
+
+/* Type glyphs */
+.type-cell { display: inline-flex; align-items: center; gap: 5px; }
+.type-cell .glyphs { display: flex; gap: 2px; }
+.glyph { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 3px; font-size: 9px; font-weight: 700; font-family: monospace; }
+.glyph.i { background: rgba(0,140,255,0.14); color: var(--blue); }
+.glyph.d { background: rgba(183,148,255,0.14); color: var(--purple); }
+.glyph.f { background: rgba(0,211,112,0.14); color: var(--green); }
+.glyph.t { background: rgba(255,140,66,0.14); color: var(--orange); }
+.type-cell .lbl { font-size: 11px; color: var(--fg-faded); }
+
+/* Tags */
+.tag { display: inline-flex; padding: 1px 6px; border-radius: 3px; font-size: 10px; background: rgba(255,255,255,0.06); color: var(--fg-faded); font-family: monospace; margin-right: 2px; }
+
+/* Health */
+.health-cell { display: flex; align-items: center; gap: 6px; font-size: 11px; }
+.health-dot { width: 8px; height: 8px; border-radius: 50%; }
+.health-dot.stable { background: var(--green); }
+.health-dot.unstable { background: var(--red); }
+
+/* DLQ */
+.dlq { font-family: monospace; font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.dlq.zero { color: var(--fg-muted); }
+.dlq.warn { color: var(--yellow); font-weight: 600; }
+.dlq.crit { color: var(--red); font-weight: 700; }
+
+/* Created */
+.created { font-family: monospace; font-size: 11px; color: var(--fg-faded); }
+
+/* Actions */
+.dots { color: var(--fg-muted); font-size: 14px; cursor: pointer; }
+.dots:hover { color: var(--orange); }
+
+/* ─── Bulk bar ─── */
+.bulk-bar {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 16px; margin: 0 24px 16px;
+  background: var(--surface2);
+  border: 1px solid var(--orange-border);
+  border-radius: 9px;
+}
+.bulk-bar .sel { font-family: monospace; font-size: 12px; color: var(--orange); font-weight: 600; }
+.bulk-bar .of { color: var(--fg-muted); font-size: 11px; margin-left: 6px; }
+.bulk-actions { display: flex; gap: 6px; margin-left: auto; }
+.bulk-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 10px; border-radius: 5px; font-size: 11px;
+  background: var(--surface); border: 1px solid var(--border); color: var(--fg-faded);
+  cursor: pointer;
+}
+.bulk-btn:hover { border-color: var(--border); color: var(--fg); }
+.bulk-btn.danger { border-color: rgba(255,68,102,0.3); color: var(--red); }
+.bulk-btn.danger:hover { background: rgba(255,68,102,0.08); }
+
+/* ─── Empty state ─── */
+.empty-state {
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  padding: 60px 24px 48px; margin: 16px 24px;
+  border: 1px dashed var(--border); border-radius: 14px;
+  background: radial-gradient(ellipse 80% 40% at 50% 0%, rgba(255,140,66,0.06), transparent 70%);
+}
+.pipeline-glyph-stack { display: flex; align-items: center; gap: 0; margin-bottom: 20px; }
+.pg-node { width: 48px; height: 48px; border-radius: 12px; background: var(--surface2); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; }
+.pg-node .glyph { width: 24px; height: 24px; font-size: 13px; border-radius: 5px; }
+.pg-conn { width: 24px; height: 1px; background: var(--border); position: relative; }
+.pg-conn::after { content: ""; position: absolute; right: -3px; top: -3px; width: 6px; height: 6px; border-radius: 50%; background: var(--orange); box-shadow: 0 0 0 3px var(--orange-faint); }
+.empty-state h2 { font-size: 20px; font-weight: 700; margin: 0 0 8px; letter-spacing: -0.02em; }
+.empty-state p { font-size: 13px; color: var(--fg-faded); max-width: 440px; line-height: 1.6; margin: 0 0 20px; }
+.cta-row { display: flex; gap: 8px; margin-bottom: 32px; flex-wrap: wrap; justify-content: center; }
+.cta-primary { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; background: linear-gradient(135deg, #ff8c42, #ff5c1a); color: #fff; }
+.cta-secondary { display: inline-flex; align-items: center; gap: 6px; padding: 9px 14px; border-radius: 8px; font-size: 13px; background: var(--surface2); border: 1px solid var(--border); color: var(--fg-faded); }
+.template-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; width: 100%; max-width: 680px; }
+.tcard { text-align: left; padding: 12px 14px; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; cursor: pointer; }
+.tcard:hover { border-color: var(--orange-border); }
+.tcard .th { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.tcard h4 { font-size: 12px; font-weight: 600; margin: 0; }
+.tcard p { font-size: 11px; color: var(--fg-faded); margin: 0; line-height: 1.5; }
+
+/* ─── Section dividers ─── */
+.anno { display: flex; align-items: flex-start; gap: 8px; margin: 0 24px 12px; padding: 8px 12px; background: rgba(255,140,66,0.05); border-left: 2px solid var(--orange-border); border-radius: 4px; font-size: 11px; color: var(--fg-faded); }
+.anno strong { color: var(--orange); }
+</style>
+
+<h2>Pipelines List — Full Design Mockup</h2>
+<p class="subtitle">Scroll through to review all sections. All existing sort/filter/context menu actions are preserved.</p>
+
+<!-- ════════════════════════════════════════════════════
+     SECTION 1: Toolbar + Saved Views
+     ════════════════════════════════════════════════════ -->
+
+<div class="section">
+<div class="section-label">Section 1 · Toolbar + Saved Views Strip</div>
+<div class="shell">
+
+  <!-- Title row -->
+  <div class="title-row">
+    <div style="display:flex;align-items:baseline;gap:10px">
+      <h1>Pipelines</h1>
+      <span class="meta">13 pipelines</span>
+    </div>
+    <div style="display:flex;gap:8px">
+      <div class="btn-secondary">↑ Import</div>
+      <div class="btn-primary">+ New Pipeline</div>
+    </div>
+  </div>
+
+  <!-- Saved views strip -->
+  <div class="views-strip">
+    <div class="view-tab active">All <span class="ct">13</span></div>
+    <div class="view-tab shared">DLQ watch <span class="ct">3</span></div>
+    <div class="view-tab shared">Running <span class="ct">9</span></div>
+    <div class="view-tab">Stopped <span class="ct">1</span></div>
+    <div class="view-tab add">+ Save view</div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <div class="search-bar">
+      <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1.4"/><path d="M9.5 9.5L12 12" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+      <span style="color:#5a5a6e">name, tag…</span>
+      <span class="cursor"></span>
+    </div>
+
+    <!-- Active filter chip -->
+    <div class="filter-chip active">
+      <span class="filter-dot"></span>
+      Status <span class="val">running, error</span>
+      <span class="x">×</span>
+    </div>
+    <div class="filter-chip">
+      + Filter
+    </div>
+
+    <div class="spacer"></div>
+
+    <!-- Density toggle -->
+    <div class="density-toggle">
+      <div class="density-btn on">≡ Table</div>
+      <div class="density-btn">▦ Hybrid</div>
+      <div class="density-btn">▢ Cards</div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════
+     SECTION 2: Table with visual improvements + bulk
+     ════════════════════════════════════════════════════ -->
+
+<div class="section">
+<div class="section-label">Section 2 · Table Visual Improvements + Multi-Select + Bulk Bar</div>
+
+<div class="anno">
+  <strong>What's new:</strong> Checkbox column, status dot+label, type glyphs (I/D/F/T), DLQ color coding, row left-border tinting for errors/warnings, inline error reason under name. Everything else (column widths, sort, row click) stays the same.
+</div>
+
+<div class="shell">
+
+  <!-- Bulk bar (appears when rows selected) -->
+  <div class="bulk-bar">
+    <span class="sel">3 selected</span><span class="of">of 13 visible</span>
+    <div class="bulk-actions">
+      <div class="bulk-btn">⏸ Stop</div>
+      <div class="bulk-btn">▶ Resume</div>
+      <div class="bulk-btn">✕ Terminate</div>
+      <div class="bulk-btn">🏷 Add tag</div>
+      <div class="bulk-btn danger">🗑 Delete</div>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="table-container" style="margin:0">
+    <!-- Header -->
+    <div class="table-header">
+      <div class="table-header-row">
+        <div><span class="cb mixed"></span></div>
+        <div>Name</div>
+        <div>Transformation</div>
+        <div>Tags</div>
+        <div>Health</div>
+        <div>Events in DLQ</div>
+        <div>Status</div>
+        <div>Created</div>
+        <div>Actions</div>
+      </div>
+    </div>
+
+    <!-- Row: error -->
+    <div class="table-row err selected">
+      <div><span class="cb on"></span></div>
+      <div class="name-cell">
+        <span class="n">orders-enrich-checkout</span>
+        <span class="reason">schema mismatch · v3 pinned</span>
+      </div>
+      <div class="type-cell">
+        <div class="glyphs"><span class="glyph i">I</span><span class="glyph t">T</span></div>
+        <span class="lbl">ingest+transform</span>
+      </div>
+      <div><span class="tag">tier-1</span><span class="tag">sla</span></div>
+      <div class="health-cell"><span class="health-dot unstable"></span>Unstable</div>
+      <div class="dlq crit">2,194</div>
+      <div class="status-cell"><span class="status-dot err"></span><span class="s-err">Error</span></div>
+      <div class="created">2d ago</div>
+      <div class="dots">⋯</div>
+    </div>
+
+    <!-- Row: warn -->
+    <div class="table-row warn selected">
+      <div><span class="cb on"></span></div>
+      <div class="name-cell">
+        <span class="n">orders-to-warehouse</span>
+        <span class="reason warn">amount narrowing · 99.4% parse</span>
+      </div>
+      <div class="type-cell">
+        <div class="glyphs"><span class="glyph i">I</span><span class="glyph d">D</span></div>
+        <span class="lbl">ingest+dedup</span>
+      </div>
+      <div><span class="tag">tier-1</span><span class="tag">gdpr</span></div>
+      <div class="health-cell"><span class="health-dot unstable"></span>Unstable</div>
+      <div class="dlq warn">184</div>
+      <div class="status-cell"><span class="status-dot warn"></span><span class="s-warn">Pausing…</span></div>
+      <div class="created">14h ago</div>
+      <div class="dots">⋯</div>
+    </div>
+
+    <!-- Row: running, selected -->
+    <div class="table-row selected">
+      <div><span class="cb on"></span></div>
+      <div class="name-cell"><span class="n">orders-metrics-1m</span></div>
+      <div class="type-cell">
+        <div class="glyphs"><span class="glyph i">I</span><span class="glyph f">F</span><span class="glyph t">T</span></div>
+        <span class="lbl">ingest+filter+transform</span>
+      </div>
+      <div><span class="tag">sla</span></div>
+      <div class="health-cell"><span class="health-dot stable"></span>Stable</div>
+      <div class="dlq zero">0</div>
+      <div class="status-cell"><span class="status-dot run"></span><span class="s-run">Active</span></div>
+      <div class="created">5d ago</div>
+      <div class="dots">⋯</div>
+    </div>
+
+    <!-- Row: running, not selected -->
+    <div class="table-row">
+      <div><span class="cb"></span></div>
+      <div class="name-cell"><span class="n">payments-enrich</span></div>
+      <div class="type-cell">
+        <div class="glyphs"><span class="glyph i">I</span><span class="glyph d">D</span><span class="glyph f">F</span></div>
+        <span class="lbl">ingest+dedup+filter</span>
+      </div>
+      <div><span class="tag">pii</span><span class="tag">sla</span></div>
+      <div class="health-cell"><span class="health-dot stable"></span>Stable</div>
+      <div class="dlq zero">0</div>
+      <div class="status-cell"><span class="status-dot run"></span><span class="s-run">Active</span></div>
+      <div class="created">7d ago</div>
+      <div class="dots">⋯</div>
+    </div>
+
+    <!-- Row: paused -->
+    <div class="table-row">
+      <div><span class="cb"></span></div>
+      <div class="name-cell"><span class="n">sessions-rollup-staging</span></div>
+      <div class="type-cell">
+        <div class="glyphs"><span class="glyph i">I</span><span class="glyph d">D</span><span class="glyph t">T</span></div>
+        <span class="lbl">ingest+dedup+transform</span>
+      </div>
+      <div><span class="tag">experiment</span></div>
+      <div class="health-cell"><span class="health-dot stable"></span>Stable</div>
+      <div class="dlq zero">0</div>
+      <div class="status-cell"><span class="status-dot paused"></span><span class="s-paused">Paused</span></div>
+      <div class="created">1h ago</div>
+      <div class="dots">⋯</div>
+    </div>
+
+  </div>
+</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════
+     SECTION 3: Redesigned Empty State
+     ════════════════════════════════════════════════════ -->
+
+<div class="section">
+<div class="section-label">Section 3 · Redesigned Empty State</div>
+<div class="shell">
+  <div class="title-row" style="padding-bottom:18px">
+    <div style="display:flex;align-items:baseline;gap:10px">
+      <h1>Pipelines</h1>
+    </div>
+    <div style="display:flex;gap:8px">
+      <div class="btn-secondary">↑ Import</div>
+      <div class="btn-primary">+ New Pipeline</div>
+    </div>
+  </div>
+
+  <div class="empty-state">
+    <!-- Visual: I → T → S -->
+    <div class="pipeline-glyph-stack">
+      <div class="pg-node" style="transform: rotate(-4deg)"><span class="glyph i" style="width:24px;height:24px;font-size:13px;border-radius:5px">I</span></div>
+      <div class="pg-conn"></div>
+      <div class="pg-node" style="transform: translateY(-6px)"><span class="glyph t" style="width:24px;height:24px;font-size:13px;border-radius:5px">T</span></div>
+      <div class="pg-conn"></div>
+      <div class="pg-node" style="transform: rotate(4deg)"><span class="glyph i" style="width:24px;height:24px;font-size:13px;border-radius:5px;background:rgba(0,140,255,0.14);color:var(--blue)">S</span></div>
+    </div>
+
+    <h2>No pipelines yet</h2>
+    <p>A pipeline moves events from a source (Kafka) to ClickHouse — with filtering, deduplication, and transformation along the way. Build your first from scratch, import an existing config, or start with AI.</p>
+
+    <div class="cta-row">
+      <div class="cta-primary">+ Create from scratch</div>
+      <div class="cta-secondary">↑ Import config</div>
+      <div class="cta-secondary">✦ Create with AI</div>
+    </div>
+
+    <!-- Quick-start templates -->
+    <div class="template-grid">
+      <div class="tcard">
+        <div class="th">
+          <span class="glyph d" style="width:20px;height:20px;font-size:11px;border-radius:4px">D</span>
+          <h4>Kafka → ClickHouse + dedup</h4>
+        </div>
+        <p>Most-used pattern. Reads a Kafka topic, deduplicates on a key + window, lands in ClickHouse.</p>
+      </div>
+      <div class="tcard">
+        <div class="th">
+          <span class="glyph f" style="width:20px;height:20px;font-size:11px;border-radius:4px">F</span>
+          <h4>Ingest with filter rules</h4>
+        </div>
+        <p>Drop or keep events based on field conditions before writing to ClickHouse.</p>
+      </div>
+      <div class="tcard">
+        <div class="th">
+          <span class="glyph i" style="width:20px;height:20px;font-size:11px;border-radius:4px">I</span>
+          <h4>Direct ingest (no transform)</h4>
+        </div>
+        <p>Fastest setup. Streams events from Kafka straight to ClickHouse with no modification.</p>
+      </div>
+    </div>
+  </div>
+</div>
+</div>

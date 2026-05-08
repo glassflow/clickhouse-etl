@@ -1,0 +1,357 @@
+<style>
+:root {
+  --orange: #ff8c42;
+  --orange-faint: rgba(255,140,66,0.12);
+  --orange-border: rgba(255,140,66,0.25);
+  --green: #00d370;
+  --red: #ff4466;
+  --yellow: #ffc850;
+  --blue: #008cff;
+  --purple: #b794ff;
+  --gray-900: #0a0a0d;
+  --gray-800: #111116;
+  --gray-700: #1a1a22;
+  --gray-600: #24242e;
+  --gray-500: #3a3a4a;
+  --gray-400: #5a5a6e;
+  --gray-300: #8a8a9e;
+  --gray-100: #c4c4d4;
+  --fg: #e8e8f0;
+}
+body { background: #08080a; color: var(--fg); font-family: 'Inter', sans-serif; }
+h2 { font-size: 18px; font-weight: 600; color: var(--fg); margin: 0 0 4px; }
+.subtitle { color: var(--gray-300); font-size: 13px; margin: 0 0 24px; }
+
+/* Table mini mockup */
+.mini-table { border: 1px solid var(--gray-600); border-radius: 8px; overflow: hidden; font-size: 10px; }
+.mini-thead { display: grid; background: var(--gray-800); border-bottom: 1px solid var(--gray-600); padding: 5px 10px; color: var(--gray-400); font-size: 9px; letter-spacing: 0.05em; text-transform: uppercase; }
+.mini-row { display: grid; padding: 6px 10px; border-bottom: 1px solid rgba(255,255,255,0.04); align-items: center; }
+.mini-row:last-child { border-bottom: 0; }
+.mini-row:hover { background: rgba(255,140,66,0.04); }
+.mini-row.err { background: rgba(255,68,102,0.05); }
+.mini-row.warn { background: rgba(255,200,80,0.04); }
+.cols-a { grid-template-columns: 80px 1fr 90px 60px 50px 40px; }
+.cols-b { grid-template-columns: 50px 80px 1fr 60px 50px 90px 60px 40px; }
+
+.dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+.dot.run { background: var(--green); box-shadow: 0 0 0 2px rgba(0,211,112,0.2); }
+.dot.err { background: var(--red); }
+.dot.warn { background: var(--yellow); }
+.dot.paused { background: var(--gray-400); }
+
+.glyph { display: inline-flex; align-items: center; justify-content: center; width: 14px; height: 14px; border-radius: 2px; font-size: 8px; font-weight: 700; font-family: monospace; margin-right: 1px; }
+.glyph.i { background: rgba(0,140,255,0.15); color: var(--blue); }
+.glyph.d { background: rgba(183,148,255,0.15); color: var(--purple); }
+.glyph.f { background: rgba(0,211,112,0.15); color: var(--green); }
+.glyph.t { background: rgba(255,140,66,0.15); color: var(--orange); }
+
+.dlq-zero { color: var(--gray-500); font-family: monospace; }
+.dlq-warn { color: var(--yellow); font-family: monospace; font-weight: 600; }
+.dlq-err { color: var(--red); font-family: monospace; font-weight: 700; }
+.status-run { color: var(--green); font-size: 9px; font-family: monospace; }
+.status-paused { color: var(--gray-400); font-size: 9px; font-family: monospace; }
+.status-err { color: var(--red); font-size: 9px; font-family: monospace; }
+
+.badge-sm { display: inline-flex; padding: 1px 6px; border-radius: 99px; font-size: 9px; font-family: monospace; }
+.badge-success { background: rgba(0,211,112,0.12); color: var(--green); border: 1px solid rgba(0,211,112,0.2); }
+.badge-error { background: rgba(255,68,102,0.12); color: var(--red); border: 1px solid rgba(255,68,102,0.2); }
+.badge-warn { background: rgba(255,200,80,0.12); color: var(--yellow); border: 1px solid rgba(255,200,80,0.2); }
+.badge-neutral { background: var(--gray-700); color: var(--gray-300); border: 1px solid var(--gray-600); }
+
+.tag-sm { display: inline-flex; padding: 1px 5px; border-radius: 3px; font-size: 8px; background: var(--gray-700); color: var(--gray-300); font-family: monospace; margin-right: 2px; }
+
+.toolbar { display: flex; align-items: center; gap: 6px; padding: 6px 8px; background: var(--gray-800); border-bottom: 1px solid var(--gray-600); }
+.search-bar { display: flex; align-items: center; gap: 5px; padding: 4px 8px; background: var(--gray-900); border: 1px solid var(--gray-600); border-radius: 5px; font-size: 9px; color: var(--gray-400); min-width: 120px; }
+.filter-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 4px; font-size: 9px; border: 1px solid var(--gray-600); background: var(--gray-900); color: var(--gray-300); }
+.filter-chip.active { background: var(--orange-faint); border-color: var(--orange-border); color: var(--orange); }
+.density-toggle { display: flex; gap: 1px; margin-left: auto; border: 1px solid var(--gray-600); border-radius: 4px; overflow: hidden; }
+.density-btn { padding: 3px 7px; font-size: 9px; background: var(--gray-900); color: var(--gray-400); border: none; }
+.density-btn.on { background: var(--orange-faint); color: var(--orange); }
+
+.views-strip { display: flex; gap: 0; border-bottom: 1px solid var(--gray-600); padding: 0 8px; background: var(--gray-800); }
+.view-tab { padding: 5px 10px; font-size: 9px; color: var(--gray-400); border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+.view-tab.active { color: var(--orange); border-bottom-color: var(--orange); }
+.view-tab .ct { font-family: monospace; font-size: 8px; background: var(--gray-700); padding: 0 4px; border-radius: 99px; margin-left: 3px; }
+.view-tab.active .ct { background: var(--orange-faint); color: var(--orange); }
+
+.health-strip { display: grid; grid-template-columns: repeat(4,1fr); gap: 6px; padding: 8px; }
+.health-tile { padding: 8px 10px; border-radius: 7px; background: var(--gray-800); border: 1px solid var(--gray-600); }
+.health-tile .lbl { font-size: 8px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--gray-400); font-family: monospace; }
+.health-tile .val { font-size: 18px; font-weight: 700; font-family: monospace; margin-top: 1px; }
+.health-tile .sub { font-size: 8px; color: var(--gray-400); font-family: monospace; margin-top: 1px; }
+.health-tile.err .val { color: var(--red); }
+.health-tile.warn .val { color: var(--yellow); }
+.health-tile.ok .val { color: var(--green); }
+.health-tile.draft .val { color: var(--orange); }
+
+.group-row { background: var(--gray-800); padding: 5px 10px; border-top: 1px solid var(--gray-600); border-bottom: 1px solid var(--gray-600); font-size: 9px; color: var(--gray-300); display: flex; align-items: center; gap: 6px; font-family: monospace; }
+.group-row .nm { color: var(--fg); font-weight: 600; }
+.group-row .ct { color: var(--gray-400); }
+
+.bulk-bar { display: flex; align-items: center; gap: 6px; padding: 6px 10px; background: var(--gray-800); border: 1px solid var(--orange-border); border-radius: 6px; margin-top: 6px; font-size: 9px; }
+.bulk-bar .sel { color: var(--orange); font-weight: 600; font-family: monospace; }
+.bulk-btn { padding: 3px 8px; border-radius: 4px; font-size: 9px; border: 1px solid var(--gray-600); background: var(--gray-900); color: var(--gray-300); margin-left: auto; display: inline-flex; gap: 3px; }
+
+.empty-state { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 20px; border: 1px dashed var(--gray-600); border-radius: 10px; background: radial-gradient(ellipse at 50% 0%, rgba(255,140,66,0.05), transparent 60%); }
+.empty-state h3 { font-size: 13px; font-weight: 600; margin: 6px 0 4px; }
+.empty-state p { font-size: 9px; color: var(--gray-400); max-width: 220px; line-height: 1.5; margin: 0 0 10px; }
+.empty-cta-row { display: flex; gap: 5px; margin-bottom: 10px; }
+.empty-cta { padding: 4px 8px; border-radius: 4px; font-size: 9px; }
+.empty-cta.primary { background: var(--orange-faint); border: 1px solid var(--orange-border); color: var(--orange); }
+.empty-cta.secondary { background: var(--gray-800); border: 1px solid var(--gray-600); color: var(--gray-300); }
+.template-cards { display: grid; grid-template-columns: repeat(3,1fr); gap: 6px; width: 100%; }
+.tcard { text-align: left; padding: 7px 8px; background: var(--gray-800); border: 1px solid var(--gray-600); border-radius: 6px; }
+.tcard h4 { font-size: 9px; font-weight: 600; margin: 0 0 3px; }
+.tcard p { font-size: 8px; color: var(--gray-400); margin: 0; line-height: 1.4; }
+
+.name-cell { display: flex; flex-direction: column; gap: 1px; }
+.name-cell .n { font-weight: 500; font-size: 10px; }
+.name-cell .reason { font-size: 8px; color: var(--red); font-family: monospace; }
+.name-cell .reason.warn { color: var(--yellow); }
+
+/* option layout */
+.options-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.option-card { border: 1px solid var(--gray-600); border-radius: 10px; overflow: hidden; cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s; background: var(--gray-800); }
+.option-card:hover { border-color: var(--orange-border); }
+.option-card.selected { border-color: var(--orange); box-shadow: 0 0 0 2px rgba(255,140,66,0.15); }
+.option-header { padding: 10px 12px 8px; border-bottom: 1px solid var(--gray-600); background: var(--gray-800); display: flex; align-items: center; gap: 8px; }
+.option-letter { width: 22px; height: 22px; border-radius: 6px; background: var(--orange-faint); border: 1px solid var(--orange-border); color: var(--orange); font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.option-header h3 { font-size: 12px; font-weight: 600; margin: 0; }
+.option-header p { font-size: 10px; color: var(--gray-300); margin: 0; }
+.option-preview { padding: 8px; background: var(--gray-900); }
+.option-meta { padding: 10px 12px; font-size: 10px; color: var(--gray-300); line-height: 1.5; }
+.feature-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 3px; }
+.feature-list li::before { content: "✓ "; color: var(--green); font-size: 9px; }
+.feature-list li.new::before { content: "★ "; color: var(--orange); font-size: 9px; }
+.feature-list li.skip::before { content: "— "; color: var(--gray-500); font-size: 9px; }
+.feature-list li { font-size: 10px; }
+.feature-list li.skip { color: var(--gray-500); }
+</style>
+
+<h2>Pipelines List — Implementation Scope</h2>
+<p class="subtitle">The design has 5 artboards. Pick the scope level that fits best — all options preserve your existing filter/sort/action functionality.</p>
+
+<div class="options-grid">
+
+  <!-- OPTION A -->
+  <div class="option-card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="option-header">
+      <div class="option-letter">A</div>
+      <div>
+        <h3>Core Visual Refresh</h3>
+        <p>Dense table + toolbar redesign</p>
+      </div>
+    </div>
+    <div class="option-preview">
+      <!-- Toolbar -->
+      <div class="toolbar">
+        <div class="search-bar">🔍 <span>filter by name…</span></div>
+        <div class="filter-chip active">Status <span>running</span></div>
+        <div class="filter-chip">+ Filter</div>
+        <div class="density-toggle">
+          <div class="density-btn on">≡ Table</div>
+          <div class="density-btn">▦ Hybrid</div>
+        </div>
+      </div>
+      <!-- Table -->
+      <div class="mini-table">
+        <div class="mini-thead cols-a">
+          <span>Status</span><span>Name</span><span>Type</span><span>DLQ</span><span>Health</span><span></span>
+        </div>
+        <div class="mini-row cols-a err">
+          <span><span class="dot err"></span><span class="status-err">error</span></span>
+          <div class="name-cell"><span class="n">orders-enrich</span><span class="reason">schema mismatch</span></div>
+          <span><span class="glyph i">I</span><span class="glyph t">T</span></span>
+          <span class="dlq-err">2,194</span>
+          <span><span class="dot err"></span></span>
+          <span>⋯</span>
+        </div>
+        <div class="mini-row cols-a">
+          <span><span class="dot run"></span><span class="status-run">running</span></span>
+          <span class="name-cell"><span class="n">orders-metrics</span></span>
+          <span><span class="glyph i">I</span><span class="glyph f">F</span><span class="glyph t">T</span></span>
+          <span class="dlq-zero">0</span>
+          <span><span class="dot run"></span></span>
+          <span>⋯</span>
+        </div>
+        <div class="mini-row cols-a warn">
+          <span><span class="dot warn"></span><span style="color:var(--yellow);font-size:9px;font-family:monospace">warn</span></span>
+          <div class="name-cell"><span class="n">payments-enrich</span><span class="reason warn">99.4% parse rate</span></div>
+          <span><span class="glyph i">I</span><span class="glyph d">D</span></span>
+          <span class="dlq-warn">184</span>
+          <span><span class="dot warn"></span></span>
+          <span>⋯</span>
+        </div>
+        <div class="mini-row cols-a">
+          <span><span class="dot paused"></span><span class="status-paused">paused</span></span>
+          <span class="name-cell"><span class="n">sessions-rollup</span></span>
+          <span><span class="glyph i">I</span><span class="glyph d">D</span><span class="glyph t">T</span></span>
+          <span class="dlq-zero">0</span>
+          <span><span class="dot run"></span></span>
+          <span>⋯</span>
+        </div>
+      </div>
+    </div>
+    <div class="option-meta">
+      <ul class="feature-list">
+        <li class="new">Inline name search</li>
+        <li class="new">Type glyphs (I/D/F/T)</li>
+        <li class="new">Row tinting for errors/warns</li>
+        <li class="new">Status dot + label</li>
+        <li class="new">DLQ color coding (zero/warn/critical)</li>
+        <li class="new">Inline error reason in name cell</li>
+        <li class="new">Redesigned empty state + templates</li>
+        <li>All existing sort/filter/actions preserved</li>
+        <li class="skip">No saved views tabs</li>
+        <li class="skip">No health summary strip</li>
+        <li class="skip">No bulk select</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- OPTION B -->
+  <div class="option-card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="option-header">
+      <div class="option-letter">B</div>
+      <div>
+        <h3>Refresh + Triage</h3>
+        <p>Option A + health strip + grouping</p>
+      </div>
+    </div>
+    <div class="option-preview">
+      <!-- health strip -->
+      <div class="health-strip">
+        <div class="health-tile err">
+          <div class="lbl">● Errors</div>
+          <div class="val">2</div>
+          <div class="sub">2,612 DLQ events</div>
+        </div>
+        <div class="health-tile warn">
+          <div class="lbl">● Warnings</div>
+          <div class="val">1</div>
+          <div class="sub">99.4% parse rate</div>
+        </div>
+        <div class="health-tile draft">
+          <div class="lbl">● Stopped</div>
+          <div class="val">1</div>
+          <div class="sub">sessions-rollup</div>
+        </div>
+        <div class="health-tile ok">
+          <div class="lbl">● Healthy</div>
+          <div class="val">9</div>
+          <div class="sub">88.6k msg/s</div>
+        </div>
+      </div>
+      <!-- toolbar + grouped table -->
+      <div class="toolbar" style="padding:4px 8px">
+        <div class="search-bar">🔍 <span>filter by name…</span></div>
+        <div class="filter-chip active">Group: health</div>
+      </div>
+      <div class="mini-table">
+        <div class="group-row"><span class="nm" style="color:var(--red)">● Errors</span><span class="ct">2 pipelines · needs attention</span></div>
+        <div class="mini-row cols-a err">
+          <span><span class="dot err"></span><span class="status-err">error</span></span>
+          <div class="name-cell"><span class="n">orders-enrich</span><span class="reason">schema mismatch</span></div>
+          <span><span class="glyph i">I</span><span class="glyph t">T</span></span>
+          <span class="dlq-err">2,194</span>
+          <span><span class="dot err"></span></span>
+          <span>⋯</span>
+        </div>
+        <div class="group-row"><span class="nm" style="color:var(--green)">● Healthy</span><span class="ct">9 pipelines · all green</span></div>
+        <div class="mini-row cols-a">
+          <span><span class="dot run"></span><span class="status-run">running</span></span>
+          <span class="name-cell"><span class="n">orders-metrics</span></span>
+          <span><span class="glyph i">I</span><span class="glyph f">F</span><span class="glyph t">T</span></span>
+          <span class="dlq-zero">0</span>
+          <span><span class="dot run"></span></span>
+          <span>⋯</span>
+        </div>
+      </div>
+    </div>
+    <div class="option-meta">
+      <ul class="feature-list">
+        <li>All of Option A</li>
+        <li class="new">Health summary strip (4 tiles)</li>
+        <li class="new">Group by health toggle</li>
+        <li class="new">Collapsible group headers</li>
+        <li class="skip">No saved views tabs</li>
+        <li class="skip">No bulk select</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- OPTION C -->
+  <div class="option-card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="option-header">
+      <div class="option-letter">C</div>
+      <div>
+        <h3>Full Design</h3>
+        <p>Everything + saved views + bulk</p>
+      </div>
+    </div>
+    <div class="option-preview">
+      <!-- views strip -->
+      <div class="views-strip">
+        <div class="view-tab active">All <span class="ct">13</span></div>
+        <div class="view-tab">My pipelines <span class="ct">5</span></div>
+        <div class="view-tab">DLQ watch <span class="ct">3</span></div>
+        <div class="view-tab" style="color:var(--orange);font-size:9px">+ Save view</div>
+      </div>
+      <!-- toolbar -->
+      <div class="toolbar" style="padding:4px 8px">
+        <div class="search-bar">🔍 <span style="color:var(--gray-300)">env:prod tier:1</span></div>
+        <div class="filter-chip active">Status: running</div>
+        <div class="density-toggle" style="margin-left:auto">
+          <div class="density-btn on">≡</div><div class="density-btn">▦</div><div class="density-btn">▢</div>
+        </div>
+      </div>
+      <!-- table with bulk -->
+      <div class="mini-table">
+        <div class="mini-thead cols-b">
+          <span>☐</span><span>Status</span><span>Name</span><span>Type</span><span>DLQ</span><span>Tags</span><span>Created</span><span></span>
+        </div>
+        <div class="mini-row cols-b err">
+          <span>☑</span>
+          <span><span class="dot err"></span><span class="status-err">error</span></span>
+          <div class="name-cell"><span class="n">orders-enrich</span><span class="reason">schema mismatch</span></div>
+          <span><span class="glyph i">I</span><span class="glyph t">T</span></span>
+          <span class="dlq-err">2,194</span>
+          <span><span class="tag-sm">tier-1</span><span class="tag-sm">sla</span></span>
+          <span style="font-size:8px;color:var(--gray-400)">2d ago</span>
+          <span>⋯</span>
+        </div>
+        <div class="mini-row cols-b">
+          <span>☑</span>
+          <span><span class="dot run"></span><span class="status-run">running</span></span>
+          <span class="name-cell"><span class="n">orders-metrics</span></span>
+          <span><span class="glyph i">I</span><span class="glyph f">F</span></span>
+          <span class="dlq-zero">0</span>
+          <span><span class="tag-sm">sla</span></span>
+          <span style="font-size:8px;color:var(--gray-400)">5d ago</span>
+          <span>⋯</span>
+        </div>
+      </div>
+      <!-- bulk bar -->
+      <div class="bulk-bar">
+        <span class="sel">2 selected</span>
+        <span style="color:var(--gray-400);font-family:monospace;font-size:9px">of 13 visible</span>
+        <div style="display:flex;gap:4px;margin-left:auto">
+          <div class="bulk-btn">⏸ Pause</div>
+          <div class="bulk-btn">🏷 Tag</div>
+          <div class="bulk-btn" style="color:var(--red);border-color:rgba(255,68,102,0.3)">🗑 Delete</div>
+        </div>
+      </div>
+    </div>
+    <div class="option-meta">
+      <ul class="feature-list">
+        <li>All of Option B</li>
+        <li class="new">Saved-views tab strip (client-side)</li>
+        <li class="new">Multi-select checkboxes</li>
+        <li class="new">Bulk actions bar (pause/tag/delete)</li>
+        <li class="new">Density toggle (table/hybrid/cards)</li>
+        <li class="new">Smart search (name:, status:, tag:)</li>
+      </ul>
+    </div>
+  </div>
+
+</div>
