@@ -12,6 +12,7 @@ import { ObservabilityProvider } from '@/src/components/providers/ObservabilityP
 import { NotificationsPanel } from '@/src/components/notifications/NotificationsPanel'
 import { AiDrawerMount } from '@/src/components/shared/AiDrawerMount'
 import Script from 'next/script'
+import { isAiEnabled } from '@/src/utils/auth-config.server'
 
 // Define the fonts
 const inter = Inter({
@@ -60,7 +61,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                       {children}
                       <Toaster />
                       <NotificationsPanel />
-                      <AiDrawerMount aiEnabled={!!(process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY)} />
+                      <AiDrawerMount aiEnabled={isAiEnabled()} />
                     </AuthProvider>
                   </NotificationProvider>
                 </PlatformProvider>

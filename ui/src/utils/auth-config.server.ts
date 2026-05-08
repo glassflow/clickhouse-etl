@@ -17,3 +17,7 @@ export function isAuthEnabled(): boolean {
   const publicAuth = process.env.NEXT_PUBLIC_AUTH0_ENABLED
   return publicAuth === 'true'
 }
+
+export function isAiEnabled(): boolean {
+  return !!(process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY)
+}
