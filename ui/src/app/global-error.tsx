@@ -13,8 +13,8 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
         style={{
           margin: 0,
           fontFamily: 'var(--font-family-body, system-ui, sans-serif)',
-          background: 'var(--color-background-page, #1a1a1a)',
-          color: 'var(--color-foreground-neutral, #e5e5e5)',
+          background: 'var(--color-background-page)',
+          color: 'var(--color-foreground-neutral)',
           minHeight: '100vh',
           display: 'flex',
           alignItems: 'center',
@@ -34,12 +34,12 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
               padding: '0.5rem 1rem',
               fontSize: '0.875rem',
               fontWeight: 500,
-              borderRadius: 'var(--radius-sm, 0.375rem)',
+              borderRadius: 'var(--radius-sm)',
               border: 'none',
-              background: 'linear-gradient(180deg, var(--button-primary-gradient-start, #FFA959) 0%, var(--button-primary-gradient-end, #E7872E) 100%)',
-              color: 'var(--button-primary-text, #000)',
+              background: 'linear-gradient(180deg, var(--button-primary-gradient-start) 0%, var(--button-primary-gradient-end) 100%)',
+              color: 'var(--button-primary-text)',
               cursor: 'pointer',
-              boxShadow: '0px 0px 4px 0px rgba(0,0,0,0.20), 0px 4px 8px 0px rgba(0,0,0,0.30)',
+              boxShadow: 'var(--button-primary-shadow)',
             }}
           >
             Try again

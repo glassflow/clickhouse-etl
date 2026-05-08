@@ -28,7 +28,7 @@ export function PipelineTransitionOverlay({ visible, title, description }: Pipel
         <DialogOverlay
           className="!fixed !inset-0 !z-50"
           style={{
-            backgroundColor: 'rgba(0, 0, 0, 0)',
+            backgroundColor: 'transparent',
             backdropFilter: 'blur(4px)',
             WebkitBackdropFilter: 'blur(4px)',
           }}

@@ -36,6 +36,30 @@ const eslintConfig = [
 
       // Next.js specific rules
       '@next/next/no-html-link-for-pages': 'off',
+
+      // Ban hardcoded rgba() and hex colors in JSX style props and className strings.
+      // All colors must use CSS tokens: var(--token-name).
+      // Raw values belong only in src/themes/base.css and src/themes/theme.css.
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            'JSXAttribute[name.name="style"] ObjectExpression > Property > Literal[value=/rgba\\(/]',
+          message:
+            'Hardcoded rgba() in style prop. Use a CSS token: style={{ color: "var(--token)" }}.',
+        },
+        {
+          selector:
+            'JSXAttribute[name.name="style"] ObjectExpression > Property > Literal[value=/#[0-9a-fA-F]{3}/]',
+          message:
+            'Hardcoded hex color in style prop. Use a CSS token: style={{ color: "var(--token)" }}.',
+        },
+        {
+          selector: 'JSXAttribute[name.name="className"] Literal[value=/rgba\\(/]',
+          message:
+            'Hardcoded rgba() in className. Add a CSS token to base.css/theme.css and use var(--token).',
+        },
+      ],
     },
   },
 ]
