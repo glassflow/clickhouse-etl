@@ -48,7 +48,11 @@ function OrSeparator() {
 }
 
 // Client Component for handling searchParams
-export default function HomePageClient() {
+interface HomePageClientProps {
+  aiEnabled?: boolean
+}
+
+export default function HomePageClient({ aiEnabled }: HomePageClientProps) {
   const store = useStore()
   const { topicsStore, kafkaStore, joinStore, coreStore, otlpStore, aiUiStore, resetForNewPipeline, resetAllPipelineState } = store
   const analytics = useJourneyAnalytics()
@@ -402,36 +406,40 @@ export default function HomePageClient() {
           </Card>
         </section>
 
-        <OrSeparator />
+        {aiEnabled && (
+          <>
+            <OrSeparator />
 
-        {/* Section: Configure with AI assistant — opens the global drawer */}
-        <section
-          className="flex flex-col gap-3 sm:gap-4 w-full"
-          aria-labelledby="section-ai-heading"
-        >
-          <h2
-            id="section-ai-heading"
-            className="subtitle-2 text-content text-xs sm:text-sm font-medium mb-3"
-          >
-            Ask AI
-          </h2>
-          <p className="subtitle-3 text-xs sm:text-sm -mt-1">
-            Describe your pipeline in natural language — the assistant drafts a
-            configuration you can review in Canvas.
-          </p>
-          <Card variant="selectable" className="h-16 sm:h-20 lg:h-24 w-full max-w-md !p-0">
-            <button
-              type="button"
-              className="flex items-center justify-center px-4 sm:px-6 w-full h-full cursor-pointer"
-              onClick={() => aiUiStore.openDrawer({ kind: 'global' })}
+            {/* Section: Configure with AI assistant — opens the global drawer */}
+            <section
+              className="flex flex-col gap-3 sm:gap-4 w-full"
+              aria-labelledby="section-ai-heading"
             >
-              <SparklesIcon className="w-6 h-6 sm:w-9 sm:h-9 text-[var(--color-orange-300)]" />
-              <span className="ml-3 sm:ml-4 text-sm sm:text-lg font-medium text-muted-foreground">
+              <h2
+                id="section-ai-heading"
+                className="subtitle-2 text-content text-xs sm:text-sm font-medium mb-3"
+              >
                 Ask AI
-              </span>
-            </button>
-          </Card>
-        </section>
+              </h2>
+              <p className="subtitle-3 text-xs sm:text-sm -mt-1">
+                Describe your pipeline in natural language — the assistant drafts a
+                configuration you can review in Canvas.
+              </p>
+              <Card variant="selectable" className="h-16 sm:h-20 lg:h-24 w-full max-w-md !p-0">
+                <button
+                  type="button"
+                  className="flex items-center justify-center px-4 sm:px-6 w-full h-full cursor-pointer"
+                  onClick={() => aiUiStore.openDrawer({ kind: 'global' })}
+                >
+                  <SparklesIcon className="w-6 h-6 sm:w-9 sm:h-9 text-[var(--color-orange-300)]" />
+                  <span className="ml-3 sm:ml-4 text-sm sm:text-lg font-medium text-muted-foreground">
+                    Ask AI
+                  </span>
+                </button>
+              </Card>
+            </section>
+          </>
+        )}
       </div>
 
       <InfoModal
