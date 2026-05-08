@@ -16,6 +16,7 @@ import { Sparkline } from '@/src/components/ui/sparkline'
 import { KbdHint } from '@/src/components/ui/kbd-hint'
 import { Crumbs } from '@/src/components/ui/crumbs'
 import { ScopeBadge } from '@/src/components/ui/scope-badge'
+import { TimeRangePicker, type TimeRangeKey } from '@/src/components/ui/time-range-picker'
 import { Section, Preview, PageHeader, CodeBlock } from '../_components/Section'
 
 const upTrend = [12, 18, 15, 22, 28, 24, 31, 29, 35, 40, 38, 44]
@@ -25,6 +26,7 @@ const spikeTrend = [10, 12, 11, 13, 40, 42, 38, 14, 12, 11, 13, 12]
 
 export default function UtilitiesPage() {
   const [selectedPills, setSelectedPills] = useState<Record<string, boolean>>({})
+  const [timeRange, setTimeRange] = useState<TimeRangeKey>('1h')
 
   function togglePill(key: string) {
     setSelectedPills((prev) => ({ ...prev, [key]: !prev[key] }))
@@ -419,6 +421,51 @@ export default function UtilitiesPage() {
 
 // Props
 // pipelineId  string  (required)`} />
+      </Section>
+
+      {/* ── TimeRangePicker ────────────────────────────────────── */}
+      <Section
+        title="TimeRangePicker"
+        description="Segmented control for selecting a time window. Used in MetricsToolbar and LogsToolbar. Custom range opens a calendar modal — handle that externally."
+      >
+        <div className="flex flex-col gap-4 p-4 rounded-lg bg-[var(--surface-bg-sunken)] border border-[var(--surface-border)]">
+          <div className="flex flex-col gap-2">
+            <span className="text-xs font-mono text-[var(--text-secondary)]">default preset ranges</span>
+            <TimeRangePicker value={timeRange} onChange={setTimeRange} />
+          </div>
+          <div className="flex flex-col gap-2">
+            <span className="text-xs font-mono text-[var(--text-secondary)]">custom subset</span>
+            <TimeRangePicker
+              value={timeRange}
+              onChange={setTimeRange}
+              ranges={[
+                { key: '1h', label: '1h' },
+                { key: '6h', label: '6h' },
+                { key: '24h', label: '24h' },
+              ]}
+            />
+          </div>
+          <p className="text-xs text-[var(--text-secondary)]">
+            Selected: <span className="font-mono text-[var(--color-foreground-primary)]">{timeRange}</span>
+          </p>
+        </div>
+        <CodeBlock code={`import { TimeRangePicker, type TimeRangeKey } from '@/src/components/ui/time-range-picker'
+
+const [range, setRange] = useState<TimeRangeKey>('1h')
+
+<TimeRangePicker value={range} onChange={setRange} />
+
+// Custom ranges — omit 'custom' if you don't handle the calendar modal
+<TimeRangePicker
+  value={range}
+  onChange={(key) => {
+    if (key === 'custom') { openCalendarModal(); return }
+    setRange(key)
+  }}
+  ranges={DEFAULT_RANGES}  // import from time-range-picker
+/>
+
+// TimeRangeKey: '15m' | '1h' | '6h' | '24h' | '7d' | 'custom'`} />
       </Section>
     </div>
   )

@@ -6,32 +6,32 @@ const categories = [
   {
     href: '/dev/components/foundations',
     title: 'Foundations',
-    description: 'Typography scale, color tokens, spacing, and border radius',
-    count: 'Typography · Colors · Spacing',
+    description: 'All type scales, semantic colors, surface / option / shadow tokens, spacing, and z-index',
+    count: 'Title · Featured · Body · Caption · Mono · Colors · Tokens',
   },
   {
     href: '/dev/components/buttons',
     title: 'Buttons',
     description: 'All button variants, sizes, states, and the loading pattern',
-    count: '11 variants · 6 sizes',
+    count: '11 variants · 7 sizes',
   },
   {
     href: '/dev/components/display',
     title: 'Display',
-    description: 'Cards, badges, avatars, and tables for showing data',
+    description: 'Cards (all 9 variants + all 4 state modifiers), badges, avatars, and tables',
     count: 'Card · Badge · Avatar · Table',
   },
   {
     href: '/dev/components/forms',
     title: 'Forms',
-    description: 'Inputs, selects, checkboxes, switches, labels, and textarea',
-    count: 'Input · Select · Checkbox · Switch',
+    description: 'Inputs, selects, checkboxes, switches, labels, textarea, and InputGroup',
+    count: 'Input · Select · Checkbox · Switch · InputGroup',
   },
   {
     href: '/dev/components/overlays',
     title: 'Overlays',
-    description: 'Dialog, tooltip, popover, and dropdown menu patterns',
-    count: 'Dialog · Tooltip · Popover · Dropdown',
+    description: 'Dialog, tooltip, popover, dropdown, calendar date picker, and command palette',
+    count: 'Dialog · Tooltip · Popover · Dropdown · Calendar · Command',
   },
   {
     href: '/dev/components/navigation',
@@ -42,20 +42,20 @@ const categories = [
   {
     href: '/dev/components/feedback',
     title: 'Feedback',
-    description: 'Alert variants and animation utility classes',
-    count: 'Alert · Animations',
+    description: 'Alert variants, toast notifications, and all 14 animation utility classes',
+    count: 'Alert · Toast · Animations',
   },
   {
     href: '/dev/components/utilities',
     title: 'Utilities',
-    description: 'Skeleton loaders, empty states, pills, sparklines, and indicator components',
-    count: 'Skeleton · EmptyState · Pill · Sparkline · LiveIndicator · KbdHint · Crumbs · ScopeBadge',
+    description: 'Skeleton loaders, empty states, pills, sparklines, indicators, and TimeRangePicker',
+    count: 'Skeleton · EmptyState · Pill · Sparkline · LiveIndicator · KbdHint · Crumbs · ScopeBadge · TimeRangePicker',
   },
   {
     href: '/dev/components/drawers',
     title: 'Drawers & Modals',
-    description: 'Side drawers and modal dialog patterns with canonical usage examples',
-    count: 'Drawer · ConfirmationModal · InfoModal · Modal shell',
+    description: 'Drawer, Sheet, and all modal dialog patterns with canonical usage examples',
+    count: 'Drawer · Sheet · ConfirmationModal · InfoModal · Modal shell',
   },
 ]
 

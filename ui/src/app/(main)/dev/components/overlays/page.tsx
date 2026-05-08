@@ -1,6 +1,12 @@
 'use client'
 
-import { InfoIcon, AlertTriangleIcon, MoreHorizontalIcon, Settings2Icon, CopyIcon, TrashIcon } from 'lucide-react'
+import { useState } from 'react'
+import { InfoIcon, AlertTriangleIcon, MoreHorizontalIcon, Settings2Icon, CopyIcon, TrashIcon, CalendarIcon } from 'lucide-react'
+import { Calendar } from '@/src/components/ui/calendar'
+import {
+  Command, CommandInput, CommandList, CommandEmpty,
+  CommandGroup, CommandItem,
+} from '@/src/components/ui/command'
 import { Button } from '@/src/components/ui/button'
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter,
@@ -302,6 +308,94 @@ export default function OverlaysPage() {
     </DropdownMenuItem>
   </DropdownMenuContent>
 </DropdownMenu>`} />
+      </Section>
+
+      {/* ── Calendar ───────────────────────────────────────────────── */}
+      <Section
+        title="Calendar"
+        description="Date picker built on react-day-picker. Used standalone or inside a Popover for date-range selection in custom time range modals."
+      >
+        <div className="flex flex-wrap gap-8 p-4 rounded-lg bg-[var(--surface-bg-sunken)] border border-[var(--surface-border)]">
+          <div className="flex flex-col gap-2">
+            <span className="text-xs font-mono text-[var(--text-secondary)]">single date</span>
+            <div className="rounded-lg border border-[var(--surface-border)] bg-[var(--surface-bg)] inline-block">
+              <Calendar mode="single" />
+            </div>
+          </div>
+          <div className="flex flex-col gap-2">
+            <span className="text-xs font-mono text-[var(--text-secondary)]">date range</span>
+            <div className="rounded-lg border border-[var(--surface-border)] bg-[var(--surface-bg)] inline-block">
+              <Calendar
+                mode="range"
+                numberOfMonths={2}
+                defaultMonth={new Date(2026, 4)}
+              />
+            </div>
+          </div>
+        </div>
+        <CodeBlock code={`import { Calendar } from '@/src/components/ui/calendar'
+
+// Single date
+const [date, setDate] = useState<Date>()
+<Calendar mode="single" selected={date} onSelect={setDate} />
+
+// Date range — typically inside a Popover
+const [range, setRange] = useState<DateRange>()
+<Calendar mode="range" selected={range} onSelect={setRange} numberOfMonths={2} />
+
+// DayPicker props pass through — see react-day-picker docs for full API`} />
+      </Section>
+
+      {/* ── Command ────────────────────────────────────────────────── */}
+      <Section
+        title="Command"
+        description="Search palette built on cmdk. Use CommandDialog for a keyboard-triggered overlay (⌘K), or embed Command directly for inline filtering lists."
+      >
+        <div className="p-4 rounded-lg bg-[var(--surface-bg-sunken)] border border-[var(--surface-border)]">
+          <div className="max-w-sm rounded-lg border border-[var(--surface-border)] bg-[var(--surface-bg)] overflow-hidden">
+            <Command>
+              <CommandInput placeholder="Type a command or search..." />
+              <CommandList>
+                <CommandEmpty>No results found.</CommandEmpty>
+                <CommandGroup heading="Pipelines">
+                  <CommandItem>kafka-prod-ingest</CommandItem>
+                  <CommandItem>clickhouse-etl-primary</CommandItem>
+                  <CommandItem>data-transform-v2</CommandItem>
+                </CommandGroup>
+                <CommandGroup heading="Actions">
+                  <CommandItem>Create new pipeline</CommandItem>
+                  <CommandItem>Open library</CommandItem>
+                  <CommandItem>View metrics</CommandItem>
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </div>
+        </div>
+        <CodeBlock code={`import {
+  Command, CommandInput, CommandList, CommandEmpty,
+  CommandGroup, CommandItem,
+} from '@/src/components/ui/command'
+
+// Inline (no dialog)
+<Command>
+  <CommandInput placeholder="Search..." />
+  <CommandList>
+    <CommandEmpty>No results found.</CommandEmpty>
+    <CommandGroup heading="Pipelines">
+      <CommandItem onSelect={() => navigate(item.href)}>
+        {item.name}
+      </CommandItem>
+    </CommandGroup>
+  </CommandList>
+</Command>
+
+// ⌘K palette — wrap in CommandDialog
+import { CommandDialog } from '@/src/components/ui/command'
+
+<CommandDialog open={open} onOpenChange={setOpen}>
+  <CommandInput placeholder="Type a command..." />
+  <CommandList>...</CommandList>
+</CommandDialog>`} />
       </Section>
     </div>
   )

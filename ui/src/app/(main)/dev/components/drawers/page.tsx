@@ -1,7 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { SettingsIcon, BookOpenIcon, AlertTriangleIcon } from 'lucide-react'
+import { SettingsIcon, BookOpenIcon, AlertTriangleIcon, LayersIcon } from 'lucide-react'
+import {
+  Sheet, SheetTrigger, SheetContent,
+  SheetHeader, SheetTitle, SheetDescription, SheetFooter, SheetClose,
+} from '@/src/components/ui/sheet'
 import {
   Drawer,
   DrawerTrigger,
@@ -313,6 +317,93 @@ import {
 // ✅  DialogContent always gets info-modal-container + surface-gradient-border border-0
 // ❌  Never style={{ ... }} on DialogOverlay
 // ❌  Never raw <div> modals — always use the Dialog primitive`} />
+      </Section>
+
+      {/* ── Sheet ──────────────────────────────────────────────────── */}
+      <Section
+        title="Sheet"
+        description="Radix Dialog configured as a slide-in panel. Similar to Drawer but uses shadcn defaults — less opinionated styling. Prefer Drawer in product UI; Sheet when you need raw escape hatches."
+      >
+        <div className="mb-4 px-3 py-2.5 rounded-md border border-[var(--surface-border)] bg-[var(--surface-bg-sunken)]">
+          <p className="body-3 text-[var(--text-secondary)]">
+            <span className="text-[var(--color-foreground-primary)] font-medium">Drawer vs Sheet:</span>{' '}
+            Use <span className="font-mono text-xs">Drawer</span> for all standard side panels — it has GlassFlow token styling, structured slots (DrawerHeader/Body/Footer), and the correct animation tokens.
+            Use <span className="font-mono text-xs">Sheet</span> only when you need a side: top or bottom slide, or when integrating a third-party component that expects shadcn Sheet API.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap gap-3 p-4 rounded-lg bg-[var(--surface-bg-sunken)] border border-[var(--surface-border)]">
+          <Sheet>
+            <SheetTrigger asChild>
+              <button className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md border border-[var(--surface-border)] bg-[var(--surface-bg)] body-3 text-[var(--text-primary)] hover:bg-[var(--surface-bg-raised)] transition-colors">
+                <LayersIcon size={14} />
+                Open Sheet (right)
+              </button>
+            </SheetTrigger>
+            <SheetContent side="right">
+              <SheetHeader>
+                <SheetTitle>Sheet panel</SheetTitle>
+                <SheetDescription>Raw shadcn Sheet — no GlassFlow token layer.</SheetDescription>
+              </SheetHeader>
+              <div className="py-4">
+                <p className="text-sm text-muted-foreground">
+                  This is a Sheet. Notice it uses shadcn muted-foreground and bg-background tokens
+                  instead of GlassFlow surface tokens. Prefer Drawer for product UI.
+                </p>
+              </div>
+              <SheetFooter>
+                <SheetClose asChild>
+                  <button className="inline-flex items-center px-3 py-1.5 rounded-md body-3 text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
+                    Close
+                  </button>
+                </SheetClose>
+              </SheetFooter>
+            </SheetContent>
+          </Sheet>
+
+          <Sheet>
+            <SheetTrigger asChild>
+              <button className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md border border-[var(--surface-border)] bg-[var(--surface-bg)] body-3 text-[var(--text-primary)] hover:bg-[var(--surface-bg-raised)] transition-colors">
+                Sheet (bottom)
+              </button>
+            </SheetTrigger>
+            <SheetContent side="bottom">
+              <SheetHeader>
+                <SheetTitle>Bottom sheet</SheetTitle>
+                <SheetDescription>Slides from the bottom — useful for mobile contexts or quick-action menus.</SheetDescription>
+              </SheetHeader>
+            </SheetContent>
+          </Sheet>
+        </div>
+
+        <CodeBlock code={`import {
+  Sheet, SheetTrigger, SheetContent,
+  SheetHeader, SheetTitle, SheetDescription,
+  SheetFooter, SheetClose,
+} from '@/src/components/ui/sheet'
+
+// side: 'right' | 'left' | 'top' | 'bottom'  (default: 'right')
+<Sheet>
+  <SheetTrigger asChild>
+    <Button variant="secondary">Open</Button>
+  </SheetTrigger>
+  <SheetContent side="right">
+    <SheetHeader>
+      <SheetTitle>Title</SheetTitle>
+      <SheetDescription>Description</SheetDescription>
+    </SheetHeader>
+    {/* body content */}
+    <SheetFooter>
+      <SheetClose asChild>
+        <Button variant="tertiary">Close</Button>
+      </SheetClose>
+    </SheetFooter>
+  </SheetContent>
+</Sheet>
+
+// ⚠️  Sheet uses shadcn tokens (muted-foreground, bg-background).
+//     Wrap content in GlassFlow token classes if visual consistency matters.
+//     For product UI panels, use Drawer instead.`} />
       </Section>
     </div>
   )

@@ -10,6 +10,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/src/components/ui/button'
 import { SearchableSelect } from '@/src/components/common/SearchableSelect'
 import { DualSearchableSelect } from '@/src/components/common/DualSearchableSelect'
+import {
+  InputGroup, InputGroupAddon, InputGroupInput,
+  InputGroupButton, InputGroupText,
+} from '@/src/components/ui/input-group'
+import { SearchIcon, XIcon } from 'lucide-react'
 import { Section, VariantGrid, Preview, PageHeader, CodeBlock } from '../_components/Section'
 
 const KAFKA_FIELDS = ['user_id', 'event_type', 'timestamp', 'session_id', 'device_id', 'ip_address', 'payload', 'correlation_id', 'tenant_id']
@@ -344,6 +349,70 @@ export default function FormsPage() {
             <Input error placeholder="Error input" className="w-48" />
           </div>
         </div>
+      </Section>
+
+      {/* ── InputGroup ──────────────────────────────────────── */}
+      <Section
+        title="InputGroup"
+        description="Composable input with inline prefix/suffix, buttons, or text addons. All four align positions: inline-start, inline-end, block-start, block-end."
+      >
+        <div className="flex flex-col gap-4 p-4 rounded-lg bg-[var(--surface-bg-sunken)] border border-[var(--surface-border)]">
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs font-mono text-[var(--text-secondary)]">icon prefix + clear button suffix</span>
+            <InputGroup className="max-w-sm">
+              <InputGroupAddon align="inline-start">
+                <SearchIcon className="size-4 text-[var(--text-secondary)]" />
+              </InputGroupAddon>
+              <InputGroupInput placeholder="Search pipelines..." />
+              <InputGroupAddon align="inline-end">
+                <InputGroupButton><XIcon className="size-3" /></InputGroupButton>
+              </InputGroupAddon>
+            </InputGroup>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs font-mono text-[var(--text-secondary)]">text prefix (protocol)</span>
+            <InputGroup className="max-w-sm">
+              <InputGroupAddon align="inline-start">
+                <InputGroupText>https://</InputGroupText>
+              </InputGroupAddon>
+              <InputGroupInput placeholder="broker.kafka.internal" />
+            </InputGroup>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs font-mono text-[var(--text-secondary)]">text suffix (port)</span>
+            <InputGroup className="max-w-sm">
+              <InputGroupInput placeholder="Host address" />
+              <InputGroupAddon align="inline-end">
+                <InputGroupText>:9092</InputGroupText>
+              </InputGroupAddon>
+            </InputGroup>
+          </div>
+        </div>
+        <CodeBlock code={`import {
+  InputGroup, InputGroupAddon, InputGroupInput,
+  InputGroupButton, InputGroupText,
+} from '@/src/components/ui/input-group'
+
+// Icon prefix + clear button suffix
+<InputGroup>
+  <InputGroupAddon align="inline-start">
+    <SearchIcon className="size-4" />
+  </InputGroupAddon>
+  <InputGroupInput placeholder="Search..." />
+  <InputGroupAddon align="inline-end">
+    <InputGroupButton><XIcon className="size-3" /></InputGroupButton>
+  </InputGroupAddon>
+</InputGroup>
+
+// Text prefix
+<InputGroup>
+  <InputGroupAddon align="inline-start">
+    <InputGroupText>https://</InputGroupText>
+  </InputGroupAddon>
+  <InputGroupInput placeholder="domain.com" />
+</InputGroup>
+
+// align: 'inline-start' | 'inline-end' | 'block-start' | 'block-end'`} />
       </Section>
 
       <Section title="Control Tokens" description="Use these tokens for custom form elements not served by primitives">
