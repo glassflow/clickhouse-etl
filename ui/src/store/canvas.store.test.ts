@@ -61,6 +61,9 @@ describe('canvasStore — initFromConfig', () => {
 
   it('sets isDirty to false', () => {
     const store = makeStore()
+    // Dirty the store first so the test actually exercises the reset path
+    store.getState().canvasStore.setNodeConfig('source', { bootstrapServers: 'b:9092' })
+    expect(store.getState().canvasStore.isDirty).toBe(true)
     store.getState().canvasStore.initFromConfig(pipelineConfigToCanvas(minimalConfig()))
     expect(store.getState().canvasStore.isDirty).toBe(false)
   })

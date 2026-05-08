@@ -186,10 +186,16 @@ export interface CanvasHydration {
   sourceType: CanvasState['sourceType']
 }
 
+const VALID_OTLP_SOURCE_TYPES = ['otlp.logs', 'otlp.traces', 'otlp.metrics'] as const
+type OtlpSourceType = (typeof VALID_OTLP_SOURCE_TYPES)[number]
+
 export function pipelineConfigToCanvas(config: InternalPipelineConfig): CanvasHydration {
   const isOtlp = config.source?.type !== 'kafka'
+  const rawType = config.source?.type
   const sourceType: CanvasState['sourceType'] = isOtlp
-    ? ((config.source?.type as CanvasState['sourceType']) ?? 'otlp.logs')
+    ? (VALID_OTLP_SOURCE_TYPES.includes(rawType as OtlpSourceType)
+        ? (rawType as OtlpSourceType)
+        : 'otlp.logs')
     : 'kafka'
   const sourceNodeType = isOtlp ? 'otlpSource' : 'kafkaSource'
 
