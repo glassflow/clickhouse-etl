@@ -112,14 +112,9 @@ export function PipelineTagsModal({
       }}
     >
       <DialogOverlay
-        className="!fixed !inset-0"
+        className="!fixed !inset-0 modal-overlay"
         aria-hidden="true"
-        style={{
-          backgroundColor: 'rgba(17, 25, 40, 0.25)',
-          backdropFilter: 'blur(4px) saturate(30%)',
-          WebkitBackdropFilter: 'blur(4px) saturate(30%)',
-          border: '1px solid rgba(255, 255, 255, 0.125)',
-        }}
+        style={{ border: '1px solid var(--overlay-border)' }}
       />
       <DialogContent className="sm:max-w-[520px] info-modal-container surface-gradient-border border-0">
         <DialogHeader>

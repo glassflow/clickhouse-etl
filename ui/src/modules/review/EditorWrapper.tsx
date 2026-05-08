@@ -42,7 +42,7 @@ export const EditorWrapper = ({ mode, value }: { mode: string; value: string }) 
   return (
     <div
       className="flex-grow relative w-full h-[800px] transition-all duration-200"
-      style={{ border: '1px solid #333', borderRadius: '0.375rem', overflow: 'hidden' }}
+      style={{ border: '1px solid var(--surface-border)', borderRadius: '0.375rem', overflow: 'hidden' }}
     >
       {/* Copy button */}
       <button
