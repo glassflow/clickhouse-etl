@@ -5,7 +5,7 @@ import { DashFirstRun } from './DashFirstRun'
 describe('DashFirstRun', () => {
   it('renders the main heading', () => {
     render(<DashFirstRun />)
-    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent("Let's set up your first pipeline")
+    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent("Set up your first pipeline")
   })
 
   it('renders all 6 action tiles by name', () => {
@@ -29,7 +29,10 @@ describe('DashFirstRun', () => {
 
   it('active tiles are not marked disabled', () => {
     const { container } = render(<DashFirstRun />)
-    const active = Array.from(container.querySelectorAll('.empty-path:not(.disabled)'))
+    const active = [
+      ...container.querySelectorAll('.empty-primary-path'),
+      ...container.querySelectorAll('.empty-path:not(.disabled)'),
+    ]
     expect(active).toHaveLength(4)
   })
 
