@@ -25,7 +25,11 @@ export default async function CanvasPage({ searchParams }: PageProps) {
       .where(eq(pipelineRevisions.pipelineId, draft))
       .orderBy(desc(pipelineRevisions.revision))
       .limit(1)
-    initialConfig = (rev?.config as unknown as InternalPipelineConfig) ?? null
+    const raw = rev?.config
+    initialConfig =
+      raw && typeof raw === 'object' && 'source' in raw && 'sink' in raw
+        ? (raw as unknown as InternalPipelineConfig)
+        : null
   }
 
   return (
