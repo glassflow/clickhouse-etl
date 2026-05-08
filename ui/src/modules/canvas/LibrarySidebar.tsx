@@ -66,12 +66,18 @@ export function LibrarySidebar() {
             ? (cfg.brokers as string[]).join(',')
             : '',
       ...cfg,
+      connectionRefId: conn.id,
+      connectionLabel: conn.name,
     })
   }
 
   const applyClickhouseConnection = (conn: LibraryConnection) => {
     const targetNodeId = activeNodeId ?? 'sink'
-    setNodeConfig(targetNodeId, { ...conn.config })
+    setNodeConfig(targetNodeId, {
+      ...conn.config,
+      connectionRefId: conn.id,
+      connectionLabel: conn.name,
+    })
   }
 
   return (
