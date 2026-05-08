@@ -116,6 +116,55 @@ export function canvasToPipelineConfig(canvas: CanvasState): InternalPipelineCon
   }
 }
 
+export type PipelineReferenceItem = {
+  resourceKind: 'kafka_connection' | 'clickhouse_connection' | 'schema' | 'transform'
+  resourceId: string
+  pinnedVersion: string | null
+}
+
+/**
+ * Walks `nodeConfigs` for the fixed canvas node IDs (source, sink, transform)
+ * and collects any library resource IDs that were attached via the Library
+ * Sidebar or NodeConfigPanel. Called just before a POST /revisions so the
+ * server can persist `pipeline_references` rows in the same transaction.
+ */
+export function extractLibraryReferences(
+  nodeConfigs: Record<string, Record<string, unknown>>,
+): PipelineReferenceItem[] {
+  const refs: PipelineReferenceItem[] = []
+
+  const source = nodeConfigs['source'] as
+    | { connectionRefId?: string; topics?: Array<{ schemaRefId?: string; pinnedVersion?: string }> }
+    | undefined
+  if (typeof source?.connectionRefId === 'string') {
+    refs.push({ resourceKind: 'kafka_connection', resourceId: source.connectionRefId, pinnedVersion: null })
+  }
+  source?.topics?.forEach((t) => {
+    if (typeof t.schemaRefId === 'string') {
+      refs.push({ resourceKind: 'schema', resourceId: t.schemaRefId, pinnedVersion: t.pinnedVersion ?? null })
+    }
+  })
+
+  const sink = nodeConfigs['sink'] as
+    | { connectionRefId?: string; schemaRefId?: string; pinnedSchemaVersion?: string }
+    | undefined
+  if (typeof sink?.connectionRefId === 'string') {
+    refs.push({ resourceKind: 'clickhouse_connection', resourceId: sink.connectionRefId, pinnedVersion: null })
+  }
+  if (typeof sink?.schemaRefId === 'string') {
+    refs.push({ resourceKind: 'schema', resourceId: sink.schemaRefId, pinnedVersion: sink.pinnedSchemaVersion ?? null })
+  }
+
+  const transform = nodeConfigs['transform'] as
+    | { transformRefId?: string; pinnedVersion?: string }
+    | undefined
+  if (typeof transform?.transformRefId === 'string') {
+    refs.push({ resourceKind: 'transform', resourceId: transform.transformRefId, pinnedVersion: transform.pinnedVersion ?? null })
+  }
+
+  return refs
+}
+
 /**
  * Convenience wrapper around `canvasToPipelineConfig` for callers that hold
  * a raw `{ nodes, edges, configs }` snapshot rather than a full `CanvasState`.
@@ -128,4 +177,111 @@ export function serializeCanvas(input: CanvasSerializeInput): InternalPipelineCo
     sourceType: input.sourceType ?? 'kafka',
     activeNodeId: null,
   } as CanvasState)
+}
+
+export interface CanvasHydration {
+  nodes: Node[]
+  edges: Edge[]
+  nodeConfigs: Record<string, Record<string, unknown>>
+  sourceType: CanvasState['sourceType']
+}
+
+export function pipelineConfigToCanvas(config: InternalPipelineConfig): CanvasHydration {
+  const isOtlp = config.source?.type !== 'kafka'
+  const sourceType: CanvasState['sourceType'] = isOtlp
+    ? ((config.source?.type as CanvasState['sourceType']) ?? 'otlp.logs')
+    : 'kafka'
+  const sourceNodeType = isOtlp ? 'otlpSource' : 'kafkaSource'
+
+  const topic = config.source?.topics?.[0]
+  const isDedupActive = topic?.deduplication?.enabled ?? false
+  const isFilterActive = config.filter?.enabled ?? false
+  const isTransformActive = config.stateless_transformation?.enabled ?? false
+
+  const nodes: Node[] = [
+    {
+      id: 'source',
+      type: sourceNodeType,
+      position: { x: 0, y: 200 },
+      data: { label: isOtlp ? 'OTLP Source' : 'Kafka Source' },
+    },
+    {
+      id: 'dedup',
+      type: 'dedup',
+      position: { x: 250, y: 200 },
+      data: { label: 'Deduplication', disabled: !isDedupActive },
+    },
+    {
+      id: 'filter',
+      type: 'filter',
+      position: { x: 500, y: 200 },
+      data: { label: 'Filter', disabled: !isFilterActive },
+    },
+    {
+      id: 'transform',
+      type: 'transform',
+      position: { x: 750, y: 200 },
+      data: { label: 'Transform', disabled: !isTransformActive },
+    },
+    {
+      id: 'sink',
+      type: 'clickhouseSink',
+      position: { x: 1000, y: 200 },
+      data: { label: 'ClickHouse Sink' },
+    },
+  ]
+
+  const edges: Edge[] = [
+    { id: 'e-source-dedup', source: 'source', target: 'dedup' },
+    { id: 'e-dedup-filter', source: 'dedup', target: 'filter' },
+    { id: 'e-filter-transform', source: 'filter', target: 'transform' },
+    { id: 'e-transform-sink', source: 'transform', target: 'sink' },
+  ]
+
+  const brokers = config.source?.connection_params?.brokers ?? []
+  const sourceConfig: Record<string, unknown> = isOtlp
+    ? { endpoint: config.source?.id ?? '' }
+    : {
+        bootstrapServers: brokers.join(','),
+        topicName: topic?.name ?? '',
+      }
+
+  const dedupConfig: Record<string, unknown> = {
+    idField: topic?.deduplication?.id_field ?? '',
+    timeWindow: topic?.deduplication?.time_window ?? '24h',
+  }
+
+  const filterConfig: Record<string, unknown> = {
+    expression: config.filter?.expression ?? '',
+  }
+
+  const transformConfig: Record<string, unknown> = {
+    expression:
+      config.stateless_transformation?.config?.transform?.[0]?.expression ?? '',
+  }
+
+  const sink = config.sink
+  const sinkConfig: Record<string, unknown> = {
+    host: sink?.host ?? '',
+    httpPort: sink?.httpPort ?? '8123',
+    database: sink?.database ?? '',
+    table: sink?.table ?? '',
+    secure: sink?.secure ?? false,
+    maxBatchSize: sink?.max_batch_size ?? 1000,
+    maxDelayTime: sink?.max_delay_time ?? '1s',
+    skipCertificateVerification: sink?.skip_certificate_verification ?? false,
+  }
+
+  return {
+    nodes,
+    edges,
+    nodeConfigs: {
+      source: sourceConfig,
+      dedup: dedupConfig,
+      filter: filterConfig,
+      transform: transformConfig,
+      sink: sinkConfig,
+    },
+    sourceType,
+  }
 }
