@@ -55,6 +55,7 @@
   background-color: var(--overlay-bg);
   backdrop-filter: var(--overlay-backdrop-blur);
   -webkit-backdrop-filter: var(--overlay-backdrop-blur);
+  border: 1px solid var(--overlay-border);
 }
 
 .modal-title {

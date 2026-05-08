@@ -47,7 +47,7 @@ export const EditorWrapper = ({ mode, value }: { mode: string; value: string }) 
       {/* Copy button */}
       <button
         onClick={handleCopy}
-        className="absolute top-2 right-2 z-10 p-2 bg-[var(--surface-bg)] hover:bg-[var(--color-background-elevation-raised-faded)] rounded-md text-white transition-all duration-200"
+        className="absolute top-2 right-2 z-10 p-2 bg-[var(--surface-bg)] hover:bg-[var(--color-background-elevation-raised-faded)] rounded-md text-[var(--color-foreground-neutral)] transition-all duration-200"
         title="Copy to clipboard"
       >
         {copied ? (

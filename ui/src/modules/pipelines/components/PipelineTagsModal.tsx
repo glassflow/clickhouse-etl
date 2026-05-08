@@ -111,11 +111,7 @@ export function PipelineTagsModal({
         }
       }}
     >
-      <DialogOverlay
-        className="!fixed !inset-0 modal-overlay"
-        aria-hidden="true"
-        style={{ border: '1px solid var(--overlay-border)' }}
-      />
+      <DialogOverlay className="!fixed !inset-0 modal-overlay" aria-hidden="true" />
       <DialogContent className="sm:max-w-[520px] info-modal-container surface-gradient-border border-0">
         <DialogHeader>
           <DialogTitle className="modal-title flex items-center gap-2 mb-8">
