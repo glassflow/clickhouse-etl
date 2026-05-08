@@ -30,7 +30,8 @@ import { NodePalette } from './NodePalette'
 import { DeployBar } from './DeployBar'
 import { DriftBanner } from './DriftBanner'
 import { UnsavedChangesGuard } from './UnsavedChangesGuard'
-import { serializeCanvas } from './serializer'
+import { serializeCanvas, extractLibraryReferences, pipelineConfigToCanvas } from './serializer'
+import type { InternalPipelineConfig } from '@/src/types/pipeline'
 import {
   Drawer,
   DrawerBody,
@@ -52,9 +53,10 @@ const nodeTypes = {
 type CanvasViewProps = {
   pipelineId?: string | null
   currentRevision?: number | null
+  initialConfig?: InternalPipelineConfig | null
 }
 
-function CanvasInner({ pipelineId, currentRevision }: CanvasViewProps) {
+function CanvasInner({ pipelineId, currentRevision, initialConfig }: CanvasViewProps) {
   const { canvasStore } = useStore()
   const {
     nodes,
@@ -66,13 +68,18 @@ function CanvasInner({ pipelineId, currentRevision }: CanvasViewProps) {
     setEdges,
     addNodeAt,
     initDefaultPipeline,
+    initFromConfig,
   } = canvasStore
 
   const reactFlow = useReactFlow()
   const wrapperRef = React.useRef<HTMLDivElement>(null)
 
   React.useEffect(() => {
-    if (nodes.length === 0) initDefaultPipeline('kafka')
+    if (initialConfig) {
+      initFromConfig(pipelineConfigToCanvas(initialConfig))
+    } else if (nodes.length === 0) {
+      initDefaultPipeline('kafka')
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -145,13 +152,16 @@ function CanvasInner({ pipelineId, currentRevision }: CanvasViewProps) {
       configs: canvasStore.nodeConfigs,
       sourceType: canvasStore.sourceType,
     })
+
+    const references = extractLibraryReferences(canvasStore.nodeConfigs)
+
     const url = pipelineId
       ? `/ui-api/pipelines/${pipelineId}/revisions`
       : '/ui-api/pipelines'
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ env, config }),
+      body: JSON.stringify({ env, config, references }),
     })
     if (!res.ok) throw new Error(`Deploy failed (${res.status})`)
     const json = (await res.json()) as {
