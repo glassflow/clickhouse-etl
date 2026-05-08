@@ -7,6 +7,9 @@
 
 import { AiDrawer } from '@/src/modules/ai/components/AiDrawer'
 
-export function AiDrawerMount() {
+type AiDrawerMountProps = { aiEnabled?: boolean }
+
+export function AiDrawerMount({ aiEnabled }: AiDrawerMountProps) {
+  if (!aiEnabled) return null
   return <AiDrawer />
 }

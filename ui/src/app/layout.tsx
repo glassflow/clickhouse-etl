@@ -60,7 +60,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                       {children}
                       <Toaster />
                       <NotificationsPanel />
-                      <AiDrawerMount />
+                      <AiDrawerMount aiEnabled={!!(process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY)} />
                     </AuthProvider>
                   </NotificationProvider>
                 </PlatformProvider>
