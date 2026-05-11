@@ -153,6 +153,9 @@ const (
 	// must be set via NakWithDelay at the call site (separate work item).
 	NatsConsumerMaxDeliver = 10
 	NatsConsumerAckWait    = 30 * time.Second
+	// NatsConsumerNakDelay is the fixed delay passed to NakWithDelay on every explicit NACK.
+	// Keeps redeliveries from hammering downstream immediately while staying simple.
+	NatsConsumerNakDelay = 5 * time.Second
 
 	// Postgres client constants
 	PostgresConnectionRetries = 12
