@@ -182,6 +182,7 @@
   --surface-bg-raised: var(--color-background-elevation-raised);
   --surface-bg-overlay: var(--color-background-elevation-overlay);
   --surface-bg-sunken: var(--color-background-regular);
+  --surface-bg-hover: var(--color-background-neutral-faded);
 
   --surface-border: var(--color-border-neutral-faded);
   --surface-border-subtle: var(--color-border-regular);
@@ -388,6 +389,7 @@
   /* ================== Text Tokens ================== */
   --text-primary: var(--color-foreground-neutral);
   --text-secondary: var(--color-foreground-neutral-faded);
+  --text-tertiary: var(--color-gray-dark-300);
   --text-accent: var(--color-foreground-primary);
   --text-disabled: var(--color-foreground-disabled);
   --text-inverse: var(--color-black);

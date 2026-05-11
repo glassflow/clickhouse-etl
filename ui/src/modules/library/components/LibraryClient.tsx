@@ -248,8 +248,8 @@ export function LibraryClient() {
           onTagChange={setSelectedTag}
         />
 
-        {/* Content area */}
-        <div className="flex-1 min-w-0 flex flex-col gap-5">
+        {/* Content area — key forces re-mount (and re-animation) on section change */}
+        <div key={activeSection} className="flex-1 min-w-0 flex flex-col gap-5 animate-section-enter">
           {/* Section header — aligned with content, not sidebar */}
           <div className="flex items-start justify-between gap-4">
             <div className="flex flex-col gap-1">
@@ -534,7 +534,7 @@ function SortButtons<T extends string>({
           type="button"
           onClick={() => onChange(v)}
           className={[
-            'px-3 py-1.5 caption-1 transition-colors',
+            'px-3 py-1.5 caption-1 transition-colors focus-ring',
             value === v
               ? 'bg-[var(--surface-bg)] text-[var(--text-primary)]'
               : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]',
@@ -589,7 +589,7 @@ function LibraryFirstRunEmptyState({
             key={section}
             type="button"
             onClick={() => onSectionChange(section)}
-            className="text-left p-4 rounded-lg border border-[var(--surface-border)] bg-[var(--surface-bg)] hover:border-[var(--color-gray-dark-300)] hover:bg-[var(--interactive-hover-bg)] transition-colors flex flex-col gap-3"
+            className="text-left p-4 rounded-lg border border-[var(--surface-border)] bg-[var(--surface-bg)] hover:border-[var(--color-gray-dark-300)] hover:bg-[var(--interactive-hover-bg)] transition-colors flex flex-col gap-3 focus-ring"
           >
             <LibraryTypeGlyph type={glyphType} size="md" />
             <div>

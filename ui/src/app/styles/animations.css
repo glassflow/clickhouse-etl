@@ -297,6 +297,19 @@
 
 .animate-livePulse { animation: livePulse 1400ms ease-out infinite; }
 
+/* ── Library card grid stagger ──────────────────────────────────────────── */
+
+.lib-card-grid > * {
+  animation: sectionEnter 0.24s var(--ease-out-quart) both;
+}
+.lib-card-grid > *:nth-child(1) { animation-delay:   0ms; }
+.lib-card-grid > *:nth-child(2) { animation-delay:  35ms; }
+.lib-card-grid > *:nth-child(3) { animation-delay:  70ms; }
+.lib-card-grid > *:nth-child(4) { animation-delay: 105ms; }
+.lib-card-grid > *:nth-child(5) { animation-delay: 140ms; }
+.lib-card-grid > *:nth-child(6) { animation-delay: 175ms; }
+.lib-card-grid > *:nth-child(n+7) { animation-delay: 200ms; }
+
 /* ── Reduced motion ──────────────────────────────────────────────────────── */
 
 @media (prefers-reduced-motion: reduce) {

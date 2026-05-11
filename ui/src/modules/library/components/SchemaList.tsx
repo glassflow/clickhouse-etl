@@ -98,7 +98,7 @@ export function SchemaList({ schemas, searchQuery = '', onEdit = () => {}, onDel
           copy="No schemas match the selected filters."
         />
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="lib-card-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {finalFiltered.map((schema) => (
             <SchemaCard key={schema.id} schema={schema} onEdit={onEdit} onDelete={onDelete} folders={folders} />
           ))}
@@ -234,7 +234,7 @@ function FilterChips<T extends string>({
           type="button"
           onClick={() => onChange(c.key)}
           className={[
-            'px-2.5 py-1 rounded-full caption-1 border transition-colors',
+            'px-2.5 py-1 rounded-full caption-1 border transition-colors focus-ring',
             value === c.key
               ? 'bg-[var(--surface-bg)] border-[var(--color-gray-dark-300)] text-[var(--text-primary)]'
               : 'border-[var(--surface-border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]',

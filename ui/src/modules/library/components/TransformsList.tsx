@@ -56,7 +56,7 @@ export function TransformsList({
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div className="lib-card-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
       {filtered.map((t) => (
         <TransformCard key={t.id} transform={t} onEdit={onEdit} onDelete={onDelete} folders={folders} />
       ))}
@@ -103,7 +103,7 @@ function TransformCard({
               <Button
                 variant="ghost"
                 size="icon"
-                className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 -mt-0.5 -mr-1"
+                className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity shrink-0 -mt-0.5 -mr-1"
                 aria-label={`Actions for ${name}`}
               >
                 <MoreHorizontalIcon size={14} />

@@ -86,7 +86,7 @@ export function LibrarySideNav({
               type="button"
               onClick={() => onSectionChange(key)}
               className={cn(
-                'flex items-center gap-2 w-full px-3 py-2 rounded-md text-left transition-colors caption-1',
+                'flex items-center gap-2 w-full px-3 py-2 rounded-md text-left transition-colors caption-1 focus-ring',
                 isActive
                   ? 'bg-[var(--option-bg-selected)] text-[var(--color-orange-300)]'
                   : 'text-[var(--text-secondary)] hover:bg-[var(--surface-bg-hover)] hover:text-[var(--text-primary)]',
@@ -118,7 +118,7 @@ export function LibrarySideNav({
         <button
           type="button"
           onClick={() => setFoldersOpen((o) => !o)}
-          className="flex items-center gap-1.5 w-full px-1 py-1 caption-2 text-[var(--text-tertiary)] uppercase tracking-wider hover:text-[var(--text-secondary)] transition-colors"
+          className="flex items-center gap-1.5 w-full px-1 py-1 caption-2 text-[var(--text-tertiary)] uppercase tracking-wider hover:text-[var(--text-secondary)] transition-colors focus-ring"
         >
           {foldersOpen ? <ChevronDownIcon size={10} /> : <ChevronRightIcon size={10} />}
           Folders
@@ -158,7 +158,7 @@ export function LibrarySideNav({
                 type="button"
                 onClick={() => onTagChange(selectedTag === tag ? null : tag)}
                 className={cn(
-                  'caption-1 px-2 py-0.5 rounded-[4px] border transition-colors',
+                  'caption-1 px-2 py-0.5 rounded-[4px] border transition-colors focus-ring',
                   selectedTag === tag
                     ? 'bg-[var(--option-bg-selected)] border-[var(--color-orange-alpha-20)] text-[var(--color-orange-300)]'
                     : 'bg-transparent border-[var(--surface-border)] text-[var(--text-secondary)] hover:border-[var(--color-gray-dark-300)] hover:text-[var(--text-primary)]',
@@ -192,7 +192,7 @@ function FolderRow({
       type="button"
       onClick={onClick}
       className={cn(
-        'flex items-center gap-2 w-full px-3 py-1.5 rounded-md text-left transition-colors caption-1',
+        'flex items-center gap-2 w-full px-3 py-1.5 rounded-md text-left transition-colors caption-1 focus-ring',
         isSelected
           ? 'text-[var(--text-primary)] bg-[var(--surface-bg-hover)]'
           : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-bg-hover)]',
