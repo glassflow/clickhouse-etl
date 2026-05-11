@@ -102,13 +102,35 @@
     backdrop-filter: blur(8px);
   }
 
-  /* ── Dense pipelines table variant ──────────────────────────────── */
+  /* ── Flat pipelines table variant ───────────────────────────────── */
+  .pipelines-table {
+    gap: 0; /* Collapse the gap between header and body */
+  }
+
   .pipelines-table .table-header {
-    padding: 6px var(--unit-x4);
+    padding: 8px var(--unit-x4);
+    border-radius: var(--table-radius) var(--table-radius) 0 0;
+    border-bottom: 1px solid var(--color-gray-dark-800);
+  }
+
+  .pipelines-table .table-body {
+    gap: 0; /* Remove the card-gap between rows */
   }
 
   .pipelines-table .table-row {
-    padding: 6px var(--unit-x4);
+    padding: 12px var(--unit-x4);
+    background-color: transparent;
+    border-radius: 0;
+    border-bottom: 1px solid var(--color-gray-dark-800);
+    box-shadow: none; /* Override any inherited ring/shadow */
+  }
+
+  .pipelines-table .table-row:last-child {
+    border-bottom: none;
+  }
+
+  .pipelines-table .table-row:hover {
+    background-color: var(--table-row-bg-hover);
   }
 
   .pipelines-table .table-cell {

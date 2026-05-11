@@ -21,7 +21,7 @@ export function ShellLayoutClient({ children, aiEnabled = false }: ShellLayoutCl
   return (
     <div className="flex flex-col min-h-screen w-full">
       <AppTopbar onCreateClick={() => setIsCreateModalOpen(true)} aiEnabled={aiEnabled} />
-      <main className="flex-1 overflow-x-auto overflow-y-auto">
+      <main className="flex-1 overflow-x-auto overflow-y-auto bg-[var(--color-surface-page)]">
         <div className="px-4 sm:px-8 lg:px-10 py-6 min-h-full max-w-[var(--shell-max-width)] mx-auto w-full">
           {children}
         </div>

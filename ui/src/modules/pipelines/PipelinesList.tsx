@@ -329,10 +329,10 @@ export function PipelinesList({
     (pipeline: ListPipelineConfig): string => {
       const effectiveStatus = getEffectiveStatus(pipeline) as string
       if (effectiveStatus === 'failed') {
-        return 'ring-1 ring-inset ring-[color-mix(in_srgb,var(--color-foreground-critical)_30%,transparent)] bg-[color-mix(in_srgb,var(--color-foreground-critical)_5%,transparent)]'
+        return 'bg-[color-mix(in_srgb,var(--color-foreground-critical)_5%,transparent)]'
       }
       if (pipeline.health_status === 'unstable' && effectiveStatus !== 'failed') {
-        return 'ring-1 ring-inset ring-[color-mix(in_srgb,var(--color-foreground-warning)_25%,transparent)] bg-[color-mix(in_srgb,var(--color-foreground-warning)_4%,transparent)]'
+        return 'bg-[color-mix(in_srgb,var(--color-foreground-warning)_4%,transparent)]'
       }
       return ''
     },
