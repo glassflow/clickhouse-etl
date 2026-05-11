@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { AppTopbar } from '@/src/components/shared/AppTopbar'
 import { CreatePipelineModal } from '@/src/components/common/CreatePipelineModal'
+import { useStore } from '@/src/store'
 
 type ShellLayoutClientProps = {
   children: React.ReactNode
@@ -11,6 +12,11 @@ type ShellLayoutClientProps = {
 
 export function ShellLayoutClient({ children, aiEnabled = false }: ShellLayoutClientProps) {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const { aiUiStore } = useStore()
+
+  const handleOpenAiDrawer = () => {
+    aiUiStore.openDrawer({ kind: 'global' })
+  }
 
   return (
     <div className="flex flex-col min-h-screen w-full">
@@ -24,6 +30,7 @@ export function ShellLayoutClient({ children, aiEnabled = false }: ShellLayoutCl
         open={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         aiEnabled={aiEnabled}
+        onOpenAiDrawer={handleOpenAiDrawer}
       />
     </div>
   )

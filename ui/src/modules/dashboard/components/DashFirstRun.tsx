@@ -22,7 +22,7 @@ const PRIMARY_PATHS: PathDef[] = [
     icon: <SparklesIcon size={20} />,
     name: 'Ask AI',
     description: 'Describe your pipeline in plain text — we draft the config for you, then you review before deploying.',
-    href: '/pipelines/create/ai',
+    href: '/home?openAi=1',
     cta: 'Try AI →',
   },
 ]

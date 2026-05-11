@@ -42,9 +42,9 @@ describe('DashFirstRun', () => {
     expect(link).toHaveAttribute('href', '/home')
   })
 
-  it('Ask AI tile links to /pipelines/create/ai', () => {
+  it('Ask AI tile links to /home?openAi=1', () => {
     render(<DashFirstRun />)
     const link = screen.getByRole('link', { name: /Ask AI/ })
-    expect(link).toHaveAttribute('href', '/pipelines/create/ai')
+    expect(link).toHaveAttribute('href', '/home?openAi=1')
   })
 })

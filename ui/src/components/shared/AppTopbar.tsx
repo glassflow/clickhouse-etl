@@ -52,10 +52,10 @@ const primaryNavItems: NavItem[] = [
     matchPaths: ['/library'],
   },
   {
-    href: '/workspace/observability',
+    href: '/observability',
     label: 'Observability',
     icon: <ActivityIcon size={14} />,
-    matchPaths: ['/workspace/observability', '/observability'],
+    matchPaths: ['/observability'],
   },
 ]
 

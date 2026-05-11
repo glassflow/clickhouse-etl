@@ -1,29 +1,22 @@
 'use client'
 
 import { useState, useCallback, useMemo } from 'react'
-import { PlusIcon, SearchIcon, SortAscIcon, UploadIcon, LibraryBigIcon } from 'lucide-react'
+import { PlusIcon, SearchIcon, SortAscIcon, UploadIcon, LibraryBigIcon, ClockIcon } from 'lucide-react'
 import { Button } from '@/src/components/ui/button'
 import { Input } from '@/src/components/ui/input'
 import { Crumbs } from '@/src/components/ui/crumbs'
 import {
   useKafkaConnections,
   useClickhouseConnections,
-  useLibrarySchemas,
   useLibraryFolders,
   useLibraryTransforms,
-  useLibraryDedupConfigs,
-  useLibraryFilterConfigs,
   type KafkaConnection,
   type ClickhouseConnection,
-  type LibrarySchema,
   type LibraryFolder,
   type LibraryTransform,
 } from '@/src/hooks/useLibraryConnections'
 import { ConnectionsList } from './ConnectionsList'
-import { SchemaList } from './SchemaList'
 import { TransformsList } from './TransformsList'
-import { DedupConfigsList } from './DedupConfigsList'
-import { FilterConfigsList } from './FilterConfigsList'
 import { KafkaConnectionFormModal } from './KafkaConnectionFormModal'
 import { ClickHouseConnectionFormModal } from './ClickHouseConnectionFormModal'
 import { TransformFormModal } from './TransformFormModal'
@@ -116,11 +109,8 @@ export function LibraryClient() {
   // Data
   const kafka = useKafkaConnections()
   const clickhouse = useClickhouseConnections()
-  const schemas = useLibrarySchemas()
   const transforms = useLibraryTransforms()
   const folders = useLibraryFolders()
-  const dedupConfigs = useLibraryDedupConfigs()
-  const filterConfigs = useLibraryFilterConfigs()
 
   // ─── Folder + tag filtering ────────────────────────────────────────────────
 
@@ -136,26 +126,25 @@ export function LibraryClient() {
 
   const kafkaItems = sortItems(applyTagFilter(applyFolderFilter(kafka.data ?? [])), sortBy)
   const chItems = sortItems(applyTagFilter(applyFolderFilter(clickhouse.data ?? [])), sortBy)
-  const schemaItems = sortItems(applyTagFilter(applyFolderFilter(schemas.data ?? [])), sortBy)
   const transformItems = sortItems(applyTagFilter(applyFolderFilter(transforms.data ?? [])), sortBy)
 
-  // Derive all tags across all sections
+  // Derive all tags across live sections only (schemas/dedup/filter are coming soon)
   const allTags = useMemo(() => {
     const set = new Set<string>()
-    ;[...kafkaItems, ...chItems, ...schemaItems, ...transformItems].forEach((item) =>
+    ;[...kafkaItems, ...chItems, ...transformItems].forEach((item) =>
       (item.tags ?? []).forEach((t) => set.add(t)),
     )
     return Array.from(set).sort()
-  }, [kafkaItems, chItems, schemaItems, transformItems])
+  }, [kafkaItems, chItems, transformItems])
 
-  // Counts for sidebar
+  // Counts for sidebar (coming-soon sections always show 0 — sidebar renders "soon" badge instead)
   const counts: LibraryCounts = {
-    all: kafkaItems.length + chItems.length + schemaItems.length + transformItems.length,
+    all: kafkaItems.length + chItems.length + transformItems.length,
     kafka: kafkaItems.length,
     clickhouse: chItems.length,
-    schemas: schemaItems.length,
-    dedup: dedupConfigs.data?.length ?? 0,
-    filter: filterConfigs.data?.length ?? 0,
+    schemas: 0,
+    dedup: 0,
+    filter: 0,
     transforms: transformItems.length,
   }
 
@@ -208,15 +197,6 @@ export function LibraryClient() {
       clickhouse.mutate()
     },
     [clickhouse],
-  )
-
-  const handleDeleteSchema = useCallback(
-    async (id: string) => {
-      if (!confirm('Delete this schema?')) return
-      await deleteResource(getApiUrl(`library/schemas/${id}`))
-      schemas.mutate()
-    },
-    [schemas],
   )
 
   const handleEditTransform = useCallback(
@@ -329,20 +309,15 @@ export function LibraryClient() {
             searchQuery={searchQuery}
             kafkaItems={kafkaItems}
             chItems={chItems}
-            schemaItems={schemaItems}
             transformItems={transformItems}
             foldersData={foldersData}
             kafka={kafka}
             clickhouse={clickhouse}
-            schemas={schemas}
             transforms={transforms}
-            dedupConfigs={dedupConfigs}
-            filterConfigs={filterConfigs}
             onEditKafka={handleEditKafka}
             onDeleteKafka={handleDeleteKafka}
             onEditCH={handleEditCH}
             onDeleteCH={handleDeleteCH}
-            onDeleteSchema={handleDeleteSchema}
             onEditTransform={handleEditTransform}
             onDeleteTransform={handleDeleteTransform}
             onSectionChange={setActiveSection}
@@ -380,20 +355,15 @@ type SectionContentProps = {
   searchQuery: string
   kafkaItems: KafkaConnection[]
   chItems: ClickhouseConnection[]
-  schemaItems: LibrarySchema[]
   transformItems: LibraryTransform[]
   foldersData: LibraryFolder[]
   kafka: ReturnType<typeof useKafkaConnections>
   clickhouse: ReturnType<typeof useClickhouseConnections>
-  schemas: ReturnType<typeof useLibrarySchemas>
   transforms: ReturnType<typeof useLibraryTransforms>
-  dedupConfigs: ReturnType<typeof useLibraryDedupConfigs>
-  filterConfigs: ReturnType<typeof useLibraryFilterConfigs>
   onEditKafka: (id: string) => void
   onDeleteKafka: (id: string) => Promise<void>
   onEditCH: (id: string) => void
   onDeleteCH: (id: string) => Promise<void>
-  onDeleteSchema: (id: string) => Promise<void>
   onEditTransform: (id: string) => void
   onDeleteTransform: (id: string) => Promise<void>
   onSectionChange: (s: LibrarySection) => void
@@ -404,20 +374,15 @@ function SectionContent({
   searchQuery,
   kafkaItems,
   chItems,
-  schemaItems,
   transformItems,
   foldersData,
   kafka,
   clickhouse,
-  schemas,
   transforms,
-  dedupConfigs,
-  filterConfigs,
   onEditKafka,
   onDeleteKafka,
   onEditCH,
   onDeleteCH,
-  onDeleteSchema,
   onEditTransform,
   onDeleteTransform,
   onSectionChange,
@@ -455,17 +420,7 @@ function SectionContent({
   }
 
   if (activeSection === 'schemas') {
-    if (schemas.isLoading) return <LibraryGridSkeleton />
-    if (schemas.error) return <ErrorState message={schemas.error} />
-    return (
-      <SchemaList
-        schemas={schemaItems}
-        searchQuery={searchQuery}
-        onEdit={() => {}}
-        onDelete={onDeleteSchema}
-        folders={foldersData}
-      />
-    )
+    return <LibrarySectionComingSoon name="Schemas" description="Save reusable schemas derived from Kafka topics. Once saved, schemas will be available to bind to pipelines and processing configs." />
   }
 
   if (activeSection === 'transforms') {
@@ -483,23 +438,20 @@ function SectionContent({
   }
 
   if (activeSection === 'dedup') {
-    if (dedupConfigs.isLoading) return <LibraryGridSkeleton />
-    return <DedupConfigsList configs={dedupConfigs.data ?? []} />
+    return <LibrarySectionComingSoon name="Dedup configs" description="Save named deduplication windows — key fields, time window, and strategy — and reuse them across pipelines without reconfiguring each time." />
   }
 
   if (activeSection === 'filter') {
-    if (filterConfigs.isLoading) return <LibraryGridSkeleton />
-    return <FilterConfigsList configs={filterConfigs.data ?? []} />
+    return <LibrarySectionComingSoon name="Filter configs" description="Save filter expressions bound to a schema and share them across pipelines. Filters will be selectable from the wizard and canvas." />
   }
 
-  // "all" section — grouped view
-  const isLoading = kafka.isLoading || clickhouse.isLoading || schemas.isLoading || transforms.isLoading
+  // "all" section — grouped view (schemas/dedup/filter are coming soon, not shown here)
+  const isLoading = kafka.isLoading || clickhouse.isLoading || transforms.isLoading
   if (isLoading) return <LibraryGridSkeleton count={9} />
 
   const hasAny =
     kafkaItems.length > 0 ||
     chItems.length > 0 ||
-    schemaItems.length > 0 ||
     transformItems.length > 0
 
   if (!hasAny) {
@@ -530,17 +482,6 @@ function SectionContent({
             searchQuery={searchQuery}
             onEdit={onEditCH}
             onDelete={onDeleteCH}
-            folders={foldersData}
-          />
-        </GroupedSection>
-      )}
-      {schemaItems.length > 0 && (
-        <GroupedSection label="Schemas">
-          <SchemaList
-            schemas={schemaItems}
-            searchQuery={searchQuery}
-            onEdit={() => {}}
-            onDelete={onDeleteSchema}
             folders={foldersData}
           />
         </GroupedSection>
@@ -675,6 +616,22 @@ function ErrorState({ message }: { message: string }) {
   return (
     <div className="flex items-center justify-center py-16">
       <p className="body-3 text-[var(--color-foreground-critical)]">Error: {message}</p>
+    </div>
+  )
+}
+
+function LibrarySectionComingSoon({ name, description }: { name: string; description: string }) {
+  return (
+    <div className="flex items-center justify-center py-12">
+      <div className="flex flex-col items-center gap-4 text-center max-w-sm">
+        <div className="w-12 h-12 rounded-xl border border-[var(--surface-border)] grid place-items-center text-[var(--text-tertiary)]">
+          <ClockIcon size={22} strokeWidth={1.5} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <p className="body-2 font-medium text-[var(--text-primary)]">{name} — coming soon</p>
+          <p className="body-3 text-[var(--text-secondary)]">{description}</p>
+        </div>
+      </div>
     </div>
   )
 }

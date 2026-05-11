@@ -47,7 +47,7 @@ export function PipelinesEmptyState() {
         <Button variant="primary" size="default" onClick={() => router.push('/home')}>
           Create from scratch
         </Button>
-        <Button variant="secondary" size="default" onClick={() => router.push('/pipelines/create/ai')}>
+        <Button variant="secondary" size="default" onClick={() => router.push('/home?openAi=1')}>
           Create with AI
         </Button>
       </div>

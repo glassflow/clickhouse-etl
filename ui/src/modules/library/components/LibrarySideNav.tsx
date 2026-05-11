@@ -41,6 +41,8 @@ type Props = {
   onTagChange: (tag: string | null) => void
 }
 
+const COMING_SOON_SECTIONS = new Set<LibrarySection>(['schemas', 'dedup', 'filter'])
+
 type SectionDef = {
   key: LibrarySection
   label: string
@@ -77,6 +79,7 @@ export function LibrarySideNav({
         {SECTIONS.map(({ key, label, icon: Icon }) => {
           const isActive = activeSection === key
           const count = counts[key]
+          const isComingSoon = COMING_SOON_SECTIONS.has(key)
           return (
             <button
               key={key}
@@ -91,7 +94,11 @@ export function LibrarySideNav({
             >
               <Icon size={13} className="shrink-0" />
               <span className="flex-1 truncate">{label}</span>
-              {count > 0 && (
+              {isComingSoon ? (
+                <span className="text-[9px] font-medium uppercase tracking-wide text-[var(--text-tertiary)] border border-[var(--surface-border)] rounded px-1 py-0.5 leading-none">
+                  soon
+                </span>
+              ) : count > 0 ? (
                 <span
                   className={cn(
                     'text-[10px] font-medium tabular-nums',
@@ -100,7 +107,7 @@ export function LibrarySideNav({
                 >
                   {count}
                 </span>
-              )}
+              ) : null}
             </button>
           )
         })}

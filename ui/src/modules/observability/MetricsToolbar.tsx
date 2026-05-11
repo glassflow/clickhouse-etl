@@ -3,6 +3,7 @@
 import * as React from 'react'
 import {
   TimeRangePicker,
+  DEFAULT_RANGES,
   type TimeRangeKey,
 } from '@/src/components/ui/time-range-picker'
 import { ScopeBadge } from '@/src/components/ui/scope-badge'
@@ -13,9 +14,31 @@ import { CustomDateRangeModal } from './CustomDateRangeModal'
 
 type MetricsToolbarProps = { pipelineId: string }
 
+const VALID_KEYS = new Set(DEFAULT_RANGES.map((r) => r.key))
+
+function readRangeFromUrl(): TimeRangeKey | null {
+  if (typeof window === 'undefined') return null
+  const raw = new URLSearchParams(window.location.search).get('range') as TimeRangeKey | null
+  return raw && raw !== 'custom' && VALID_KEYS.has(raw) ? raw : null
+}
+
+function writeRangeToUrl(key: TimeRangeKey) {
+  if (typeof window === 'undefined') return
+  const url = new URL(window.location.href)
+  url.searchParams.set('range', key)
+  window.history.replaceState({}, '', url.toString())
+}
+
 export function MetricsToolbar({ pipelineId }: MetricsToolbarProps) {
   const { observabilityStore } = useStore()
   const [customOpen, setCustomOpen] = React.useState(false)
+
+  // Initialise range from ?range= query param on first mount.
+  React.useEffect(() => {
+    const fromUrl = readRangeFromUrl()
+    if (fromUrl) observabilityStore.setRangeKey(fromUrl)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handleRangeChange = (k: TimeRangeKey) => {
     if (k === 'custom') {
@@ -23,6 +46,7 @@ export function MetricsToolbar({ pipelineId }: MetricsToolbarProps) {
       return
     }
     observabilityStore.setRangeKey(k)
+    writeRangeToUrl(k)
   }
 
   return (

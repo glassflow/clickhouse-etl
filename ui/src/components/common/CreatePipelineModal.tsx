@@ -27,9 +27,10 @@ type CreatePipelineModalProps = {
   open: boolean
   onClose: () => void
   aiEnabled?: boolean
+  onOpenAiDrawer?: () => void
 }
 
-export function CreatePipelineModal({ open, onClose, aiEnabled = false }: CreatePipelineModalProps) {
+export function CreatePipelineModal({ open, onClose, aiEnabled = false, onOpenAiDrawer }: CreatePipelineModalProps) {
   const router = useRouter()
 
   const lanes: LaneOption[] = [
@@ -38,15 +39,14 @@ export function CreatePipelineModal({ open, onClose, aiEnabled = false }: Create
       label: 'Wizard',
       description: 'Step-by-step guided pipeline setup',
       icon: <WorkflowIcon size={24} />,
-      href: '/',
+      href: '/home',
     },
     {
       id: 'canvas',
       label: 'Canvas',
       description: 'Visual drag-and-drop pipeline builder',
       icon: <LayoutIcon size={24} />,
-      disabled: true,
-      comingSoon: true,
+      href: '/canvas',
     },
     ...(aiEnabled
       ? [
@@ -55,14 +55,19 @@ export function CreatePipelineModal({ open, onClose, aiEnabled = false }: Create
             label: 'AI Assistant',
             description: 'Describe your pipeline in plain language',
             icon: <SparklesIcon size={24} />,
-            href: '/pipelines/create/ai',
           },
         ]
       : []),
   ]
 
   const handleLaneSelect = (lane: LaneOption) => {
-    if (lane.disabled || !lane.href) return
+    if (lane.disabled) return
+    if (lane.id === 'ai') {
+      onClose()
+      onOpenAiDrawer?.()
+      return
+    }
+    if (!lane.href) return
     onClose()
     router.push(lane.href)
   }
