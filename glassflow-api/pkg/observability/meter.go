@@ -279,6 +279,17 @@ func RecordBytesProcessed(ctx context.Context, component, direction string, byte
 	))
 }
 
+func RecordProcessorMessagesByPipelineID(ctx context.Context, component, status, pid string, count int64) {
+	if ProcessorMessages == nil {
+		return
+	}
+	ProcessorMessages.Add(ctx, count, metric.WithAttributes(
+		attribute.String("component", component),
+		attribute.String("pipeline_id", pid),
+		attribute.String("status", status),
+	))
+}
+
 func RecordBytesProcessedByPipelineID(ctx context.Context, component, direction, pid string, bytes int64) {
 	if BytesProcessed == nil {
 		return

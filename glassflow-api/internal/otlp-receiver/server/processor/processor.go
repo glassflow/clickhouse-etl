@@ -179,8 +179,8 @@ func (p *Processor) sendBatch(
 	for _, msg := range messages {
 		bytesOut += int64(len(msg.Payload()))
 	}
-	observability.RecordBytesProcessed(ctx, component.String(), "out", bytesOut)
-	observability.RecordProcessorMessages(ctx, component.String(), "out", int64(len(messages)))
+	observability.RecordBytesProcessedByPipelineID(ctx, component.String(), "out", pipelineID, bytesOut)
+	observability.RecordProcessorMessagesByPipelineID(ctx, component.String(), "out", pipelineID, int64(len(messages)))
 
 	return nil
 }
