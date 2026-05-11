@@ -41,7 +41,6 @@ export function KpiStrip({ stats }: Props) {
         unit={`/ ${stats.totalPipelines}`}
         delta="no change · 1h"
         deltaDir="flat"
-        sparkData={Array(12).fill(stats.activePipelines)}
       />
       <KpiCard
         label="Events / sec"
@@ -49,8 +48,6 @@ export function KpiStrip({ stats }: Props) {
         unit="in"
         delta={fmtDelta(evDelta)}
         deltaDir={evDelta > 0 ? 'up' : evDelta < 0 ? 'down' : 'flat'}
-        sparkData={stats.throughputSeries.in.slice(0, 12)}
-        sparkColor="var(--color-orange-300)"
       />
       <KpiCard
         label="Error rate"
@@ -59,8 +56,6 @@ export function KpiStrip({ stats }: Props) {
         delta={fmtDelta(errDelta)}
         deltaDir={errDelta > 0 ? 'down' : errDelta < 0 ? 'up' : 'flat'}
         severity={errorSeverity}
-        sparkData={stats.throughputSeries.out.slice(0, 12)}
-        sparkColor="var(--color-yellow-400)"
       />
       <KpiCard
         label="DLQ events"
@@ -68,8 +63,6 @@ export function KpiStrip({ stats }: Props) {
         delta={dlqDelta > 0 ? `+${dlqDelta.toLocaleString()} · 1h` : 'stable'}
         deltaDir={dlqDelta > 0 ? 'down' : 'flat'}
         severity={dlqSeverity}
-        sparkData={stats.throughputSeries.in.slice(0, 12).map((v) => v * 0.001)}
-        sparkColor="var(--color-red-500)"
       />
       <KpiCard
         label="Avg lag"
@@ -78,7 +71,6 @@ export function KpiStrip({ stats }: Props) {
         delta={lagDelta === 0 ? 'stable' : fmtDelta(lagDelta / 1000)}
         deltaDir={lagDelta > 0 ? 'down' : lagDelta < 0 ? 'up' : 'flat'}
         severity={lagSeverity}
-        sparkData={Array(12).fill(stats.avgLagMs)}
       />
     </div>
   )

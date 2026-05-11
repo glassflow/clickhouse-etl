@@ -36,7 +36,6 @@ export function AttentionQueue({ incidents, isIncidentState }: Props) {
       <div className="attn-list">
         {incidents.map((incident) => (
           <div key={incident.id} className={`attn-row ${incident.severity}`}>
-            <div className="attn-stripe" />
             <div className="attn-icon">
               <SeverityIcon severity={incident.severity} />
             </div>

@@ -24,13 +24,16 @@
 .dash-header-l { display: flex; flex-direction: column; gap: 4px; }
 .dash-title {
   font-family: var(--font-family-title);
-  font-size: 22px;
+  font-size: var(--font-size-title-3);
   font-weight: 600;
   letter-spacing: -0.01em;
   margin: 0;
   color: var(--color-foreground-neutral);
 }
-.dash-title.crit { color: var(--color-red-500); }
+.dash-title.crit {
+  color: var(--color-red-500);
+  font-weight: 700;
+}
 .dash-subtitle {
   font-size: 12.5px;
   color: var(--color-gray-dark-500);
@@ -85,8 +88,6 @@
   border: 1px solid var(--color-gray-dark-800);
   border-radius: 10px;
   padding: 16px 18px 14px;
-  position: relative;
-  overflow: hidden;
 }
 .dash-kpi .label {
   font-family: var(--font-family-mono);
@@ -98,7 +99,7 @@
 }
 .dash-kpi .value {
   font-family: var(--font-family-title);
-  font-size: 28px;
+  font-size: var(--font-size-title-2);
   font-weight: 600;
   letter-spacing: -0.02em;
   line-height: 1;
@@ -126,20 +127,13 @@
 .dash-kpi .delta.flat { color: var(--color-gray-dark-500); }
 .dash-kpi.is-warn .value { color: var(--color-yellow-400); }
 .dash-kpi.is-crit .value { color: var(--color-red-500); }
-.dash-kpi-spark {
-  position: absolute;
-  right: 14px;
-  top: 14px;
-  opacity: 0.7;
-}
 
 /* ── healthy banner ── */
 .healthy-banner {
   margin: 24px 40px 0;
   padding: 14px 20px;
-  background: linear-gradient(90deg, var(--color-green-750) 0%, transparent 80%);
-  border: 1px solid var(--color-green-alpha-30);
-  border-left: 3px solid var(--color-green-500);
+  background: var(--color-green-750);
+  border: 1px solid var(--color-green-alpha-20);
   border-radius: 8px;
   display: flex;
   align-items: center;
@@ -201,7 +195,7 @@
 }
 .dash-card-h h3 {
   font-family: var(--font-family-title);
-  font-size: 14px;
+  font-size: var(--font-size-body-3);
   font-weight: 600;
   margin: 0;
   letter-spacing: -0.005em;
@@ -229,7 +223,7 @@
 .attn-list { display: flex; flex-direction: column; }
 .attn-row {
   display: grid;
-  grid-template-columns: 4px 28px 1fr auto;
+  grid-template-columns: 28px 1fr auto;
   gap: 14px;
   align-items: start;
   padding: 14px 18px;
@@ -239,14 +233,8 @@
 }
 .attn-row:last-child { border-bottom: none; }
 .attn-row:hover { background: var(--dash-row-hover); }
-.attn-stripe {
-  border-radius: 2px;
-  align-self: stretch;
-  margin-top: 2px;
-}
-.attn-row.crit .attn-stripe { background: var(--color-red-500); }
-.attn-row.warn .attn-stripe { background: var(--color-yellow-400); }
-.attn-row.info .attn-stripe { background: var(--color-blue-500); }
+.attn-row.crit { background: rgba(226, 44, 44, 0.03); }
+.attn-row.crit:hover { background: rgba(226, 44, 44, 0.05); }
 .attn-icon {
   width: 28px; height: 28px;
   border-radius: 6px;
@@ -329,7 +317,7 @@
 }
 .thru-blk .thru-val {
   font-family: var(--font-family-title);
-  font-size: 18px;
+  font-size: var(--font-size-title-5);
   font-weight: 600;
   color: var(--color-foreground-neutral);
   margin-top: 2px;
@@ -609,7 +597,7 @@
 
 .ep-name {
   font-family: var(--font-family-title);
-  font-size: 16px;
+  font-size: var(--font-size-title-6);
   font-weight: 700;
   color: var(--color-foreground-neutral);
   letter-spacing: -0.01em;
@@ -710,3 +698,41 @@
 }
 
 .empty-foot a { color: var(--color-orange-300); cursor: pointer; }
+
+/* ── focus rings ── */
+.dash-pill:focus-visible,
+.attn-cta:focus-visible,
+.dash-link:focus-visible,
+.empty-primary-path:focus-visible,
+.empty-path:focus-visible,
+.row-actions button:focus-visible,
+.dash-filter-chip:focus-visible {
+  outline: 2px solid var(--color-background-primary);
+  outline-offset: 2px;
+}
+
+/* ── entrance animation ── */
+@keyframes dash-enter {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.dash-kpis .dash-kpi {
+  animation: dash-enter 260ms var(--easing-decelerate) both;
+}
+.dash-kpis .dash-kpi:nth-child(1) { animation-delay:   0ms; }
+.dash-kpis .dash-kpi:nth-child(2) { animation-delay:  40ms; }
+.dash-kpis .dash-kpi:nth-child(3) { animation-delay:  80ms; }
+.dash-kpis .dash-kpi:nth-child(4) { animation-delay: 120ms; }
+.dash-kpis .dash-kpi:nth-child(5) { animation-delay: 160ms; }
+
+.dash-main { animation: dash-enter 300ms var(--easing-decelerate) 60ms both; }
+.dash-table { animation: dash-enter 300ms var(--easing-decelerate) 120ms both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .dash-kpis .dash-kpi,
+  .dash-main,
+  .dash-table {
+    animation: none;
+  }
+}
