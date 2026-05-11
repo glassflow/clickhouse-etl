@@ -128,15 +128,17 @@ sources:
 
 ## Monitoring Back-Pressure
 
-The following metrics help identify which gate is triggering back-pressure:
+The following metrics help identify which gate is triggering back-pressure. All are emitted by the **OTLP receiver** pod.
 
 | Metric | Description |
 |---|---|
-| `gfm_receiver_request_count{status="error"}` | Requests that failed (includes back-pressure rejections and other errors) |
-| `gfm_stream_depth_ratio{stream="..."}` | Stream fill ratio (0.0–1.0); sustained values near 1.0 indicate stream-full back-pressure |
-| `gfm_stream_depth{stream="..."}` | Absolute message count in the stream |
-| `gfm_ingestor_backpressure_active` | 1 while the ingestor is blocked waiting for NATS to drain; 0 otherwise |
-| `gfm_ingestor_backpressure_events_total` | Total number of back-pressure episodes entered |
-| `gfm_ingestor_backpressure_duration_seconds` | Duration histogram of each back-pressure episode |
+| `gfm_receiver_request_count{status="error"}` | Requests that failed — includes both concurrency-limit and stream-full rejections |
+| `gfm_receiver_request_duration_seconds` | Request latency; rising p99 often precedes sustained back-pressure |
+
+<Callout type="info">
+The `gfm_ingestor_backpressure_*` and `gfm_stream_depth*` metrics are emitted by the **Kafka ingestor** component, which is not present in OTLP source pipelines. They do not apply here.
+</Callout>
+
+To distinguish concurrency-limit back-pressure from stream-full back-pressure, check the receiver pod logs — each rejection is logged with a `reason` field (`overloaded` or `stream_backpressure`).
 
 See the [Metrics Reference](/configuration/metrics) for the full list of available metrics and how to access them.

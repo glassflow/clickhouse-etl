@@ -436,6 +436,10 @@ The OTLP receiver components (otlp.logs, otlp.metrics, otlp.traces) export:
 - `{namespace}_gfm_receiver_request_duration_seconds` - Receiver request duration by transport and status
 - `{namespace}_gfm_bytes_processed_total` - Bytes processed (in/out)
 
+<Callout type="info">
+The `gfm_ingestor_backpressure_*` and `gfm_stream_depth*` metrics are emitted by the Kafka ingestor and are **not** available for OTLP source pipelines.
+</Callout>
+
 ### UI
 The UI exports interaction and performance metrics via OTLP:
 - `gfm_ui_page_views_total` - Page view counts
@@ -560,7 +564,7 @@ The `job` label in your metrics comes from the `job_name` field in your Promethe
    - `rate({namespace}_gfm_receiver_request_count{status="error"}[5m])` - OTLP receiver error rate
    - `histogram_quantile(0.95, rate({namespace}_gfm_receiver_request_duration_seconds_bucket[5m]))` - 95th percentile receiver latency
 
-5. **Back-Pressure Metrics** (Ingestor / OTLP receiver):
+5. **Back-Pressure Metrics** (Kafka ingestor pipelines only):
    - `{namespace}_gfm_ingestor_backpressure_active` - Currently in back-pressure (`1`) or not (`0`)
    - `rate({namespace}_gfm_ingestor_backpressure_events_total[5m])` - Rate of new back-pressure episodes
    - `histogram_quantile(0.95, rate({namespace}_gfm_ingestor_backpressure_duration_seconds_bucket[5m]))` - 95th percentile episode duration
