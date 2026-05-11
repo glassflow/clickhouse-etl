@@ -132,8 +132,11 @@ The following metrics help identify which gate is triggering back-pressure:
 
 | Metric | Description |
 |---|---|
-| `gfm_receiver_request_count{status="backpressure"}` | Requests rejected due to either back-pressure gate |
+| `gfm_receiver_request_count{status="error"}` | Requests that failed (includes back-pressure rejections and other errors) |
 | `gfm_stream_depth_ratio{stream="..."}` | Stream fill ratio (0.0–1.0); sustained values near 1.0 indicate stream-full back-pressure |
-| `gfm_ingestor_backpressure_active` | 1 while the ingestor is in back-pressure waiting for NATS to drain |
+| `gfm_stream_depth{stream="..."}` | Absolute message count in the stream |
+| `gfm_ingestor_backpressure_active` | 1 while the ingestor is blocked waiting for NATS to drain; 0 otherwise |
+| `gfm_ingestor_backpressure_events_total` | Total number of back-pressure episodes entered |
+| `gfm_ingestor_backpressure_duration_seconds` | Duration histogram of each back-pressure episode |
 
 See the [Metrics Reference](/configuration/metrics) for the full list of available metrics and how to access them.
