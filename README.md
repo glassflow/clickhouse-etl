@@ -22,6 +22,9 @@
   <a href="https://github.com/glassflow/clickhouse-etl/releases">
     <img alt="Latest Release" src="https://img.shields.io/github/v/release/glassflow/clickhouse-etl?label=Latest%20Version">
   </a>
+  <a href="https://artifacthub.io/packages/search?repo=glassflow">
+    <img alt="Artifact Hub" src="https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/glassflow">
+  </a>
 </div>
 
 # Run any data transformation at TB scale for ClickHouse
