@@ -95,17 +95,17 @@ Back-pressure is a signal that your **sink is slower than your ingest rate**. To
 
 ### Scale up the sink
 
-Increase the sink replica count so more ClickHouse writers are running in parallel:
+Increase the sink replica count so more ClickHouse writers are running in parallel. Set `resources.sink.replicas` when creating or updating the pipeline via the API:
 
-```yaml
-# values.yaml (operator-managed pipelines inherit this)
-glassflow-operator:
-  components:
-    sink:
-      replicas: 3   # increase from default
+```json
+"resources": {
+  "sink": {
+    "replicas": 3
+  }
+}
 ```
 
-Or update it per-pipeline in the pipeline resource `spec.sink.replicas`.
+The default is `1`. You can update an existing pipeline by sending a `PATCH /api/v1/pipeline/{id}` request with the new `resources` value.
 
 ### Scale up ClickHouse capacity
 
