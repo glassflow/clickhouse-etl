@@ -1,0 +1,144 @@
+---
+title: 'Back-Pressure'
+description: 'How the GlassFlow OTLP receiver signals back-pressure to upstream collectors and how to tune or resolve it'
+---
+import { Callout } from 'nextra/components'
+
+# OTLP Receiver Back-Pressure
+
+When the GlassFlow OTLP receiver cannot keep up with incoming data it signals back-pressure to the upstream OTel Collector or SDK instead of silently dropping events or consuming unbounded memory.
+
+## How Back-Pressure Works
+
+The receiver has two independent back-pressure gates:
+
+### Concurrency Limit
+
+Each receiver pod enforces a maximum number of **concurrent in-flight requests**. When that limit is reached, any new request is rejected immediately with:
+
+- **HTTP** — `429 Too Many Requests` + `Retry-After: 1`
+- **gRPC** — `ResourceExhausted`
+
+OTel Collector exporters and SDK exporters treat both responses as retryable and will back off automatically.
+
+### NATS Stream Full
+
+Each pipeline's internal NATS stream has a configurable capacity. When the stream is full — typically because the sink is writing to ClickHouse more slowly than the receiver is ingesting — publish retries will exhaust and the request is rejected with the same signals:
+
+- **HTTP** — `429 Too Many Requests` + `Retry-After: 1`
+- **gRPC** — `ResourceExhausted`
+
+<Callout type="info">
+  Both back-pressure conditions surface as the same protocol-level response (`429` / `ResourceExhausted`) so upstream exporters handle them identically. The distinction matters only for tuning — see [Configuration](#configuration) below.
+</Callout>
+
+## What the Collector Sees
+
+Standard OTel Collector exporters (`otlphttp`, `otlp`) retry on both `429` and `ResourceExhausted` by default. You do not need to change your Collector config to handle back-pressure — the Collector will queue and retry the failed batch automatically.
+
+If your Collector's retry queue is exhausted (e.g. the back-pressure is sustained for longer than the Collector's configured `retry_on_failure.max_elapsed_time`), the Collector will drop the batch and log an error. Monitor your Collector's `otelcol_exporter_send_failed_spans` / `_logs` / `_metric_points` metrics to detect sustained back-pressure.
+
+## Configuration
+
+### Concurrency limit
+
+Controls the maximum number of requests processed simultaneously per receiver pod. Increase this if you have spare CPU and memory headroom on the pod; decrease it to protect a smaller pod.
+
+```yaml
+# values.yaml
+sources:
+  otlpReceiver:
+    maxConcurrentRequests: 50   # default
+```
+
+| Env var | Default | Description |
+|---|---|---|
+| `GLASSFLOW_OTLP_MAX_CONCURRENT_REQUESTS` | `50` | Max concurrent in-flight batches per pod |
+
+**Sizing guidance** — At 50 concurrent slots with the default 4 MiB request body limit, peak memory per pod is roughly 200 MiB, which fits within the default pod limit of 512 MiB. If you increase `maxConcurrentRequests`, increase the pod memory limit proportionally:
+
+```
+peak_memory ≈ maxConcurrentRequests × maxBodyBytes
+```
+
+### NATS chunk size
+
+Controls how many messages are published to NATS per async-publish round. This bounds the number of in-flight NATS futures and caps per-request memory inside the receiver.
+
+```yaml
+# values.yaml
+sources:
+  otlpReceiver:
+    natsChunkSize: 1000   # default
+```
+
+| Env var | Default | Description |
+|---|---|---|
+| `GLASSFLOW_OTLP_NATS_CHUNK_SIZE` | `1000` | Messages per NATS publish chunk |
+
+### Pipeline stream capacity
+
+The pipeline's internal NATS stream buffer controls how much data can be queued between the receiver and the sink before back-pressure is triggered. Configure this on the pipeline resource:
+
+```json
+"resources": {
+  "maxMsgs": 100000,
+  "maxBytes": 0
+}
+```
+
+A larger stream absorbs more burst traffic before back-pressure kicks in. See the [Pipeline Configuration Reference](/configuration/pipeline-config-reference) for full details.
+
+## Resolving Sustained Back-Pressure
+
+Back-pressure is a signal that your **sink is slower than your ingest rate**. To resolve it:
+
+### Scale up the sink
+
+Increase the sink replica count so more ClickHouse writers are running in parallel. Set `resources.sink.replicas` when creating or updating the pipeline via the API:
+
+```json
+"resources": {
+  "sink": {
+    "replicas": 3
+  }
+}
+```
+
+The default is `1`. You can update an existing pipeline by sending a `PATCH /api/v1/pipeline/{id}` request with the new `resources` value.
+
+### Scale up ClickHouse capacity
+
+If the sink replicas are already at a reasonable count but ClickHouse insert latency is high, increase ClickHouse resources or consider using a MergeTree table with async inserts to reduce insert pressure.
+
+### Scale out receiver pods
+
+If back-pressure is hitting the **concurrency limit** (not the stream), add more receiver pods to distribute the ingest load:
+
+```yaml
+# values.yaml
+sources:
+  otlpReceiver:
+    replicas: 3
+```
+
+<Callout type="warning">
+  Scaling out receiver pods increases total ingest throughput but does **not** help if the bottleneck is a full NATS stream — all pods share the same stream and will all hit back-pressure at the same point. Fix the downstream sink first.
+</Callout>
+
+## Monitoring Back-Pressure
+
+The following metrics help identify which gate is triggering back-pressure. All are emitted by the **OTLP receiver** pod.
+
+| Metric | Description |
+|---|---|
+| `gfm_receiver_request_count{status="error"}` | Requests that failed — includes both concurrency-limit and stream-full rejections |
+| `gfm_receiver_request_duration_seconds` | Request latency; rising p99 often precedes sustained back-pressure |
+
+<Callout type="info">
+The `gfm_ingestor_backpressure_*` and `gfm_stream_depth*` metrics are emitted by the **Kafka ingestor** component, which is not present in OTLP source pipelines. They do not apply here.
+</Callout>
+
+To distinguish concurrency-limit back-pressure from stream-full back-pressure, check the receiver pod logs — each rejection is logged with a `reason` field (`overloaded` or `stream_backpressure`).
+
+See the [Metrics Reference](/configuration/metrics) for the full list of available metrics and how to access them.

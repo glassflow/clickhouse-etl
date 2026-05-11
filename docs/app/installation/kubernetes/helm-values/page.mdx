@@ -313,6 +313,61 @@ glassflow-operator:
 
 The `dedup.storage` field provisions a PersistentVolumeClaim for the deduplication state store. Set `storage.size` based on your expected deduplication key volume and `storage.className` to a StorageClass name if you need a specific provisioner.
 
+## OTLP Receiver
+
+The OTLP receiver accepts OpenTelemetry data directly over gRPC (port 4317) and HTTP (port 4318), enabling OTLP source pipelines without a Kafka cluster. It is disabled by default.
+
+```yaml
+sources:
+  otlpReceiver:
+    enabled: false
+    replicas: 1
+
+    image:
+      repository: glassflow-etl-otlp-receiver
+      tag: v3.1.0
+      pullPolicy: IfNotPresent
+
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+
+    service:
+      type: ClusterIP
+      grpcPort: 4317
+      httpPort: 4318
+
+    # Max concurrent in-flight batches before shedding load (HTTP 429 / gRPC ResourceExhausted)
+    maxConcurrentRequests: 50
+
+    # Max messages per NATS async-publish chunk
+    natsChunkSize: 1000
+
+    # Additional environment variables
+    env: []
+```
+
+### OTLP Receiver Configuration Options
+
+| Setting | Description | Default | Production Recommendation |
+|---------|-------------|---------|---------------------------|
+| `enabled` | Deploy the OTLP receiver | `false` | Set to `true` when using OTLP source pipelines |
+| `replicas` | Number of receiver pods | `1` | Increase to distribute ingest load across pods |
+| `resources.requests` | Minimum resources per pod | `256Mi / 250m` | Scale with ingest volume |
+| `resources.limits` | Maximum resources per pod | `512Mi / 500m` | Keep headroom above `maxConcurrentRequests × 4 MiB` |
+| `maxConcurrentRequests` | Max in-flight batches before back-pressure | `50` | Increase with spare CPU/memory; `peak_memory ≈ maxConcurrentRequests × 4 MiB` |
+| `natsChunkSize` | Messages per NATS async-publish chunk | `1000` | Lower if individual messages are large |
+| `service.grpcPort` | gRPC listener port | `4317` | Standard OTLP/gRPC port |
+| `service.httpPort` | HTTP listener port | `4318` | Standard OTLP/HTTP port |
+
+<Callout type="info">
+When the receiver reaches `maxConcurrentRequests` it returns `429 Too Many Requests` (HTTP) or `ResourceExhausted` (gRPC). Standard OTel Collector exporters retry these responses automatically. See [Back-Pressure](/sources/otlp/back-pressure) for tuning guidance.
+</Callout>
+
 ## NATS Configuration
 
 NATS is the messaging system used for internal communication between GlassFlow components. 
