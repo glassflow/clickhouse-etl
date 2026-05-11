@@ -76,7 +76,7 @@ export function MobilePipelinesList({
                   {isLoading && (
                     <div className="flex items-center gap-1">
                       <Image src={Loader} alt="Loading" width={16} height={16} className="animate-spin" />
-                      <span className="text-xs text-blue-600">
+                      <span className="text-xs text-[var(--color-foreground-info)]">
                         {operation === 'stop' && 'Stopping...'}
                         {operation === 'resume' && 'Resuming...'}
                         {operation === 'delete' && 'Deleting...'}

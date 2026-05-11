@@ -8,15 +8,17 @@ import SortDescIcon from '@/src/images/sort-down.svg'
 
 export type SortDirection = 'asc' | 'desc' | null
 
-// Status priority order for semantic sorting
+// Triage-first priority: failures surface at the top when sorted ascending
 const STATUS_PRIORITY: Record<string, number> = {
-  active: 1,
-  resuming: 2,
-  pausing: 3,
-  paused: 4,
+  failed: 1,
+  pausing: 2,
+  resuming: 3,
+  active: 4,
   stopping: 5,
-  stopped: 6,
-  failed: 7,
+  paused: 6,
+  stopped: 7,
+  terminated: 8,
+  terminating: 9,
 }
 
 export interface TableColumn<T> {
@@ -34,6 +36,9 @@ export interface PipelinesTableProps {
   columns: TableColumn<ListPipelineConfig>[]
   emptyMessage?: string
   className?: string
+  stickyHeader?: boolean
+  initialSortColumn?: string | null
+  initialSortDirection?: SortDirection
   onRowClick?: (item: ListPipelineConfig) => void
   isLoading?: boolean
   rowClassName?: (item: ListPipelineConfig) => string
@@ -44,13 +49,16 @@ export function PipelinesTable({
   columns,
   emptyMessage = 'No data found',
   className,
+  stickyHeader = false,
+  initialSortColumn = null,
+  initialSortDirection = null,
   onRowClick,
   isLoading = false,
   rowClassName,
 }: PipelinesTableProps) {
   const gridTemplateColumns = columns.map((col) => col.width || '1fr').join(' ')
-  const [sortColumn, setSortColumn] = useState<string | null>(null)
-  const [sortDirection, setSortDirection] = useState<SortDirection>(null)
+  const [sortColumn, setSortColumn] = useState<string | null>(initialSortColumn)
+  const [sortDirection, setSortDirection] = useState<SortDirection>(initialSortDirection)
 
   // Handle column header click for sorting
   const handleSort = (column: TableColumn<ListPipelineConfig>) => {
@@ -150,7 +158,7 @@ export function PipelinesTable({
   if (isLoading) {
     return (
       <div className={cn('table-container', className)}>
-        <div className="table-header">
+        <div className={cn('table-header', stickyHeader && 'sticky')}>
           <div className="table-header-row" style={{ gridTemplateColumns }}>
             {columns.map((column) => (
               <div
@@ -186,7 +194,7 @@ export function PipelinesTable({
   return (
     <div className={cn('table-container', className)}>
       {/* Table Header */}
-      <div className="table-header">
+      <div className={cn('table-header', stickyHeader && 'sticky')}>
         <div className="table-header-row" style={{ gridTemplateColumns }}>
           {columns.map((column) => (
             <div

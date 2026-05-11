@@ -41,7 +41,7 @@ export function SavedViewsStrip({
           <div key={view.id} className="flex items-center shrink-0">
             <button
               onClick={() => onSelectView(view.id)}
-              className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors whitespace-nowrap rounded-t-md ${
+              className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors whitespace-nowrap rounded-t-md focus-ring ${
                 isActive
                   ? 'active text-[var(--color-foreground-primary)] border-b-2 border-[var(--color-foreground-primary)]'
                   : 'text-[var(--color-foreground-neutral-faded)] hover:text-[var(--color-foreground-neutral)]'
@@ -56,7 +56,7 @@ export function SavedViewsStrip({
               <button
                 aria-label={`Delete view ${view.name}`}
                 onClick={() => onDeleteView(view.id)}
-                className="ml-0.5 p-1 text-[var(--color-foreground-neutral-faded)] hover:text-[var(--color-foreground-critical)] transition-colors"
+                className="ml-0.5 p-1 text-[var(--color-foreground-neutral-faded)] hover:text-[var(--color-foreground-critical)] transition-colors focus-ring rounded"
               >
                 ×
               </button>
@@ -72,7 +72,7 @@ export function SavedViewsStrip({
             setShowSavePopover(true)
             setTimeout(() => inputRef.current?.focus(), 0)
           }}
-          className="px-2 py-1.5 text-xs text-[var(--color-foreground-neutral-faded)] hover:text-[var(--color-foreground-primary)] transition-colors"
+          className="px-2 py-1.5 text-xs text-[var(--color-foreground-neutral-faded)] hover:text-[var(--color-foreground-primary)] transition-colors focus-ring rounded"
         >
           + Save view
         </button>
@@ -92,13 +92,13 @@ export function SavedViewsStrip({
             />
             <button
               onClick={handleSave}
-              className="text-xs text-[var(--color-foreground-primary)] hover:opacity-70"
+              className="text-xs text-[var(--color-foreground-primary)] hover:opacity-70 focus-ring rounded"
             >
               Save
             </button>
             <button
               onClick={() => setShowSavePopover(false)}
-              className="text-xs text-[var(--color-foreground-neutral-faded)] hover:opacity-70"
+              className="text-xs text-[var(--color-foreground-neutral-faded)] hover:opacity-70 focus-ring rounded"
             >
               Cancel
             </button>

@@ -630,13 +630,16 @@ function PipelineDetailsHeader({
             {pipeline.pipeline_id ? (
               <div className="group flex items-center gap-1">
                 <span
-                  className="cursor-pointer hover:text-foreground transition-colors"
+                  role="button"
+                  tabIndex={0}
+                  className="cursor-pointer hover:text-foreground transition-colors focus-ring rounded-sm"
                   onClick={handleCopyPipelineId}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleCopyPipelineId() } }}
                   title="Click to copy pipeline ID"
                 >
                   Pipeline ID: {pipeline.pipeline_id}
                 </span>
-                <Copy className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <Copy className="h-3 w-3 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity" />
                 {copied && (
                   <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
                     Copied
@@ -660,7 +663,7 @@ function PipelineDetailsHeader({
               )}
               {onManageTags && (
                 <button
-                  className="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer opacity-60 hover:opacity-100"
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer opacity-60 hover:opacity-100 focus-ring rounded-sm"
                   onClick={onManageTags}
                   title="Manage tags"
                 >

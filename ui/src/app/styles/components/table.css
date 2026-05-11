@@ -94,6 +94,59 @@
     font-style: italic;
   }
 
+  /* ── Sticky header ──────────────────────────────────────────────── */
+  .table-header.sticky {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    backdrop-filter: blur(8px);
+  }
+
+  /* ── Dense pipelines table variant ──────────────────────────────── */
+  .pipelines-table .table-header {
+    padding: 6px var(--unit-x4);
+  }
+
+  .pipelines-table .table-row {
+    padding: 6px var(--unit-x4);
+  }
+
+  .pipelines-table .table-cell {
+    font-size: var(--font-size-body-3);
+  }
+
+  /* Sortable header cells get a pointer and subtle hover */
+  .table-header-cell.sortable {
+    cursor: pointer;
+    user-select: none;
+  }
+  .table-header-cell.sortable:hover {
+    color: var(--table-fg);
+  }
+
+  /* Row entrance animations */
+  @keyframes row-enter {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .table-body > .table-row {
+    animation: row-enter 220ms var(--easing-decelerate, cubic-bezier(0, 0, 0.2, 1)) both;
+  }
+
+  .table-body > .table-row:nth-child(1)  { animation-delay: 0ms; }
+  .table-body > .table-row:nth-child(2)  { animation-delay: 25ms; }
+  .table-body > .table-row:nth-child(3)  { animation-delay: 50ms; }
+  .table-body > .table-row:nth-child(4)  { animation-delay: 75ms; }
+  .table-body > .table-row:nth-child(5)  { animation-delay: 100ms; }
+  .table-body > .table-row:nth-child(6)  { animation-delay: 120ms; }
+  .table-body > .table-row:nth-child(7)  { animation-delay: 140ms; }
+  .table-body > .table-row:nth-child(n+8) { animation-delay: 160ms; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .table-body > .table-row { animation: none; }
+  }
+
   /* Responsive design for desktop and tablet only */
   @media (max-width: 1024px) {
     /* Tablet layout */

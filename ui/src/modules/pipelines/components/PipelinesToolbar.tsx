@@ -55,7 +55,7 @@ export function PipelinesToolbar({
       <button
         ref={filterButtonRef}
         onClick={onFilterMenuToggle}
-        className="p-2 hover:opacity-70 rounded-lg transition-opacity duration-200 relative"
+        className="p-2 hover:opacity-70 rounded-lg transition-opacity duration-200 relative focus-ring"
         aria-label="Filter pipelines"
       >
         <FilterIcon size={20} className="text-[var(--color-foreground-neutral-faded)]" />
@@ -106,7 +106,7 @@ export function PipelinesToolbar({
             key={mode}
             title={`${mode.charAt(0).toUpperCase() + mode.slice(1)} view`}
             onClick={() => onDensityChange(mode)}
-            className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
+            className={`px-2 py-1 rounded text-xs font-medium transition-colors focus-ring ${
               densityMode === mode
                 ? 'bg-[var(--color-foreground-primary)] text-[var(--button-primary-text)]'
                 : 'text-[var(--color-foreground-neutral-faded)] hover:text-[var(--color-foreground-neutral)]'

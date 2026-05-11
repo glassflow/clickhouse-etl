@@ -37,7 +37,7 @@ export function FilterChip({ label, values, onRemove, onClick, className }: Filt
           e.stopPropagation()
           onRemove()
         }}
-        className="ml-1 hover:opacity-70 rounded p-0.5 transition-opacity duration-200"
+        className="ml-1 hover:opacity-70 rounded p-0.5 transition-opacity duration-200 focus-ring"
         aria-label="Remove filter"
       >
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">

@@ -1,14 +1,15 @@
 'use client'
 
-import React from 'react'
-import Image from 'next/image'
-import { Badge } from '@/src/components/ui/badge'
 import { ListPipelineConfig, PipelineStatus } from '@/src/types/pipeline'
 import { TableColumn } from '@/src/modules/pipelines/PipelinesTable'
 import { TableContextMenu } from '@/src/modules/pipelines/TableContextMenu'
-import { getPipelineStatusLabel } from '@/src/utils/pipeline-status-display'
-import { formatNumber, formatCreatedAt } from '@/src/utils/common.client'
+import { formatNumber } from '@/src/utils/common.client'
+import { SparklineMini } from '@/src/modules/pipelines/components/SparklineMini'
+import { enrichPipeline, type PipelineEnv } from '@/src/modules/pipelines/utils/enrichPipelineStubs'
+import Image from 'next/image'
 import Loader from '@/src/images/loader-small.svg'
+
+// ─── Public config type ───────────────────────────────────────────────────────
 
 export interface PipelineListColumnsConfig {
   isPipelineLoading: (pipelineId: string) => boolean
@@ -26,69 +27,160 @@ export interface PipelineListColumnsConfig {
   isSelected: (pipelineId: string) => boolean
 }
 
-const STATUS_DOT_CLASS: Record<string, string> = {
-  active: 'bg-[var(--color-foreground-positive)]',
-  resuming: 'bg-[var(--color-foreground-warning)]',
-  pausing: 'bg-[var(--color-foreground-warning)]',
-  paused: 'bg-[var(--color-foreground-neutral-faded)]',
-  stopping: 'bg-[var(--color-foreground-neutral-faded)]',
-  stopped: 'bg-[var(--color-foreground-neutral-faded)]',
-  failed: 'bg-[var(--color-foreground-critical)]',
-  terminated: 'bg-[var(--color-foreground-neutral-faded)]',
+// ─── Status display ───────────────────────────────────────────────────────────
+
+function StatusCell({ pipeline, effectiveStatus }: { pipeline: ListPipelineConfig; effectiveStatus: PipelineStatus }) {
+  const isError    = effectiveStatus === 'failed'
+  const isWarn     = pipeline.health_status === 'unstable' && !isError
+  const isRunning  = effectiveStatus === 'active' && !isWarn
+  const isTransit  = effectiveStatus === 'pausing' || effectiveStatus === 'resuming' || effectiveStatus === 'stopping'
+
+  let dotColor: string
+  let textColor: string
+  let label: string
+
+  if (isError) {
+    dotColor = 'var(--color-foreground-critical)'
+    textColor = 'var(--color-foreground-critical)'
+    label = 'error'
+  } else if (isWarn) {
+    dotColor = 'var(--color-foreground-warning)'
+    textColor = 'var(--color-foreground-warning)'
+    label = 'warn'
+  } else if (isRunning) {
+    dotColor = 'var(--color-foreground-positive)'
+    textColor = 'var(--color-foreground-neutral-faded)'
+    label = 'running'
+  } else if (isTransit) {
+    dotColor = 'var(--color-foreground-warning)'
+    textColor = 'var(--color-foreground-warning)'
+    label = effectiveStatus.replace('ing', '...')
+  } else {
+    dotColor = 'var(--color-foreground-neutral-faded)'
+    textColor = 'var(--color-foreground-neutral-faded)'
+    label = effectiveStatus === 'stopped' ? 'stopped' : effectiveStatus
+  }
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <span
+        className="w-1.5 h-1.5 rounded-full shrink-0"
+        style={{ background: dotColor }}
+        data-status={effectiveStatus}
+      />
+      <span className="font-mono caption-1" style={{ color: textColor }}>
+        {label}
+      </span>
+    </div>
+  )
 }
 
-type TypeGlyph = { label: string; color: string }
+// ─── Type glyphs ─────────────────────────────────────────────────────────────
 
-function deriveTypeGlyphs(transformationType: string | undefined): TypeGlyph[] {
+const GLYPH_DEFS: { flag: string; label: string; color: string }[] = [
+  { flag: 'ingest',     label: 'I', color: 'var(--color-foreground-info)' },
+  { flag: 'join',       label: 'J', color: 'var(--color-foreground-warning)' },
+  { flag: 'dedup',      label: 'D', color: 'var(--color-purple-300)' },
+  { flag: 'filter',     label: 'F', color: 'var(--color-foreground-positive)' },
+  { flag: 'transform',  label: 'T', color: 'var(--color-foreground-primary)' },
+]
+
+function TypeCell({ transformationType }: { transformationType: string }) {
   const t = (transformationType || '').toLowerCase()
-  const glyphs: TypeGlyph[] = [{ label: 'I', color: 'text-[var(--color-foreground-info)]' }]
-  if (t.includes('join')) glyphs.push({ label: 'J', color: 'text-[var(--color-foreground-warning)]' })
-  if (t.includes('dedup')) glyphs.push({ label: 'D', color: 'text-[var(--color-purple-300)]' })
-  if (t.includes('filter')) glyphs.push({ label: 'F', color: 'text-[var(--color-foreground-positive)]' })
-  if (t.includes('transform')) glyphs.push({ label: 'T', color: 'text-[var(--color-foreground-primary)]' })
-  return glyphs
+  const active = GLYPH_DEFS.filter(({ flag }) => t.includes(flag) || flag === 'ingest')
+  return (
+    <div className="flex items-center gap-0.5">
+      {active.map(({ label, color }) => (
+        <span
+          key={label}
+          className="font-mono text-[11px] font-bold w-4 h-4 flex items-center justify-center rounded-sm shrink-0"
+          style={{ color, background: `color-mix(in srgb, ${color} 12%, transparent)` }}
+        >
+          {label}
+        </span>
+      ))}
+    </div>
+  )
 }
+
+// ─── ENV badge ────────────────────────────────────────────────────────────────
+
+const ENV_STYLES: Record<PipelineEnv, { bg: string; fg: string; border: string }> = {
+  PROD:    { bg: 'var(--color-background-neutral-faded)',            fg: 'var(--color-foreground-neutral-faded)',  border: 'var(--surface-border)' },
+  STAGING: { bg: 'color-mix(in srgb,var(--color-yellow-400) 12%,transparent)', fg: 'var(--color-yellow-400)', border: 'color-mix(in srgb,var(--color-yellow-400) 30%,transparent)' },
+  DEV:     { bg: 'color-mix(in srgb,var(--color-foreground-info) 12%,transparent)', fg: 'var(--color-foreground-info)', border: 'color-mix(in srgb,var(--color-foreground-info) 30%,transparent)' },
+}
+
+function EnvBadge({ env }: { env: PipelineEnv }) {
+  const s = ENV_STYLES[env]
+  return (
+    <span
+      className="inline-flex items-center px-1.5 py-0.5 rounded caption-2 font-mono font-semibold uppercase tracking-wide whitespace-nowrap"
+      style={{ background: s.bg, color: s.fg, border: `1px solid ${s.border}` }}
+    >
+      {env}
+    </span>
+  )
+}
+
+// ─── Owner avatar ─────────────────────────────────────────────────────────────
+
+function OwnerCell({ name, team, initials, colorToken }: { name: string; team: string; initials: string; colorToken: string }) {
+  return (
+    <div className="flex items-center gap-1.5 min-w-0">
+      <div
+        className="w-5 h-5 rounded-full flex items-center justify-center shrink-0 text-[9px] font-bold"
+        style={{ background: colorToken, color: 'var(--color-background-default, #0a0a0a)' }}
+        title={name}
+      >
+        {initials}
+      </div>
+      <div className="flex flex-col min-w-0">
+        <span className="caption-1 text-[var(--table-fg)] truncate leading-tight">{name}</span>
+        <span className="font-mono text-[9px] text-[var(--color-foreground-neutral-faded)] truncate leading-tight">{team}</span>
+      </div>
+    </div>
+  )
+}
+
+// ─── Tags (compact) ───────────────────────────────────────────────────────────
 
 function TagsCell({ tags }: { tags: string[] }) {
   if (!tags || tags.length === 0) {
-    return <span className="text-sm text-[var(--color-foreground-neutral-faded)]">No tags</span>
+    return <span className="caption-1 text-[var(--color-foreground-neutral-faded)]">—</span>
   }
-  const visibleTags = tags.slice(0, 3)
-  const remaining = tags.length - visibleTags.length
+  const visible  = tags.slice(0, 2)
+  const overflow = tags.length - visible.length
   return (
-    <div className="flex flex-wrap items-center gap-1">
-      {visibleTags.map((tag) => (
-        <Badge key={tag} variant="outline" className="rounded-full px-2 py-0.5 text-xs font-medium">
+    <div className="flex flex-wrap gap-1">
+      {visible.map((tag) => (
+        <span
+          key={tag}
+          className="caption-2 font-mono px-1.5 py-0.5 rounded border text-[var(--color-foreground-neutral-faded)]"
+          style={{ background: 'var(--color-background-neutral-faded)', borderColor: 'var(--surface-border)' }}
+        >
           {tag}
-        </Badge>
+        </span>
       ))}
-      {remaining > 0 && (
-        <span className="text-xs text-[var(--color-foreground-neutral-faded)]">+{remaining} more</span>
+      {overflow > 0 && (
+        <span className="caption-2 text-[var(--color-foreground-neutral-faded)]">+{overflow}</span>
       )}
     </div>
   )
 }
 
-export function getPipelineListColumns(
-  config: PipelineListColumnsConfig,
-): TableColumn<ListPipelineConfig>[] {
+// ─── Column factory ───────────────────────────────────────────────────────────
+
+export function getPipelineListColumns(config: PipelineListColumnsConfig): TableColumn<ListPipelineConfig>[] {
   const {
     isPipelineLoading,
-    getPipelineOperation,
     getEffectiveStatus,
-    onStop,
-    onResume,
-    onEdit,
-    onRename,
-    onTerminate,
-    onDelete,
-    onDownload,
-    onManageTags,
-    onToggleSelect,
-    isSelected,
+    onStop, onResume, onEdit, onRename, onTerminate, onDelete, onDownload, onManageTags,
+    onToggleSelect, isSelected,
   } = config
 
   return [
+    // ── Select ─────────────────────────────────────────────────────────────
     {
       key: 'select',
       header: '',
@@ -96,136 +188,206 @@ export function getPipelineListColumns(
       sortable: false,
       render: (pipeline) => (
         <div
-          onClick={(e) => {
-            e.stopPropagation()
-            onToggleSelect(pipeline.pipeline_id)
-          }}
           className="flex items-center justify-center"
+          onClick={(e) => { e.stopPropagation(); onToggleSelect(pipeline.pipeline_id) }}
         >
           <input
             type="checkbox"
             checked={isSelected(pipeline.pipeline_id)}
             onChange={() => {}}
-            className="w-4 h-4 cursor-pointer accent-[var(--color-foreground-primary)]"
+            className="w-3.5 h-3.5 cursor-pointer accent-[var(--color-foreground-primary)]"
           />
         </div>
       ),
     },
+
+    // ── Status ─────────────────────────────────────────────────────────────
+    {
+      key: 'status',
+      header: 'Status',
+      width: '90px',
+      sortable: true,
+      render: (pipeline) => {
+        const effectiveStatus = getEffectiveStatus(pipeline)
+        const isLoading = isPipelineLoading(pipeline.pipeline_id)
+        return (
+          <div className="flex items-center gap-1.5">
+            {isLoading && <Image src={Loader} alt="" width={12} height={12} className="animate-spin shrink-0" />}
+            <StatusCell pipeline={pipeline} effectiveStatus={effectiveStatus} />
+          </div>
+        )
+      },
+    },
+
+    // ── Name ───────────────────────────────────────────────────────────────
     {
       key: 'name',
       header: 'Name',
-      width: '2fr',
+      width: 'minmax(140px,2fr)',
       sortable: true,
       render: (pipeline) => {
-        const isLoading = isPipelineLoading(pipeline.pipeline_id)
-        const dlqCount = pipeline.dlq_stats?.unconsumed_messages ?? 0
-        const showSubLine = pipeline.health_status === 'unstable' && dlqCount > 0
+        const effectiveStatus = getEffectiveStatus(pipeline)
+        const stubs = enrichPipeline(pipeline, effectiveStatus)
+        const isFailed  = effectiveStatus === 'failed'
         return (
-          <div className="flex items-center gap-2">
-            {isLoading && (
-              <Image src={Loader} alt="Loading" width={16} height={16} className="animate-spin" />
+          <div className="flex flex-col gap-0 min-w-0">
+            <span className="title-6 text-[var(--table-fg)] truncate">{pipeline.name}</span>
+            {stubs.diagnostic && (
+              <span
+                className="font-mono caption-2 truncate"
+                style={{ color: isFailed ? 'var(--color-foreground-critical)' : 'var(--color-foreground-warning)' }}
+              >
+                {stubs.diagnostic}
+              </span>
             )}
-            <div className="flex flex-col gap-0.5">
-              <span className="font-medium">{pipeline.name}</span>
-              {showSubLine && (
-                <span className="text-xs font-mono text-[var(--color-foreground-critical)]">
-                  {dlqCount.toLocaleString()} events in DLQ
-                </span>
-              )}
-            </div>
           </div>
         )
       },
     },
+
+    // ── Type ───────────────────────────────────────────────────────────────
     {
-      key: 'operations',
-      header: 'Transformation',
-      width: '2fr',
+      key: 'type',
+      header: 'Type',
+      width: '96px',
       sortable: true,
       sortKey: 'transformation_type',
+      render: (pipeline) => <TypeCell transformationType={pipeline.transformation_type || ''} />,
+    },
+
+    // ── Env ────────────────────────────────────────────────────────────────
+    {
+      key: 'env',
+      header: 'Env',
+      width: '68px',
+      sortable: false,
       render: (pipeline) => {
-        const glyphs = deriveTypeGlyphs(pipeline.transformation_type)
-        const label = pipeline.transformation_type || 'None'
+        const stubs = enrichPipeline(pipeline, getEffectiveStatus(pipeline))
+        return <EnvBadge env={stubs.env} />
+      },
+    },
+
+    // ── Source → Sink ──────────────────────────────────────────────────────
+    {
+      key: 'sourceToSink',
+      header: 'Source → Sink',
+      width: 'minmax(180px,3fr)',
+      sortable: false,
+      render: (pipeline) => {
+        const stubs = enrichPipeline(pipeline, getEffectiveStatus(pipeline))
+        const full  = `${stubs.sourceLabel} → ${stubs.sinkLabel}`
+        return (
+          <span
+            className="font-mono caption-1 text-[var(--color-foreground-neutral-faded)] truncate block"
+            title={full}
+          >
+            {stubs.sourceLabel}
+            <span className="opacity-40 mx-1">→</span>
+            {stubs.sinkLabel}
+          </span>
+        )
+      },
+    },
+
+    // ── Throughput ─────────────────────────────────────────────────────────
+    {
+      key: 'throughput',
+      header: 'Throughput',
+      width: '128px',
+      sortable: false,
+      render: (pipeline) => {
+        const effectiveStatus = getEffectiveStatus(pipeline)
+        const stubs = enrichPipeline(pipeline, effectiveStatus)
+        const isActive = effectiveStatus === 'active'
+        const sparkColor = pipeline.health_status === 'unstable'
+          ? 'var(--color-foreground-warning)'
+          : 'var(--color-foreground-primary)'
         return (
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-0.5">
-              {glyphs.map((g) => (
-                <span key={g.label} className={`text-xs font-mono font-bold ${g.color}`}>
-                  {g.label}
-                </span>
-              ))}
-            </div>
-            <span className="text-sm">{label}</span>
+            <span className="font-mono caption-1 text-[var(--table-fg)] w-10 text-right tabular-nums shrink-0">
+              {isActive ? formatNumber(stubs.throughput) : '0'}
+            </span>
+            <SparklineMini
+              data={stubs.throughputSpark}
+              width={52}
+              height={16}
+              color={isActive ? sparkColor : 'var(--color-foreground-neutral-faded)'}
+            />
           </div>
         )
       },
     },
-    {
-      key: 'tags',
-      header: 'Tags',
-      width: '2fr',
-      align: 'left',
-      render: (pipeline) => <TagsCell tags={pipeline.metadata?.tags || []} />,
-    },
+
+    // ── DLQ ────────────────────────────────────────────────────────────────
     {
       key: 'dlqStats',
-      header: 'Events in DLQ',
-      width: '1fr',
-      align: 'left',
+      header: 'DLQ',
+      width: '72px',
+      align: 'right',
       sortable: true,
       sortKey: 'dlq_stats.unconsumed_messages',
       render: (pipeline) => {
         const count = pipeline.dlq_stats?.unconsumed_messages ?? 0
-        let colorClass = 'text-[var(--color-foreground-neutral-faded)]'
-        let weightClass = ''
-        if (count >= 100) {
-          colorClass = 'text-[var(--color-foreground-critical)]'
-          weightClass = 'font-bold'
-        } else if (count >= 1) {
-          colorClass = 'text-[var(--color-foreground-warning)]'
-        }
+        const color = count >= 100
+          ? 'var(--color-foreground-critical)'
+          : count >= 1
+            ? 'var(--color-foreground-warning)'
+            : 'var(--color-foreground-neutral-faded)'
         return (
-          <span className={`${colorClass} ${weightClass}`}>{formatNumber(count)}</span>
+          <span
+            className={`font-mono caption-1 tabular-nums ${count > 0 ? 'font-semibold' : ''}`}
+            style={{ color }}
+          >
+            {formatNumber(count)}
+          </span>
         )
       },
     },
+
+    // ── Owner ──────────────────────────────────────────────────────────────
     {
-      key: 'status',
-      header: 'Status',
-      width: '1fr',
-      align: 'left',
-      sortable: true,
+      key: 'owner',
+      header: 'Owner',
+      width: '128px',
+      sortable: false,
       render: (pipeline) => {
-        const effectiveStatus = getEffectiveStatus(pipeline)
-        const dotClass = STATUS_DOT_CLASS[effectiveStatus] ?? 'bg-[var(--color-foreground-neutral-faded)]'
+        const stubs = enrichPipeline(pipeline, getEffectiveStatus(pipeline))
+        return <OwnerCell {...stubs.owner} />
+      },
+    },
+
+    // ── Tags ───────────────────────────────────────────────────────────────
+    {
+      key: 'tags',
+      header: 'Tags',
+      width: '100px',
+      sortable: false,
+      render: (pipeline) => <TagsCell tags={pipeline.metadata?.tags || []} />,
+    },
+
+    // ── Last deploy ────────────────────────────────────────────────────────
+    {
+      key: 'lastDeploy',
+      header: 'Last deploy',
+      width: '112px',
+      sortable: false,
+      render: (pipeline) => {
+        const stubs = enrichPipeline(pipeline, getEffectiveStatus(pipeline))
         return (
-          <div className="flex items-center gap-2">
-            <span
-              className={`w-2 h-2 rounded-full shrink-0 ${dotClass}`}
-              data-status={effectiveStatus}
-            />
-            <span className="font-mono text-xs">{getPipelineStatusLabel(effectiveStatus)}</span>
+          <div className="flex flex-col">
+            <span className="font-mono caption-1 text-[var(--table-fg)]">{stubs.lastDeployUser}</span>
+            <span className="font-mono text-[10px] text-[var(--color-foreground-neutral-faded)]">{stubs.lastDeployTime}</span>
           </div>
         )
       },
     },
-    {
-      key: 'created_at',
-      header: 'Created',
-      width: '1.5fr',
-      align: 'left',
-      sortable: true,
-      render: (pipeline) => (
-        <div className="flex flex-row items-center justify-start text-content">
-          {formatCreatedAt(pipeline.created_at)}
-        </div>
-      ),
-    },
+
+    // ── Actions ────────────────────────────────────────────────────────────
     {
       key: 'actions',
-      header: 'Actions',
+      header: '',
       align: 'center',
-      width: '1fr',
+      width: '44px',
       render: (pipeline) => {
         const effectiveStatus = getEffectiveStatus(pipeline)
         return (

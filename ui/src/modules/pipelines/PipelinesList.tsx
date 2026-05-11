@@ -25,6 +25,7 @@ import { updatePipelineMetadata } from '@/src/api/pipeline-api'
 import { usePlatformDetection } from '@/src/hooks/usePlatformDetection'
 import { useMultiplePipelineState, usePipelineOperations, usePipelineMonitoring } from '@/src/hooks/usePipelineStateAdapter'
 import { getPipelineListColumns } from './columns/pipelineListColumns'
+import { enrichPipeline } from './utils/enrichPipelineStubs'
 import { usePipelineListOperations } from './usePipelineListOperations'
 import { DownloadFormatModal, type DownloadFormat } from '@/src/components/common/DownloadFormatModal'
 import { useBulkSelection } from './hooks/useBulkSelection'
@@ -328,10 +329,10 @@ export function PipelinesList({
     (pipeline: ListPipelineConfig): string => {
       const effectiveStatus = getEffectiveStatus(pipeline) as string
       if (effectiveStatus === 'failed') {
-        return 'border-l-2 border-[var(--color-foreground-critical)] bg-[color-mix(in_srgb,var(--color-foreground-critical)_4%,transparent)]'
+        return 'ring-1 ring-inset ring-[color-mix(in_srgb,var(--color-foreground-critical)_30%,transparent)] bg-[color-mix(in_srgb,var(--color-foreground-critical)_5%,transparent)]'
       }
       if (pipeline.health_status === 'unstable' && effectiveStatus !== 'failed') {
-        return 'border-l-2 border-[var(--color-foreground-warning)] bg-[color-mix(in_srgb,var(--color-foreground-warning)_3%,transparent)]'
+        return 'ring-1 ring-inset ring-[color-mix(in_srgb,var(--color-foreground-warning)_25%,transparent)] bg-[color-mix(in_srgb,var(--color-foreground-warning)_4%,transparent)]'
       }
       return ''
     },
@@ -424,15 +425,35 @@ export function PipelinesList({
     }
   }
 
+  const pipelineStats = useMemo(() => {
+    const envs  = new Set(pipelines.map((p) => enrichPipeline(p, getEffectiveStatus(p)).env))
+    const teams = new Set(pipelines.map((p) => enrichPipeline(p, getEffectiveStatus(p)).owner.team))
+    return { total: pipelines.length, envCount: envs.size, teamCount: teams.size }
+  }, [pipelines, getEffectiveStatus])
+
   return (
     <div className="flex flex-col w-full gap-4">
-      {/* Header row: title + new pipeline button */}
-      <div className="flex items-center justify-between w-full">
-        <h1 className="text-xl sm:text-2xl font-semibold">Pipelines</h1>
-        <Button variant="primary" size="custom" onClick={handleCreate}>
-          <CreateIcon className="action-icon" size={16} />
-          New Pipeline
-        </Button>
+      {/* Header row: title + subtitle + action buttons */}
+      <div className="flex items-start justify-between w-full gap-4">
+        <div className="flex flex-col gap-0.5">
+          <h1 className="title-3">Pipelines</h1>
+          {pipelineStats.total > 0 && (
+            <p className="caption-1 text-[var(--color-foreground-neutral-faded)]">
+              {pipelineStats.total} pipelines
+              {pipelineStats.envCount > 0 && ` · ${pipelineStats.envCount} environment${pipelineStats.envCount !== 1 ? 's' : ''}`}
+              {pipelineStats.teamCount > 0 && ` · ${pipelineStats.teamCount} team${pipelineStats.teamCount !== 1 ? 's' : ''}`}
+            </p>
+          )}
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button variant="ghost" size="sm" onClick={handleCreate}>
+            Import
+          </Button>
+          <Button variant="primary" size="custom" onClick={handleCreate}>
+            <CreateIcon className="action-icon" size={16} />
+            Create pipeline
+          </Button>
+        </div>
       </div>
 
       {/* Saved views tab strip */}
@@ -498,6 +519,10 @@ export function PipelinesList({
           rowClassName={getRowClassName}
           emptyMessage="No pipelines found. Adjust your filters or create a new pipeline to get started."
           onRowClick={(pipeline) => router.push(`/pipelines/${pipeline.pipeline_id}`)}
+          className="pipelines-table"
+          stickyHeader
+          initialSortColumn="status"
+          initialSortDirection="asc"
         />
       </div>
 
