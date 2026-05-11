@@ -101,8 +101,9 @@ func (s *SinkRunner) Start(ctx context.Context) error {
 			Name:          consumerName,
 			Durable:       consumerName,
 			AckPolicy:     jetstream.AckExplicitPolicy,
-			AckWait:       internal.NatsDefaultAckWait,
+			AckWait:       internal.NatsConsumerAckWait,
 			MaxAckPending: maxAckPending,
+			MaxDeliver:    internal.NatsConsumerMaxDeliver,
 		},
 		inputStreamName,
 	)

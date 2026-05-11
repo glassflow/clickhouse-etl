@@ -146,6 +146,14 @@ const (
 	NatsDefaultFetchMaxWait = 1 * time.Second
 	NatsDefaultAckWait      = 60 * time.Second
 
+	// Pipeline consumer retry config — applied to sink, join, and dedup consumers.
+	// MaxDeliver caps total delivery attempts; AckWait is the per-attempt timeout before
+	// NATS considers the message un-acked and redelivers it.
+	// Note: AckWait only governs ack-timeout redeliveries. Explicit NACK redelivery delay
+	// must be set via NakWithDelay at the call site (separate work item).
+	NatsConsumerMaxDeliver = 10
+	NatsConsumerAckWait    = 30 * time.Second
+
 	// Postgres client constants
 	PostgresConnectionRetries = 12
 	PostgresInitialRetryDelay = 1 * time.Second
