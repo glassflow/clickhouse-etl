@@ -162,7 +162,7 @@ func TestBatchReader_Nak(t *testing.T) {
 	err = reader.Nak(ctx, messages)
 	require.NoError(t, err)
 
-	// Verify messages are available for redelivery with retry
+	// Verify messages are available for redelivery after NakDelay elapses
 	err = retry.Do(
 		func() error {
 			messages, err = reader.ReadBatchNoWait(ctx, models.WithBatchSize(10))
@@ -174,8 +174,8 @@ func TestBatchReader_Nak(t *testing.T) {
 			}
 			return nil
 		},
-		retry.Delay(5*time.Millisecond),
-		retry.Attempts(10),
+		retry.Delay(500*time.Millisecond),
+		retry.Attempts(20), // up to 10s — covers NatsConsumerNakDelay (5s) with headroom
 		retry.LastErrorOnly(true),
 	)
 	require.NoError(t, err, "messages should be available for redelivery after nak")

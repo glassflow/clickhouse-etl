@@ -7,6 +7,7 @@ import (
 
 	"github.com/nats-io/nats.go/jetstream"
 
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/batch"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 )
@@ -83,7 +84,7 @@ func (r *BatchReader) Nak(_ context.Context, messages []models.Message) error {
 			return fmt.Errorf("missing NATS original message")
 		}
 
-		if err := msg.JetstreamMsgOriginal.Nak(); err != nil {
+		if err := msg.JetstreamMsgOriginal.NakWithDelay(internal.NatsConsumerNakDelay); err != nil {
 			return fmt.Errorf("nak message: %w", err)
 		}
 	}

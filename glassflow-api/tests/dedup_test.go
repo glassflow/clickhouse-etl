@@ -108,7 +108,10 @@ func TestDeduplication_FailureDoesNotAckMessages(t *testing.T) {
 	// Assert
 	require.Error(t, err)
 
-	// Verify messages still in input stream (not acked)
+	// Verify messages still in input stream (not acked).
+	// NakWithDelay(NatsConsumerNakDelay) means messages are not immediately available —
+	// wait for the delay to elapse before reading.
+	time.Sleep(internal.NatsConsumerNakDelay + 500*time.Millisecond)
 	consumer, err := js.Consumer(ctx, "test-input", "test-consumer")
 	require.NoError(t, err)
 	reader := batchNats.NewBatchReader(consumer)
