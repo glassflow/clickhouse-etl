@@ -79,8 +79,8 @@
   --color-background-elevation-raised: var(--color-gray-dark-900);
   --color-background-elevation-raised-faded: var(--color-black-100);
   --color-background-elevation-raised-faded-2: var(--color-black-600);
-  --color-background-elevation-overlay: var(--color-gray-dark-800);
-  --color-background-page: var(--color-gray-dark-600);
+  --color-background-elevation-overlay: var(--color-gray-dark-700);
+  --color-background-page: var(--color-gray-dark-950);
   --color-background-page-faded: var(--color-gray-dark-800);
 
   /* On-color text */
