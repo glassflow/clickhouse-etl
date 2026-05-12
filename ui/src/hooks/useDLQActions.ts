@@ -10,6 +10,7 @@ type UseDLQActionsReturn = {
   error: string | null
   actionMessage: string | null
   consuming: boolean
+  purging: boolean
   refetch: () => Promise<void>
   consume: (batchSize: number) => Promise<void>
   purge: () => Promise<void>
@@ -21,11 +22,21 @@ export function useDLQActions(pipelineId: string): UseDLQActionsReturn {
   const [error, setError] = React.useState<string | null>(null)
   const [actionMessage, setActionMessage] = React.useState<string | null>(null)
   const [consuming, setConsuming] = React.useState(false)
+  const [purging, setPurging] = React.useState(false)
+
+  // Tracks the latest pipelineId so in-flight requests for previous ids can
+  // bail out before writing stale state when the user navigates quickly.
+  const activeId = React.useRef(pipelineId)
+  React.useEffect(() => {
+    activeId.current = pipelineId
+  }, [pipelineId])
 
   const refetch = React.useCallback(async () => {
+    const requestedFor = pipelineId
     setLoading(true)
     try {
-      const res = await fetch(`/ui-api/pipeline/${pipelineId}/dlq/state`)
+      const res = await fetch(`/ui-api/pipeline/${requestedFor}/dlq/state`)
+      if (activeId.current !== requestedFor) return
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
         setError(data?.error ?? 'Failed to fetch DLQ state')
@@ -35,9 +46,10 @@ export function useDLQActions(pipelineId: string): UseDLQActionsReturn {
       setState(data?.data ?? data)
       setError(null)
     } catch {
+      if (activeId.current !== requestedFor) return
       setError('Failed to fetch DLQ state')
     } finally {
-      setLoading(false)
+      if (activeId.current === requestedFor) setLoading(false)
     }
   }, [pipelineId])
 
@@ -68,6 +80,8 @@ export function useDLQActions(pipelineId: string): UseDLQActionsReturn {
   )
 
   const purge = React.useCallback(async () => {
+    setPurging(true)
+    setActionMessage(null)
     try {
       const res = await fetch(`/ui-api/pipeline/${pipelineId}/dlq/purge`, {
         method: 'DELETE',
@@ -81,8 +95,10 @@ export function useDLQActions(pipelineId: string): UseDLQActionsReturn {
       }
     } catch {
       setActionMessage('Purge failed')
+    } finally {
+      setPurging(false)
     }
   }, [pipelineId, refetch])
 
-  return { state, loading, error, actionMessage, consuming, refetch, consume, purge }
+  return { state, loading, error, actionMessage, consuming, purging, refetch, consume, purge }
 }

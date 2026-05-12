@@ -19,8 +19,7 @@ describe('DLQPeekPanel', () => {
       json: async () => ({ count: 47 }),
     })
     render(<DLQPeekPanel pipelineId="abc" />)
-    await waitFor(() => expect(screen.getByText('47')).toBeInTheDocument())
-    expect(screen.getByText(/events/i)).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByText(/47 events/i)).toBeInTheDocument())
   })
 
   it('renders Open DLQ viewer link pointing to /dlq', async () => {

@@ -15,7 +15,7 @@ interface DLQViewerProps {
 }
 
 export function DLQViewer({ pipelineId }: DLQViewerProps) {
-  const { state, loading, error, actionMessage, consuming, consume, purge } = useDLQActions(pipelineId)
+  const { state, loading, error, actionMessage, consuming, purging, consume, purge } = useDLQActions(pipelineId)
   const [batchSize, setBatchSize] = useState(100)
   const [showPurgeModal, setShowPurgeModal] = useState(false)
 
@@ -58,7 +58,13 @@ export function DLQViewer({ pipelineId }: DLQViewerProps) {
           >
             Consume
           </Button>
-          <Button variant="destructive" size="sm" onClick={() => setShowPurgeModal(true)}>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => setShowPurgeModal(true)}
+            loading={purging}
+            loadingText="Purging…"
+          >
             Purge all
           </Button>
         </div>

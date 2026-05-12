@@ -12,7 +12,7 @@ const FlushDLQModal = dynamic(() => import('@/src/modules/pipelines/components/F
 type Props = { pipelineId: string }
 
 export function DLQPeekPanel({ pipelineId }: Props) {
-  const { state, loading, error, actionMessage, consuming, consume, purge } = useDLQActions(pipelineId)
+  const { state, loading, error, actionMessage, consuming, purging, consume, purge } = useDLQActions(pipelineId)
   const [showPurgeModal, setShowPurgeModal] = useState(false)
   const count = state?.count ?? 0
 
@@ -22,7 +22,7 @@ export function DLQPeekPanel({ pipelineId }: Props) {
         <span className="caption-1 text-[var(--text-secondary)]">Dead-letter queue</span>
         {!loading && !error && (
           <Badge variant={count > 0 ? 'error' : 'secondary'}>
-            <span>{count}</span> {count === 1 ? 'event' : 'events'}
+            {count} {count === 1 ? 'event' : 'events'}
           </Badge>
         )}
       </div>
@@ -53,7 +53,13 @@ export function DLQPeekPanel({ pipelineId }: Props) {
             </Button>
           )}
           {count > 0 && (
-            <Button variant="destructive" size="sm" onClick={() => setShowPurgeModal(true)}>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => setShowPurgeModal(true)}
+              loading={purging}
+              loadingText="Purging…"
+            >
               Purge…
             </Button>
           )}
