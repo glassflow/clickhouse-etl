@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest'
+import { describe, it, expect, afterEach, vi } from 'vitest'
 import { render, cleanup, fireEvent } from '@testing-library/react'
 import { OBChartSVG } from './OBChartSVG'
 
@@ -69,5 +69,68 @@ describe('OBChartSVG base rendering', () => {
     expect(d).not.toMatch(/NaN/)
     // Two finite points produce two segments: an M and another M (new subpath after the gap).
     expect(d.split('M').length - 1).toBe(2)
+  })
+})
+
+describe('OBChartSVG brush', () => {
+  const series = [
+    {
+      id: 'ingestor',
+      color: 'var(--obs-chart-ingestor)',
+      points: [
+        [1_700_000_000_000, 100],
+        [1_700_000_060_000, 110],
+        [1_700_000_120_000, 105],
+      ] as Array<[number, number]>,
+    },
+  ]
+
+  it('mousedown + mousemove + mouseup fires onBrushChange with ms values', () => {
+    const onBrushChange = vi.fn()
+    const { container } = render(
+      <OBChartSVG series={series} width={400} height={200} showBrush onBrushChange={onBrushChange} />,
+    )
+    const svg = container.querySelector('svg')!
+    fireEvent.mouseDown(svg, { clientX: 100, clientY: 100 })
+    fireEvent.mouseMove(svg, { clientX: 200, clientY: 100 })
+    fireEvent.mouseUp(svg, { clientX: 200, clientY: 100 })
+    expect(onBrushChange).toHaveBeenCalledTimes(1)
+    const [fromMs, toMs] = onBrushChange.mock.calls[0]
+    expect(typeof fromMs).toBe('number')
+    expect(typeof toMs).toBe('number')
+    expect(fromMs).toBeLessThan(toMs)
+  })
+
+  it('renders a brush rectangle when brushFromMs/toMs are set', () => {
+    const { container } = render(
+      <OBChartSVG
+        series={series}
+        width={400}
+        height={200}
+        showBrush
+        brushFromMs={1_700_000_030_000}
+        brushToMs={1_700_000_090_000}
+      />,
+    )
+    expect(container.querySelector('rect[data-brush-region]')).not.toBeNull()
+  })
+
+  it('arrow key on focused svg nudges brush when brush is set', () => {
+    const onBrushChange = vi.fn()
+    const { container } = render(
+      <OBChartSVG
+        series={series}
+        width={400}
+        height={200}
+        showBrush
+        brushFromMs={1_700_000_030_000}
+        brushToMs={1_700_000_090_000}
+        onBrushChange={onBrushChange}
+      />,
+    )
+    const svg = container.querySelector('svg')!
+    svg.focus()
+    fireEvent.keyDown(svg, { key: 'ArrowRight' })
+    expect(onBrushChange).toHaveBeenCalled()
   })
 })

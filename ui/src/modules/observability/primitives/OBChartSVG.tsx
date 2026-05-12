@@ -35,9 +35,16 @@ export function OBChartSVG({
   height = 320,
   pad = DEFAULT_PAD,
   showCrosshair = false,
+  showBrush = false,
+  brushFromMs = null,
+  brushToMs = null,
+  onBrushChange,
+  onBrushClear,
 }: OBChartSVGProps) {
   const svgRef = React.useRef<SVGSVGElement | null>(null)
   const [hoverX, setHoverX] = React.useState<number | null>(null)
+  const [dragStartMs, setDragStartMs] = React.useState<number | null>(null)
+  const [dragCurrentMs, setDragCurrentMs] = React.useState<number | null>(null)
 
   const allTs: number[] = []
   const allVs: number[] = []
@@ -70,24 +77,65 @@ export function OBChartSVG({
   const plotW = width - pad.l - pad.r
   const plotH = height - pad.t - pad.b
 
-  const xScale = (t: number) => pad.l + ((t - tMin) / (tMax - tMin || 1)) * plotW
+  const tRange = tMax - tMin || 1
+  const xScale = (t: number) => pad.l + ((t - tMin) / tRange) * plotW
   const yScale = (v: number) => pad.t + plotH - ((v - vMin) / vRange) * plotH
+  const xToMs = (x: number) => tMin + ((x - pad.l) / plotW) * tRange
+  const clampX = (x: number) => Math.min(pad.l + plotW, Math.max(pad.l, x))
 
   const yTicks: number[] = []
   for (let i = 0; i <= 4; i++) yTicks.push(vMin + (vRange * i) / 4)
 
   const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
-    if (!showCrosshair) return
     const rect = e.currentTarget.getBoundingClientRect()
     const x = e.clientX - rect.left
-    if (x < pad.l || x > pad.l + plotW) {
-      setHoverX(null)
-      return
+    if (showCrosshair) {
+      setHoverX(x < pad.l || x > pad.l + plotW ? null : x)
     }
-    setHoverX(x)
+    if (showBrush && dragStartMs != null) {
+      setDragCurrentMs(xToMs(clampX(x)))
+    }
   }
 
   const handleMouseLeave = () => setHoverX(null)
+
+  const handleMouseDown = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (!showBrush) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    const x = e.clientX - rect.left
+    if (x < pad.l || x > pad.l + plotW) return
+    setDragStartMs(xToMs(x))
+    setDragCurrentMs(xToMs(x))
+  }
+
+  const handleMouseUp = () => {
+    if (!showBrush) return
+    if (dragStartMs != null && dragCurrentMs != null && dragStartMs !== dragCurrentMs) {
+      const fromMs = Math.min(dragStartMs, dragCurrentMs)
+      const toMs = Math.max(dragStartMs, dragCurrentMs)
+      onBrushChange?.(fromMs, toMs)
+    }
+    setDragStartMs(null)
+    setDragCurrentMs(null)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<SVGSVGElement>) => {
+    if (!showBrush || brushFromMs == null || brushToMs == null) return
+    const step = (brushToMs - brushFromMs) * 0.05
+    if (e.key === 'ArrowRight') {
+      onBrushChange?.(brushFromMs + step, brushToMs + step)
+      e.preventDefault()
+    } else if (e.key === 'ArrowLeft') {
+      onBrushChange?.(brushFromMs - step, brushToMs - step)
+      e.preventDefault()
+    } else if (e.key === 'Escape') {
+      onBrushClear?.()
+      e.preventDefault()
+    }
+  }
+
+  const activeFrom = dragStartMs != null && dragCurrentMs != null ? Math.min(dragStartMs, dragCurrentMs) : brushFromMs
+  const activeTo = dragStartMs != null && dragCurrentMs != null ? Math.max(dragStartMs, dragCurrentMs) : brushToMs
 
   return (
     <svg
@@ -95,9 +143,13 @@ export function OBChartSVG({
       width={width}
       height={height}
       viewBox={`0 0 ${width} ${height}`}
+      tabIndex={showBrush ? 0 : -1}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
-      style={{ display: 'block' }}
+      onMouseDown={handleMouseDown}
+      onMouseUp={handleMouseUp}
+      onKeyDown={handleKeyDown}
+      style={{ display: 'block', outline: 'none' }}
       role="img"
       aria-label="Time series chart"
     >
@@ -137,6 +189,21 @@ export function OBChartSVG({
         stroke="var(--obs-chart-axis)"
         strokeWidth={1}
       />
+
+      {activeFrom != null && activeTo != null && (
+        <rect
+          data-brush-region=""
+          x={xScale(activeFrom)}
+          y={pad.t}
+          width={Math.max(1, xScale(activeTo) - xScale(activeFrom))}
+          height={plotH}
+          fill="var(--color-foreground-primary)"
+          fillOpacity={0.13}
+          stroke="var(--color-foreground-primary)"
+          strokeOpacity={0.6}
+          strokeWidth={1}
+        />
+      )}
 
       {series.map((s) => (
         <path
