@@ -1,10 +1,12 @@
 # Observability Module — Per-pipeline Metrics (M3) and Logs (M4) Design
 
-**Date:** 2026-05-12
+**Date:** 2026-05-12 (revised same day after code audit)
 **Status:** Scope approved, ready for implementation planning
 **Linear:** [ETL-1074](https://linear.app/glassflow/issue/ETL-1074), milestone M2 (target 2026-06-14)
 **Prerequisite:** [ETL-1073](https://linear.app/glassflow/issue/ETL-1073) — bundles VictoriaMetrics + VictoriaLogs into the Helm chart
 **Replaces:** [ETL-1014](https://linear.app/glassflow/issue/ETL-1014) (cancelled — no longer using a Go API proxy)
+
+> **Revision note:** This spec was originally written before a thorough audit of `src/modules/observability/`. The audit revealed that the module is much further along than the first exploration reported — most of what was framed as "new" already exists. Sections §3 (module layout), §4 (state model), §5 (chart primitives), §6 (surface scope) and §12 (effort) reflect the audit. Decisions in §2 are unchanged. The "original" view is preserved in git history (commit `3b150bf`).
 
 ---
 
@@ -12,9 +14,7 @@
 
 GlassFlow ships VictoriaMetrics (VM) and VictoriaLogs (VL) bundled in the Helm chart as cluster-DNS-addressable services. The Next.js UI runs in-cluster and resolves those services server-side. This eliminates the previously-planned Go API proxy: the UI's Next.js server is the backend-for-frontend, calling VM/VL directly from API routes and forwarding results to the browser.
 
-This document defines the UI work — what surfaces are built, with what primitives, in what phase, and why. It is the result of a brainstorming session that resolved five scope decisions; those decisions are recorded in §2 with reasoning so future work can revisit them when context changes.
-
-The design references an 8-artboard mockup at `docs/claude_design_handovers/glassflow-revamp-reimagined/project/Observability Design.html` (O1–O8). The current code already covers significant chunks of the design vocabulary: `src/modules/observability/` contains `MetricsTab.tsx`, `LogsTab.tsx`, `LogsToolbar.tsx`, `MetricsToolbar.tsx`, `ChartCard.tsx`, `HeroCard.tsx`, `LogLine.tsx`, `LogInspectorDrawer.tsx`, `ContextClusterer.ts`. API routes at `/ui-api/pipelines/[id]/{metrics,logs,logs/stream}` already enforce `pipeline_id` scoping. This work is gap-closure on existing scaffolding, not a greenfield build.
+This document defines the remaining UI work for M2 — what gets polished, what gets added, in what phase, and why. The 8-artboard mockup at `docs/claude_design_handovers/glassflow-revamp-reimagined/project/Observability Design.html` (O1–O8) is the design source. The existing observability module already covers most of the structural work; what's left is filling specific gaps and polishing for design-vision parity.
 
 ---
 
@@ -22,159 +22,155 @@ The design references an 8-artboard mockup at `docs/claude_design_handovers/glas
 
 | # | Decision | Choice | Reasoning |
 |---|---|---|---|
-| 1 | O8 Settings → Observability page | **Dropped** | Most of O8 (retention sliders, fan-out diagram, roadmap, "Edit defaults" modal) is decorative or technically impossible — VM has no runtime retention mutation API, disk-capacity denominators come from k8s PVCs not VM. The legitimate operational data (version, disk used, cardinality) is real but its audience is SREs reaching for `kubectl` / `vmui`, not product users. Replaced with a tiny status pill in the Metrics/Logs toolbars showing `internal stack · 1.4 GB · 7d` from Helm-supplied env vars. |
-| 2 | Brushed-range pinning across panels | **B — drill-down only** | Full vision (drag-brush on any of 6 dashboard charts → all charts + logs follow) costs ~1–2 weeks and would require either replacing Recharts on the dashboard grid or layering a brittle SVG overlay. Drill-down-only captures ~70% of the user value (the "I see a spike, let me focus on that window" flow) at ~30% of the cost, and contains the custom-SVG primitive to one chart instead of six. The dashboard grid keeps the existing Recharts-based `ChartCard.tsx`. |
-| 3 | DLQ peek panel on O1 (with Replay/Purge actions) | **A — full panel as designed** | DLQ viewer page is committed parallel work and Replay/Purge backend endpoints are planned. The panel is built against the real targets, not stubs. If backend deliverables slip, the buttons render as `disabled — coming soon` rather than blocking M2. |
-| 4 | Drill-down chart rendering | **B — custom `OBChartSVG` primitive** | Recharts' `<Brush>` renders drag handles below the plot, not in-plot — fundamentally different UX from the design's drag-to-select shaded region. Hybrid (Recharts + SVG overlay) would require syncing pixel coordinates between two rendering systems. Custom SVG matches the design exactly and is reusable; cost is bounded to one chart, ~5 days for the primitive plus ~1 day for URL wiring. |
-| 5 | Phasing | **B — M2-extended** | M2-strict (only what the ticket explicitly requires) would ship a regression-feeling release with no drill-down or DLQ peek. All-in for M2 carries real slip risk on backend dependencies. M2-extended ships the design's emotional core (brushed drill-down) within the June 14 window and defers the inspector/search deepening (O5, O6) to a Phase 2 that doesn't block M2. ~28 working days, fits in the 33-day window. |
+| 1 | O8 Settings → Observability page | **No new work** (revised from "dropped") | The audit found O8 already exists: `/observability` and `/workspace/observability` routes wired to `ObservabilityLandingClient` composing `StackAdminPanel`, `CardinalityTable`, `FanOutDiagram`, `RetentionBar`, `M3M4M5Roadmap`. Phase 1 leaves it untouched. A status pill is still added to the Metrics/Logs toolbars so the most common operational signals are visible in-context (toolbar audience differs from /workspace/observability audience). |
+| 2 | Brushed-range pinning across panels | **B — drill-down only** | Original decision: brush on drill-down only, not on the 6-up dashboard. **Audit shows the dashboard already has brush** via `ChartCard.onMouseDown/Move/Up` calling `observabilityStore.pinBrushedRange`. Since the dashboard brush is already shipped and working, we keep it. The drill-down chart needs a more polished brush UX (visible crosshair, handles, brush label) to match the design's drill-down treatment — this is `OBChartSVG`'s job. |
+| 3 | DLQ peek panel on O1 (with Replay/Purge actions) | **A — full panel** | The standalone `DLQViewer` already exists with consume/purge wired to backend endpoints. Phase 1 adds the *peek* panel slotted into the dashboard grid that reuses the same backend hooks. |
+| 4 | Drill-down chart rendering | **B — `OBChartSVG` primitive** | The dashboard `ChartCard` uses Recharts with `ReferenceArea` for brush feedback — functional but visually plain. The drill-down view is the "I'm investigating an incident" surface where UX quality matters most. `OBChartSVG` is a focused replacement just for the drill-down: in-plot brush with handles, dashed-line crosshair on hover, tooltip box, brush label. ~5 days for the primitive plus ~1 day to wire it into `DrillDownView`. |
+| 5 | Phasing | **B — M2-extended** | Phase 1 ships the design's emotional core (component breakdown + polished drill-down + DLQ peek) within the June 14 window. Phase 2 (search-with-context UX deepening + inspector cross-links) ships post-M2. Phase 1 scope is much smaller than originally estimated — see §12. |
 
 Two smaller calls, folded into the design without separate decision turns:
 
-- **O6 trace cross-link:** rendered as `disabled — coming soon` when a log line has a `trace_id` but no trace viewer exists yet; hidden entirely when no `trace_id` is present.
-- **O5 "same shape" structural clustering:** reuses existing `ContextClusterer.ts` rather than building a new clusterer.
+- **O6 trace cross-link** (Phase 2): rendered as `disabled — coming soon` when a log line has a `trace_id` but no trace viewer exists yet.
+- **O5 "same shape" structural clustering** (Phase 2): reuses existing `ContextClusterer.ts`.
 
 ---
 
-## 3. Module layout
+## 3. Module layout — what exists, what's added
 
-The existing `src/modules/observability/` module remains the home base. Almost everything builds on or wraps it.
+### Already built (preserve, possibly polish)
 
-### Stays as-is or with light polish
-
-| File | What it does today | What changes |
+| Path | What it does | Phase 1 touch |
 |---|---|---|
-| `MetricsTab.tsx` | Orchestrates the dashboard grid | Polish to design vocabulary; add scope badge, status pill, NOTE banner; slot in DLQ peek panel |
-| `LogsTab.tsx` + `useLogStream` | Live tail via SSE | Add filter pill row, footer telemetry, pinned-range chip surface |
-| `ChartCard.tsx` / `HeroCard.tsx` | Recharts-based panels | Keep for dashboard grid; align labels, legends, deltas to design |
-| `LogLine.tsx` / `LogInspectorDrawer.tsx` | Log rendering + detail drawer | Phase 2: cross-cutting links section in drawer |
-| `ContextClusterer.ts` / `ContextExpander.tsx` | Log clustering for context expansion | Phase 2: drives "same shape" footer in O5 |
-| `/ui-api/pipelines/[id]/metrics` | Proxies PromQL to VM with `pipeline_id` enforcement | Add helper for DLQ-peek LogsQL query |
-| `/ui-api/pipelines/[id]/logs` + `/logs/stream` | Proxies LogsQL + SSE to VL | No structural changes |
-| `src/components/ui/sparkline.tsx` | Mini sparkline primitive | Adopt for hero cards (currently unused per exploration) |
+| `src/modules/observability/MetricsTab.tsx` | 3-up hero cards + 3-up chart grid via `HERO_CARDS` + `CHART_GRID` | Add component filter, NOTE banner, DLQ peek slot, optionally restructure to 2-up |
+| `src/modules/observability/MetricsToolbar.tsx` | `ScopeBadge` + `BrushedRangePill` + `Switch` auto-refresh + `TimeRangePicker` + custom modal | Add component filter pills + status pill |
+| `src/modules/observability/LogsTab.tsx` | Live tail + range-mode auto-switch + URL state + `FilterPillRow` + inspector | None for Phase 1 (Phase 2 work on context expansion + footer) |
+| `src/modules/observability/LogsToolbar.tsx` | `ScopeBadge` + `LiveIndicator` + `BrushedRangePill` + LogsQL search + `TimeRangePicker` | Add status pill |
+| `src/modules/observability/ChartCard.tsx` | Recharts `LineChart` with Recharts `ReferenceArea` brush wired to `observabilityStore.pinBrushedRange`. **Only renders `series[0]`.** | Upgrade to multi-series (component breakdown) |
+| `src/modules/observability/ChartFrame.tsx` | Layout-stable wrapper with `loading | empty | error | populated` states + Skeleton | No change |
+| `src/modules/observability/HeroCard.tsx` | Value + delta + `Sparkline` (already integrated) | No change |
+| `src/modules/observability/DrillDownView.tsx` | Bare Recharts `LineChart`, multi-component pivot, back-to-metrics link, "Open logs in range" link | Major upgrade: `OBChartSVG`, brush handlers, correlation panels |
+| `src/modules/observability/DLQViewer.tsx` | Standalone DLQ page with consume/purge against `/ui-api/pipeline/[id]/dlq/*` | No change (peek panel reuses its data hooks) |
+| `src/modules/observability/BrushedRangePill.tsx` | Pinned-range chip with × clearing, sourced from `observabilityStore.brushedRange` | No change |
+| `src/modules/observability/DisabledState.tsx` | O7 BYO state with helm snippet, ghost frames, external Grafana link | No change |
+| `src/modules/observability/FilterPillRow.tsx` | Reusable severity/component filter pills | Reuse for metrics component filter |
+| `src/modules/observability/canonicalDashboard.ts` | `HERO_CARDS` (3) + `CHART_GRID` (6) | Adjust grid to make room for DLQ peek; possibly update titles for design parity |
+| `src/store/observability.store.ts` | Zustand slice: `rangeKey`, `customRange`, `brushedRange`, `autoRefresh` + actions | Add `autoRefreshIntervalMs` (replacing on/off toggle) |
+| `src/components/ui/scope-badge` | `<ScopeBadge pipelineId="…" />` | No change |
+| `src/components/ui/sparkline` | Mini sparkline | No change |
+| `src/components/ui/time-range-picker` | Preset + custom picker with `DEFAULT_RANGES` | No change |
+| `src/components/ui/live-indicator` | Pulsing dot + label | No change |
+| O8 cluster (`ObservabilityLandingClient`, `StackAdminPanel`, `CardinalityTable`, `FanOutDiagram`, `RetentionBar`, `M3M4M5Roadmap`) at `/observability` and `/workspace/observability` | Already shipped | Untouched |
 
-### New primitives — `src/modules/observability/primitives/`
-
-| Primitive | Purpose |
-|---|---|
-| `OBChartSVG.tsx` | Custom SVG chart with line/area + crosshair + in-plot brush. Used on drill-down (O2) and mini-metrics strip (O5). Emits `onBrushChange(brushFrom, brushTo)`. |
-| `ScopeBadge.tsx` | Orange `scoped: prod-orders-analytics-h8z9a` pill in toolbars |
-| `StatusPill.tsx` | Toolbar chip — `internal stack · 1.4 GB · 7d` from Helm env vars |
-| `PinnedRangeChip.tsx` | Orange `13:00–13:08 · from Metrics drill-down` chip in logs toolbar; × clears `pinnedFromRange` URL param |
-| `DLQPeekPanel.tsx` | Bottom-right quadrant of O1; lists recent DLQ entries + counts + 3 action buttons |
-
-### New surfaces
+### New for Phase 1
 
 | Path | What it is |
 |---|---|
-| `app/(shell)/pipelines/[id]/metrics/[query]/page.tsx` | Extended for O2 (drill-down with brush, correlation panels, "Open Logs · pre-filtered") |
-| `app/(shell)/pipelines/[id]/metrics/page.tsx` empty state | O7 disabled state when `NEXT_PUBLIC_INTERNAL_METRICS_ENABLED=false` |
-| `app/(shell)/pipelines/[id]/logs/page.tsx` empty state | O7 disabled state when `NEXT_PUBLIC_INTERNAL_LOGS_ENABLED=false` |
-| `app/(shell)/dlq/page.tsx` | DLQ viewer — **tracked as parallel deliverable**, not built by this design |
+| `src/modules/observability/primitives/OBChartSVG.tsx` | Custom SVG chart with line/area + crosshair + in-plot brush with handles + brush label. **Used only in `DrillDownView`** for the polished drill-down UX. |
+| `src/modules/observability/StatusPill.tsx` | Toolbar chip: `internal stack · 1.4 GB · 7d` reading from helm-supplied env vars |
+| `src/modules/observability/ScopingNoteBanner.tsx` | Orange dismissible note explaining `pipeline_id` scoping; `localStorage` key `obs.scopingNoteDismissed.v1` |
+| `src/modules/observability/MetricsComponentFilter.tsx` | Component filter pills row for the metrics toolbar (wraps `FilterPillRow`); selection persisted as `?comp=` URL param |
+| `src/modules/observability/DLQPeekPanel.tsx` | Compact DLQ peek for the dashboard: recent entries + counts + "Open DLQ viewer" + Replay/Purge (reusing `DLQViewer`'s endpoints) |
+| `src/modules/observability/AutoRefreshControl.tsx` | Dropdown replacing the current Switch: `off · 15s · 30s · 60s`, persists to `localStorage` key `obs.autoRefreshIntervalMs.v1` |
+| `src/app/ui-api/observability/stack/route.ts` (extend) | Add disk-usage + version fields needed by status pill (if not already present in current route — verify on implementation) |
 
-### Touches outside the observability module
+### Touched outside the module
 
 | File | Change |
 |---|---|
-| `src/app/ui-api/config.ts` | Add `getVictoriaMetricsUrl()`, `getVictoriaLogsUrl()`, `getInternalMetricsEnabled()`, `getInternalLogsEnabled()` helpers |
-| `src/observability/config.ts` | Extend `loadObservabilityConfig()` to read the four new chart-injected env vars; expose on singleton |
-| `src/themes/base.css` + `theme.css` | Add five component-color tokens (see §5) and one new orange-pinned-range surface token |
+| `src/observability/config.ts` | Add reads for `NEXT_PUBLIC_INTERNAL_METRICS_URL` and `NEXT_PUBLIC_INTERNAL_LOGS_URL` (the four ETL-1074 env vars — verify which are already plumbed) |
+| `src/app/ui-api/config.ts` | Helpers `getVictoriaMetricsUrl()`, `getVictoriaLogsUrl()` if not yet present |
+| `src/themes/base.css` + `theme.css` | No new tokens — `--obs-chart-*` and `--obs-severity-*` already exist. Add only `--surface-pinned-range-bg` if `BrushedRangePill` styling needs tightening to match the orange-bordered design |
 
 ---
 
-## 4. URL state model and cross-surface range pinning
+## 4. State model
 
-State lives in URL params, not Zustand or React context. Every state is deep-linkable, shareable in Slack, and survives refresh. The single source of truth is the URL, parsed once per page by a small `useObservabilityRange()` hook.
+State lives in two layers depending on lifetime:
 
-### Shared range params (both Metrics and Logs tabs)
+### Zustand — `observabilityStore` (already built)
 
-```
-?from=<ISO8601>&to=<ISO8601>&range=<preset>
-```
+Used for state that needs to be observed by multiple components in the same page:
 
-- `range` ∈ `{15m, 1h, 6h, 24h, 7d, custom}` — toolbar preset
-- For non-`custom` presets, `from`/`to` are derived (`to = now`, `from = now - preset`) and not stored in the URL; auto-refresh ticks `to` forward
-- Toolbar range picker reads + writes these params
-
-### Drill-down-specific params (`metrics/[query]` only)
-
-```
-?from=...&to=...&brushFrom=<ISO8601>&brushTo=<ISO8601>
+```ts
+{
+  rangeKey: '15m' | '1h' | '6h' | '24h' | '7d' | 'custom'
+  customRange: { fromMs: number; toMs: number } | null
+  brushedRange: { fromMs: number; toMs: number; source: 'metrics_drill_down' | 'logs' } | null
+  autoRefresh: boolean                       // [Phase 1 change] becoming autoRefreshIntervalMs: number | null
+}
 ```
 
-- `brushFrom`/`brushTo` are the in-plot brush selection; subset of `from`/`to`
-- `OBChartSVG` renders the orange shaded region between them
-- "Clear brush" on the drill-down toolbar drops both params
+**Phase 1 changes:**
+- Replace `autoRefresh: boolean` with `autoRefreshIntervalMs: number | null` (`null` = off)
+- Update consumers (`useMetricsQuery` polling) accordingly
 
-### Cross-pinning param (drill-down → logs navigation)
+### URL params — already built via `useUrlState` / `useUrlStateArray`
 
-```
-/pipelines/[id]/logs?from=...&to=...&pinnedFromRange=metrics-drilldown
-```
+Used for state that should survive refresh and be shareable:
 
-- `pinnedFromRange=metrics-drilldown` tells the logs page to render `PinnedRangeChip`
-- The chip's × button removes `pinnedFromRange` and resets `range` to `1h` default
-- O5 (Phase 2) reads `from`/`to` to query VM for the mini-metrics-strip context
+| Param | Set by | Read by |
+|---|---|---|
+| `?range=15m\|1h\|6h\|24h\|7d` | `MetricsToolbar` on preset click | `MetricsToolbar` initial mount syncs to store |
+| `?q=<logsql>` | `LogsToolbar` on ⌘+Enter | `LogsTab` |
+| `?sev=info,warn` | `FilterPillRow` toggle in logs | `LogsTab` |
+| `?comp=ingestor,processor` | `FilterPillRow` toggle in logs | `LogsTab` |
+| `?comp=ingestor,processor` (new for metrics) | `MetricsComponentFilter` toggle | `MetricsTab` |
 
-### Flow walkthrough
+**Cross-pinning flow** (already works):
+1. User drags brush in `ChartCard` (dashboard) or `OBChartSVG` (drill-down) → `observabilityStore.pinBrushedRange(range, 'metrics_drill_down')`
+2. `BrushedRangePill` in toolbar shows pinned range
+3. User navigates to `/pipelines/[id]/logs` (any route, the pin is in store)
+4. `LogsTab` checks `observabilityStore.brushedRange` — if set, suspends SSE live tail and switches to range-query mode via `useLogsQuery`
+5. User clicks × on `BrushedRangePill` → `clearBrushedRange()` → logs returns to live tail
 
-1. User on `/pipelines/abc/metrics` (`?range=1h`). Sees a spike in `Records ingested`.
-2. Clicks the chart → `/pipelines/abc/metrics/records-ingested?range=1h`.
-3. Drags brush from 13:00 → 13:08. URL: `?range=1h&brushFrom=13:00&brushTo=13:08`. Correlation panels (latency p99, logs-in-range) refilter.
-4. Clicks "Open Logs · pre-filtered" → `/pipelines/abc/logs?from=13:00&to=13:08&pinnedFromRange=metrics-drilldown`.
-5. Logs tab renders pinned-range chip, queries VL with the window, mini-metrics strip queries VM with the same window (Phase 2).
-
-### Why URL state, not Zustand
-
-- Survives refresh; survives back/forward
-- Shareable: paste the URL into Slack, get the same incident view
-- Avoids hydration race conditions with `coreStore.setTopicCount` (which the pipeline wizard already requires)
-- Single source of truth: no slice ↔ URL synchronization bugs
+The cross-pinning flow doesn't need URL params because the store survives in-tab navigation. URL state would be needed only for sharing the pinned range via a link, which is not a Phase 1 requirement.
 
 ---
 
-## 5. Chart primitives — Recharts + OBChartSVG
+## 5. Chart primitives — Recharts coexists with `OBChartSVG`
 
-Two chart implementations live side-by-side. They render the same `series` shape (`{ts, value}[]` + `color` token) but have different capabilities.
+Two chart implementations live side-by-side.
 
-### Recharts — dashboard grid (O1) and sparklines
+### Recharts — dashboard grid (already built)
 
-- 6 chart cards on the metrics dashboard
-- Sparklines on hero cards via existing `src/components/ui/sparkline.tsx`
-- Existing `ChartCard.tsx` wraps; polish to match design's lean monospace aesthetic (mono axis labels, value-in-legend format, subtle tooltip)
-- No brush, no custom crosshair beyond Recharts' built-in tooltip dot
+- `ChartCard` for the 6 dashboard panels
+- `HeroCard` uses `Sparkline` (custom primitive) inside `ChartFrame`
+- Brush via `onMouseDown/Move/Up` + `ReferenceArea` for visual feedback — already wired to `observabilityStore.pinBrushedRange`
+- **Phase 1 upgrade:** `ChartCard` currently renders only `series[0]`. Upgrade to render all series in the response, colored by `metric.component` label using `--obs-chart-{ingestor,processor,sink}` tokens
 
-### OBChartSVG — drill-down (O2) and mini-metrics strip (O5, Phase 2)
+### OBChartSVG — drill-down only (new)
 
 - One reusable primitive at `src/modules/observability/primitives/OBChartSVG.tsx`
-- Props: `series[]`, `yMax`, `yMin`, `width`, `height`, `pad`, `showBrush`, `brushFrom`, `brushTo`, `onBrushChange`, `showCrosshair`, `crosshairAt`
-- Renders: gridlines, axis labels, line + optional area fill, dashed reference series, crosshair (dashed vertical line on hover), brush region (shaded orange rectangle with drag handles)
+- Used in `DrillDownView` for the polished single-chart drill experience
+- Renders: gridlines, mono axis labels, one or more lines with optional area fill, dashed reference series, hover crosshair (dashed vertical line + tooltip box anchored to data), brush region with explicit drag handles, brush label
+- Props (target API):
+
+  ```ts
+  type OBChartSVGProps = {
+    series: { id: string; color: string; points: Array<[ms: number, v: number]>; dashed?: boolean; fill?: string }[]
+    yMax?: number
+    yMin?: number
+    width?: number
+    height?: number
+    pad?: { l: number; r: number; t: number; b: number }
+    showCrosshair?: boolean
+    showBrush?: boolean
+    brushFromMs?: number | null
+    brushToMs?: number | null
+    onBrushChange?: (fromMs: number, toMs: number) => void
+    onBrushClear?: () => void
+  }
+  ```
 - Interactions:
   - mousedown on plot area → start new selection
   - mousedown on existing handle → resize
-  - click outside brush → clear
-  - keyboard arrows when focused → nudge by ±1 step
-- Emits `onBrushChange(brushFrom, brushTo)`; parent serializes to URL
+  - click outside brush → clear (calls `onBrushClear`)
+  - keyboard arrows when focused → nudge by ±1 step (accessibility)
+- Emits `onBrushChange(fromMs, toMs)`; `DrillDownView` calls `observabilityStore.pinBrushedRange(range, 'metrics_drill_down')`
 
-### Component color tokens (new)
+### Tokens
 
-The design uses a 5-color component palette that doesn't exist in the current token system. Add to `src/themes/base.css` and `theme.css`:
-
-| Token | Approximate value | Source |
-|---|---|---|
-| `--color-component-ingestor` | `rgb(101, 165, 245)` (blue-500) | Maps to existing `--color-blue-500` |
-| `--color-component-processor` | `rgb(232, 145, 89)` (orange-300) | Maps to existing `--color-orange-300` |
-| `--color-component-sink` | `rgb(102, 198, 132)` (green-500) | Maps to existing `--color-green-500` |
-| `--color-component-api` | `rgb(180, 180, 195)` | New, neutral gray |
-| `--color-component-ui` | `rgb(120, 120, 132)` | New, darker neutral gray |
-
-Also add one new surface token for the pinned-range chip:
-
-| Token | Value |
-|---|---|
-| `--surface-pinned-range-bg` | `color-mix(in srgb, var(--color-orange-300) 6%, transparent)` |
-| `--surface-pinned-range-border` | `color-mix(in srgb, var(--color-orange-300) 35%, var(--surface-border))` |
-
-After adding, run `pnpm sync-tokens` per CLAUDE.md §7.
+No new tokens required. The audit found `--obs-chart-{ingestor,processor,sink,grid,axis}` and `--obs-severity-{debug,info,warn,error,fatal}` already exist. Add `--surface-pinned-range-bg` and `--surface-pinned-range-border` only if `BrushedRangePill`'s current styling falls short of the design's orange-bordered chip — verify visually before adding.
 
 ---
 
@@ -184,162 +180,116 @@ After adding, run `pnpm sync-tokens` per CLAUDE.md §7.
 
 #### O1 Metrics dashboard
 
-Polish + augment existing `MetricsTab.tsx`.
+Existing: `MetricsTab.tsx` + `MetricsToolbar.tsx` + `HeroCard.tsx` + `ChartCard.tsx` already in place.
 
-- **Toolbar:** range picker (existing, polish) · component filter pills · scope badge · auto-refresh control (user-facing dropdown: `off · 15s · 30s · 60s`, default `30s`, selection persisted to `localStorage` key `obs.autoRefreshInterval.v1`) · status pill (`internal stack · 1.4 GB · 7d` from Helm env vars)
-- **Hero cards:** 3 cards (records ingested, p99 latency, DLQ rate) with sparklines + delta vs previous period
-- **Chart grid:** 2-up, 3 rows. Each panel shows PromQL metric name in subtitle, value + delta in top-right, legend with current value at bottom
-  - Records ingested · by component (area + lines per component)
-  - Records written · sink (with ingest reference dashed line)
-  - Processing latency · p50 / p95 / p99 (three quantile lines)
-  - Dead-letter rate (single red line)
-  - Bytes/sec · ingest (area)
-  - DLQ peek panel (see below)
-- **NOTE banner:** orange-tinted, bottom, explains `pipeline_id` scoping enforcement. Dismissible; persisted to `localStorage` key `obs.scopingNoteDismissed.v1`
-- **Data:** existing `/ui-api/pipelines/[id]/metrics` route; query catalog updates in `canonicalDashboard.ts` to align metric names with backend (see §9 risk)
+Phase 1 changes:
+- **Toolbar:** add `<MetricsComponentFilter />` + `<StatusPill />` to existing toolbar slots; replace `Switch` with `<AutoRefreshControl />` (dropdown: `off · 15s · 30s · 60s`)
+- **NOTE banner:** render `<ScopingNoteBanner />` once per session (or until dismissed), positioned below the toolbar
+- **Multi-series `ChartCard`:** render all series in response by component, not just `series[0]`
+- **Grid layout:** restructure to slot DLQ peek into bottom-right. Either keep 3-up grid and add a 7th cell, or convert to 2-up grid per design — TBD during implementation, defer to design instinct
+- **DLQ peek slot:** render `<DLQPeekPanel pipelineId={id} />` in the freed cell
 
 #### O2 Drill-down with brush
 
-Extend `metrics/[query]/page.tsx`.
+Existing: `DrillDownView.tsx` is bare — single Recharts `LineChart`, "Open logs in range" link.
 
-- Breadcrumb · page title · `Back to grid` · range picker · component filter
-- Big chart via `OBChartSVG`: 1580px wide, 320px tall, with crosshair on hover and in-plot brush
-- Tooltip near crosshair: timestamp + all series values + derived calculations (e.g., processor lag)
-- Brush label anchored to selection: `13:00–13:08 · selected`
-- Below the chart, two correlation panels:
-  - **Latency p99 · same range** — small chart filtered to the brushed window
-  - **Logs in this range** — component breakdown bars (error % red, warn % yellow, info % component color)
-- Two buttons in the correlation footer:
-  - **Open Logs · pre-filtered** → routes to logs tab with `from`/`to`/`pinnedFromRange=metrics-drilldown`
-  - **Copy LogsQL** → copies the LogsQL query that the logs panel will run
+Phase 1 changes:
+- Replace Recharts `LineChart` with `<OBChartSVG />`
+- Wire brush handlers to `observabilityStore.pinBrushedRange` with source `'metrics_drill_down'`
+- Add correlation panels below the big chart:
+  - **Latency p99 · same range** — `ChartCard` filtered to the brushed window via prop
+  - **Logs in this range** — small component breakdown panel (count of error/warn lines per component for the brushed window, queried via `useLogsQuery`)
+- "Open Logs · pre-filtered" remains a `<Link>` — no extra wiring needed since `observabilityStore.brushedRange` is already consumed by `LogsTab`
+- Add "Clear brush" affordance + "Copy LogsQL" button (composes the LogsQL query for the current brush window)
 
-#### O3 States (loading / no-data / retention-edge / query-error)
+#### O3 States
 
-Drop-in card frames for `ChartCard` and `OBChartSVG`. All four states reuse the same card frame — no layout reflow.
-
-- **Loading:** animated shimmer over gridlines + centered spinner + `querying VictoriaMetrics…` label
-- **No-data:** diagonal hatch pattern background + dashed border + `No samples in window yet · pipeline started Ns ago`
-- **Retention-edge:** striped left region (% width = outside-retention portion) + dashed right border + `← outside retention (7d default)` label
-- **Query-error:** red-tinted border + error summary + `Retry now` + `Copy query` buttons + auto-retry countdown
+Existing: `ChartFrame` already handles `loading | empty | error | populated`. No Phase 1 work unless the audit reveals state copy/aesthetics drift from the design (e.g., the design's "retention edge" striped state isn't supported — defer to Phase 2 if it surfaces).
 
 #### O4 Live tail
 
-Polish existing `LogsTab.tsx`.
+Existing: `LogsTab.tsx` is comprehensive — URL state, live tail + range mode auto-switch, filter pills, inspector. No Phase 1 work beyond adding `<StatusPill />` to the toolbar.
 
-- Toolbar: range picker · live/paused indicator (with rate) · pause-stream · jump-to-bottom · wrap-lines · show-JSON · status pill
-- Search head: search input (LogsQL) + Saved queries + Export
-- Filter pill row: component pills (5, with live counts) + severity pills (4: debug, info, warn, error, with live counts)
-- Logs body: severity left-stripe color coding (error red, warn yellow) · monospace · structured field syntax (`key=value`)
-- Footer: live indicator · line count · warn/error counts · VL retention info
+#### O7 Disabled state
 
-#### O7 Disabled / BYO state
+Existing: `DisabledState.tsx` exists and is wired into `LogsTab` via `useObservabilityFlag`. Verify it's wired into `MetricsTab` too (audit didn't confirm); add if missing.
 
-New empty state component used by both `MetricsTab` and `LogsTab` when their respective flag is off.
+#### DLQ peek panel (new)
 
-- Renders inside the tab body when `NEXT_PUBLIC_INTERNAL_METRICS_ENABLED=false` (metrics) or `NEXT_PUBLIC_INTERNAL_LOGS_ENABLED=false` (logs)
-- Gray status badge: `internal observability is OFF`
-- Heading + description explaining BYO backend mode
-- CTAs:
-  - **Enable internal observability…** → docs link
-  - **Open in your Grafana →** → only rendered if `NEXT_PUBLIC_EXTERNAL_GRAFANA_URL` is set (new optional env var, added to chart `ui-configmap.yaml`; deployments without BYO Grafana simply don't set it and the button is hidden)
-  - **Read the docs** → docs link
-- Helm snippet showing the values to enable (rendered as styled `<pre>`)
-- Grayed placeholder cards (opacity 0.55, hatched fills) hinting at what will appear when enabled
+`src/modules/observability/DLQPeekPanel.tsx`:
+- Reuses the data fetch shape from `DLQViewer` (fetch `/ui-api/pipeline/[id]/dlq/state`)
+- Renders: header (`47 msgs · 1h · 12 unconsumed`), 4 most-recent entries from a LogsQL probe (`service.namespace:pipeline-<id> AND _stream:dlq | last 4`), 3 action buttons
+- Buttons: "Open DLQ viewer" (`<Link>` to standalone), "Consume…" + "Purge…" (open the same `FlushDLQModal` that `DLQViewer` uses, or share state via a small shared hook)
 
-#### DLQ peek panel
+#### Status pill (new)
 
-New `DLQPeekPanel.tsx` occupying O1's bottom-right quadrant.
+`src/modules/observability/StatusPill.tsx`:
+- Reads from `/ui-api/observability/stack` (extend the existing route if it doesn't already return disk + retention)
+- Renders `internal stack · {discUsed} · {retention}` when internal stack is enabled
+- Hidden when `NEXT_PUBLIC_INTERNAL_METRICS_ENABLED=false` (the parent tab renders `DisabledState` in that case)
 
-- Header: `47 msgs · 1h · 12 unconsumed` (counts from LogsQL)
-- 4 most-recent DLQ entries: `timestamp · COMPONENT · reason · ×count`
-- Three buttons:
-  - **Open DLQ viewer** → `/dlq?pipeline=<id>&from=...&to=...`
-  - **Replay…** → confirmation modal, then POST to backend Replay endpoint (parallel deliverable)
-  - **Purge…** → confirmation modal with destructive styling, then POST to backend Purge endpoint (parallel deliverable)
-- Data source: LogsQL `service.namespace:pipeline-<id> AND _stream:dlq | last 100`, polled every 30s
-- Replay/Purge render as `disabled — coming soon` when their backend endpoints are unavailable. Detection mechanism: the UI does a one-time HEAD request to the endpoints on first DLQ panel render; 404 → button disabled, 200/405 → enabled. Result cached in `sessionStorage` to avoid repeated probes.
+#### Component filter on metrics (new)
+
+`src/modules/observability/MetricsComponentFilter.tsx`:
+- Wraps `FilterPillRow` for the metrics toolbar
+- Selection persisted as `?comp=ingestor,processor` URL param
+- Filter applied per-chart: `MetricsTab` passes the selected components down to `ChartCard`, which filters its series array before rendering
+
+#### NOTE banner (new)
+
+`src/modules/observability/ScopingNoteBanner.tsx`:
+- Orange-tinted card explaining `pipeline_id` scoping enforcement
+- Dismissible × button; persists dismissal to `localStorage` key `obs.scopingNoteDismissed.v1`
+- Renders inside `MetricsTab` below the toolbar
 
 ### Phase 2 — post-M2
 
-#### O5 Logs search + context expansion + range correlation
+- **O5 Logs search + context expansion + range correlation** — substantial work in `LogsTab`: pinned-range chip integration into mini metrics strip (`MiniMetricsStrip` exists, needs wiring), context-expansion polish, "same shape" footer via `ContextClusterer.ts`
+- **O6 Inspector drawer cross-cutting links** — extend `LogInspectorDrawer` with schema/trace/DLQ cross-links section
 
-- **Pinned-range chip** in toolbar when `pinnedFromRange` URL param present
-- **Mini metrics strip** above logs body — small VM query showing throughput in the pinned range (renders via `OBChartSVG` with brush region overlay)
-- **Search input** with LogsQL + live match count + saved-query dropdown + "Find similar"
-- **Context-expansion rows** powered by `ContextClusterer.ts`: `show 5 lines before` / `show 5 lines after` / `jump to trace_id <id>`
-- **Gap collapse rows:** `· 8 lines collapsed · click to expand ·`
-- **Footer:** "same shape" cluster summary (e.g., `38 matches · all in 13:00–13:08 · same shape: order_total · float64 → string`) + `Open root cause in Library →` link
+### Parallel deliverables
 
-#### O6 Inspector drawer
-
-Extend existing `LogInspectorDrawer.tsx`.
-
-- Drawer head: severity badge · component · timestamp · close
-- Error summary box: monospace, color-coded fields (error type, expected, received, key)
-- Structured fields grid: two-column key/value layout, dashed dividers, error fields in red, `trace_id` in orange
-- **Cross-cutting links section** (small caps label `CROSS-CUTTING LINKS`):
-  - **Schema** → `/library/schemas/<schema_id>` (Library target exists)
-  - **Trace** → conditional: rendered as `disabled — coming soon` if `trace_id` present but no trace viewer exists; hidden entirely if no `trace_id`
-  - **DLQ** → `/dlq?pipeline=<id>&trace_id=<id>` (planned target)
-- Actions: `Find similar (N)` · `Pin to range` · `Copy LogsQL` · `Open in DLQ`
-
-### Parallel deliverables (not built by this design)
-
-- **DLQ viewer page** (`/dlq`) — built by whoever owns the DLQ backend; this design plans for it to exist but doesn't define its UI
-- **Replay / Purge backend endpoints** — UI wires confirmation modals + optimistic feedback once endpoints land; if delayed, buttons render `disabled — coming soon`
+None for M2 — DLQ backend endpoints (`/dlq/state`, `/consume`, `/purge`) already exist per the audit of `DLQViewer.tsx`.
 
 ---
 
 ## 7. API surface
 
-### Existing — keep as-is (with minor query catalog updates)
+### Existing — keep as-is
 
-| Route | Method | Purpose |
-|---|---|---|
-| `/ui-api/pipelines/[id]/metrics` | GET | Proxies PromQL to VM with `{pipeline_id="<id>"}` enforcement. Params: `query` (canonical key), `rawQuery`, `from`, `to`, `step`. |
-| `/ui-api/pipelines/[id]/logs` | GET | Proxies LogsQL to VL with `pipeline_id:"<id>"` enforcement. Params: `query`, `from`, `to`, `limit`. |
-| `/ui-api/pipelines/[id]/logs/stream` | GET (SSE) | Live tail via SSE. |
-| `/ui-api/observability/stack` | GET | Stack telemetry (status pill source). |
+| Route | Purpose |
+|---|---|
+| `/ui-api/pipelines/[id]/metrics` | Proxies PromQL to VM with `pipeline_id` enforcement |
+| `/ui-api/pipelines/[id]/logs` | Proxies LogsQL to VL with `pipeline_id:` enforcement |
+| `/ui-api/pipelines/[id]/logs/stream` | SSE live tail |
+| `/ui-api/observability/stack` | Stack telemetry — feeds status pill |
+| `/ui-api/pipeline/[id]/dlq/state` | DLQ count + size |
+| `/ui-api/pipeline/[id]/dlq/consume` | Consume N events |
+| `/ui-api/pipeline/[id]/dlq/purge` | Drop the queue |
 
-### New helpers in `canonicalDashboard.ts`
+### Possibly extended
 
-The canonical query dictionary needs to be updated to match the metric names that the backend actually emits (TBD — see §9). Each canonical key maps to a PromQL query template:
-
-```ts
-recordsIngested: 'sum by (pipeline_id) (rate(<actual_metric>{pipeline_id="$id"}[5m]))'
-recordsWrittenSink: '...'
-processingLatencyP99: 'histogram_quantile(0.99, sum by (le) (rate(<actual_metric>_bucket{pipeline_id="$id"}[5m])))'
-dlqRate: 'sum by (pipeline_id) (rate(<actual_metric>{pipeline_id="$id"}[5m]))'
-bytesIngested: '...'
-streamDepthRatio: '<actual_metric>{pipeline_id="$id"}'
-```
-
-### New: DLQ peek query
-
-The DLQ peek panel uses a LogsQL query through the existing logs proxy:
-
-```
-service.namespace:pipeline-<id> AND _stream:dlq | last 100
-```
-
-Parsed client-side into the recent-entries list + counts. No new API route required.
+- `/ui-api/observability/stack` — if status pill needs disk-used + retention fields and they're not already in the response, extend. Confirm during implementation by reading the route.
 
 ---
 
 ## 8. Testing strategy
 
-| Layer | What | How |
-|---|---|---|
-| **Unit** | New primitives (`OBChartSVG`, `ScopeBadge`, `StatusPill`, `PinnedRangeChip`, `DLQPeekPanel`) | Vitest + RTL; render-with-props snapshots + interaction tests for brush mousedown/move/up |
-| **Unit** | `useObservabilityRange()` hook | Vitest; parse/serialize URL params, range preset → `from`/`to` derivation, custom-range handling |
-| **Integration** | URL state across navigation (drill-down → logs) | Vitest + Next.js router mock; assert `pinnedFromRange` propagation |
-| **Integration** | API routes (`/metrics`, `/logs`, `/observability/stack`) | Vitest; mock `fetch` to VM/VL, assert `pipeline_id` scoping enforced server-side, assert response shape |
-| **Visual / manual** | Brush UX, live tail SSE, NOTE banner dismissal, disabled state rendering | Manual test plan in PR description, screenshots in PR |
-| **Smoke** | Full pipeline detail page renders with all observability surfaces against mock backend | Happy path through whatever e2e framework the repo standardizes on (verify before implementing): load `/pipelines/abc/metrics`, drill into a panel, brush, navigate to logs, verify chip. If no e2e framework exists, defer to manual test plan in PR. |
+Existing tests cover `CardinalityTable`, `DisabledState`, `FanOutDiagram`, `RetentionBar`. Phase 1 work adds tests for:
 
-Notes on what's **not** in the testing strategy:
-- No load testing of VM/VL — out of scope per ETL-1074
-- No e2e tests against real VM/VL — covered by Helm/integration tests on the chart side
+| Layer | Subject | How |
+|---|---|---|
+| Unit | `OBChartSVG` | Vitest + RTL — render with props, simulate `mousedown`/`mousemove`/`mouseup`, assert `onBrushChange` fires with correct ms values; assert keyboard arrow nudges work |
+| Unit | `DLQPeekPanel` | Mock `/dlq/state` + LogsQL probe; assert counts and recent-entries render; assert action buttons open the right modal |
+| Unit | `StatusPill` | Mock `/observability/stack`; assert it renders the formatted string + hides when stack disabled |
+| Unit | `MetricsComponentFilter` | Toggle pills, assert URL `?comp=` mutation |
+| Unit | `ScopingNoteBanner` | Render, dismiss, assert `localStorage` write; mount again, assert hidden |
+| Unit | `AutoRefreshControl` | Select option, assert store mutation + `localStorage` persistence |
+| Integration | Multi-series `ChartCard` upgrade | Mock metrics response with 3 components, assert 3 lines render with correct tokens |
+| Integration | `DrillDownView` brush flow | Mock metrics response, render, simulate brush drag, assert `observabilityStore.pinBrushedRange` called; navigate to `LogsTab` and assert range mode kicked in |
+| Smoke | Full flow | Vitest e2e (or manual if no Playwright): load `/pipelines/abc/metrics`, click into a chart, brush, navigate to logs, verify pinned-range pill |
+
+Run tests: `pnpm test:run` (vitest run mode). Watch: `pnpm test`.
 
 ---
 
@@ -347,39 +297,35 @@ Notes on what's **not** in the testing strategy:
 
 | Risk | Severity | Mitigation |
 |---|---|---|
-| **Metric names in design don't match ticket's PromQL catalog** | Medium | The design uses `gfm_records_ingested_total`, etc. The ticket lists `gfm_ingestor_consumed_total`, `gfm_sink_written_total`, `gfm_*_duration_seconds`, `gfm_*_dlq_total`. Backend is authoritative. Resolution: confirm canonical names against actual emitted metrics in `gfm_app_*` or query `/api/v1/label/__name__/values` against a live VM; update `canonicalDashboard.ts` before implementing the drill-down. |
-| **Trace cross-link has no destination** | Low | Rendered as `disabled — coming soon` when `trace_id` present, hidden otherwise. Wire up when tracing surface lands. |
-| **DLQ viewer page slip** | Medium | DLQ peek panel's `Open DLQ viewer` button targets `/dlq` which is built in parallel by another work stream. If it slips, the button can route to a placeholder or be disabled. Surface this risk in M2 status updates. |
-| **Replay/Purge backend slip** | Medium | Buttons render `disabled — coming soon` when endpoints unavailable. UI ships without them; wire up when they exist. |
-| **Recharts limitations on dashboard grid** | Low | The design's lean aesthetic (mono labels, subtle area fills, no chart chrome) requires Recharts customization. Some polish loss is acceptable on the grid (it's the at-a-glance view); the drill-down uses `OBChartSVG` which matches exactly. |
-| **Polling 30s × 6 charts** | Low | 6 panels × 1 query each × 30s polling × N concurrent users. VM/VL handle their own load (per ETL-1074 "Out of scope"). Revisit only if dashboards trigger noticeable spikes. |
-| **VL SSE connection stability across browser sleep / network blips** | Medium | Existing `useLogStream` should already handle reconnect; verify under flaky-network conditions before M2 ship. |
+| Multi-series `ChartCard` upgrade may regress existing visual consistency | Low | The component-color tokens already exist; tests guard against series-pick regressions |
+| `OBChartSVG` brush UX has many edge cases (drag while paused, drag across update, brush spanning data gaps) | Medium | TDD each interaction; cover with Vitest + RTL |
+| Status pill data source — `/observability/stack` may not expose disk/retention yet | Medium | Verify during implementation; extend route if needed |
+| Metrics dashboard `?comp=` filter may need to thread through `useMetricsQuery` to skip queries entirely vs. filter client-side | Low | Start client-side (filter rendered series); revisit if VM round-trips become wasteful |
+| DLQ peek `_stream:dlq` LogsQL — exact stream name may differ in backend log emission | Low | Verify shape during implementation; backend authoritative |
+| The DLQ peek's `FlushDLQModal` confirmation may need to be hoisted so peek and viewer share state (e.g., refetch after action) | Low | Co-locate via a small `useDLQActions(pipelineId)` hook returning state + handlers; both peek and viewer consume |
 
-### Open questions to resolve before implementation
+### Open questions
 
-1. What are the **actual metric names** emitted by the backend? (Drives `canonicalDashboard.ts`.)
-2. Is there an **external Grafana URL** convention for BYO mode? (Drives whether `Open in your Grafana →` CTA renders on O7.)
-3. What's the **DLQ event shape in VL logs**? Specifically: is `_stream:dlq` a real stream identifier, or do DLQ events use a different label/field? (Drives the LogsQL query in DLQ peek.)
-4. What's the **backend Replay endpoint contract**? Single-message replay vs. bulk-by-trace-id vs. bulk-by-time-window? (Drives the confirmation modal copy + form.)
-
-These don't block scoping but must be answered before the relevant components are implemented.
+1. Should the dashboard be 2-up (design) or stay 3-up at the `lg:` breakpoint (current)? Defer to design instinct during implementation.
+2. Should `autoRefresh` polling drive `useMetricsQuery` from inside the hook, or via a React-Query–style `refetchInterval`? Likely the hook can accept an interval prop; verify pattern.
+3. Is the existing `DisabledState` wired into `MetricsTab` as well as `LogsTab`? Verify during implementation; add if missing.
+4. The `ScopingNoteBanner` — is one-time-dismissed-forever the right UX, or should it re-appear after some period? Going with "until cleared from localStorage" for v1.
 
 ---
 
 ## 10. Out of scope
 
-Explicitly **not** built by this design:
-
-- **O8 Settings → Observability page** (dropped per §2.1)
-- **Brush on dashboard grid** (deferred per §2.2; drill-down only)
-- **Authentication / multi-tenancy enforcement** at the UI layer — per ETL-1074, the Next.js layer becomes the trust boundary but actual auth is a separate problem (T12 §1)
-- **Exposing VM/VL via Ingress** for direct browser access (not needed; not desired)
-- **Caching / rate-limiting** between UI and VM/VL — VM/VL handle their own load
-- **Long-term metric retention** beyond M1's 7d (metrics) / 3d (logs)
-- **Cluster-wide metrics aggregation** — pipeline-scoped only
-- **DLQ viewer page UI** (parallel deliverable, separate ticket)
-- **Replay / Purge backend endpoints** (parallel deliverable, separate ticket)
-- **Trace viewer UI** (no current surface; cross-link disabled until it exists)
+- O8 Settings → Observability page work (already shipped, untouched)
+- Brush UX on the dashboard 6-up grid (already has Recharts `ReferenceArea` brush; polished `OBChartSVG` brush is for drill-down only)
+- Authentication / multi-tenancy enforcement at the UI layer (per ETL-1074)
+- Exposing VM/VL via Ingress for direct browser access
+- Caching / rate-limiting between UI and VM/VL
+- Long-term metric retention beyond M1's 7d / 3d
+- Cluster-wide metrics aggregation
+- O5 search-with-context UX deepening (Phase 2)
+- O6 inspector drawer cross-cutting links (Phase 2)
+- DLQ viewer page UI rebuild (already exists)
+- Trace viewer UI (no current surface)
 
 ---
 
@@ -389,39 +335,33 @@ Explicitly **not** built by this design:
 |---|---|
 | Design mockup (8 artboards) | `docs/claude_design_handovers/glassflow-revamp-reimagined/project/Observability Design.html` |
 | Existing observability module | `src/modules/observability/` |
-| Existing API routes | `src/app/ui-api/pipelines/[id]/{metrics,logs,logs/stream}/route.ts` |
-| Config helpers | `src/app/ui-api/config.ts`, `src/observability/config.ts` |
-| Token system rules | `CLAUDE.md` §1–§7, `docs/architecture/DESIGN_SYSTEM.md` |
-| Token sync (after adding new tokens) | `pnpm sync-tokens` |
+| Existing Zustand slice | `src/store/observability.store.ts` |
+| Existing API routes | `src/app/ui-api/{pipelines/[id]/{metrics,logs,logs/stream},pipeline/[id]/dlq/*,observability/stack}` |
+| Token system rules | `CLAUDE.md` §1–§7 |
 | Component architecture | `.cursor/architecture/COMPONENT_ARCHITECTURE.md` |
-| State management (Zustand patterns) | `.cursor/architecture/STATE_MANAGEMENT.md` |
+| Test runner | `pnpm test:run` (vitest) |
 
 ---
 
-## 12. Estimated effort (Phase 1)
-
-Calendar: 2026-05-12 to 2026-06-14 = ~22 working days. Phase 1 budget breakdown (calendar days for one engineer, sequential):
+## 12. Estimated effort (Phase 1) — post-audit
 
 | Workstream | Days |
 |---|---|
-| New tokens, status pill, scope badge, NOTE banner | 2 |
-| O1 polish (existing `MetricsTab`, hero card sparklines, query catalog updates) | 3 |
-| O3 states (loading, no-data, retention-edge, error) shared across chart types | 2 |
-| O4 polish (existing `LogsTab`, filter pill row, footer) | 2 |
-| O7 disabled state for both tabs | 2 |
-| DLQ peek panel | 2 |
-| `OBChartSVG` primitive (lines, area, axes, crosshair, brush, drag interactions, keyboard) | 5 |
-| O2 drill-down page (correlation panels, cross-pinning URL plumbing) | 3 |
-| `useObservabilityRange()` hook + URL serialization | 1 |
-| Testing (unit, integration, smoke) | 3 |
-| **Subtotal** | **25** |
+| `OBChartSVG` primitive (lines, axes, area, crosshair, brush, drag handles, keyboard) | 5 |
+| `DrillDownView` upgrade (wire `OBChartSVG`, correlation panels, "Copy LogsQL") | 3 |
+| Multi-series upgrade to `ChartCard` + threading component filter | 2 |
+| `MetricsComponentFilter` + URL param threading + per-chart filtering | 1 |
+| `StatusPill` (component + stack-route extension if needed) | 1 |
+| `ScopingNoteBanner` (component + localStorage dismissal) | 0.5 |
+| `AutoRefreshControl` (replace Switch, store change to `autoRefreshIntervalMs`, hook integration) | 1 |
+| `DLQPeekPanel` + shared `useDLQActions` hook | 2 |
+| MetricsTab layout restructure (grid + slot DLQ peek + verify DisabledState wired) | 1 |
+| Testing (unit + integration + smoke) | 3 |
+| **Subtotal** | **19.5** |
 | Buffer for review, polish, integration | ~3 |
-| **Total** | **~28 working days** |
+| **Total** | **~22.5 working days** |
 
-This is **tight** for the 22-day window. Mitigations:
-- O7 disabled state and DLQ peek are independent and can parallelize if a second engineer is available
-- Token work (~2 days) can start before scope decisions are finalized
-- Phase 2 work (O5, O6) explicitly out of scope for M2 — do not pull forward
+Fits the 22-working-day M2 window with no buffer; tight but workable. Audit shrunk the estimate substantially vs. the original (~28 days) because most "new" components turned out to already exist.
 
 ---
 
