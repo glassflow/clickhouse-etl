@@ -101,6 +101,22 @@ var permanentCodes = map[int32]struct{}{
 	int32(chproto.ErrAuthenticationFailed):                  {}, // 516 — auth failure
 }
 
+// ErrorName returns a label-safe string identifying the specific error, suitable
+// for use as a metric label value.
+// CH exceptions → the ch-go constant name (e.g. "TOO_MANY_SIMULTANEOUS_QUERIES").
+// Network/IO errors with no CH code → "network_io".
+// Everything else → "unknown".
+func ErrorName(err error) string {
+	var ex *proto.Exception
+	if errors.As(err, &ex) {
+		return chproto.Error(ex.Code).String()
+	}
+	if isNetworkError(err) {
+		return "network_io"
+	}
+	return "unknown"
+}
+
 // Classify inspects err and returns its Classification.
 // Unknown is the conservative default — callers should route Unknown to DLQ
 // and log with a "needs_classification" marker so the list can be extended.

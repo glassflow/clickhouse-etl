@@ -143,3 +143,20 @@ type timeoutErr struct{}
 func (timeoutErr) Error() string   { return "i/o timeout" }
 func (timeoutErr) Timeout() bool   { return true }
 func (timeoutErr) Temporary() bool { return true }
+
+func TestErrorName_CHException(t *testing.T) {
+	// 202 = TOO_MANY_SIMULTANEOUS_QUERIES
+	assert.Equal(t, "TOO_MANY_SIMULTANEOUS_QUERIES", sinkerrors.ErrorName(chEx(202)))
+}
+
+func TestErrorName_NetworkIO(t *testing.T) {
+	assert.Equal(t, "network_io", sinkerrors.ErrorName(io.EOF))
+}
+
+func TestErrorName_Unknown(t *testing.T) {
+	assert.Equal(t, "unknown", sinkerrors.ErrorName(fmt.Errorf("some random error")))
+}
+
+func TestErrorName_WrappedCHException(t *testing.T) {
+	assert.Equal(t, "TOO_MANY_SIMULTANEOUS_QUERIES", sinkerrors.ErrorName(wrapped(chEx(202))))
+}

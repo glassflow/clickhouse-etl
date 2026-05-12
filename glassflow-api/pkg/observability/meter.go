@@ -41,6 +41,9 @@ var (
 	ReceiverRequestCount     metric.Int64Counter
 	ReceiverRequestDuration  metric.Float64Histogram
 
+	SinkErrorsByClassification metric.Int64Counter
+	SinkNackMessagesTotal      metric.Int64Counter
+
 	IngestorBackpressureActive   metric.Int64Gauge
 	IngestorBackpressureEvents   metric.Int64Counter
 	IngestorBackpressureDuration metric.Float64Histogram
@@ -115,6 +118,13 @@ func InitMetrics(cfg *Config) error {
 		"Total number of requests received by the receiver")
 	ReceiverRequestDuration = mustCreateHistogram(m, GfMetricPrefix+"_"+"receiver_request_duration_seconds",
 		"Duration of receiver requests in seconds")
+
+	SinkErrorsByClassification = mustCreateCounter(m,
+		GfMetricPrefix+"_"+"sink_errors_by_classification_total",
+		"Sink batch errors labelled by classification and CH error name")
+	SinkNackMessagesTotal = mustCreateCounter(m,
+		GfMetricPrefix+"_"+"sink_nack_messages_total",
+		"Messages NACKed by the sink due to retryable ClickHouse errors")
 
 	IngestorBackpressureActive = mustCreateInt64Gauge(m, GfMetricPrefix+"_"+"ingestor_backpressure_active",
 		"1 while the ingestor is in back-pressure, 0 otherwise")
@@ -355,6 +365,26 @@ func RecordStreamDepth(ctx context.Context, streamName string, depth int64) {
 	StreamDepth.Record(ctx, depth, metric.WithAttributes(
 		attribute.String("pipeline_id", pipelineID),
 		attribute.String("stream", streamName),
+	))
+}
+
+func RecordSinkErrorClassification(ctx context.Context, classification, errorName string) {
+	if SinkErrorsByClassification == nil {
+		return
+	}
+	SinkErrorsByClassification.Add(ctx, 1, metric.WithAttributes(
+		attribute.String("pipeline_id", pipelineID),
+		attribute.String("classification", classification),
+		attribute.String("error_name", errorName),
+	))
+}
+
+func RecordSinkNackMessages(ctx context.Context, count int64) {
+	if SinkNackMessagesTotal == nil {
+		return
+	}
+	SinkNackMessagesTotal.Add(ctx, count, metric.WithAttributes(
+		attribute.String("pipeline_id", pipelineID),
 	))
 }
 

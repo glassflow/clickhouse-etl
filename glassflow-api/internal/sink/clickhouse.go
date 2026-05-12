@@ -442,12 +442,16 @@ func (ch *ClickHouseSink) sendBatch(ctx context.Context, messages []jetstream.Ms
 		err = schemaData.batch.Send(ctx)
 		if err != nil {
 			classification := sinkerrors.Classify(err)
+			errorName := sinkerrors.ErrorName(err)
+			observability.RecordSinkErrorClassification(ctx, classification.String(), errorName)
+
 			if classification == sinkerrors.Retryable {
 				ch.log.WarnContext(ctx, "retryable ClickHouse error, NACKing batch",
 					"schema_version_id", schemaVersionID,
 					"error", err,
 					"batch_size", len(schemaData.messages))
 				ch.nakMessages(ctx, schemaData.messages)
+				observability.RecordSinkNackMessages(ctx, int64(len(schemaData.messages)))
 				continue
 			}
 
