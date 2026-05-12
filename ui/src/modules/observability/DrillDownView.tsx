@@ -4,6 +4,8 @@ import * as React from 'react'
 import Link from 'next/link'
 import { OBChartSVG, type OBSeries } from './primitives/OBChartSVG'
 import { ChartFrame, type ChartFrameState } from './ChartFrame'
+import { ChartCard } from './ChartCard'
+import { LogsInRangePanel } from './LogsInRangePanel'
 import { MetricsToolbar } from './MetricsToolbar'
 import { useMetricsQuery, type MetricSeries } from '@/src/hooks/useMetricsQuery'
 import type { CanonicalQueryKey } from '@/src/app/ui-api/pipelines/[id]/metrics/_lib/canonical-queries'
@@ -60,6 +62,17 @@ export function DrillDownView({ pipelineId, queryKey }: DrillDownViewProps) {
               Clear brush
             </Button>
           )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              const logsql = `_time:[${new Date(brushed?.fromMs ?? 0).toISOString()}, ${new Date(brushed?.toMs ?? 0).toISOString()}]`
+              navigator.clipboard.writeText(logsql)
+            }}
+            disabled={!brushed}
+          >
+            Copy LogsQL
+          </Button>
           <Button asChild variant="secondary" size="sm">
             <Link href={`/pipelines/${pipelineId}/logs`}>Open logs in range →</Link>
           </Button>
@@ -83,6 +96,29 @@ export function DrillDownView({ pipelineId, queryKey }: DrillDownViewProps) {
           />
         </div>
       </ChartFrame>
+
+      {brushed && <CorrelationPanels pipelineId={pipelineId} />}
+    </div>
+  )
+}
+
+function CorrelationPanels({ pipelineId }: { pipelineId: string }) {
+  // useMetricsQuery reads useMetricsRange() internally — when a brush is
+  // pinned in the store, the latency query is auto-scoped to that window.
+  const latency = useMetricsQuery(pipelineId, 'latency_p99' as const)
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <ChartCard
+        title="Latency p99 · same range"
+        query="histogram_quantile(0.99, …)"
+        data={latency.data}
+        error={latency.error}
+        loading={latency.isLoading}
+        enableBrush={false}
+        height={180}
+      />
+      <LogsInRangePanel pipelineId={pipelineId} />
     </div>
   )
 }
