@@ -39,9 +39,11 @@ export function AutoRefreshControl() {
     window.localStorage.setItem(LS_KEY, v == null ? 'null' : String(v))
   }
 
+  const currentLabel = OPTIONS.find((o) => o.value === observabilityStore.autoRefreshIntervalMs)?.label ?? 'off'
+
   return (
     <Select value={valueToString(observabilityStore.autoRefreshIntervalMs)} onValueChange={handleChange}>
-      <SelectTrigger className="w-[88px] h-7 caption-1" aria-label="Auto-refresh interval">
+      <SelectTrigger className="w-[88px] h-7 caption-1" aria-label={`Auto-refresh interval: ${currentLabel}`}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
