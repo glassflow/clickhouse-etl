@@ -1,6 +1,6 @@
 ---
 title: 'ClickHouse Sink'
-description: 'ClickHouse sink configuration and error handling reference'
+description: 'ClickHouse sink error classification and retry behaviour reference'
 ---
 import { Callout } from 'nextra/components'
 
@@ -12,35 +12,53 @@ When the sink fails to write a batch to ClickHouse, it classifies the error befo
 
 | Classification | Sink action | When |
 |----------------|-------------|------|
-| **Retryable** | NACK — NATS redelivers the batch after a delay | Transient condition; the same data would succeed once CH recovers |
-| **Permanent** | DLQ — batch is written to the Dead Letter Queue | Data or schema problem; the same message will fail again on retry |
-| **Unknown** | DLQ (conservative) | Error code not yet classified; logged with `needs_classification` so the list can be extended from real traffic |
+| **Retryable** | NACK — NATS redelivers after a delay | Transient condition; same data would succeed once CH recovers |
+| **Permanent** | DLQ — batch written to Dead Letter Queue | Data or schema problem; same message will fail again on retry |
+| **Unknown** | DLQ (conservative) | Not yet classified; logged with `needs_classification` so gaps surface from real traffic |
 
 <Callout type="info">
-  The delay between a NACK and redelivery is controlled by `NatsConsumerNakDelay` (default 5 s). The maximum number of redeliveries before NATS stops redelivering is `NatsConsumerMaxDeliver` (default 10).
+  The delay between a NACK and redelivery is controlled by `NatsConsumerNakDelay` (default **5 s**). The maximum number of redeliveries before NATS stops is `NatsConsumerMaxDeliver` (default **10**). After 10 attempts the message is dead-lettered by NATS automatically.
 </Callout>
+
+---
 
 ### Retryable errors
 
-These are transient conditions where the same message is expected to succeed once ClickHouse or the network recovers.
+Transient conditions where the same message is expected to succeed once ClickHouse or the network recovers.
 
 | Code | Name | Reason |
 |------|------|--------|
 | 159 | `TIMEOUT_EXCEEDED` | Query timeout |
+| 198 | `DNS_ERROR` | DNS resolution failure |
+| 201 | `QUOTA_EXPIRED` | Quota exhausted — resets on schedule |
 | 202 | `TOO_MANY_SIMULTANEOUS_QUERIES` | Server overloaded |
+| 203 | `NO_FREE_CONNECTION` | Connection pool exhausted |
 | 209 | `SOCKET_TIMEOUT` | Network timeout |
 | 210 | `NETWORK_ERROR` | Network layer error |
+| 236 | `ABORTED` | Server-initiated query abort |
 | 241 | `MEMORY_LIMIT_EXCEEDED` | Transient resource pressure |
 | 242 | `TABLE_IS_READ_ONLY` | Replica recovery in progress |
 | 243 | `NOT_ENOUGH_SPACE` | Disk pressure (may clear) |
+| 244 | `UNEXPECTED_ZOOKEEPER_ERROR` | Transient ZooKeeper/Keeper error |
+| 254 | `NO_ACTIVE_REPLICAS` | All replicas temporarily down |
+| 265 | `NO_AVAILABLE_REPLICA` | No replica available |
 | 279 | `ALL_CONNECTION_TRIES_FAILED` | All replicas unreachable |
+| 285 | `TOO_LESS_LIVE_REPLICAS` | Not enough live replicas for quorum |
+| 286 | `UNSATISFIED_QUORUM_FOR_PREVIOUS_WRITE` | Previous write quorum not yet met |
 | 289 | `REPLICA_IS_NOT_IN_QUORUM` | Replication lag |
 | 290 | `LIMIT_EXCEEDED` | Rate or resource limit |
-| — | Network/IO | `io.EOF`, `io.ErrUnexpectedEOF`, `ECONNREFUSED`, `ECONNRESET`, `EPIPE`, timeout |
+| 297 | `SHARD_HAS_NO_CONNECTIONS` | Shard connection pool empty |
+| 364 | `RECEIVED_ERROR_TOO_MANY_REQUESTS` | HTTP 429 / CH rate limit |
+| 384 | `PART_IS_TEMPORARILY_LOCKED` | Merge in progress, temporary lock |
+| 999 | `KEEPER_EXCEPTION` | ClickHouse Keeper (ZooKeeper) exception |
+| 1000 | `POCO_EXCEPTION` | Poco network/IO library exception |
+| — | Network/IO | `io.EOF`, `io.ErrUnexpectedEOF`, `ECONNREFUSED`, `ECONNRESET`, `EPIPE`, net timeout |
+
+---
 
 ### Permanent errors
 
-These are data or schema problems where retrying the same message will produce the same failure. Operator intervention is required.
+Data or schema problems where retrying the same message will produce the same failure. Operator intervention is required.
 
 | Code | Name | Reason |
 |------|------|--------|
@@ -59,17 +77,30 @@ These are data or schema problems where retrying the same message will produce t
 | 47 | `UNKNOWN_IDENTIFIER` | Unknown column reference |
 | 53 | `TYPE_MISMATCH` | Type mismatch |
 | 60 | `UNKNOWN_TABLE` | Table does not exist |
+| 72 | `CANNOT_PARSE_NUMBER` | Bad numeric value in payload |
+| 80 | `INCORRECT_QUERY` | Malformed query |
+| 81 | `UNKNOWN_DATABASE` | Wrong database in connection config |
+| 117 | `INCORRECT_DATA` | Bad data value |
 | 164 | `READONLY` | ClickHouse in readonly mode |
-| 193 | `WRONG_PASSWORD` | Authentication failure |
+| 192 | `UNKNOWN_USER` | Auth: user doesn't exist |
+| 193 | `WRONG_PASSWORD` | Auth: wrong password |
+| 194 | `REQUIRED_PASSWORD` | Auth: password required |
+| 195 | `IP_ADDRESS_NOT_ALLOWED` | Auth: IP not in allowlist |
+| 291 | `DATABASE_ACCESS_DENIED` | Permission denied on database |
+| 321 | `VALUE_IS_OUT_OF_RANGE_OF_DATA_TYPE` | Value out of range for column type |
+| 349 | `CANNOT_INSERT_NULL_IN_ORDINARY_COLUMN` | NULL into NOT NULL column |
+| 392 | `QUERY_IS_PROHIBITED` | Query type prohibited by server policy |
 | 516 | `AUTHENTICATION_FAILED` | Authentication failure |
 
 <Callout type="warning">
   **Code 60 (UNKNOWN_TABLE)** is classified as permanent. During a live schema migration the table may briefly not exist; if this causes unexpected DLQ traffic, pause the pipeline until the migration completes.
 </Callout>
 
+---
+
 ### Unknown errors
 
-Any error code not in the lists above is classified as `unknown` and treated as permanent — the batch is written to the DLQ. The sink logs these with a `needs_classification` attribute so they can be identified from metrics or logs and added to the appropriate list.
+Any error code not in the lists above is classified as `unknown` and treated conservatively as permanent — the batch is written to the DLQ. The sink logs these with a `needs_classification` attribute so they can be identified from metrics or logs and added to the appropriate list.
 
 To add a new code, add one line to `internal/sink/errors/classification.go`:
 
