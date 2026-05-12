@@ -29,16 +29,15 @@ const REFRESH_MS = 30_000
  * Fetch a canonical metric query for a given pipeline.
  *
  * Mirrors the `useDetailFetch` pattern used by the Library hooks: cancellable
- * fetch on URL change, plus an auto-refresh tick that fires every 30s when
- * the time range is "now"-anchored and `observabilityStore.autoRefresh` is on.
+ * fetch on URL change, plus an auto-refresh tick that fires on the interval
+ * configured via `observabilityStore.autoRefreshIntervalMs` (null = off) when
+ * the time range is "now"-anchored.
  */
-export function useMetricsQuery(
-  pipelineId: string,
-  queryName: CanonicalQueryKey,
-): FetchState {
+export function useMetricsQuery(pipelineId: string, queryName: CanonicalQueryKey): FetchState {
   const { fromMs, toMs, step, isAnchoredNow } = useMetricsRange()
   const { observabilityStore } = useStore()
-  const polling = observabilityStore.autoRefresh && isAnchoredNow
+  const polling = observabilityStore.autoRefreshIntervalMs != null && isAnchoredNow
+  const intervalMs = observabilityStore.autoRefreshIntervalMs ?? REFRESH_MS
 
   const [data, setData] = useState<MetricResult | undefined>(undefined)
   const [error, setError] = useState<Error | undefined>(undefined)
@@ -46,8 +45,8 @@ export function useMetricsQuery(
   const [tick, setTick] = useState(0)
 
   // Build a URL that's stable enough to drive useEffect, even when toMs floats.
-  // For polling, we explicitly bump `tick` every 30s; we don't want each render
-  // to refetch just because Date.now() changed.
+  // For polling, we explicitly bump `tick` on the configured interval; we don't
+  // want each render to refetch just because Date.now() changed.
   const url = `/ui-api/pipelines/${pipelineId}/metrics?query=${queryName}&from=${fromMs}&to=${toMs}&step=${step}`
 
   useEffect(() => {
@@ -83,15 +82,14 @@ export function useMetricsQuery(
     return () => {
       cancelled = true
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [url, tick])
 
-  // Poll: bump `tick` every REFRESH_MS while anchored-now + auto-refresh enabled.
+  // Poll: bump `tick` on `intervalMs` while anchored-now + auto-refresh enabled.
   useEffect(() => {
     if (!polling) return
-    const i = setInterval(() => setTick((t) => t + 1), REFRESH_MS)
+    const i = setInterval(() => setTick((t) => t + 1), intervalMs)
     return () => clearInterval(i)
-  }, [polling])
+  }, [polling, intervalMs])
 
   const mutate = () => setTick((t) => t + 1)
 

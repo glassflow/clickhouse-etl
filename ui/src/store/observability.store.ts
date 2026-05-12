@@ -9,7 +9,7 @@ export interface ObservabilityState {
   rangeKey: TimeRangeKey
   customRange: AbsoluteRange | null
   brushedRange: (AbsoluteRange & { source: BrushedRangeSource }) | null
-  autoRefresh: boolean // poll every 30s when range is "now"-anchored
+  autoRefreshIntervalMs: number | null // poll interval in ms; null = off
 }
 
 export interface ObservabilityActions {
@@ -17,7 +17,7 @@ export interface ObservabilityActions {
   setCustomRange: (range: AbsoluteRange | null) => void
   pinBrushedRange: (range: AbsoluteRange, source: BrushedRangeSource) => void
   clearBrushedRange: () => void
-  setAutoRefresh: (b: boolean) => void
+  setAutoRefreshIntervalMs: (ms: number | null) => void
 }
 
 export interface ObservabilitySlice {
@@ -29,12 +29,10 @@ export const createObservabilitySlice: StateCreator<ObservabilitySlice> = (set) 
     rangeKey: '1h',
     customRange: null,
     brushedRange: null,
-    autoRefresh: true,
+    autoRefreshIntervalMs: 30_000,
 
-    setRangeKey: (rangeKey) =>
-      set((s) => ({ observabilityStore: { ...s.observabilityStore, rangeKey } })),
-    setCustomRange: (customRange) =>
-      set((s) => ({ observabilityStore: { ...s.observabilityStore, customRange } })),
+    setRangeKey: (rangeKey) => set((s) => ({ observabilityStore: { ...s.observabilityStore, rangeKey } })),
+    setCustomRange: (customRange) => set((s) => ({ observabilityStore: { ...s.observabilityStore, customRange } })),
     pinBrushedRange: (range, source) =>
       set((s) => ({
         observabilityStore: {
@@ -42,9 +40,8 @@ export const createObservabilitySlice: StateCreator<ObservabilitySlice> = (set) 
           brushedRange: { ...range, source },
         },
       })),
-    clearBrushedRange: () =>
-      set((s) => ({ observabilityStore: { ...s.observabilityStore, brushedRange: null } })),
-    setAutoRefresh: (autoRefresh) =>
-      set((s) => ({ observabilityStore: { ...s.observabilityStore, autoRefresh } })),
+    clearBrushedRange: () => set((s) => ({ observabilityStore: { ...s.observabilityStore, brushedRange: null } })),
+    setAutoRefreshIntervalMs: (autoRefreshIntervalMs) =>
+      set((s) => ({ observabilityStore: { ...s.observabilityStore, autoRefreshIntervalMs } })),
   },
 })

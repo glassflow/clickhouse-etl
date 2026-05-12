@@ -1,11 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import {
-  TimeRangePicker,
-  DEFAULT_RANGES,
-  type TimeRangeKey,
-} from '@/src/components/ui/time-range-picker'
+import { TimeRangePicker, DEFAULT_RANGES, type TimeRangeKey } from '@/src/components/ui/time-range-picker'
 import { ScopeBadge } from '@/src/components/ui/scope-badge'
 import { Switch } from '@/src/components/ui/switch'
 import { useStore } from '@/src/store'
@@ -37,7 +33,6 @@ export function MetricsToolbar({ pipelineId }: MetricsToolbarProps) {
   React.useEffect(() => {
     const fromUrl = readRangeFromUrl()
     if (fromUrl) observabilityStore.setRangeKey(fromUrl)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const handleRangeChange = (k: TimeRangeKey) => {
@@ -59,27 +54,16 @@ export function MetricsToolbar({ pipelineId }: MetricsToolbarProps) {
         <label className="flex items-center gap-1.5 caption-1 text-[var(--text-secondary)]">
           Auto-refresh
           <Switch
-            checked={observabilityStore.autoRefresh}
-            onCheckedChange={observabilityStore.setAutoRefresh}
+            checked={observabilityStore.autoRefreshIntervalMs != null}
+            onCheckedChange={(on) => observabilityStore.setAutoRefreshIntervalMs(on ? 30_000 : null)}
           />
         </label>
-        <TimeRangePicker
-          value={observabilityStore.rangeKey}
-          onChange={handleRangeChange}
-        />
+        <TimeRangePicker value={observabilityStore.rangeKey} onChange={handleRangeChange} />
       </div>
       <CustomDateRangeModal
         open={customOpen}
-        initialFrom={
-          observabilityStore.customRange
-            ? new Date(observabilityStore.customRange.fromMs)
-            : null
-        }
-        initialTo={
-          observabilityStore.customRange
-            ? new Date(observabilityStore.customRange.toMs)
-            : null
-        }
+        initialFrom={observabilityStore.customRange ? new Date(observabilityStore.customRange.fromMs) : null}
+        initialTo={observabilityStore.customRange ? new Date(observabilityStore.customRange.toMs) : null}
         onClose={() => setCustomOpen(false)}
         onApply={(range) => {
           observabilityStore.setCustomRange(range)
