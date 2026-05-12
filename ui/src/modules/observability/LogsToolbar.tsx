@@ -6,14 +6,12 @@ import { Input } from '@/src/components/ui/input'
 import { Button } from '@/src/components/ui/button'
 import { LiveIndicator } from '@/src/components/ui/live-indicator'
 import { ScopeBadge } from '@/src/components/ui/scope-badge'
-import {
-  TimeRangePicker,
-  type TimeRangeKey,
-} from '@/src/components/ui/time-range-picker'
+import { TimeRangePicker, type TimeRangeKey } from '@/src/components/ui/time-range-picker'
 import { KbdHint } from '@/src/components/ui/kbd-hint'
 import { useStore } from '@/src/store'
 import { BrushedRangePill } from './BrushedRangePill'
 import { CustomDateRangeModal } from './CustomDateRangeModal'
+import { StatusPill } from './StatusPill'
 
 type LogsToolbarProps = {
   pipelineId: string
@@ -59,39 +57,22 @@ export function LogsToolbar({
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3">
           <ScopeBadge pipelineId={pipelineId} />
-          <LiveIndicator
-            active={!paused && connected}
-            label={paused ? 'paused' : connected ? 'live' : 'connecting'}
-          />
+          <LiveIndicator active={!paused && connected} label={paused ? 'paused' : connected ? 'live' : 'connecting'} />
           <BrushedRangePill />
         </div>
         <div className="flex items-center gap-2">
-          <TimeRangePicker
-            value={observabilityStore.rangeKey}
-            onChange={handleRangeChange}
-          />
+          <StatusPill />
+          <TimeRangePicker value={observabilityStore.rangeKey} onChange={handleRangeChange} />
           <Button variant="secondary" size="sm" onClick={onTogglePause}>
-            {paused ? (
-              <PlayIcon size={12} className="mr-1.5" />
-            ) : (
-              <PauseIcon size={12} className="mr-1.5" />
-            )}
+            {paused ? <PlayIcon size={12} className="mr-1.5" /> : <PauseIcon size={12} className="mr-1.5" />}
             {paused ? 'Resume' : 'Pause'}
           </Button>
         </div>
       </div>
       <CustomDateRangeModal
         open={customOpen}
-        initialFrom={
-          observabilityStore.customRange
-            ? new Date(observabilityStore.customRange.fromMs)
-            : null
-        }
-        initialTo={
-          observabilityStore.customRange
-            ? new Date(observabilityStore.customRange.toMs)
-            : null
-        }
+        initialFrom={observabilityStore.customRange ? new Date(observabilityStore.customRange.fromMs) : null}
+        initialTo={observabilityStore.customRange ? new Date(observabilityStore.customRange.toMs) : null}
         onClose={() => setCustomOpen(false)}
         onApply={(range) => {
           observabilityStore.setCustomRange(range)

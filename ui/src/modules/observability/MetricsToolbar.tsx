@@ -7,6 +7,7 @@ import { useStore } from '@/src/store'
 import { AutoRefreshControl } from './AutoRefreshControl'
 import { BrushedRangePill } from './BrushedRangePill'
 import { CustomDateRangeModal } from './CustomDateRangeModal'
+import { StatusPill } from './StatusPill'
 
 type MetricsToolbarProps = { pipelineId: string }
 
@@ -51,6 +52,7 @@ export function MetricsToolbar({ pipelineId }: MetricsToolbarProps) {
         <BrushedRangePill />
       </div>
       <div className="flex items-center gap-3">
+        <StatusPill />
         <AutoRefreshControl />
         <TimeRangePicker value={observabilityStore.rangeKey} onChange={handleRangeChange} />
       </div>
