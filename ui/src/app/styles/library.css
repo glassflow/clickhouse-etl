@@ -1,63 +1,10 @@
 /* =================================================================
-   Library — page chrome + flat-table variant
+   Library — chrome supplements and flat-table override
+   Page scaffolding (.lib-page / .lib-header / .lib-layout / .lib-content)
+   has moved to <PageShell>; this file now only contains library-specific
+   widgets and the .library-table density override applied to <DataTable>.
    All color values via CSS custom properties. No hardcoded hex.
    ================================================================= */
-
-/* ── page ── */
-.lib-page {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  animation: lib-enter 260ms var(--easing-decelerate, cubic-bezier(0, 0, 0.2, 1)) both;
-}
-
-@keyframes lib-enter {
-  from { opacity: 0; transform: translateY(4px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-/* ── header ── */
-.lib-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  padding-bottom: 20px;
-  margin-bottom: 20px;
-  border-bottom: 1px solid var(--color-gray-dark-800);
-}
-
-.lib-header-l { display: flex; flex-direction: column; gap: 4px; }
-.lib-header-r { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-
-.lib-title {
-  font-family: var(--font-family-title);
-  font-size: var(--font-size-title-3);
-  font-weight: 600;
-  letter-spacing: -0.015em;
-  margin: 0;
-  color: var(--color-foreground-primary);
-}
-
-.lib-subtitle {
-  font-size: 12.5px;
-  color: var(--color-gray-dark-500);
-  margin: 0;
-}
-
-/* ── main layout ── */
-.lib-layout {
-  display: flex;
-  gap: 32px;
-}
-
-.lib-content {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
 
 /* ── filter bar ── */
 .lib-filter-bar {
@@ -79,7 +26,10 @@
   border: 1px solid var(--color-gray-dark-700);
   color: var(--color-gray-dark-100);
   cursor: pointer;
-  transition: border-color 120ms, color 120ms, background 120ms;
+  transition:
+    border-color 120ms,
+    color 120ms,
+    background 120ms;
   white-space: nowrap;
 }
 
@@ -131,7 +81,7 @@
   margin-bottom: 8px;
 }
 
-/* ── library-table variant (flat, border-separated rows) ── */
+/* ── library-table density override applied to <DataTable className="library-table"> ── */
 .library-table {
   gap: 0;
 }
@@ -182,20 +132,43 @@
 }
 
 @keyframes lib-row-enter {
-  from { opacity: 0; transform: translateY(3px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.library-table .table-body > .table-row:nth-child(1)   { animation-delay:   0ms; }
-.library-table .table-body > .table-row:nth-child(2)   { animation-delay:  25ms; }
-.library-table .table-body > .table-row:nth-child(3)   { animation-delay:  50ms; }
-.library-table .table-body > .table-row:nth-child(4)   { animation-delay:  75ms; }
-.library-table .table-body > .table-row:nth-child(5)   { animation-delay: 100ms; }
-.library-table .table-body > .table-row:nth-child(6)   { animation-delay: 120ms; }
-.library-table .table-body > .table-row:nth-child(7)   { animation-delay: 140ms; }
-.library-table .table-body > .table-row:nth-child(n+8) { animation-delay: 160ms; }
+.library-table .table-body > .table-row:nth-child(1) {
+  animation-delay: 0ms;
+}
+.library-table .table-body > .table-row:nth-child(2) {
+  animation-delay: 25ms;
+}
+.library-table .table-body > .table-row:nth-child(3) {
+  animation-delay: 50ms;
+}
+.library-table .table-body > .table-row:nth-child(4) {
+  animation-delay: 75ms;
+}
+.library-table .table-body > .table-row:nth-child(5) {
+  animation-delay: 100ms;
+}
+.library-table .table-body > .table-row:nth-child(6) {
+  animation-delay: 120ms;
+}
+.library-table .table-body > .table-row:nth-child(7) {
+  animation-delay: 140ms;
+}
+.library-table .table-body > .table-row:nth-child(n + 8) {
+  animation-delay: 160ms;
+}
 
 @media (prefers-reduced-motion: reduce) {
-  .lib-page { animation: none; }
-  .library-table .table-body > .table-row { animation: none; }
+  .library-table .table-body > .table-row {
+    animation: none;
+  }
 }

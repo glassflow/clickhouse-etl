@@ -18,16 +18,17 @@ export function DashboardPage({ state }: Props) {
   const [range, setRange] = useState('last 1h')
 
   return (
-    <div className="min-h-full flex flex-col text-[var(--color-foreground-neutral)] bg-[var(--dash-page-bg)]">
-      <DashHeader state={state} env={env} range={range} onEnvChange={setEnv} onRangeChange={setRange} />
-
+    <DashHeader state={state} env={env} range={range} onEnvChange={setEnv} onRangeChange={setRange}>
       {state.kind === 'first-run' && <DashFirstRun />}
 
       {state.kind === 'healthy' && (
         <>
           <HealthyBanner lastIncident="4d 12h ago" />
           <KpiStrip stats={state.stats} />
-          <div className="grid grid-cols-2 gap-[18px] px-10 pt-6 animate-section-enter" style={{ animationDelay: '60ms' }}>
+          <div
+            className="grid grid-cols-2 gap-[18px] px-10 pt-6 animate-section-enter"
+            style={{ animationDelay: '60ms' }}
+          >
             <ThroughputChart stats={state.stats} isIncidentState={false} />
             <ActivityFeed items={state.activity} />
           </div>
@@ -38,7 +39,10 @@ export function DashboardPage({ state }: Props) {
       {(state.kind === 'populated' || state.kind === 'incident') && (
         <>
           <KpiStrip stats={state.stats} />
-          <div className="grid grid-cols-[1.4fr_1fr] gap-[18px] px-10 pt-6 animate-section-enter" style={{ animationDelay: '60ms' }}>
+          <div
+            className="grid grid-cols-[1.4fr_1fr] gap-[18px] px-10 pt-6 animate-section-enter"
+            style={{ animationDelay: '60ms' }}
+          >
             <AttentionQueue incidents={state.incidents} isIncidentState={state.kind === 'incident'} />
             <div className="flex flex-col gap-[18px]">
               <ThroughputChart stats={state.stats} isIncidentState={state.kind === 'incident'} />
@@ -48,6 +52,6 @@ export function DashboardPage({ state }: Props) {
           <PipelineTable pipelines={state.pipelines} />
         </>
       )}
-    </div>
+    </DashHeader>
   )
 }

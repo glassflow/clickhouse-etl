@@ -1,14 +1,12 @@
-import React, { useState, useMemo } from 'react'
-import Image from 'next/image'
+import React from 'react'
 import { cn } from '@/src/utils/common.client'
 import { ListPipelineConfig } from '@/src/types/pipeline'
-import SortIcon from '@/src/images/sort.svg'
-import SortAscIcon from '@/src/images/sort-up.svg'
-import SortDescIcon from '@/src/images/sort-down.svg'
+import { DataTable, type DataTableColumn, type SortDirection } from '@/src/components/ui/data-table'
 
-export type SortDirection = 'asc' | 'desc' | null
+export type { SortDirection }
 
-// Triage-first priority: failures surface at the top when sorted ascending
+// Triage-first priority: failures surface at the top when sorted ascending.
+// Exported so column definitions can use it as a sortComparator on the status column.
 const STATUS_PRIORITY: Record<string, number> = {
   failed: 1,
   pausing: 2,
@@ -21,15 +19,19 @@ const STATUS_PRIORITY: Record<string, number> = {
   terminating: 9,
 }
 
-export interface TableColumn<T> {
-  key: string
-  header: string
-  width?: string
-  align?: 'left' | 'center' | 'right'
-  render?: (item: T) => React.ReactNode
-  sortable?: boolean
-  sortKey?: string // Key to use for sorting, defaults to 'key' if not provided
+export function statusPriorityComparator(
+  a: ListPipelineConfig,
+  b: ListPipelineConfig,
+  direction: 'asc' | 'desc',
+): number {
+  const aP = STATUS_PRIORITY[String(a.status ?? '').toLowerCase()] || 999
+  const bP = STATUS_PRIORITY[String(b.status ?? '').toLowerCase()] || 999
+  return direction === 'asc' ? aP - bP : bP - aP
 }
+
+// Legacy column type kept for backwards-compatibility with existing column
+// definitions and tests. New code should use DataTableColumn directly.
+export type TableColumn<T> = DataTableColumn<T>
 
 export interface PipelinesTableProps {
   data: ListPipelineConfig[]
@@ -44,6 +46,14 @@ export interface PipelinesTableProps {
   rowClassName?: (item: ListPipelineConfig) => string
 }
 
+/**
+ * Pipelines list table — thin wrapper around <DataTable> that supplies the
+ * pipeline-specific status-priority sort (legacy contract: tests check that
+ * sorting "status" produces active → paused → stopped, not alphabetical).
+ *
+ * Any column whose key/sortKey is "status" and that does not already define
+ * its own sortComparator gets the priority comparator wired in automatically.
+ */
 export function PipelinesTable({
   data,
   columns,
@@ -56,119 +66,27 @@ export function PipelinesTable({
   isLoading = false,
   rowClassName,
 }: PipelinesTableProps) {
-  const gridTemplateColumns = columns.map((col) => col.width || '1fr').join(' ')
-  const [sortColumn, setSortColumn] = useState<string | null>(initialSortColumn)
-  const [sortDirection, setSortDirection] = useState<SortDirection>(initialSortDirection)
-
-  // Handle column header click for sorting
-  const handleSort = (column: TableColumn<ListPipelineConfig>) => {
-    if (!column.sortable) return
-
-    const columnKey = column.sortKey || column.key
-
-    if (sortColumn === columnKey) {
-      // Cycle through: asc -> desc -> null
-      if (sortDirection === 'asc') {
-        setSortDirection('desc')
-      } else if (sortDirection === 'desc') {
-        setSortDirection(null)
-        setSortColumn(null)
+  // Inject the status-priority comparator on the status column if missing.
+  const enrichedColumns = React.useMemo(() => {
+    return columns.map((col) => {
+      const key = col.sortKey ?? col.key
+      if (key === 'status' && col.sortable && !col.sortComparator) {
+        return { ...col, sortComparator: statusPriorityComparator }
       }
-    } else {
-      setSortColumn(columnKey)
-      setSortDirection('asc')
-    }
-  }
-
-  // Sort data based on current sort state
-  const sortedData = useMemo(() => {
-    if (!sortColumn || !sortDirection) {
-      return data
-    }
-
-    return [...data].sort((a, b) => {
-      let aValue: any
-      let bValue: any
-
-      // Handle nested properties (e.g., 'dlq_stats.unconsumed_messages')
-      if (sortColumn.includes('.')) {
-        const keys = sortColumn.split('.')
-        aValue = keys.reduce((obj, key) => obj?.[key], a as any)
-        bValue = keys.reduce((obj, key) => obj?.[key], b as any)
-      } else {
-        aValue = (a as any)[sortColumn]
-        bValue = (b as any)[sortColumn]
-      }
-
-      // Handle null/undefined values
-      if (aValue == null && bValue == null) return 0
-      if (aValue == null) return sortDirection === 'asc' ? 1 : -1
-      if (bValue == null) return sortDirection === 'asc' ? -1 : 1
-
-      // Custom sorting for status column
-      if (sortColumn === 'status') {
-        const aPriority = STATUS_PRIORITY[String(aValue).toLowerCase()] || 999
-        const bPriority = STATUS_PRIORITY[String(bValue).toLowerCase()] || 999
-        return sortDirection === 'asc' ? aPriority - bPriority : bPriority - aPriority
-      }
-
-      // Compare values
-      if (typeof aValue === 'string' && typeof bValue === 'string') {
-        const comparison = aValue.toLowerCase().localeCompare(bValue.toLowerCase())
-        return sortDirection === 'asc' ? comparison : -comparison
-      }
-
-      if (typeof aValue === 'number' && typeof bValue === 'number') {
-        return sortDirection === 'asc' ? aValue - bValue : bValue - aValue
-      }
-
-      // For dates
-      if (sortColumn === 'created_at') {
-        const aDate = new Date(aValue).getTime()
-        const bDate = new Date(bValue).getTime()
-        return sortDirection === 'asc' ? aDate - bDate : bDate - aDate
-      }
-
-      // Default string comparison
-      const aStr = String(aValue)
-      const bStr = String(bValue)
-      const comparison = aStr.toLowerCase().localeCompare(bStr.toLowerCase())
-      return sortDirection === 'asc' ? comparison : -comparison
+      return col
     })
-  }, [data, sortColumn, sortDirection])
+  }, [columns])
 
-  // Render sort icon for column
-  const renderSortIcon = (column: TableColumn<ListPipelineConfig>) => {
-    if (!column.sortable) return null
-
-    const columnKey = column.sortKey || column.key
-    const isActive = sortColumn === columnKey
-
-    if (!isActive) {
-      return <Image src={SortIcon} alt="Sort" width={14} height={14} className="ml-1 text-[var(--color-foreground-neutral-faded)]" />
-    }
-
-    if (sortDirection === 'asc') {
-      return <Image src={SortAscIcon} alt="Sort Ascending" width={14} height={14} className="ml-1" />
-    }
-
-    return <Image src={SortDescIcon} alt="Sort Descending" width={14} height={14} className="ml-1" />
-  }
-
+  // Preserve the legacy "Loading..." string display rather than skeleton rows —
+  // matches the existing test contract and the visual was working fine.
   if (isLoading) {
+    const gridTemplateColumns = columns.map((col) => col.width || '1fr').join(' ')
     return (
       <div className={cn('table-container', className)}>
         <div className={cn('table-header', stickyHeader && 'sticky')}>
           <div className="table-header-row" style={{ gridTemplateColumns }}>
             {columns.map((column) => (
-              <div
-                key={column.key}
-                className={cn(
-                  'table-header-cell',
-                  column.align && `text-${column.align}`,
-                  column.sortable && 'cursor-pointer select-none',
-                )}
-              >
+              <div key={column.key} className={cn('table-header-cell', column.align && `text-${column.align}`)}>
                 <div
                   className={cn(
                     'flex items-center',
@@ -178,7 +96,6 @@ export function PipelinesTable({
                   )}
                 >
                   {column.header}
-                  {renderSortIcon(column)}
                 </div>
               </div>
             ))}
@@ -192,62 +109,18 @@ export function PipelinesTable({
   }
 
   return (
-    <div className={cn('table-container', className)}>
-      {/* Table Header */}
-      <div className={cn('table-header', stickyHeader && 'sticky')}>
-        <div className="table-header-row" style={{ gridTemplateColumns }}>
-          {columns.map((column) => (
-            <div
-              key={column.key}
-              className={cn(
-                'table-header-cell',
-                column.align && `text-${column.align}`,
-                column.sortable && 'cursor-pointer select-none hover:opacity-70',
-              )}
-              onClick={() => handleSort(column)}
-            >
-              <div
-                className={cn(
-                  'flex items-center',
-                  column.align === 'center' && 'justify-center',
-                  column.align === 'right' && 'justify-end',
-                  (!column.align || column.align === 'left') && 'justify-start',
-                )}
-              >
-                {column.header}
-                {renderSortIcon(column)}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Table Body */}
-      <div className="table-body">
-        {sortedData.map((item) => (
-          <div
-            key={item.pipeline_id}
-            className={cn('table-row', onRowClick && 'cursor-pointer', rowClassName?.(item))}
-            onClick={() => onRowClick?.(item)}
-            style={{ gridTemplateColumns }}
-          >
-            {columns.map((column) => (
-              <div
-                key={column.key}
-                className={cn('table-cell', column.align && `text-${column.align}`)}
-                data-label={column.header}
-              >
-                {column.render ? column.render(item) : (item as any)[column.key]}
-              </div>
-            ))}
-          </div>
-        ))}
-        {sortedData.length === 0 && (
-          <div className="table-row" style={{ gridTemplateColumns }}>
-            <div className="table-cell-empty">{emptyMessage}</div>
-          </div>
-        )}
-      </div>
-    </div>
+    <DataTable
+      className={className}
+      data={data}
+      columns={enrichedColumns}
+      getRowId={(p) => p.pipeline_id}
+      stickyHeader={stickyHeader}
+      onRowClick={onRowClick}
+      rowClassName={rowClassName}
+      initialSortColumn={initialSortColumn}
+      initialSortDirection={initialSortDirection}
+      emptyMessage={emptyMessage}
+      ariaLabel="Pipelines"
+    />
   )
 }

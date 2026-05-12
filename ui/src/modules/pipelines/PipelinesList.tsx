@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/src/components/ui/button'
+import { PageShell } from '@/src/components/shared/page-shell'
 import { useJourneyAnalytics } from '@/src/hooks/useJourneyAnalytics'
 import { ListPipelineConfig } from '@/src/types/pipeline'
 import { PipelinesTable } from '@/src/modules/pipelines/PipelinesTable'
@@ -23,7 +24,11 @@ import { notify } from '@/src/notifications'
 import { handleApiError } from '@/src/notifications/api-error-handler'
 import { updatePipelineMetadata } from '@/src/api/pipeline-api'
 import { usePlatformDetection } from '@/src/hooks/usePlatformDetection'
-import { useMultiplePipelineState, usePipelineOperations, usePipelineMonitoring } from '@/src/hooks/usePipelineStateAdapter'
+import {
+  useMultiplePipelineState,
+  usePipelineOperations,
+  usePipelineMonitoring,
+} from '@/src/hooks/usePipelineStateAdapter'
 import { getPipelineListColumns } from './columns/pipelineListColumns'
 import { enrichPipeline } from './utils/enrichPipelineStubs'
 import { usePipelineListOperations } from './usePipelineListOperations'
@@ -298,37 +303,37 @@ export function PipelinesList({
     }
   }, [bulk.selectedIds, pipelines, handleDelete])
 
-  const handleBulkAddTagsConfirm = useCallback(async (tags: string[]) => {
-    if (!tags.length) return
-    setIsBulkLoading(true)
-    try {
-      for (const id of bulk.selectedIds) {
-        const pipeline = pipelines.find((p) => p.pipeline_id === id)
-        if (!pipeline) continue
-        const existingTags = pipeline.metadata?.tags || []
-        const merged = Array.from(new Set([...existingTags, ...tags]))
-        await updatePipelineMetadata(id, { tags: merged })
-        onUpdatePipelineTags?.(id, merged)
+  const handleBulkAddTagsConfirm = useCallback(
+    async (tags: string[]) => {
+      if (!tags.length) return
+      setIsBulkLoading(true)
+      try {
+        for (const id of bulk.selectedIds) {
+          const pipeline = pipelines.find((p) => p.pipeline_id === id)
+          if (!pipeline) continue
+          const existingTags = pipeline.metadata?.tags || []
+          const merged = Array.from(new Set([...existingTags, ...tags]))
+          await updatePipelineMetadata(id, { tags: merged })
+          onUpdatePipelineTags?.(id, merged)
+        }
+        notify({
+          variant: 'success',
+          title: 'Tags added',
+          description: `Tags added to ${bulk.selectedCount} pipelines.`,
+          channel: 'toast',
+        })
+      } catch (error) {
+        handleApiError(error, { operation: 'add tags' })
+      } finally {
+        setIsBulkTagModalVisible(false)
+        bulk.clearSelection()
+        setIsBulkLoading(false)
       }
-      notify({
-        variant: 'success',
-        title: 'Tags added',
-        description: `Tags added to ${bulk.selectedCount} pipelines.`,
-        channel: 'toast',
-      })
-    } catch (error) {
-      handleApiError(error, { operation: 'add tags' })
-    } finally {
-      setIsBulkTagModalVisible(false)
-      bulk.clearSelection()
-      setIsBulkLoading(false)
-    }
-  }, [bulk.selectedIds, bulk.selectedCount, pipelines, onUpdatePipelineTags])
-
-  const getRowClassName = useCallback(
-    (_pipeline: ListPipelineConfig): string => '',
-    [],
+    },
+    [bulk.selectedIds, bulk.selectedCount, pipelines, onUpdatePipelineTags],
   )
+
+  const getRowClassName = useCallback((_pipeline: ListPipelineConfig): string => '', [])
 
   const columns = useMemo(
     () =>
@@ -417,122 +422,127 @@ export function PipelinesList({
   }
 
   const pipelineStats = useMemo(() => {
-    const envs  = new Set(pipelines.map((p) => enrichPipeline(p, getEffectiveStatus(p)).env))
+    const envs = new Set(pipelines.map((p) => enrichPipeline(p, getEffectiveStatus(p)).env))
     const teams = new Set(pipelines.map((p) => enrichPipeline(p, getEffectiveStatus(p)).owner.team))
     return { total: pipelines.length, envCount: envs.size, teamCount: teams.size }
   }, [pipelines, getEffectiveStatus])
 
+  const subtitle =
+    pipelineStats.total > 0
+      ? `${pipelineStats.total} pipelines${
+          pipelineStats.envCount > 0
+            ? ` · ${pipelineStats.envCount} environment${pipelineStats.envCount !== 1 ? 's' : ''}`
+            : ''
+        }${
+          pipelineStats.teamCount > 0
+            ? ` · ${pipelineStats.teamCount} team${pipelineStats.teamCount !== 1 ? 's' : ''}`
+            : ''
+        }`
+      : undefined
+
+  const actions = (
+    <>
+      <Button variant="ghost" size="sm" onClick={handleCreate}>
+        Import
+      </Button>
+      <Button variant="primary" size="custom" onClick={handleCreate}>
+        <CreateIcon className="action-icon" size={16} />
+        Create pipeline
+      </Button>
+    </>
+  )
+
   return (
-    <div className="flex flex-col w-full gap-4">
-      {/* Header row: title + subtitle + action buttons */}
-      <div className="flex items-start justify-between w-full gap-4">
-        <div className="flex flex-col gap-0.5">
-          <h1 className="title-3">Pipelines</h1>
-          {pipelineStats.total > 0 && (
-            <p className="caption-1 text-[var(--color-foreground-neutral-faded)]">
-              {pipelineStats.total} pipelines
-              {pipelineStats.envCount > 0 && ` · ${pipelineStats.envCount} environment${pipelineStats.envCount !== 1 ? 's' : ''}`}
-              {pipelineStats.teamCount > 0 && ` · ${pipelineStats.teamCount} team${pipelineStats.teamCount !== 1 ? 's' : ''}`}
-            </p>
-          )}
+    <PageShell title="Pipelines" subtitle={subtitle} crumbs={[{ label: 'Pipelines' }]} actions={actions}>
+      <div className="flex flex-col w-full gap-4">
+        {/* Saved views tab strip */}
+        <SavedViewsStrip
+          views={savedViews.views}
+          activeViewId={savedViews.activeViewId}
+          onSelectView={savedViews.selectView}
+          onSaveCurrentView={(name) => savedViews.saveCurrentView(name, filters)}
+          onDeleteView={savedViews.deleteView}
+          getPipelineCount={(view) => {
+            if (view.id === savedViews.activeViewId) return filteredPipelines.length
+            return pipelines.filter((p) => {
+              if (view.filters.status.length > 0 && !view.filters.status.includes(getEffectiveStatus(p))) return false
+              if (view.filters.health.length > 0 && !view.filters.health.includes(p.health_status || 'stable'))
+                return false
+              return true
+            }).length
+          }}
+        />
+
+        {/* Toolbar: search, filter button, chips, density toggle */}
+        <PipelinesToolbar
+          searchQuery={search.searchQuery}
+          onSearchChange={search.setSearchQuery}
+          filters={filters}
+          onFiltersChange={setFilters}
+          availableTags={availableTags}
+          densityMode={densityMode}
+          onDensityChange={setDensityMode}
+          filterButtonRef={filterButtonRef}
+          isFilterMenuOpen={isFilterMenuOpen}
+          onFilterMenuToggle={() => setIsFilterMenuOpen(!isFilterMenuOpen)}
+        />
+
+        {/* Filter Menu */}
+        <PipelineFilterMenu
+          isOpen={isFilterMenuOpen}
+          onClose={() => setIsFilterMenuOpen(false)}
+          filters={filters}
+          onFiltersChange={setFilters}
+          anchorEl={filterButtonRef.current}
+          availableTags={availableTags}
+        />
+
+        {/* Bulk action bar */}
+        {bulk.selectedCount > 0 && (
+          <BulkActionBar
+            selectedCount={bulk.selectedCount}
+            totalVisible={filteredPipelines.length}
+            onStop={handleBulkStop}
+            onResume={handleBulkResume}
+            onTerminate={handleBulkTerminate}
+            onDelete={handleBulkDelete}
+            onAddTag={() => setIsBulkTagModalVisible(true)}
+            isLoading={isBulkLoading}
+          />
+        )}
+
+        {/* Desktop/Tablet Table */}
+        <div className="hidden md:block">
+          <PipelinesTable
+            data={filteredPipelines}
+            columns={columns}
+            rowClassName={getRowClassName}
+            emptyMessage="No pipelines found. Adjust your filters or create a new pipeline to get started."
+            onRowClick={(pipeline) => router.push(`/pipelines/${pipeline.pipeline_id}`)}
+            className="pipelines-table"
+            stickyHeader
+            initialSortColumn="status"
+            initialSortDirection="asc"
+          />
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <Button variant="ghost" size="sm" onClick={handleCreate}>
-            Import
-          </Button>
-          <Button variant="primary" size="custom" onClick={handleCreate}>
-            <CreateIcon className="action-icon" size={16} />
-            Create pipeline
-          </Button>
+
+        {/* Mobile List */}
+        <div className="md:hidden">
+          <MobilePipelinesList
+            pipelines={filteredPipelines}
+            pipelineStatuses={pipelineStatuses}
+            onStop={handleStop}
+            onResume={handleResume}
+            onEdit={handleEdit}
+            onRename={handleRename}
+            onTerminate={handleTerminate}
+            onDelete={openDeleteConfirmModal}
+            onManageTags={handleManageTags}
+            onRowClick={(pipeline) => router.push(`/pipelines/${pipeline.pipeline_id}`)}
+            isPipelineLoading={isPipelineLoading}
+            getPipelineOperation={getPipelineOperation}
+          />
         </div>
-      </div>
-
-      {/* Saved views tab strip */}
-      <SavedViewsStrip
-        views={savedViews.views}
-        activeViewId={savedViews.activeViewId}
-        onSelectView={savedViews.selectView}
-        onSaveCurrentView={(name) => savedViews.saveCurrentView(name, filters)}
-        onDeleteView={savedViews.deleteView}
-        getPipelineCount={(view) => {
-          if (view.id === savedViews.activeViewId) return filteredPipelines.length
-          return pipelines.filter((p) => {
-            if (view.filters.status.length > 0 && !view.filters.status.includes(getEffectiveStatus(p))) return false
-            if (view.filters.health.length > 0 && !view.filters.health.includes(p.health_status || 'stable')) return false
-            return true
-          }).length
-        }}
-      />
-
-      {/* Toolbar: search, filter button, chips, density toggle */}
-      <PipelinesToolbar
-        searchQuery={search.searchQuery}
-        onSearchChange={search.setSearchQuery}
-        filters={filters}
-        onFiltersChange={setFilters}
-        availableTags={availableTags}
-        densityMode={densityMode}
-        onDensityChange={setDensityMode}
-        filterButtonRef={filterButtonRef}
-        isFilterMenuOpen={isFilterMenuOpen}
-        onFilterMenuToggle={() => setIsFilterMenuOpen(!isFilterMenuOpen)}
-      />
-
-      {/* Filter Menu */}
-      <PipelineFilterMenu
-        isOpen={isFilterMenuOpen}
-        onClose={() => setIsFilterMenuOpen(false)}
-        filters={filters}
-        onFiltersChange={setFilters}
-        anchorEl={filterButtonRef.current}
-        availableTags={availableTags}
-      />
-
-      {/* Bulk action bar */}
-      {bulk.selectedCount > 0 && (
-        <BulkActionBar
-          selectedCount={bulk.selectedCount}
-          totalVisible={filteredPipelines.length}
-          onStop={handleBulkStop}
-          onResume={handleBulkResume}
-          onTerminate={handleBulkTerminate}
-          onDelete={handleBulkDelete}
-          onAddTag={() => setIsBulkTagModalVisible(true)}
-          isLoading={isBulkLoading}
-        />
-      )}
-
-      {/* Desktop/Tablet Table */}
-      <div className="hidden md:block">
-        <PipelinesTable
-          data={filteredPipelines}
-          columns={columns}
-          rowClassName={getRowClassName}
-          emptyMessage="No pipelines found. Adjust your filters or create a new pipeline to get started."
-          onRowClick={(pipeline) => router.push(`/pipelines/${pipeline.pipeline_id}`)}
-          className="pipelines-table"
-          stickyHeader
-          initialSortColumn="status"
-          initialSortDirection="asc"
-        />
-      </div>
-
-      {/* Mobile List */}
-      <div className="md:hidden">
-        <MobilePipelinesList
-          pipelines={filteredPipelines}
-          pipelineStatuses={pipelineStatuses}
-          onStop={handleStop}
-          onResume={handleResume}
-          onEdit={handleEdit}
-          onRename={handleRename}
-          onTerminate={handleTerminate}
-          onDelete={openDeleteConfirmModal}
-          onManageTags={handleManageTags}
-          onRowClick={(pipeline) => router.push(`/pipelines/${pipeline.pipeline_id}`)}
-          isPipelineLoading={isPipelineLoading}
-          getPipelineOperation={getPipelineOperation}
-        />
       </div>
 
       <PipelineTagsModal
@@ -545,23 +555,39 @@ export function PipelinesList({
       />
       <StopPipelineModal
         visible={isStopModalVisible}
-        onOk={async () => { if (!stopSelectedPipeline) return; closeStopModal(); await handleStopConfirm(stopSelectedPipeline) }}
+        onOk={async () => {
+          if (!stopSelectedPipeline) return
+          closeStopModal()
+          await handleStopConfirm(stopSelectedPipeline)
+        }}
         onCancel={closeStopModal}
       />
       <RenamePipelineModal
         visible={isRenameModalVisible}
         currentName={renameSelectedPipeline?.name || ''}
-        onOk={async (newName) => { if (!renameSelectedPipeline || !newName) return; closeRenameModal(); await handleRenameConfirm(renameSelectedPipeline, newName) }}
+        onOk={async (newName) => {
+          if (!renameSelectedPipeline || !newName) return
+          closeRenameModal()
+          await handleRenameConfirm(renameSelectedPipeline, newName)
+        }}
         onCancel={closeRenameModal}
       />
       <EditPipelineModal
         visible={isEditModalVisible}
-        onOk={async () => { if (!editSelectedPipeline) return; closeEditModal(); await handleEditConfirm(editSelectedPipeline) }}
+        onOk={async () => {
+          if (!editSelectedPipeline) return
+          closeEditModal()
+          await handleEditConfirm(editSelectedPipeline)
+        }}
         onCancel={closeEditModal}
       />
       <TerminatePipelineModal
         visible={isTerminateModalVisible}
-        onOk={async () => { if (!deleteSelectedPipeline) return; closeTerminateModal(); await handleTerminateConfirm(deleteSelectedPipeline) }}
+        onOk={async () => {
+          if (!deleteSelectedPipeline) return
+          closeTerminateModal()
+          await handleTerminateConfirm(deleteSelectedPipeline)
+        }}
         onCancel={closeTerminateModal}
       />
       <DeletePipelineModal
@@ -590,6 +616,6 @@ export function PipelinesList({
         cancelButtonText="Cancel"
         onComplete={handlePipelineLimitModalComplete}
       />
-    </div>
+    </PageShell>
   )
 }

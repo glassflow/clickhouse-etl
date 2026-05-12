@@ -24,6 +24,12 @@ export interface DataTableColumn<T> {
   sortKey?: string
   className?: string
   headerClassName?: string
+  /**
+   * Optional custom comparator for this column. When provided, it overrides the
+   * default lexicographic / numeric sort — used e.g. for status-priority ordering
+   * where 'active' should rank before 'paused' regardless of alphabetical order.
+   */
+  sortComparator?: (a: T, b: T, direction: 'asc' | 'desc') => number
 }
 
 const dataTableVariants = cva('table-container data-table', {
@@ -100,10 +106,7 @@ export function DataTable<T>({
   const [sortColumn, setSortColumn] = React.useState<string | null>(initialSortColumn)
   const [sortDirection, setSortDirection] = React.useState<SortDirection>(initialSortDirection)
 
-  const gridTemplateColumns = React.useMemo(
-    () => columns.map((col) => col.width ?? '1fr').join(' '),
-    [columns],
-  )
+  const gridTemplateColumns = React.useMemo(() => columns.map((col) => col.width ?? '1fr').join(' '), [columns])
 
   const updateSort = (next: { column: string | null; direction: SortDirection }) => {
     setSortColumn(next.column)
@@ -125,10 +128,14 @@ export function DataTable<T>({
 
   const sortedData = React.useMemo(() => {
     if (!sortColumn || !sortDirection) return data
+    const activeColumn = columns.find((c) => (c.sortKey ?? c.key) === sortColumn)
+    if (activeColumn?.sortComparator) {
+      return [...data].sort((a, b) => activeColumn.sortComparator!(a, b, sortDirection))
+    }
     return [...data].sort((a, b) =>
       compare(resolveSortValue(a, sortColumn), resolveSortValue(b, sortColumn), sortDirection),
     )
-  }, [data, sortColumn, sortDirection])
+  }, [data, columns, sortColumn, sortDirection])
 
   const handleRowKeyDown = (event: React.KeyboardEvent<HTMLDivElement>, item: T) => {
     if (!onRowClick) return
@@ -142,8 +149,10 @@ export function DataTable<T>({
     if (!column.sortable) return null
     const key = column.sortKey ?? column.key
     const isActive = sortColumn === key
-    if (!isActive) return <Image src={SortIcon} alt="" width={12} height={12} className="ml-1 opacity-60" aria-hidden="true" />
-    if (sortDirection === 'asc') return <Image src={SortAscIcon} alt="" width={12} height={12} className="ml-1" aria-hidden="true" />
+    if (!isActive)
+      return <Image src={SortIcon} alt="" width={12} height={12} className="ml-1 opacity-60" aria-hidden="true" />
+    if (sortDirection === 'asc')
+      return <Image src={SortAscIcon} alt="" width={12} height={12} className="ml-1" aria-hidden="true" />
     return <Image src={SortDescIcon} alt="" width={12} height={12} className="ml-1" aria-hidden="true" />
   }
 
@@ -157,11 +166,7 @@ export function DataTable<T>({
   const showEmpty = !isLoading && sortedData.length === 0
 
   return (
-    <div
-      role="grid"
-      aria-label={ariaLabel}
-      className={cn(dataTableVariants({ density }), className)}
-    >
+    <div role="grid" aria-label={ariaLabel} className={cn(dataTableVariants({ density }), className)}>
       <div className={cn('table-header', stickyHeader && 'sticky')} role="rowgroup">
         <div className="table-header-row" role="row" style={{ gridTemplateColumns }}>
           {columns.map((column) => (
@@ -211,7 +216,11 @@ export function DataTable<T>({
                 aria-hidden="true"
               >
                 {columns.map((column, ci) => (
-                  <div key={column.key} className={cn('table-cell', column.align && `text-${column.align}`)} role="gridcell">
+                  <div
+                    key={column.key}
+                    className={cn('table-cell', column.align && `text-${column.align}`)}
+                    role="gridcell"
+                  >
                     <Skeleton height={14} className={ci === 0 ? 'w-3/4' : 'w-1/2'} />
                   </div>
                 ))}
@@ -239,7 +248,9 @@ export function DataTable<T>({
                       data-label={typeof column.header === 'string' ? column.header : undefined}
                       className={cn('table-cell', column.align && `text-${column.align}`, column.className)}
                     >
-                      {column.render ? column.render(item) : ((item as Record<string, unknown>)[column.key] as React.ReactNode)}
+                      {column.render
+                        ? column.render(item)
+                        : ((item as Record<string, unknown>)[column.key] as React.ReactNode)}
                     </div>
                   ))}
                 </div>

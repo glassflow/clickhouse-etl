@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import { Loader2 } from 'lucide-react'
 import { PipelinesList } from '@/src/modules/pipelines/PipelinesList'
+import { PageShell } from '@/src/components/shared/page-shell'
 import { structuredLogger } from '@/src/observability'
 import { PipelinesEmptyState } from '@/src/modules/pipelines/components/PipelinesEmptyState'
 
@@ -19,7 +20,9 @@ export default function PipelinesPageClient() {
       const pipelinesData = await getPipelines()
       setPipelines(pipelinesData)
     } catch (error) {
-      structuredLogger.error('PipelinesPageClient failed to fetch pipelines', { error: error instanceof Error ? error.message : String(error) })
+      structuredLogger.error('PipelinesPageClient failed to fetch pipelines', {
+        error: error instanceof Error ? error.message : String(error),
+      })
     } finally {
       setIsLoading(false)
     }
@@ -64,31 +67,33 @@ export default function PipelinesPageClient() {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto p-4">
-        <div className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)] gap-3">
+      <PageShell title="Pipelines" crumbs={[{ label: 'Pipelines' }]}>
+        <div className="flex flex-col items-center justify-center min-h-[calc(100vh-260px)] gap-3">
           <Loader2 className="h-7 w-7 animate-spin text-[var(--color-foreground-primary)]" />
           <p className="body-3 text-[var(--color-foreground-neutral-faded)]">Loading pipelines…</p>
         </div>
-      </div>
+      </PageShell>
     )
   }
 
+  if (pipelines.length === 0) {
+    return (
+      <PageShell title="Pipelines" crumbs={[{ label: 'Pipelines' }]}>
+        <PipelinesEmptyState />
+      </PageShell>
+    )
+  }
+
+  // When pipelines exist, PipelinesList owns its own PageShell so it can supply
+  // dynamic title metadata (count, env, team) and contextual action buttons.
   return (
-    <div className="container mx-auto p-4">
-      <div className="flex flex-col items-center justify-start min-h-[calc(100vh-200px)] gap-12">
-        {pipelines.length > 0 ? (
-          <PipelinesList
-            pipelines={pipelines}
-            onRefresh={fetchPipelines}
-            onUpdatePipelineStatus={updatePipelineStatus}
-            onUpdatePipelineName={updatePipelineName}
-            onRemovePipeline={removePipeline}
-            onUpdatePipelineTags={updatePipelineTags}
-          />
-        ) : (
-          <PipelinesEmptyState />
-        )}
-      </div>
-    </div>
+    <PipelinesList
+      pipelines={pipelines}
+      onRefresh={fetchPipelines}
+      onUpdatePipelineStatus={updatePipelineStatus}
+      onUpdatePipelineName={updatePipelineName}
+      onRemovePipeline={removePipeline}
+      onUpdatePipelineTags={updatePipelineTags}
+    />
   )
 }

@@ -4,7 +4,7 @@ import { useState, useCallback, useMemo } from 'react'
 import { PlusIcon, SearchIcon, UploadIcon, LibraryBigIcon, ClockIcon } from 'lucide-react'
 import { Button } from '@/src/components/ui/button'
 import { Input } from '@/src/components/ui/input'
-import { Crumbs } from '@/src/components/ui/crumbs'
+import { PageShell } from '@/src/components/shared/page-shell'
 import {
   useKafkaConnections,
   useClickhouseConnections,
@@ -45,20 +45,15 @@ function sortItems<T extends { name: string; updatedAt: string }>(
   if (sortBy === 'usage')
     return [...items].sort(
       (a, b) =>
-        ((b as Record<string, unknown>).usedByCount as number ?? 0) -
-        ((a as Record<string, unknown>).usedByCount as number ?? 0),
+        (((b as Record<string, unknown>).usedByCount as number) ?? 0) -
+        (((a as Record<string, unknown>).usedByCount as number) ?? 0),
     )
-  return [...items].sort(
-    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
-  )
+  return [...items].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
 }
 
 // ─── Section metadata ─────────────────────────────────────────────────────────
 
-const SECTION_META: Record<
-  LibrarySection,
-  { title: string; description: string; addLabel?: string }
-> = {
+const SECTION_META: Record<LibrarySection, { title: string; description: string; addLabel?: string }> = {
   all: {
     title: 'All components',
     description: 'Every saved connection, schema, and processing config in one view.',
@@ -93,12 +88,12 @@ const SECTION_META: Record<
 }
 
 const SECTION_PLACEHOLDER: Record<LibrarySection, string> = {
-  all:        'Search library…',
-  kafka:      'Search connections…',
+  all: 'Search library…',
+  kafka: 'Search connections…',
   clickhouse: 'Search connections…',
-  schemas:    'Search schemas, fields, tags…',
-  dedup:      'Search dedup configs…',
-  filter:     'Search filter configs…',
+  schemas: 'Search schemas, fields, tags…',
+  dedup: 'Search dedup configs…',
+  filter: 'Search filter configs…',
   transforms: 'Search transforms…',
 }
 
@@ -138,10 +133,10 @@ export function LibraryClient() {
     return items.filter((i) => (i.tags ?? []).includes(selectedTag))
   }
 
-  const kafkaItems   = sortItems(applyTagFilter(applyFolderFilter(kafka.data ?? [])), sortBy)
-  const chItems      = sortItems(applyTagFilter(applyFolderFilter(clickhouse.data ?? [])), sortBy)
+  const kafkaItems = sortItems(applyTagFilter(applyFolderFilter(kafka.data ?? [])), sortBy)
+  const chItems = sortItems(applyTagFilter(applyFolderFilter(clickhouse.data ?? [])), sortBy)
   const transformItems = sortItems(applyTagFilter(applyFolderFilter(transforms.data ?? [])), sortBy)
-  const schemaItems  = sortItems(applyTagFilter(applyFolderFilter(schemas.data ?? [])), sortBy)
+  const schemaItems = sortItems(applyTagFilter(applyFolderFilter(schemas.data ?? [])), sortBy)
 
   const allTags = useMemo(() => {
     const set = new Set<string>()
@@ -152,55 +147,80 @@ export function LibraryClient() {
   }, [kafkaItems, chItems, transformItems, schemaItems])
 
   const counts: LibraryCounts = {
-    all:        kafkaItems.length + chItems.length + transformItems.length + schemaItems.length,
-    kafka:      kafkaItems.length,
+    all: kafkaItems.length + chItems.length + transformItems.length + schemaItems.length,
+    kafka: kafkaItems.length,
     clickhouse: chItems.length,
-    schemas:    schemaItems.length,
-    dedup:      0,
-    filter:     0,
+    schemas: schemaItems.length,
+    dedup: 0,
+    filter: 0,
     transforms: transformItems.length,
   }
 
   // ─── Handlers ─────────────────────────────────────────────────────────────
 
   const handleAddClick = useCallback(() => {
-    if (activeSection === 'kafka')      { setEditingKafka(null);     setKafkaModalOpen(true) }
-    else if (activeSection === 'clickhouse') { setEditingCH(null);   setChModalOpen(true) }
-    else if (activeSection === 'transforms') { setEditingTransform(null); setTransformModalOpen(true) }
+    if (activeSection === 'kafka') {
+      setEditingKafka(null)
+      setKafkaModalOpen(true)
+    } else if (activeSection === 'clickhouse') {
+      setEditingCH(null)
+      setChModalOpen(true)
+    } else if (activeSection === 'transforms') {
+      setEditingTransform(null)
+      setTransformModalOpen(true)
+    }
   }, [activeSection])
 
-  const handleEditKafka = useCallback((id: string) => {
-    setEditingKafka((kafka.data ?? []).find((c) => c.id === id) ?? null)
-    setKafkaModalOpen(true)
-  }, [kafka.data])
+  const handleEditKafka = useCallback(
+    (id: string) => {
+      setEditingKafka((kafka.data ?? []).find((c) => c.id === id) ?? null)
+      setKafkaModalOpen(true)
+    },
+    [kafka.data],
+  )
 
-  const handleDeleteKafka = useCallback(async (id: string) => {
-    if (!confirm('Delete this Kafka connection?')) return
-    await deleteResource(getApiUrl(`library/connections/kafka/${id}`))
-    kafka.mutate()
-  }, [kafka])
+  const handleDeleteKafka = useCallback(
+    async (id: string) => {
+      if (!confirm('Delete this Kafka connection?')) return
+      await deleteResource(getApiUrl(`library/connections/kafka/${id}`))
+      kafka.mutate()
+    },
+    [kafka],
+  )
 
-  const handleEditCH = useCallback((id: string) => {
-    setEditingCH((clickhouse.data ?? []).find((c) => c.id === id) ?? null)
-    setChModalOpen(true)
-  }, [clickhouse.data])
+  const handleEditCH = useCallback(
+    (id: string) => {
+      setEditingCH((clickhouse.data ?? []).find((c) => c.id === id) ?? null)
+      setChModalOpen(true)
+    },
+    [clickhouse.data],
+  )
 
-  const handleDeleteCH = useCallback(async (id: string) => {
-    if (!confirm('Delete this ClickHouse connection?')) return
-    await deleteResource(getApiUrl(`library/connections/clickhouse/${id}`))
-    clickhouse.mutate()
-  }, [clickhouse])
+  const handleDeleteCH = useCallback(
+    async (id: string) => {
+      if (!confirm('Delete this ClickHouse connection?')) return
+      await deleteResource(getApiUrl(`library/connections/clickhouse/${id}`))
+      clickhouse.mutate()
+    },
+    [clickhouse],
+  )
 
-  const handleEditTransform = useCallback((id: string) => {
-    setEditingTransform((transforms.data ?? []).find((x) => x.id === id) ?? null)
-    setTransformModalOpen(true)
-  }, [transforms.data])
+  const handleEditTransform = useCallback(
+    (id: string) => {
+      setEditingTransform((transforms.data ?? []).find((x) => x.id === id) ?? null)
+      setTransformModalOpen(true)
+    },
+    [transforms.data],
+  )
 
-  const handleDeleteTransform = useCallback(async (id: string) => {
-    if (!confirm('Delete this transform?')) return
-    await deleteResource(getApiUrl(`library/transforms/${id}`))
-    transforms.mutate()
-  }, [transforms])
+  const handleDeleteTransform = useCallback(
+    async (id: string) => {
+      if (!confirm('Delete this transform?')) return
+      await deleteResource(getApiUrl(`library/transforms/${id}`))
+      transforms.mutate()
+    },
+    [transforms],
+  )
 
   // ─── Computed ─────────────────────────────────────────────────────────────
 
@@ -210,59 +230,58 @@ export function LibraryClient() {
 
   const sortOptions: { value: 'updated' | 'name' | 'usage'; label: string }[] = [
     { value: 'updated', label: 'Updated' },
-    { value: 'name',    label: 'Name' },
+    { value: 'name', label: 'Name' },
     ...(activeSection === 'schemas' ? [{ value: 'usage' as const, label: 'Usage' }] : []),
   ]
 
   // ─── Render ────────────────────────────────────────────────────────────────
 
+  const sidebar = (
+    <LibrarySideNav
+      activeSection={activeSection}
+      onSectionChange={(s) => {
+        setActiveSection(s)
+        setSearchQuery('')
+        if (s !== 'schemas' && sortBy === 'usage') setSortBy('updated')
+      }}
+      counts={counts}
+      folders={foldersData}
+      selectedFolderId={selectedFolderId}
+      onFolderChange={setSelectedFolderId}
+      allTags={allTags}
+      selectedTag={selectedTag}
+      onTagChange={setSelectedTag}
+    />
+  )
+
+  const actions = (
+    <>
+      {activeSection === 'schemas' && (
+        <Button variant="secondary" size="sm">
+          <UploadIcon size={13} className="mr-1.5" />
+          Import
+        </Button>
+      )}
+      {canAdd && (
+        <Button variant="primary" size="sm" onClick={handleAddClick}>
+          <PlusIcon size={14} className="mr-1.5" />
+          {addLabel}
+        </Button>
+      )}
+    </>
+  )
+
   return (
-    <div className="lib-page">
-      {/* Breadcrumb */}
-      <Crumbs crumbs={[{ label: 'Library', href: '/library' }, { label: title }]} />
-
-      {/* Header */}
-      <div className="lib-header" style={{ marginTop: '16px' }}>
-        <div className="lib-header-l">
-          <h1 className="lib-title">{title}</h1>
-          <p className="lib-subtitle">{description}</p>
-        </div>
-        <div className="lib-header-r">
-          {activeSection === 'schemas' && (
-            <Button variant="secondary" size="sm">
-              <UploadIcon size={13} className="mr-1.5" />
-              Import
-            </Button>
-          )}
-          {canAdd && (
-            <Button variant="primary" size="sm" onClick={handleAddClick}>
-              <PlusIcon size={14} className="mr-1.5" />
-              {addLabel}
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {/* Main layout */}
-      <div className="lib-layout">
-        <LibrarySideNav
-          activeSection={activeSection}
-          onSectionChange={(s) => {
-            setActiveSection(s)
-            setSearchQuery('')
-            if (s !== 'schemas' && sortBy === 'usage') setSortBy('updated')
-          }}
-          counts={counts}
-          folders={foldersData}
-          selectedFolderId={selectedFolderId}
-          onFolderChange={setSelectedFolderId}
-          allTags={allTags}
-          selectedTag={selectedTag}
-          onTagChange={setSelectedTag}
-        />
-
+    <>
+      <PageShell
+        title={title}
+        subtitle={description}
+        crumbs={[{ label: 'Library', href: '/library' }, { label: title }]}
+        actions={actions}
+        sidebar={sidebar}
+      >
         {/* Content — key forces re-mount + re-animation on section change */}
-        <div key={activeSection} className="lib-content animate-section-enter">
+        <div key={activeSection} className="animate-section-enter flex flex-col gap-4">
           {/* Filter bar: search + sort */}
           <div className="lib-filter-bar">
             <div className="relative flex-1 min-w-[180px] max-w-[360px]">
@@ -315,7 +334,7 @@ export function LibraryClient() {
             onSectionChange={setActiveSection}
           />
         </div>
-      </div>
+      </PageShell>
 
       {/* Modals */}
       <KafkaConnectionFormModal
@@ -336,7 +355,7 @@ export function LibraryClient() {
         onSaved={() => transforms.mutate()}
         transform={editingTransform}
       />
-    </div>
+    </>
   )
 }
 
@@ -445,11 +464,21 @@ function SectionContent({
   }
 
   if (activeSection === 'dedup') {
-    return <LibrarySectionComingSoon name="Dedup configs" description="Save named deduplication windows — key fields, time window, and strategy — and reuse them across pipelines without reconfiguring each time." />
+    return (
+      <LibrarySectionComingSoon
+        name="Dedup configs"
+        description="Save named deduplication windows — key fields, time window, and strategy — and reuse them across pipelines without reconfiguring each time."
+      />
+    )
   }
 
   if (activeSection === 'filter') {
-    return <LibrarySectionComingSoon name="Filter configs" description="Save filter expressions bound to a schema and share them across pipelines. Filters will be selectable from the wizard and canvas." />
+    return (
+      <LibrarySectionComingSoon
+        name="Filter configs"
+        description="Save filter expressions bound to a schema and share them across pipelines. Filters will be selectable from the wizard and canvas."
+      />
+    )
   }
 
   // "all" section — grouped flat tables
@@ -526,16 +555,17 @@ function GroupedSection({ label, children }: { label: string; children: React.Re
   )
 }
 
-function LibraryFirstRunEmptyState({
-  onSectionChange,
-}: {
-  onSectionChange: (s: LibrarySection) => void
-}) {
+function LibraryFirstRunEmptyState({ onSectionChange }: { onSectionChange: (s: LibrarySection) => void }) {
   const quickStarts: { section: LibrarySection; glyphType: LibraryResourceType; label: string; desc: string }[] = [
-    { section: 'kafka',      glyphType: 'kafka',      label: 'Add Kafka connection',      desc: 'Bootstrap servers, auth' },
-    { section: 'clickhouse', glyphType: 'clickhouse', label: 'Add ClickHouse connection', desc: 'Host, credentials, SSL' },
-    { section: 'schemas',    glyphType: 'schema',     label: 'Browse schemas',            desc: 'Derive from topic or manual' },
-    { section: 'filter',     glyphType: 'filter',     label: 'Save a filter',             desc: 'Bound to a schema' },
+    { section: 'kafka', glyphType: 'kafka', label: 'Add Kafka connection', desc: 'Bootstrap servers, auth' },
+    {
+      section: 'clickhouse',
+      glyphType: 'clickhouse',
+      label: 'Add ClickHouse connection',
+      desc: 'Host, credentials, SSL',
+    },
+    { section: 'schemas', glyphType: 'schema', label: 'Browse schemas', desc: 'Derive from topic or manual' },
+    { section: 'filter', glyphType: 'filter', label: 'Save a filter', desc: 'Bound to a schema' },
   ]
 
   return (
@@ -554,8 +584,8 @@ function LibraryFirstRunEmptyState({
         <div className="flex flex-col gap-2">
           <h2 className="title-3 text-[var(--text-primary)]">Your library is empty</h2>
           <p className="body-3 text-[var(--text-secondary)]">
-            Save connections and schemas as you build pipelines, or seed your library now.{' '}
-            Library items become available in the wizard and canvas the moment they&apos;re saved.
+            Save connections and schemas as you build pipelines, or seed your library now. Library items become
+            available in the wizard and canvas the moment they&apos;re saved.
           </p>
         </div>
       </div>
