@@ -3,8 +3,8 @@
 import * as React from 'react'
 import { TimeRangePicker, DEFAULT_RANGES, type TimeRangeKey } from '@/src/components/ui/time-range-picker'
 import { ScopeBadge } from '@/src/components/ui/scope-badge'
-import { Switch } from '@/src/components/ui/switch'
 import { useStore } from '@/src/store'
+import { AutoRefreshControl } from './AutoRefreshControl'
 import { BrushedRangePill } from './BrushedRangePill'
 import { CustomDateRangeModal } from './CustomDateRangeModal'
 
@@ -51,13 +51,7 @@ export function MetricsToolbar({ pipelineId }: MetricsToolbarProps) {
         <BrushedRangePill />
       </div>
       <div className="flex items-center gap-3">
-        <label className="flex items-center gap-1.5 caption-1 text-[var(--text-secondary)]">
-          Auto-refresh
-          <Switch
-            checked={observabilityStore.autoRefreshIntervalMs != null}
-            onCheckedChange={(on) => observabilityStore.setAutoRefreshIntervalMs(on ? 30_000 : null)}
-          />
-        </label>
+        <AutoRefreshControl />
         <TimeRangePicker value={observabilityStore.rangeKey} onChange={handleRangeChange} />
       </div>
       <CustomDateRangeModal
