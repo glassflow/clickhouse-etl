@@ -1,46 +1,48 @@
-# Multi-Key Deduplication
+# Multi-Key Deduplication (OTLP source)
 
-The `routing.field.name` config accepts any [gjson path expression](https://github.com/tidwall/gjson#path-syntax), which means you can deduplicate on a composite key made from multiple fields — not just a single field.
+Multi-key deduplication is supported for **OTLP source pipelines only**. Kafka source pipelines validate `id_field` against the registered schema fields, so composite key expressions are not supported there.
 
-## Single-field dedup (standard)
+For OTLP pipelines, `routing.field.name` is passed directly to gjson, which supports [multipath expressions](https://github.com/tidwall/gjson#multipaths). This lets you deduplicate on a combination of fields.
 
-```json
-{
-  "routing": {
-    "type": "field",
-    "field": { "name": "event_id" }
-  }
-}
-```
-
-Produces a `Nats-Msg-Id` like `abc123`.
-
-## Multi-field dedup using gjson array multipath
-
-To deduplicate on a combination of fields, use gjson's array multipath syntax:
+## Single-field dedup
 
 ```json
 {
   "routing": {
     "type": "field",
-    "field": { "name": "[user_id,session_id]" }
+    "field": { "name": "trace_id" }
   }
 }
 ```
 
-For a message `{"user_id": "u1", "session_id": "s1", ...}` this produces `Nats-Msg-Id: ["u1","s1"]`.
+## Multi-field dedup — array multipath syntax
 
-Mixed types work correctly — strings are quoted, numbers are unquoted, matching their JSON representation:
+Use gjson array multipath syntax to build a composite dedup key from multiple fields:
 
 ```json
-{ "name": "[user_id,session_count]" }
-// → Nats-Msg-Id: ["u1",42]
+{
+  "routing": {
+    "type": "field",
+    "field": { "name": "[trace_id,span_id]" }
+  }
+}
 ```
 
-## Why array syntax and not object syntax
+For a message containing `trace_id: "abc"` and `span_id: "xyz"` this produces `Nats-Msg-Id: ["abc","xyz"]`. Mixed types work — strings are quoted, numbers are not:
 
-gjson also supports an object multipath form like `{"a":user_id,"b":session_id}`, which **looks** equivalent but is not safe for deduplication. The key order in the output follows the order of fields in the query string, so two pipeline instances configured with `{"a":f1,"b":f2}` and `{"b":f2,"a":f1}` produce **different** `Nats-Msg-Id` values for the same message — causing duplicates to slip through.
+```json
+{
+  "routing": {
+    "type": "field",
+    "field": { "name": "[user_id,sequence_number]" }
+  }
+}
+```
 
-The array form `[f1,f2]` is positional and has no keys, so the output is always identical for the same field values regardless of who configured it or when.
+Produces `Nats-Msg-Id: ["u1",42]` for `user_id: "u1"` and `sequence_number: 42`.
 
-**Use `[field1,field2,...]` for multi-key dedup. Never use `{...}` object multipath.**
+## Warning: do not use object multipath syntax
+
+gjson also supports `{"a":field1,"b":field2}` but this is **not safe for deduplication**. The output key order follows the order of fields in the query string, so two differently-configured instances produce different `Nats-Msg-Id` values for identical messages, causing duplicates to slip through silently.
+
+Always use `[field1,field2,...]` — never `{...}`.
