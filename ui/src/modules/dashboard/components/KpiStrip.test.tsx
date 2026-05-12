@@ -36,27 +36,24 @@ describe('KpiStrip', () => {
     expect(screen.getByText('/ 16')).toBeInTheDocument()
   })
 
-  it('applies is-warn class when error rate > 0.1%', () => {
+  it('applies warn severity when error rate > 0.1%', () => {
     const { container } = render(<KpiStrip stats={{ ...stats, errorRate: 0.5 }} />)
-    const warnCard = container.querySelector('.dash-kpi.is-warn')
-    expect(warnCard).not.toBeNull()
+    expect(container.querySelector('[data-severity="warn"]')).not.toBeNull()
   })
 
-  it('applies is-crit class when error rate > 1%', () => {
+  it('applies crit severity when error rate > 1%', () => {
     const { container } = render(<KpiStrip stats={{ ...stats, errorRate: 2.5 }} />)
-    const critCard = container.querySelector('.dash-kpi.is-crit')
-    expect(critCard).not.toBeNull()
+    expect(container.querySelector('[data-severity="crit"]')).not.toBeNull()
   })
 
-  it('applies is-crit class when DLQ > 1000', () => {
+  it('applies crit severity when DLQ > 1000', () => {
     const { container } = render(<KpiStrip stats={{ ...stats, dlqEvents: 1500 }} />)
-    const critCards = container.querySelectorAll('.dash-kpi.is-crit')
+    const critCards = container.querySelectorAll('[data-severity="crit"]')
     expect(critCards.length).toBeGreaterThan(0)
   })
 
   it('shows delta with up direction for positive events/sec delta', () => {
     const { container } = render(<KpiStrip stats={{ ...stats, eventsPerSecDelta: 8.2 }} />)
-    const upDelta = container.querySelector('.delta.up')
-    expect(upDelta).not.toBeNull()
+    expect(container.querySelector('[data-direction="up"]')).not.toBeNull()
   })
 })

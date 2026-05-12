@@ -137,6 +137,11 @@
     font-size: var(--font-size-body-3);
   }
 
+  /* Compact row variant — tighter vertical rhythm (e.g. dashboard table) */
+  .pipelines-table.compact-rows .table-row {
+    padding: 10px var(--unit-x4);
+  }
+
   /* Sortable header cells get a pointer and subtle hover */
   .table-header-cell.sortable {
     cursor: pointer;

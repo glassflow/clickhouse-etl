@@ -24,23 +24,25 @@ function msUnit(ms: number): string {
 
 type Props = { stats: DashStats }
 
+const DELAYS = [0, 40, 80, 120, 160]
+
 export function KpiStrip({ stats }: Props) {
   const errorSeverity = stats.errorRate > 1 ? 'crit' : stats.errorRate > 0.1 ? 'warn' : 'default'
   const dlqSeverity = stats.dlqEvents > 1000 ? 'crit' : stats.dlqEvents > 100 ? 'warn' : 'default'
-  const lagSeverity = stats.avgLagMs > 2000 ? 'warn' : 'default'
   const evDelta = stats.eventsPerSecDelta
   const errDelta = stats.errorRateDelta
   const dlqDelta = stats.dlqDelta
   const lagDelta = stats.avgLagMsDelta
 
   return (
-    <div className="dash-kpis">
+    <div className="grid grid-cols-5 gap-3 px-10 py-6 border-b border-[var(--color-gray-dark-800)] shrink-0">
       <KpiCard
         label="Active pipelines"
         value={String(stats.activePipelines)}
         unit={`/ ${stats.totalPipelines}`}
         delta="no change · 1h"
         deltaDir="flat"
+        style={{ animationDelay: `${DELAYS[0]}ms` }}
       />
       <KpiCard
         label="Events / sec"
@@ -48,6 +50,7 @@ export function KpiStrip({ stats }: Props) {
         unit="in"
         delta={fmtDelta(evDelta)}
         deltaDir={evDelta > 0 ? 'up' : evDelta < 0 ? 'down' : 'flat'}
+        style={{ animationDelay: `${DELAYS[1]}ms` }}
       />
       <KpiCard
         label="Error rate"
@@ -56,6 +59,7 @@ export function KpiStrip({ stats }: Props) {
         delta={fmtDelta(errDelta)}
         deltaDir={errDelta > 0 ? 'down' : errDelta < 0 ? 'up' : 'flat'}
         severity={errorSeverity}
+        style={{ animationDelay: `${DELAYS[2]}ms` }}
       />
       <KpiCard
         label="DLQ events"
@@ -63,6 +67,7 @@ export function KpiStrip({ stats }: Props) {
         delta={dlqDelta > 0 ? `+${dlqDelta.toLocaleString()} · 1h` : 'stable'}
         deltaDir={dlqDelta > 0 ? 'down' : 'flat'}
         severity={dlqSeverity}
+        style={{ animationDelay: `${DELAYS[3]}ms` }}
       />
       <KpiCard
         label="Avg lag"
@@ -70,7 +75,7 @@ export function KpiStrip({ stats }: Props) {
         unit={msUnit(stats.avgLagMs)}
         delta={lagDelta === 0 ? 'stable' : fmtDelta(lagDelta / 1000)}
         deltaDir={lagDelta > 0 ? 'down' : lagDelta < 0 ? 'up' : 'flat'}
-        severity={lagSeverity}
+        style={{ animationDelay: `${DELAYS[4]}ms` }}
       />
     </div>
   )

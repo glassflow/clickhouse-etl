@@ -49,13 +49,13 @@ describe('ThroughputChart', () => {
     expect(screen.getByText(/with incident overlay/)).toBeInTheDocument()
   })
 
-  it('applies loss-crit class when loss > 10%', () => {
+  it('applies crit severity to loss when loss > 10%', () => {
     const { container } = render(<ThroughputChart stats={{ ...stats, throughputLossPct: 13.7 }} isIncidentState={false} />)
-    expect(container.querySelector('.loss-crit')).not.toBeNull()
+    expect(container.querySelector('[data-severity="crit"]')).not.toBeNull()
   })
 
-  it('applies loss-warn class when loss > 1%', () => {
+  it('applies warn severity to loss when loss > 1%', () => {
     const { container } = render(<ThroughputChart stats={{ ...stats, throughputLossPct: 2.5 }} isIncidentState={false} />)
-    expect(container.querySelector('.loss-warn')).not.toBeNull()
+    expect(container.querySelector('[data-severity="warn"]')).not.toBeNull()
   })
 })

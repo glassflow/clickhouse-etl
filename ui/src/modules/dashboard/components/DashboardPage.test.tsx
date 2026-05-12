@@ -24,7 +24,7 @@ describe('DashboardPage', () => {
   it('renders first-run state', () => {
     const state: DashboardState = { kind: 'first-run' }
     render(<DashboardPage state={state} />)
-    expect(screen.getByText("Let's set up your first pipeline")).toBeInTheDocument()
+    expect(screen.getByText("Set up your first pipeline")).toBeInTheDocument()
   })
 
   it('renders "Welcome to GlassFlow" heading in first-run', () => {

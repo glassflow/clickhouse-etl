@@ -48,13 +48,13 @@ describe('AttentionQueue', () => {
     expect(screen.getByText(/Sort by impact/)).toBeInTheDocument()
   })
 
-  it('applies crit row class for critical incident', () => {
+  it('applies crit severity to critical incident row', () => {
     const { container } = render(<AttentionQueue incidents={incidents} isIncidentState={false} />)
-    expect(container.querySelector('.attn-row.crit')).not.toBeNull()
+    expect(container.querySelector('[data-severity="crit"]')).not.toBeNull()
   })
 
-  it('applies warn row class for warning incident', () => {
+  it('applies warn severity to warning incident row', () => {
     const { container } = render(<AttentionQueue incidents={incidents} isIncidentState={false} />)
-    expect(container.querySelector('.attn-row.warn')).not.toBeNull()
+    expect(container.querySelector('[data-severity="warn"]')).not.toBeNull()
   })
 })

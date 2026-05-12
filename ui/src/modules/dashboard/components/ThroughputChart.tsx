@@ -1,5 +1,6 @@
 'use client'
 
+import { cn } from '@/src/utils/common.client'
 import type { DashStats } from '../types'
 
 function fmtM(n: number): string {
@@ -45,32 +46,60 @@ function SvgChart({ inSeries, outSeries }: ChartProps) {
 type Props = { stats: DashStats; isIncidentState: boolean }
 
 export function ThroughputChart({ stats, isIncidentState }: Props) {
-  const lossCls = stats.throughputLossPct > 10 ? 'loss-crit' : stats.throughputLossPct > 1 ? 'loss-warn' : ''
+  const lossCls = stats.throughputLossPct > 10 ? 'text-[var(--color-red-500)]' : stats.throughputLossPct > 1 ? 'text-[var(--color-yellow-400)]' : ''
   const title = isIncidentState ? 'Throughput · with incident overlay' : 'Throughput'
+
   return (
-    <div className="dash-card thru-card">
-      <div className="dash-card-h !p-0 mb-3 border-b-0">
-        <h3>{title}</h3>
-        <a href="/observability" className="dash-link">Open in observability →</a>
+    <div className="bg-[var(--dash-card-bg)] border border-[var(--color-gray-dark-700)] rounded-[10px] flex flex-col overflow-hidden p-[18px]">
+      {/* card header — no border-bottom here per original thru-card override */}
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="title-6 font-semibold m-0 tracking-[-0.005em] text-[var(--color-foreground-neutral)]">
+          {title}
+        </h3>
+        <a
+          href="/observability"
+          className="text-[11.5px] text-[var(--color-gray-dark-100)] font-mono no-underline hover:text-[var(--color-orange-300)] transition-colors duration-[120ms] focus-ring"
+        >
+          Open in observability →
+        </a>
       </div>
-      <div className="thru-totals">
-        <div className="thru-blk">
-          <div className="thru-lbl">In · last hour</div>
-          <div className="thru-val">{fmtM(stats.throughputIn)}<span className="thru-unit">events</span></div>
-        </div>
-        <div className="thru-blk">
-          <div className="thru-lbl">Out · last hour</div>
-          <div className="thru-val">{fmtM(stats.throughputOut)}<span className="thru-unit">events</span></div>
-        </div>
-        <div className="thru-blk">
-          <div className="thru-lbl">Loss</div>
-          <div className={`thru-val ${lossCls}`}>{stats.throughputLossPct.toFixed(2)}<span className="thru-unit">%</span></div>
-        </div>
+
+      {/* totals row */}
+      <div className="flex gap-6 mb-4">
+        {[
+          { lbl: 'In · last hour',  val: fmtM(stats.throughputIn),  extra: '' },
+          { lbl: 'Out · last hour', val: fmtM(stats.throughputOut), extra: '' },
+          { lbl: 'Loss',            val: `${stats.throughputLossPct.toFixed(2)}`, extra: lossCls, severity: stats.throughputLossPct > 10 ? 'crit' : stats.throughputLossPct > 1 ? 'warn' : undefined },
+        ].map(({ lbl, val, extra, severity }) => (
+          <div key={lbl}>
+            <div className="font-mono text-[9.5px] uppercase tracking-[0.1em] text-[var(--color-gray-dark-500)]">{lbl}</div>
+            <div data-severity={severity} className={cn('title-5 font-semibold mt-0.5', extra || 'text-[var(--color-foreground-neutral)]')}>
+              {val}
+              <span className="text-[11px] text-[var(--color-gray-dark-500)] ml-0.5" style={{ fontFamily: 'var(--font-family-body)', fontWeight: 500 }}>
+                {lbl === 'Loss' ? '%' : 'events'}
+              </span>
+            </div>
+          </div>
+        ))}
       </div>
+
       <SvgChart inSeries={stats.throughputSeries.in} outSeries={stats.throughputSeries.out} />
-      <div className="thru-legend">
-        <div><span className="thru-swatch" style={{ background: 'var(--color-orange-300)' }} />events in</div>
-        <div><span className="thru-swatch" style={{ background: 'var(--color-blue-500)' }} />events written to ClickHouse</div>
+
+      <div className="flex gap-[14px] text-[10.5px] font-mono text-[var(--color-gray-dark-100)] mt-[10px]">
+        <div>
+          <span
+            className="inline-block w-2 h-2 rounded-sm mr-1.5 align-[1px]"
+            style={{ background: 'var(--color-orange-300)' }}
+          />
+          events in
+        </div>
+        <div>
+          <span
+            className="inline-block w-2 h-2 rounded-sm mr-1.5 align-[1px]"
+            style={{ background: 'var(--color-blue-500)' }}
+          />
+          events written to ClickHouse
+        </div>
       </div>
     </div>
   )

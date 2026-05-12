@@ -25,21 +25,21 @@ describe('ActivityFeed', () => {
 
   it('renders deploy dot for deploy events', () => {
     const { container } = render(<ActivityFeed items={[items[0]]} />)
-    expect(container.querySelector('.activity-dot.deploy')).not.toBeNull()
+    expect(container.querySelector('[data-kind="deploy"]')).not.toBeNull()
   })
 
   it('renders fail dot for fail events', () => {
     const { container } = render(<ActivityFeed items={[items[1]]} />)
-    expect(container.querySelector('.activity-dot.fail')).not.toBeNull()
+    expect(container.querySelector('[data-kind="fail"]')).not.toBeNull()
   })
 
   it('renders pause dot for pause events', () => {
     const { container } = render(<ActivityFeed items={[items[2]]} />)
-    expect(container.querySelector('.activity-dot.pause')).not.toBeNull()
+    expect(container.querySelector('[data-kind="pause"]')).not.toBeNull()
   })
 
   it('renders info dot for info events', () => {
     const { container } = render(<ActivityFeed items={[items[3]]} />)
-    expect(container.querySelector('.activity-dot.info')).not.toBeNull()
+    expect(container.querySelector('[data-kind="info"]')).not.toBeNull()
   })
 })

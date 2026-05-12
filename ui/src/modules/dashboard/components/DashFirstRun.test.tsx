@@ -20,9 +20,9 @@ describe('DashFirstRun', () => {
 
   it('marks "From template" and "Try with sample data" as disabled', () => {
     const { container } = render(<DashFirstRun />)
-    const disabled = container.querySelectorAll('.empty-path.disabled')
+    const disabled = container.querySelectorAll('[aria-disabled="true"]')
     expect(disabled).toHaveLength(2)
-    const names = Array.from(disabled).map((el) => el.querySelector('.empty-path-name')?.textContent)
+    const names = Array.from(disabled).map((el) => el.querySelector('[data-role="path-name"]')?.textContent)
     expect(names).toContain('From template')
     expect(names).toContain('Try with sample data')
   })
@@ -30,8 +30,8 @@ describe('DashFirstRun', () => {
   it('active tiles are not marked disabled', () => {
     const { container } = render(<DashFirstRun />)
     const active = [
-      ...container.querySelectorAll('.empty-primary-path'),
-      ...container.querySelectorAll('.empty-path:not(.disabled)'),
+      ...container.querySelectorAll('[data-role="primary-path"]'),
+      ...container.querySelectorAll('[data-role="path"]:not([aria-disabled])'),
     ]
     expect(active).toHaveLength(4)
   })

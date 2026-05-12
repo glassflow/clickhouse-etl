@@ -17,10 +17,10 @@ describe('PipelineTable', () => {
     expect(screen.getByText('broken-pipeline')).toBeInTheDocument()
   })
 
-  it('renders All filter chip as active by default', () => {
+  it('renders All filter button as active by default', () => {
     const { container } = render(<PipelineTable pipelines={pipelines} />)
-    const activeChip = container.querySelector('.dash-filter-chip.is-active')
-    expect(activeChip?.textContent).toContain('All')
+    const activeBtn = container.querySelector('[aria-pressed="true"]')
+    expect(activeBtn?.textContent).toContain('All')
   })
 
   it('filters to running pipelines when Running chip clicked', () => {
@@ -37,19 +37,19 @@ describe('PipelineTable', () => {
     expect(screen.queryByText('orders-to-clickhouse')).not.toBeInTheDocument()
   })
 
-  it('shows run status chip with correct class', () => {
+  it('shows run status chip', () => {
     const { container } = render(<PipelineTable pipelines={[pipelines[0]]} />)
-    expect(container.querySelector('.status-chip.run')).not.toBeNull()
+    expect(container.querySelector('[data-status="run"]')).not.toBeNull()
   })
 
-  it('shows fail status chip with correct class', () => {
+  it('shows fail status chip', () => {
     const { container } = render(<PipelineTable pipelines={[pipelines[2]]} />)
-    expect(container.querySelector('.status-chip.fail')).not.toBeNull()
+    expect(container.querySelector('[data-status="fail"]')).not.toBeNull()
   })
 
-  it('applies crit class to DLQ cell when dlqSeverity is crit', () => {
+  it('applies crit severity to DLQ cell when dlqSeverity is crit', () => {
     const { container } = render(<PipelineTable pipelines={[pipelines[2]]} />)
-    expect(container.querySelector('.metric-cell.crit')).not.toBeNull()
+    expect(container.querySelector('[data-severity="crit"]')).not.toBeNull()
   })
 
   it('shows version badge next to pipeline name', () => {
