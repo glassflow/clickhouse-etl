@@ -1,0 +1,201 @@
+/* =================================================================
+   Library — page chrome + flat-table variant
+   All color values via CSS custom properties. No hardcoded hex.
+   ================================================================= */
+
+/* ── page ── */
+.lib-page {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  animation: lib-enter 260ms var(--easing-decelerate, cubic-bezier(0, 0, 0.2, 1)) both;
+}
+
+@keyframes lib-enter {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── header ── */
+.lib-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 20px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--color-gray-dark-800);
+}
+
+.lib-header-l { display: flex; flex-direction: column; gap: 4px; }
+.lib-header-r { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+.lib-title {
+  font-family: var(--font-family-title);
+  font-size: var(--font-size-title-3);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  margin: 0;
+  color: var(--color-foreground-primary);
+}
+
+.lib-subtitle {
+  font-size: 12.5px;
+  color: var(--color-gray-dark-500);
+  margin: 0;
+}
+
+/* ── main layout ── */
+.lib-layout {
+  display: flex;
+  gap: 32px;
+}
+
+.lib-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ── filter bar ── */
+.lib-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* ── filter + sort chips (squared, monospace-labelled) ── */
+.lib-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  font-family: var(--font-family-body);
+  font-size: 11.5px;
+  border-radius: 5px;
+  background: transparent;
+  border: 1px solid var(--color-gray-dark-700);
+  color: var(--color-gray-dark-100);
+  cursor: pointer;
+  transition: border-color 120ms, color 120ms, background 120ms;
+  white-space: nowrap;
+}
+
+.lib-filter-chip:hover {
+  border-color: var(--color-gray-dark-500);
+  color: var(--color-foreground-neutral);
+}
+
+.lib-filter-chip.is-active {
+  background: var(--color-orange-alpha-10);
+  border-color: var(--color-orange-300);
+  color: var(--color-orange-300);
+}
+
+.lib-filter-chip:focus-visible {
+  outline: 2px solid var(--color-background-primary);
+  outline-offset: 2px;
+}
+
+/* ── "Sort:" mono label ── */
+.lib-sort-label {
+  font-family: var(--font-family-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-gray-dark-500);
+  flex-shrink: 0;
+}
+
+/* ── sidebar section label ── */
+.lib-nav-label {
+  display: block;
+  font-family: var(--font-family-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-gray-dark-700);
+  padding: 0 12px;
+  margin-bottom: 6px;
+}
+
+/* ── group label in all-view ── */
+.lib-group-label {
+  font-family: var(--font-family-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-gray-dark-500);
+  margin-bottom: 8px;
+}
+
+/* ── library-table variant (flat, border-separated rows) ── */
+.library-table {
+  gap: 0;
+}
+
+.library-table .table-header {
+  padding: 10px 16px;
+  border-radius: var(--table-radius) var(--table-radius) 0 0;
+  border-bottom: 1px solid var(--color-gray-dark-800);
+}
+
+.library-table .table-header-cell {
+  font-family: var(--font-family-mono);
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-gray-dark-500);
+}
+
+.library-table .table-body {
+  gap: 0;
+}
+
+.library-table .table-row {
+  padding: 11px 16px;
+  background-color: var(--table-row-bg);
+  border-radius: 0;
+  border-bottom: 1px solid var(--color-gray-dark-800);
+  box-shadow: none;
+}
+
+.library-table .table-row:last-child {
+  border-bottom: none;
+  border-radius: 0 0 var(--table-radius) var(--table-radius);
+}
+
+.library-table .table-row:hover {
+  background-color: var(--table-row-bg-hover);
+}
+
+.library-table .table-cell {
+  font-size: var(--font-size-body-3);
+}
+
+/* ── row entrance animations ── */
+.library-table .table-body > .table-row {
+  animation: lib-row-enter 220ms var(--easing-decelerate, cubic-bezier(0, 0, 0.2, 1)) backwards;
+}
+
+@keyframes lib-row-enter {
+  from { opacity: 0; transform: translateY(3px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.library-table .table-body > .table-row:nth-child(1)   { animation-delay:   0ms; }
+.library-table .table-body > .table-row:nth-child(2)   { animation-delay:  25ms; }
+.library-table .table-body > .table-row:nth-child(3)   { animation-delay:  50ms; }
+.library-table .table-body > .table-row:nth-child(4)   { animation-delay:  75ms; }
+.library-table .table-body > .table-row:nth-child(5)   { animation-delay: 100ms; }
+.library-table .table-body > .table-row:nth-child(6)   { animation-delay: 120ms; }
+.library-table .table-body > .table-row:nth-child(7)   { animation-delay: 140ms; }
+.library-table .table-body > .table-row:nth-child(n+8) { animation-delay: 160ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .lib-page { animation: none; }
+  .library-table .table-body > .table-row { animation: none; }
+}

@@ -41,7 +41,7 @@ type Props = {
   onTagChange: (tag: string | null) => void
 }
 
-const COMING_SOON_SECTIONS = new Set<LibrarySection>(['schemas', 'dedup', 'filter'])
+const COMING_SOON_SECTIONS = new Set<LibrarySection>(['dedup', 'filter'])
 
 type SectionDef = {
   key: LibrarySection
@@ -50,13 +50,13 @@ type SectionDef = {
 }
 
 const SECTIONS: SectionDef[] = [
-  { key: 'all',        label: 'All components',         icon: LayoutGridIcon },
-  { key: 'kafka',      label: 'Kafka connections',       icon: WorkflowIcon },
-  { key: 'clickhouse', label: 'ClickHouse connections',  icon: DatabaseIcon },
-  { key: 'schemas',    label: 'Schemas',                 icon: LayoutListIcon },
-  { key: 'dedup',      label: 'Dedup configs',           icon: CopyIcon },
-  { key: 'filter',     label: 'Filter configs',          icon: FilterIcon },
-  { key: 'transforms', label: 'Transform configs',       icon: ArrowLeftRightIcon },
+  { key: 'all',        label: 'All components',        icon: LayoutGridIcon },
+  { key: 'kafka',      label: 'Kafka connections',      icon: WorkflowIcon },
+  { key: 'clickhouse', label: 'ClickHouse connections', icon: DatabaseIcon },
+  { key: 'schemas',    label: 'Schemas',                icon: LayoutListIcon },
+  { key: 'dedup',      label: 'Dedup configs',          icon: CopyIcon },
+  { key: 'filter',     label: 'Filter configs',         icon: FilterIcon },
+  { key: 'transforms', label: 'Transform configs',      icon: ArrowLeftRightIcon },
 ]
 
 export function LibrarySideNav({
@@ -75,7 +75,8 @@ export function LibrarySideNav({
   return (
     <aside className="w-56 shrink-0 flex flex-col gap-0 pr-2">
       {/* Section navigation */}
-      <div className="flex flex-col gap-0.5">
+      <div className="flex flex-col gap-0">
+        <span className="lib-nav-label">Library</span>
         {SECTIONS.map(({ key, label, icon: Icon }) => {
           const isActive = activeSection === key
           const count = counts[key]
@@ -101,7 +102,7 @@ export function LibrarySideNav({
               ) : count > 0 ? (
                 <span
                   className={cn(
-                    'text-[10px] font-medium tabular-nums',
+                    'text-[10px] font-mono tabular-nums',
                     isActive ? 'text-[var(--color-orange-300)]' : 'text-[var(--text-tertiary)]',
                   )}
                 >
@@ -114,7 +115,7 @@ export function LibrarySideNav({
       </div>
 
       {/* Folders */}
-      <div className="mt-4">
+      <div className="mt-5">
         <button
           type="button"
           onClick={() => setFoldersOpen((o) => !o)}

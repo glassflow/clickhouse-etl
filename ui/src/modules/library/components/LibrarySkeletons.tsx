@@ -1,50 +1,51 @@
 import { Skeleton } from '@/src/components/ui/skeleton'
 
-export function LibraryCardSkeleton() {
+function LibraryRowSkeleton() {
   return (
-    <div className="card-dark flex flex-col gap-3 p-4 rounded-xl">
-      {/* Header row */}
-      <div className="flex items-center gap-2.5">
-        <Skeleton width={28} height={28} rounded="md" />
-        <div className="flex-1 flex flex-col gap-1.5">
-          <Skeleton width="55%" height={14} />
-          <Skeleton width="40%" height={11} />
-        </div>
-        <Skeleton width={24} height={24} rounded="full" />
-      </div>
-
-      {/* Folder path */}
-      <Skeleton width="45%" height={11} />
-
-      {/* Tags row */}
-      <div className="flex gap-1.5">
-        <Skeleton width={52} height={20} rounded="full" />
-        <Skeleton width={68} height={20} rounded="full" />
-      </div>
-
-      {/* Stats divider + row */}
-      <div className="pt-2 border-t border-[var(--surface-border)] flex gap-4">
-        <Skeleton width={60} height={11} />
-        <Skeleton width={72} height={11} />
-      </div>
+    <div className="flex items-center gap-5 px-4 py-3 border-b border-[var(--color-gray-dark-800)] last:border-b-0 bg-[var(--table-row-bg)]">
+      <Skeleton width={22} height={22} rounded="sm" className="shrink-0" />
+      <Skeleton width="22%" height={13} />
+      <Skeleton width="10%" height={11} />
+      <Skeleton width="16%" height={11} />
+      <Skeleton width="14%" height={11} />
+      <Skeleton width="8%" height={11} className="ml-auto" />
     </div>
   )
 }
 
-export function LibraryGridSkeleton({ count = 6 }: { count?: number }) {
+export function LibraryTableSkeleton({ rows = 5 }: { rows?: number }) {
   return (
     <div
-      className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
-      data-testid="library-grid-skeleton"
+      className="rounded-xl overflow-hidden border border-[var(--color-gray-dark-800)]"
+      data-testid="library-table-skeleton"
     >
-      {Array.from({ length: count }).map((_, i) => (
-        <LibraryCardSkeleton key={i} />
+      {/* Header */}
+      <div className="flex items-center gap-8 px-4 py-2.5 bg-[var(--table-header-bg)] border-b border-[var(--color-gray-dark-800)]">
+        <Skeleton width={40} height={10} />
+        <Skeleton width={50} height={10} />
+        <Skeleton width={55} height={10} />
+        <Skeleton width={45} height={10} />
+        <Skeleton width={50} height={10} className="ml-auto" />
+      </div>
+      {/* Rows */}
+      {Array.from({ length: rows }).map((_, i) => (
+        <LibraryRowSkeleton key={i} />
       ))}
     </div>
   )
 }
 
-/** @deprecated — use LibraryGridSkeleton */
+/** @deprecated — use LibraryTableSkeleton */
+export function LibraryGridSkeleton({ count = 5 }: { count?: number }) {
+  return <LibraryTableSkeleton rows={count} />
+}
+
+/** @deprecated — use LibraryTableSkeleton */
 export function LibraryListSkeleton({ rows = 5 }: { rows?: number }) {
-  return <LibraryGridSkeleton count={rows} />
+  return <LibraryTableSkeleton rows={rows} />
+}
+
+/** @deprecated — use LibraryTableSkeleton */
+export function LibraryCardSkeleton() {
+  return <LibraryRowSkeleton />
 }

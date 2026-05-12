@@ -85,7 +85,7 @@
 }
 .dash-kpi {
   background: var(--dash-card-bg);
-  border: 1px solid var(--color-gray-dark-800);
+  border: 1px solid var(--color-gray-dark-700);
   border-radius: 10px;
   padding: 16px 18px 14px;
 }
@@ -180,7 +180,7 @@
 /* ── cards ── */
 .dash-card {
   background: var(--dash-card-bg);
-  border: 1px solid var(--color-gray-dark-800);
+  border: 1px solid var(--color-gray-dark-700);
   border-radius: 10px;
   display: flex;
   flex-direction: column;
@@ -233,8 +233,8 @@
 }
 .attn-row:last-child { border-bottom: none; }
 .attn-row:hover { background: var(--dash-row-hover); }
-.attn-row.crit { background: rgba(226, 44, 44, 0.03); }
-.attn-row.crit:hover { background: rgba(226, 44, 44, 0.05); }
+.attn-row.crit { background: rgba(226, 44, 44, 0.05); }
+.attn-row.crit:hover { background: rgba(226, 44, 44, 0.07); }
 .attn-icon {
   width: 28px; height: 28px;
   border-radius: 6px;
@@ -384,7 +384,7 @@
 /* ── pipeline table ── */
 .dash-table {
   background: var(--dash-card-bg);
-  border: 1px solid var(--color-gray-dark-800);
+  border: 1px solid var(--color-gray-dark-700);
   border-radius: 10px;
   overflow: hidden;
   margin: 24px 40px 40px;
