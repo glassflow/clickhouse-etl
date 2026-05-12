@@ -1,10 +1,14 @@
 'use client'
 
+import { useState } from 'react'
 import { Badge } from '@/src/components/ui/badge'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/src/components/ui/card'
 import { Avatar, AvatarImage, AvatarFallback } from '@/src/components/ui/avatar'
 import { Button } from '@/src/components/ui/button'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/src/components/ui/table'
+import { DataTable, type DataTableColumn } from '@/src/components/ui/data-table'
+import { Sparkline } from '@/src/components/ui/sparkline'
+import { EmptyState } from '@/src/components/ui/empty-state'
 import { Section, VariantGrid, Preview, PageHeader, CodeBlock } from '../_components/Section'
 
 const tableData = [
@@ -12,6 +16,31 @@ const tableData = [
   { name: 'clickhouse-etl', topic: 'events.dedup', status: 'paused', events: '890K' },
   { name: 'data-transform', topic: 'events.clean', status: 'failed', events: '0' },
 ]
+
+type DemoPipeline = {
+  id: string
+  name: string
+  topic: string
+  status: 'active' | 'paused' | 'failed'
+  events: number
+  lagMs: number
+  dlq: number
+  trend: number[]
+}
+
+const demoPipelines: DemoPipeline[] = [
+  { id: 'p1', name: 'kafka-prod-ingest', topic: 'events.raw', status: 'active', events: 1_240_000, lagMs: 18, dlq: 0, trend: [40, 52, 48, 65, 70, 68, 74, 80, 78, 85] },
+  { id: 'p2', name: 'clickhouse-etl', topic: 'events.dedup', status: 'paused', events: 890_000, lagMs: 0, dlq: 12, trend: [60, 58, 55, 50, 45, 42, 40, 38, 35, 30] },
+  { id: 'p3', name: 'orders-enrich', topic: 'orders.raw', status: 'active', events: 412_000, lagMs: 240, dlq: 47, trend: [35, 38, 42, 50, 65, 78, 82, 80, 90, 100] },
+  { id: 'p4', name: 'data-transform', topic: 'events.clean', status: 'failed', events: 0, lagMs: 9999, dlq: 320, trend: [80, 70, 60, 50, 40, 30, 20, 10, 5, 0] },
+  { id: 'p5', name: 'session-rollup', topic: 'sessions.raw', status: 'active', events: 2_100_000, lagMs: 24, dlq: 0, trend: [60, 65, 70, 68, 75, 78, 80, 82, 85, 88] },
+]
+
+function formatCount(n: number) {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`
+  return n.toLocaleString()
+}
 
 const statusVariant: Record<string, 'success' | 'warning' | 'error'> = {
   active: 'success',
@@ -284,6 +313,201 @@ export default function DisplayPage() {
   </TableBody>
 </Table>`} />
       </Section>
+
+      <Section
+        title="DataTable"
+        description="High-level list primitive: typed columns, sortable headers, status-tinted rows, density variants, empty + loading slots. Use this for pipeline lists, library lists, and any data-dense flat-row layout."
+      >
+        <DataTableShowcase />
+      </Section>
+    </div>
+  )
+}
+
+// ── DataTable showcase ──────────────────────────────────────────────
+
+function DataTableShowcase() {
+  const [density, setDensity] = useState<'comfortable' | 'compact'>('comfortable')
+  const [mode, setMode] = useState<'default' | 'loading' | 'empty'>('default')
+
+  const columns: DataTableColumn<DemoPipeline>[] = [
+    {
+      key: 'name',
+      header: 'Pipeline',
+      width: '2fr',
+      sortable: true,
+      render: (p) => (
+        <span className="body-3 font-medium text-[var(--color-foreground-neutral)] truncate">{p.name}</span>
+      ),
+    },
+    {
+      key: 'topic',
+      header: 'Source topic',
+      width: '1.5fr',
+      sortable: true,
+      render: (p) => (
+        <span className="caption-1 font-mono text-[var(--color-foreground-neutral-faded)] truncate">{p.topic}</span>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      width: '1fr',
+      sortable: true,
+      render: (p) => (
+        <Badge variant={p.status === 'active' ? 'success' : p.status === 'paused' ? 'warning' : 'error'}>
+          {p.status}
+        </Badge>
+      ),
+    },
+    {
+      key: 'events',
+      header: 'Events',
+      width: '1fr',
+      align: 'right',
+      sortable: true,
+      render: (p) => (
+        <span className="font-mono text-[12px] text-[var(--color-foreground-neutral)]">{formatCount(p.events)}</span>
+      ),
+    },
+    {
+      key: 'trend',
+      header: 'Throughput',
+      width: '1.3fr',
+      align: 'right',
+      render: (p) => (
+        <div className="flex justify-end">
+          <Sparkline
+            data={p.trend}
+            width={96}
+            height={20}
+            stroke={
+              p.status === 'failed'
+                ? 'var(--color-foreground-critical)'
+                : p.status === 'paused'
+                  ? 'var(--color-foreground-warning)'
+                  : 'var(--color-foreground-primary)'
+            }
+          />
+        </div>
+      ),
+    },
+    {
+      key: 'dlq',
+      header: 'DLQ',
+      width: '0.6fr',
+      align: 'right',
+      sortable: true,
+      render: (p) => (
+        <span
+          className={
+            p.dlq === 0
+              ? 'font-mono text-[12px] text-[var(--color-foreground-neutral-faded)]'
+              : p.dlq < 50
+                ? 'font-mono text-[12px] text-[var(--color-foreground-warning)]'
+                : 'font-mono text-[12px] text-[var(--color-foreground-critical)]'
+          }
+        >
+          {p.dlq}
+        </span>
+      ),
+    },
+  ]
+
+  const rowStatus = (p: DemoPipeline) => {
+    if (p.status === 'failed' || p.dlq >= 50) return 'critical' as const
+    if (p.status === 'paused' || p.dlq > 0) return 'warning' as const
+    return undefined
+  }
+
+  const data = mode === 'empty' ? [] : demoPipelines
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Controls */}
+      <div className="flex flex-wrap items-center gap-3 p-3 rounded-lg bg-[var(--surface-bg-sunken)] border border-[var(--surface-border)]">
+        <span className="caption-1 font-mono text-[var(--color-foreground-neutral-faded)] uppercase tracking-widest">
+          Density:
+        </span>
+        <Button
+          variant={density === 'comfortable' ? 'primary' : 'ghostOutline'}
+          size="sm"
+          onClick={() => setDensity('comfortable')}
+        >
+          Comfortable
+        </Button>
+        <Button
+          variant={density === 'compact' ? 'primary' : 'ghostOutline'}
+          size="sm"
+          onClick={() => setDensity('compact')}
+        >
+          Compact
+        </Button>
+        <div className="w-px h-5 bg-[var(--surface-border)] mx-1" />
+        <span className="caption-1 font-mono text-[var(--color-foreground-neutral-faded)] uppercase tracking-widest">
+          State:
+        </span>
+        <Button variant={mode === 'default' ? 'primary' : 'ghostOutline'} size="sm" onClick={() => setMode('default')}>
+          Default
+        </Button>
+        <Button variant={mode === 'loading' ? 'primary' : 'ghostOutline'} size="sm" onClick={() => setMode('loading')}>
+          Loading
+        </Button>
+        <Button variant={mode === 'empty' ? 'primary' : 'ghostOutline'} size="sm" onClick={() => setMode('empty')}>
+          Empty
+        </Button>
+      </div>
+
+      <DataTable<DemoPipeline>
+        ariaLabel="Demo pipelines"
+        data={data}
+        columns={columns}
+        getRowId={(p) => p.id}
+        density={density}
+        isLoading={mode === 'loading'}
+        rowStatus={rowStatus}
+        initialSortColumn="events"
+        initialSortDirection="desc"
+        onRowClick={(p) => console.log('row clicked:', p.id)}
+        empty={
+          <EmptyState
+            heading="No pipelines yet"
+            copy="Create your first pipeline to see it appear here."
+            cta={{ label: 'Create pipeline' }}
+          />
+        }
+      />
+
+      <CodeBlock code={`import { DataTable, type DataTableColumn } from '@/src/components/ui/data-table'
+
+type Pipeline = { id: string; name: string; status: string; events: number }
+
+const columns: DataTableColumn<Pipeline>[] = [
+  { key: 'name', header: 'Pipeline', width: '2fr', sortable: true,
+    render: (p) => <span className="font-medium">{p.name}</span> },
+  { key: 'status', header: 'Status', width: '1fr', sortable: true,
+    render: (p) => <Badge variant={statusToVariant(p.status)}>{p.status}</Badge> },
+  { key: 'events', header: 'Events', width: '1fr', align: 'right', sortable: true,
+    render: (p) => <span className="font-mono">{formatCount(p.events)}</span> },
+]
+
+<DataTable
+  data={pipelines}
+  columns={columns}
+  getRowId={(p) => p.id}
+  density="compact"           // 'comfortable' (default) | 'compact'
+  stickyHeader                // pin header on scroll
+  onRowClick={(p) => router.push(\`/pipelines/\${p.id}\`)}
+  rowStatus={(p) =>
+    p.status === 'failed' ? 'critical' :
+    p.status === 'paused' ? 'warning' : undefined
+  }
+  isLoading={loading}         // renders Skeleton rows
+  initialSortColumn="events"
+  initialSortDirection="desc"
+  empty={<EmptyState heading="No pipelines yet" copy="..." />}
+  ariaLabel="Pipelines"
+/>`} />
     </div>
   )
 }

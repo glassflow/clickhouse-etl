@@ -150,6 +150,110 @@
   .table-header-cell.sortable:hover {
     color: var(--table-fg);
   }
+  .table-header-cell.sortable:focus-visible {
+    outline: 2px solid var(--color-border-primary);
+    outline-offset: -2px;
+    border-radius: 2px;
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+     DataTable primitive — single flat-row variant that replaces
+     the legacy .pipelines-table / .library-table copies. Consumed
+     only by <DataTable> from src/components/ui/data-table.tsx.
+     ───────────────────────────────────────────────────────────────── */
+  .data-table {
+    gap: 0;
+  }
+
+  .data-table .table-header {
+    border-radius: var(--table-radius) var(--table-radius) 0 0;
+    border-bottom: 1px solid var(--surface-border);
+    background-color: var(--table-header-bg);
+  }
+
+  .data-table .table-header-cell {
+    font-family: var(--font-family-mono);
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--color-foreground-neutral-faded);
+  }
+
+  .data-table .table-body {
+    gap: 0;
+    background-color: var(--table-body-bg);
+  }
+
+  .data-table .table-row {
+    background-color: var(--table-row-bg);
+    border-radius: 0;
+    border-bottom: 1px solid var(--surface-border);
+    box-shadow: none;
+    transition: background-color var(--duration-fast) var(--easing-standard);
+  }
+
+  .data-table .table-row:last-child {
+    border-bottom: none;
+    border-radius: 0 0 var(--table-radius) var(--table-radius);
+  }
+
+  .data-table .table-row:hover {
+    background-color: var(--table-row-bg-hover);
+  }
+
+  /* Density variants (CVA) */
+  .data-table.data-table-comfortable .table-header { padding: 10px var(--unit-x4); }
+  .data-table.data-table-comfortable .table-row    { padding: var(--unit-x5) var(--unit-x4); }
+
+  .data-table.data-table-compact .table-header { padding: 8px var(--unit-x4); }
+  .data-table.data-table-compact .table-row    { padding: 12px var(--unit-x4); }
+
+  /* Clickable rows */
+  .data-table .table-row[data-clickable] {
+    cursor: pointer;
+  }
+  .data-table .table-row[data-clickable]:focus-visible {
+    outline: 2px solid var(--color-border-primary);
+    outline-offset: -2px;
+  }
+
+  /* Row status tints — consume the --row-tint-* semantic aliases */
+  .data-table .table-row[data-status='critical'] {
+    background-color: var(--row-tint-critical);
+  }
+  .data-table .table-row[data-status='critical']:hover {
+    background-color: var(--row-tint-critical-hover);
+  }
+  .data-table .table-row[data-status='warning'] {
+    background-color: var(--row-tint-warning);
+  }
+  .data-table .table-row[data-status='warning']:hover {
+    background-color: var(--row-tint-warning-hover);
+  }
+
+  /* Row entrance animations (staggered, first 8 rows) */
+  .data-table .table-body > .table-row {
+    animation: data-table-row-enter 220ms var(--easing-decelerate, cubic-bezier(0, 0, 0.2, 1)) backwards;
+  }
+
+  @keyframes data-table-row-enter {
+    from { opacity: 0; transform: translateY(3px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .data-table .table-body > .table-row:nth-child(1)   { animation-delay:   0ms; }
+  .data-table .table-body > .table-row:nth-child(2)   { animation-delay:  25ms; }
+  .data-table .table-body > .table-row:nth-child(3)   { animation-delay:  50ms; }
+  .data-table .table-body > .table-row:nth-child(4)   { animation-delay:  75ms; }
+  .data-table .table-body > .table-row:nth-child(5)   { animation-delay: 100ms; }
+  .data-table .table-body > .table-row:nth-child(6)   { animation-delay: 120ms; }
+  .data-table .table-body > .table-row:nth-child(7)   { animation-delay: 140ms; }
+  .data-table .table-body > .table-row:nth-child(n+8) { animation-delay: 160ms; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .data-table .table-body > .table-row { animation: none; }
+  }
 
   /* Row entrance animations */
   @keyframes row-enter {
