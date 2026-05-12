@@ -17,6 +17,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/batch/clickhouse"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	sinkerrors "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/sink/errors"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 )
@@ -440,9 +441,20 @@ func (ch *ClickHouseSink) sendBatch(ctx context.Context, messages []jetstream.Ms
 		start := time.Now()
 		err = schemaData.batch.Send(ctx)
 		if err != nil {
+			classification := sinkerrors.Classify(err)
+			if classification == sinkerrors.Retryable {
+				ch.log.WarnContext(ctx, "retryable ClickHouse error, NACKing batch",
+					"schema_version_id", schemaVersionID,
+					"error", err,
+					"batch_size", len(schemaData.messages))
+				ch.nakMessages(ctx, schemaData.messages)
+				continue
+			}
+
 			ch.log.ErrorContext(ctx, "failed to send schema batch, writing to dlq",
 				"schema_version_id", schemaVersionID,
 				"error", err,
+				"classification", classification.String(),
 				"batch_size", len(schemaData.messages))
 
 			flushErr := ch.flushFailedBatch(ctx, schemaData.messages, err)
@@ -483,6 +495,14 @@ func (ch *ClickHouseSink) sendBatch(ctx context.Context, messages []jetstream.Ms
 	)
 
 	return nil
+}
+
+func (ch *ClickHouseSink) nakMessages(ctx context.Context, messages []jetstream.Msg) {
+	for _, msg := range messages {
+		if err := msg.NakWithDelay(internal.NatsConsumerNakDelay); err != nil {
+			ch.log.WarnContext(ctx, "failed to nack message", "error", err)
+		}
+	}
 }
 
 func (ch *ClickHouseSink) ackMessages(messages []jetstream.Msg) error {
