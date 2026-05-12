@@ -190,7 +190,7 @@ export function EmailConfigForm({ initialConfig, onChange, disabled, isEditing }
               onBlur={() => handleBlur('smtp_host')}
               placeholder="smtp.gmail.com"
               disabled={disabled}
-              error={!!showError('smtp_host')}
+              variant={showError('smtp_host') ? 'error' : 'default'}
             />
             {showError('smtp_host') && (
               <p className="text-sm input-description-error animate-slideDown">{errors.smtp_host}</p>
@@ -210,7 +210,7 @@ export function EmailConfigForm({ initialConfig, onChange, disabled, isEditing }
               onBlur={() => handleBlur('smtp_port')}
               placeholder="587"
               disabled={disabled}
-              error={!!showError('smtp_port')}
+              variant={showError('smtp_port') ? 'error' : 'default'}
             />
             {showError('smtp_port') && (
               <p className="text-sm input-description-error animate-slideDown">{errors.smtp_port}</p>
@@ -230,7 +230,7 @@ export function EmailConfigForm({ initialConfig, onChange, disabled, isEditing }
               onBlur={() => handleBlur('smtp_username')}
               placeholder="notifications@example.com"
               disabled={disabled}
-              error={!!showError('smtp_username')}
+              variant={showError('smtp_username') ? 'error' : 'default'}
             />
             {showError('smtp_username') && (
               <p className="text-sm input-description-error animate-slideDown">{errors.smtp_username}</p>
@@ -256,7 +256,7 @@ export function EmailConfigForm({ initialConfig, onChange, disabled, isEditing }
                 onBlur={() => handleBlur('smtp_password')}
                 placeholder={isEditing ? 'Enter new password to change' : 'Enter SMTP password or app-specific password'}
                 disabled={disabled}
-                error={!!showError('smtp_password')}
+                variant={showError('smtp_password') ? 'error' : 'default'}
                 className="pr-10"
               />
               <button
@@ -350,7 +350,7 @@ export function EmailConfigForm({ initialConfig, onChange, disabled, isEditing }
             onBlur={() => handleBlur('to_addresses')}
             placeholder="admin@example.com, alerts@example.com"
             disabled={disabled}
-            error={!!showError('to_addresses')}
+            variant={showError('to_addresses') ? 'error' : 'default'}
           />
           {showError('to_addresses') && (
             <p className="text-sm input-description-error animate-slideDown">{errors.to_addresses}</p>

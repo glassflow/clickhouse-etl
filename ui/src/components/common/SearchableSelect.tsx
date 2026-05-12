@@ -267,7 +267,7 @@ export function SearchableSelect({
               onChange={handleInputChange}
               onClick={() => !disabled && !readOnly && setOpen(true)}
               onFocus={() => !disabled && !readOnly && setOpen(true)}
-              error={!!error}
+              variant={error ? 'error' : 'default'}
               readOnly={readOnly}
               className="w-full min-w-0 pr-14 overflow-hidden text-ellipsis text-content"
               disabled={disabled}

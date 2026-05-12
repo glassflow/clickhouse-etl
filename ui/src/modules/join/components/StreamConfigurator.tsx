@@ -47,7 +47,7 @@ export function StreamConfigurator({
               >
                 <SelectTrigger
                   id={`join-key-${streamIndex}`}
-                  error={!!errors.joinKey}
+                  variant={errors.joinKey ? 'error' : 'default'}
                   className="w-full text-content"
                 >
                   <SelectValue placeholder="Select join key" />

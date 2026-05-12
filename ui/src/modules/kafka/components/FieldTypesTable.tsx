@@ -140,7 +140,7 @@ export function FieldTypesTable({
                       onNewFieldErrorClear()
                     }}
                     placeholder="Enter field name..."
-                    error={!!newFieldError}
+                    variant={newFieldError ? 'error' : 'default'}
                     className="font-mono text-sm"
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && newFieldName.trim()) {

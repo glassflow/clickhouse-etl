@@ -255,7 +255,7 @@ export function FieldColumnMapper({
                         disabled={readOnly}
                       >
                         <SelectTrigger
-                          error={!!hasTypeError}
+                          variant={hasTypeError ? 'error' : 'default'}
                           className="w-full transition-colors text-content"
                         >
                           <SelectValue placeholder="Select type" />

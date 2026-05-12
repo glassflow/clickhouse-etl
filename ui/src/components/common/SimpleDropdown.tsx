@@ -39,7 +39,7 @@ export const SimpleDropdown = ({
           onSelect(value)
         }}
       >
-        <SelectTrigger error={!!error} className="w-full">
+        <SelectTrigger variant={error ? 'error' : 'default'} className="w-full">
           <SelectValue placeholder={isLoading ? 'Loading topics...' : placeholder} />
         </SelectTrigger>
         <SelectContent className="select-content-custom">

@@ -26,7 +26,7 @@ function OutputField({
             onChange={handleOutputNameChange}
             placeholder="Enter field name"
             disabled={readOnly}
-            error={!!errors?.outputFieldName}
+            variant={errors?.outputFieldName ? 'error' : 'default'}
             className="w-full"
           />
           {errors?.outputFieldName && (

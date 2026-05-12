@@ -106,7 +106,7 @@ function NumericValueInput({
       onChange={(e) => handleValueChange(e.target.value)}
       placeholder={placeholder}
       disabled={disabled}
-      error={hasError}
+      variant={hasError ? 'error' : 'default'}
       className={cn('h-10', className)}
     />
   )
@@ -291,7 +291,7 @@ export function QueryRule({
                 onChange={(e) => handleValueChange(e.target.value)}
                 placeholder="e.g., 1, 2, 3"
                 disabled={readOnly}
-                error={!!validation?.value}
+                variant={validation?.value ? 'error' : 'default'}
               className="h-10"
               />
               <div className="h-5 mt-0.5">
@@ -345,7 +345,7 @@ export function QueryRule({
               onChange={(e) => handleValueChange(e.target.value)}
               placeholder={isNumericType(effectiveFieldType) ? 'e.g., 1, 2, 3' : 'e.g., active, pending'}
               disabled={readOnly}
-              error={!!validation?.value}
+              variant={validation?.value ? 'error' : 'default'}
               className="h-10"
             />
             {/* Reserve space for error message to prevent layout shift */}
@@ -409,7 +409,7 @@ export function QueryRule({
             onChange={(e) => handleValueChange(e.target.value)}
             placeholder="Enter a value"
             disabled={readOnly}
-            error={!!validation?.value}
+            variant={validation?.value ? 'error' : 'default'}
               className="h-10"
           />
           {/* Reserve space for error message to prevent layout shift */}

@@ -26,7 +26,7 @@ export function FormItemInput({
           type={type}
           placeholder={placeholder}
           {...field}
-          error={hasError}
+          variant={hasError ? 'error' : 'default'}
         />
       </FormControl>
       {description && <FormDescription className="input-description-error">{description}</FormDescription>}

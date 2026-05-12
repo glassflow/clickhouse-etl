@@ -73,6 +73,38 @@ export default function FeedbackPage() {
 </Alert>`} />
       </Section>
 
+      <Section
+        title="Toaster setup"
+        description="Mount <Toaster /> once at the app root so toast() calls have somewhere to render"
+      >
+        <Preview>
+          <div className="grid gap-2">
+            <p className="text-sm text-[var(--text-secondary)]">
+              The <code className="font-mono text-[var(--color-foreground-primary)]">&lt;Toaster /&gt;</code> provider
+              from <code className="font-mono">@/src/components/ui/sonner</code> is mounted once in
+              <code className="font-mono"> src/app/layout.tsx</code>. It reads the active theme via{' '}
+              <code className="font-mono">next-themes</code> and wires icons + tokenised surfaces. Do not mount a second
+              Toaster — toasts triggered anywhere in the tree resolve to this single instance.
+            </p>
+          </div>
+        </Preview>
+        <CodeBlock code={`// src/app/layout.tsx
+import { Toaster } from '@/src/components/ui/sonner'
+
+export default function RootLayout({ children }) {
+  return (
+    <html lang="en">
+      <body>
+        <ThemeProvider defaultTheme="dark">
+          {children}
+          <Toaster />
+        </ThemeProvider>
+      </body>
+    </html>
+  )
+}`} />
+      </Section>
+
       <Section title="Toast (Sonner)" description="Triggered imperatively — use toast() from 'sonner'">
         <div className="flex flex-wrap gap-3 p-4 rounded-lg bg-[var(--surface-bg-sunken)] border border-[var(--surface-border)]">
           <Button variant="secondary" onClick={() => toast('Pipeline saved successfully')}>

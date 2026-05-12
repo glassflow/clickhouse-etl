@@ -413,6 +413,12 @@
   --table-fg: var(--color-foreground-neutral);
   --table-fg-muted: var(--color-foreground-neutral-faded);
 
+  /* Row status tints — applied to DataTable rows by severity */
+  --row-tint-critical: var(--color-red-alpha-5);
+  --row-tint-critical-hover: var(--color-red-alpha-7);
+  --row-tint-warning: var(--color-orange-alpha-5);
+  --row-tint-warning-hover: var(--color-orange-alpha-10);
+
   /* ================== Toggle Color Tokens ================== */
   --toggle-track-checked-bg: var(--color-orange-300);
   --toggle-track-unchecked-bg: var(--color-gray-500);
@@ -478,10 +484,6 @@
 
   /* Live indicator pulse */
   --obs-live-dot: var(--color-orange-300);
-
-  /* Translucent brand-orange overlays for selection / scope-badge backgrounds */
-  --color-orange-alpha-10: rgba(232, 145, 89, 0.10);
-  --color-orange-alpha-20: rgba(232, 145, 89, 0.20);
 }
 
 /* Surface gradient border utility class */

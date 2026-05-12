@@ -542,7 +542,7 @@ export function TransformationFieldRow({
             onChange={handleOutputNameChange}
             placeholder="Field name"
             disabled={readOnly || isExpanded}
-            error={!!errors?.outputFieldName}
+            variant={errors?.outputFieldName ? 'error' : 'default'}
             className="h-8 text-sm w-full truncate"
           />
         </div>
@@ -644,7 +644,7 @@ export function TransformationFieldRow({
                 onChange={handleLocalOutputNameChange}
                 placeholder="Enter output field name"
                 disabled={readOnly}
-                error={!!errors?.outputFieldName}
+                variant={errors?.outputFieldName ? 'error' : 'default'}
                 className="w-full"
               />
               {errors?.outputFieldName && (

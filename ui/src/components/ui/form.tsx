@@ -199,7 +199,7 @@ const FormControlInput = <T extends FieldValues>({
           placeholder={placeholder}
           {...register(name as any, { required })}
           readOnly={readOnly}
-          error={!!error}
+          variant={error ? 'error' : 'default'}
           className={cn('w-full transition-all duration-200 ease-in-out text-content', className)}
           defaultValue={defaultValue}
         />
@@ -243,7 +243,7 @@ function FormControlTextarea({
           {...register(name, { required: required })}
           placeholder={placeholder}
           readOnly={readOnly}
-          error={!!error}
+          variant={error ? 'error' : 'default'}
           {...props}
           className="w-full transition-all duration-200 ease-in-out text-content"
         />
@@ -311,7 +311,7 @@ function FormControlSelect({
                 disabled={readOnly}
               >
                 <SelectTrigger
-                  error={!!error}
+                  variant={error ? 'error' : 'default'}
                   disabled={readOnly}
                   className="w-full transition-all duration-200 ease-in-out text-content"
                   onBlur={() => {

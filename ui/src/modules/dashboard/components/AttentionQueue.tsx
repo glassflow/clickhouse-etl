@@ -56,7 +56,7 @@ export function AttentionQueue({ incidents, isIncidentState }: Props) {
               'grid gap-[14px] items-start px-[18px] py-[14px] border-b border-[var(--color-gray-dark-800)] last:border-b-0 cursor-pointer transition-colors duration-[120ms]',
               'grid-cols-[28px_1fr_auto]',
               incident.severity === 'crit'
-                ? 'bg-[rgba(226,44,44,0.05)] hover:bg-[rgba(226,44,44,0.07)]'
+                ? 'bg-[var(--row-tint-critical)] hover:bg-[var(--row-tint-critical-hover)]'
                 : 'hover:bg-[var(--dash-row-hover)]',
             )}
           >

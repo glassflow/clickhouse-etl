@@ -63,7 +63,7 @@ export function TruststoreForm({ errors, readOnly, authMethodPrefix }: Truststor
                   id={`${fieldWithPrefix.name}-textarea`}
                   {...register(fieldWithPrefix.name, { required: false })}
                   placeholder={field.placeholder}
-                  error={!!certificateError}
+                  variant={certificateError ? 'error' : 'default'}
                   readOnly={readOnly}
                   className="w-full min-h-[150px] text-sm font-mono"
                 />

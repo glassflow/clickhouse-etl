@@ -116,6 +116,7 @@
   --color-orange-500: #ff8b1f;
   --color-orange-600: #e28024; /* was also --color-orange-700 (same value) */
   /* Alpha variants for interactive states */
+  --color-orange-alpha-5: rgba(255, 162, 75, 0.05); /* row-tint warning (bg) */
   --color-orange-alpha-10: rgba(255, 162, 75, 0.1);
   --color-orange-alpha-15: rgba(255, 162, 75, 0.15);
   --color-orange-alpha-20: rgba(255, 162, 75, 0.2);
@@ -139,6 +140,8 @@
   --color-red-800: #391b18; /* Keep existing - missing from Figma */
   --color-red-900: #532a26; /* Keep existing - missing from Figma */
   --color-red-950: #2a1614; /* Keep existing - missing from Figma */
+  --color-red-alpha-5: rgba(226, 44, 44, 0.05);  /* row-tint critical (bg) */
+  --color-red-alpha-7: rgba(226, 44, 44, 0.07);  /* row-tint critical (hover) */
   --color-red-alpha-40: rgba(226, 44, 44, 0.4);  /* red-500 — crit border glow */
 
   /* Green/Positive Colors */

@@ -112,7 +112,7 @@ export function FormModal({
               value={inputValue}
               onChange={handleInputChange}
               placeholder={inputPlaceholder}
-              error={!!error}
+              variant={error ? 'error' : 'default'}
               disabled={isLoading}
             />
             {error && <p className="text-sm input-description-error">{error}</p>}

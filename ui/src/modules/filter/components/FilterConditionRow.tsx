@@ -89,7 +89,7 @@ function NumericValueInput({
       onChange={(e) => handleValueChange(e.target.value)}
       placeholder={placeholder}
       disabled={disabled}
-      error={hasError}
+      variant={hasError ? 'error' : 'default'}
       className={cn('h-10', className)}
     />
   )
@@ -243,7 +243,7 @@ export function FilterConditionRow({
             onChange={(e) => handleValueChange(e.target.value)}
             placeholder="Enter a value"
             disabled={readOnly}
-            error={!!validation?.value}
+            variant={validation?.value ? 'error' : 'default'}
             className="h-10"
           />
           {/* Reserve space for error message to prevent layout shift */}

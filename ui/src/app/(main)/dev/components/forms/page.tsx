@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useForm } from 'react-hook-form'
 import { Input } from '@/src/components/ui/input'
 import { Textarea } from '@/src/components/ui/textarea'
 import { Label } from '@/src/components/ui/label'
@@ -8,6 +9,15 @@ import { Checkbox } from '@/src/components/ui/checkbox'
 import { Switch } from '@/src/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select'
 import { Button } from '@/src/components/ui/button'
+import {
+  Form,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormControl,
+  FormDescription,
+  FormMessage,
+} from '@/src/components/ui/form'
 import { SearchableSelect } from '@/src/components/common/SearchableSelect'
 import { DualSearchableSelect } from '@/src/components/common/DualSearchableSelect'
 import {
@@ -16,6 +26,71 @@ import {
 } from '@/src/components/ui/input-group'
 import { SearchIcon, XIcon } from 'lucide-react'
 import { Section, VariantGrid, Preview, PageHeader, CodeBlock } from '../_components/Section'
+
+type DemoFormValues = { topicName: string; description: string }
+
+function FormCompositionDemo() {
+  const form = useForm<DemoFormValues>({
+    defaultValues: { topicName: '', description: '' },
+    mode: 'onTouched',
+  })
+  const [submitted, setSubmitted] = useState<DemoFormValues | null>(null)
+
+  return (
+    <Form {...form}>
+      <form
+        onSubmit={form.handleSubmit((values) => setSubmitted(values))}
+        className="grid gap-4 p-4 rounded-lg bg-[var(--surface-bg-sunken)] border border-[var(--surface-border)]"
+      >
+        <FormField
+          control={form.control}
+          name="topicName"
+          rules={{
+            required: 'Topic name is required',
+            pattern: { value: /^[a-z0-9._-]+$/i, message: 'Use letters, numbers, ._- only' },
+          }}
+          render={({ field, fieldState }) => (
+            <FormItem>
+              <FormLabel>Topic name</FormLabel>
+              <FormControl>
+                <Input
+                  {...field}
+                  placeholder="events.raw"
+                  variant={fieldState.error ? 'error' : 'default'}
+                />
+              </FormControl>
+              <FormDescription>Kafka topic the pipeline will subscribe to.</FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="description"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Description</FormLabel>
+              <FormControl>
+                <Textarea {...field} placeholder="What does this pipeline do?" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <div className="flex items-center gap-3">
+          <Button type="submit" variant="primary" size="sm">
+            Submit
+          </Button>
+          {submitted && (
+            <span className="text-xs font-mono text-[var(--color-foreground-positive)]">
+              ✓ submitted: {JSON.stringify(submitted)}
+            </span>
+          )}
+        </div>
+      </form>
+    </Form>
+  )
+}
 
 const KAFKA_FIELDS = ['user_id', 'event_type', 'timestamp', 'session_id', 'device_id', 'ip_address', 'payload', 'correlation_id', 'tenant_id']
 const CH_FIELDS = ['id', 'created_at', 'event_name', 'user_uuid', 'metadata', 'geo_country', 'platform', 'version']
@@ -33,10 +108,10 @@ export default function FormsPage() {
     <div>
       <PageHeader
         title="Forms"
-        description="Form control primitives. Pass error={true} to show error state — never apply internal CSS classes directly."
+        description='Form control primitives. Pass variant="error" to show error state — never apply internal CSS classes directly.'
       />
 
-      <Section title="Input" description="Use error prop for validation; className for layout only">
+      <Section title="Input" description='Pass variant="error" for validation state; className for layout only'>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
@@ -55,7 +130,7 @@ export default function FormsPage() {
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="error-input" className="text-[var(--text-error)]">Error</Label>
-              <Input id="error-input" placeholder="Invalid value" error />
+              <Input id="error-input" placeholder="Invalid value" variant="error" />
               <p className="text-xs text-[var(--text-error)]">This field is required</p>
             </div>
             <div className="flex flex-col gap-1.5">
@@ -70,7 +145,7 @@ export default function FormsPage() {
         </div>
         <CodeBlock code={`<div className="flex flex-col gap-1.5">
   <Label htmlFor="host">Bootstrap Servers</Label>
-  <Input id="host" placeholder="host:9092" error={!!errors.host} />
+  <Input id="host" placeholder="host:9092" variant={errors.host ? 'error' : 'default'} />
   {errors.host && (
     <p className="text-xs text-[var(--text-error)]">{errors.host.message}</p>
   )}
@@ -85,13 +160,13 @@ export default function FormsPage() {
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="error-ta" className="text-[var(--text-error)]">Error</Label>
-            <Textarea id="error-ta" placeholder="Required field" error />
+            <Textarea id="error-ta" placeholder="Required field" variant="error" />
           </div>
         </div>
       </Section>
 
-      <Section title="Select">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <Section title="Select" description='Variant API mirrors Input: pass variant="error" for validation state; size for compact triggers'>
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
           <div className="flex flex-col gap-1.5">
             <Label>Default</Label>
             <Select value={selected} onValueChange={setSelected}>
@@ -119,6 +194,19 @@ export default function FormsPage() {
             </Select>
           </div>
           <div className="flex flex-col gap-1.5">
+            <Label className="text-[var(--text-error)]">Error</Label>
+            <Select>
+              <SelectTrigger variant="error">
+                <SelectValue placeholder="Pick a value..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="a">Option A</SelectItem>
+                <SelectItem value="b">Option B</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-[var(--text-error)]">This field is required</p>
+          </div>
+          <div className="flex flex-col gap-1.5">
             <Label>Disabled</Label>
             <Select disabled>
               <SelectTrigger>
@@ -131,7 +219,7 @@ export default function FormsPage() {
           </div>
         </div>
         <CodeBlock code={`<Select value={value} onValueChange={setValue}>
-  <SelectTrigger>
+  <SelectTrigger variant={errors.topic ? 'error' : 'default'}>
     <SelectValue placeholder="Select topic..." />
   </SelectTrigger>
   <SelectContent>
@@ -346,7 +434,7 @@ export default function FormsPage() {
           </div>
           <div className="flex flex-col gap-1.5">
             <Label className="text-[var(--text-error)]">Error label</Label>
-            <Input error placeholder="Error input" className="w-48" />
+            <Input variant="error" placeholder="Error input" className="w-48" />
           </div>
         </div>
       </Section>
@@ -413,6 +501,52 @@ export default function FormsPage() {
 </InputGroup>
 
 // align: 'inline-start' | 'inline-end' | 'block-start' | 'block-end'`} />
+      </Section>
+
+      <Section
+        title="Form composition (react-hook-form)"
+        description="Canonical pattern: <Form> wires the RHF context, <FormField> renders a Controller, and <FormItem>/<FormLabel>/<FormControl>/<FormMessage> share a generated id + error state automatically."
+      >
+        <FormCompositionDemo />
+        <CodeBlock code={`import { useForm } from 'react-hook-form'
+import {
+  Form, FormField, FormItem, FormLabel,
+  FormControl, FormDescription, FormMessage,
+} from '@/src/components/ui/form'
+import { Input } from '@/src/components/ui/input'
+
+type Values = { topicName: string }
+
+function TopicForm() {
+  const form = useForm<Values>({ defaultValues: { topicName: '' } })
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit((v) => console.log(v))}>
+        <FormField
+          control={form.control}
+          name="topicName"
+          rules={{ required: 'Topic name is required' }}
+          render={({ field, fieldState }) => (
+            <FormItem>
+              <FormLabel>Topic name</FormLabel>
+              <FormControl>
+                <Input
+                  {...field}
+                  placeholder="events.raw"
+                  variant={fieldState.error ? 'error' : 'default'}
+                />
+              </FormControl>
+              <FormDescription>Kafka topic the pipeline will subscribe to.</FormDescription>
+              {/* FormMessage reads error.message from RHF — no manual wiring */}
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      </form>
+    </Form>
+  )
+}`} />
       </Section>
 
       <Section title="Control Tokens" description="Use these tokens for custom form elements not served by primitives">

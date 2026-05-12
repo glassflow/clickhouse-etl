@@ -113,7 +113,7 @@ export function TimeWindowConfigurator({
               value={window}
               onChange={(e) => handleWindowChange(e.target.value)}
               min="1"
-              error={!!error}
+              variant={error ? 'error' : 'default'}
               className="w-full text-content"
               disabled={readOnly}
             />

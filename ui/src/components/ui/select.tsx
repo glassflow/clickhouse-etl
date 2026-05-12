@@ -3,6 +3,7 @@
 import * as React from 'react'
 import * as SelectPrimitive from '@radix-ui/react-select'
 import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from 'lucide-react'
+import { cva, type VariantProps } from 'class-variance-authority'
 
 import { cn } from '@/src/utils/common.client'
 import { DROPDOWN_COLLISION_PADDING } from './constants'
@@ -19,30 +20,42 @@ function SelectValue({ ...props }: React.ComponentProps<typeof SelectPrimitive.V
   return <SelectPrimitive.Value data-slot="select-value" {...props} />
 }
 
-function SelectTrigger({
-  className,
-  size = 'default',
-  children,
-  error,
-  ...props
-}: React.ComponentProps<typeof SelectPrimitive.Trigger> & {
-  size?: 'sm' | 'default'
-  error?: boolean
-}) {
+const selectTriggerVariants = cva(
+  cn(
+    'flex w-fit items-center justify-between gap-2 whitespace-nowrap',
+    '*:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-2',
+    '[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*="size-"])]:size-4',
+    '[&_svg:not([class*="text-"])]:opacity-50',
+    'disabled:cursor-not-allowed',
+  ),
+  {
+    variants: {
+      variant: {
+        default: '',
+        error: '',
+      },
+      size: {
+        sm: 'h-8',
+        default: 'h-9',
+      },
+    },
+    defaultVariants: {
+      variant: 'default',
+      size: 'default',
+    },
+  },
+)
+
+type SelectTriggerProps = Omit<React.ComponentProps<typeof SelectPrimitive.Trigger>, 'size'> &
+  VariantProps<typeof selectTriggerVariants>
+
+function SelectTrigger({ className, size, variant, children, ...props }: SelectTriggerProps) {
   return (
     <SelectPrimitive.Trigger
       data-slot="select-trigger"
-      data-size={size}
-      aria-invalid={error}
-      className={cn(
-        'flex w-fit items-center justify-between gap-2 whitespace-nowrap',
-        'data-[size=default]:h-9 data-[size=sm]:h-8',
-        '*:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-2',
-        '[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*="size-"])]:size-4',
-        '[&_svg:not([class*="text-"])]:opacity-50',
-        'disabled:cursor-not-allowed',
-        className,
-      )}
+      data-size={size ?? 'default'}
+      aria-invalid={variant === 'error' || undefined}
+      className={cn(selectTriggerVariants({ size, variant }), className)}
       {...props}
     >
       {children}
@@ -174,4 +187,6 @@ export {
   SelectSeparator,
   SelectTrigger,
   SelectValue,
+  selectTriggerVariants,
 }
+export type { SelectTriggerProps }

@@ -115,7 +115,7 @@ export function InputModal({
                 setError(null)
               }}
               placeholder={inputPlaceholder}
-              error={!!error}
+              variant={error ? 'error' : 'default'}
             />
             {error && <p className="text-sm input-description-error">{error}</p>}
           </div>

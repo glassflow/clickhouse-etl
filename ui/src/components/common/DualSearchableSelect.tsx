@@ -229,7 +229,7 @@ export function DualSearchableSelect({
           type="text"
           placeholder={placeholder}
           value={search}
-          error={!!error}
+          variant={error ? 'error' : 'default'}
           onChange={(e) => {
             const value = e.target.value
             setSearch(value)

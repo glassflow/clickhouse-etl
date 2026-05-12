@@ -39,7 +39,7 @@ export function OffsetSelect({
         onOpenChange={onOpenChange}
       >
         <SelectTrigger
-          error={!!error}
+          variant={error ? 'error' : 'default'}
           className="w-full transition-all duration-200 ease-in-out text-content"
           onBlur={() => {
             if (!document.querySelector('[data-state="open"]')) {

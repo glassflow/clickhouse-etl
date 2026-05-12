@@ -89,7 +89,7 @@ export function SlackConfigForm({ initialConfig, onChange, disabled }: SlackConf
             onBlur={() => handleBlur('webhookUrl')}
             placeholder="https://hooks.slack.com/services/..."
             disabled={disabled}
-            error={!!(touched.webhookUrl && errors.webhookUrl)}
+            variant={touched.webhookUrl && errors.webhookUrl ? 'error' : 'default'}
             className="pr-10"
           />
           <button

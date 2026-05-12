@@ -22,6 +22,14 @@ This folder is the **deep reference** for the ClickHouse ETL UI. For development
 | ---------------------------------------------------------- | ----------------------------------------------------------------------------- |
 | [design/DESIGN_PRINCIPLES.md](design/DESIGN_PRINCIPLES.md) | Product and UX design principles, design process, brand and visual direction. |
 
+## Audits & Plans
+
+| Doc                                                                                  | Description                                                                                                            |
+| ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| [DESIGN_SYSTEM_AUDIT_2026-05-12.md](DESIGN_SYSTEM_AUDIT_2026-05-12.md)               | Frozen audit of tokens, primitives, showcase, and the three consolidated feature surfaces (dashboard, pipelines, library). |
+| [DESIGN_SYSTEM_CONSOLIDATION_PLAN.md](DESIGN_SYSTEM_CONSOLIDATION_PLAN.md)           | Living plan derived from the 2026-05-12 audit: 7 phases (tokens → primitives → DataTable → PageShell → lint → migrate → polish). |
+| [GALLERY_AUDIT_2026-05-08.md](GALLERY_AUDIT_2026-05-08.md)                           | Earlier gallery-only audit; superseded for feature-page scope by the 2026-05-12 audit but still authoritative for gallery findings. |
+
 ## Implementations
 
 | Doc                                                                                                      | Description                                                           |
