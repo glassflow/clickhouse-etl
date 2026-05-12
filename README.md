@@ -72,15 +72,9 @@ For detailed documentation, visit [docs.glassflow.dev](https://docs.glassflow.de
 
 - [Installation Guide](https://docs.glassflow.dev/installation)
 - [Usage Guide](https://docs.glassflow.dev/usage-guide)
-- [Pipeline JSON Reference](https://docs.glassflow.dev/configuration/pipeline-json-reference)
+- [Pipeline JSON Reference](https://docs.glassflow.dev/configuration/pipeline-config-reference)
 - [Live Preview](https://docs.glassflow.dev/getting-started/live-preview)
 - [Architecture](https://docs.glassflow.dev/architecture)
-
-## 🗺️ Roadmap
-
-Check out our [public roadmap](https://glassflow.dev/roadmap) to see what's coming next in GlassFlow. We're actively working on new features and improvements based on community feedback.
-
-**Want to suggest a feature?** We'd love to hear from you! Please use our [GitHub Discussions](https://github.com/orgs/glassflow/discussions/categories/ideas) to share your ideas and help shape the future of GlassFlow.
 
 ## 🆘 Support
 
