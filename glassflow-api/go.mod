@@ -52,7 +52,7 @@ require (
 require (
 	dario.cat/mergo v1.0.2 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161 // indirect
-	github.com/ClickHouse/ch-go v0.65.1 // indirect
+	github.com/ClickHouse/ch-go v0.65.1
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/andybalholm/brotli v1.1.1 // indirect
 	github.com/antithesishq/antithesis-sdk-go v0.6.0-default-no-op // indirect
@@ -177,3 +177,10 @@ replace (
 	google.golang.org/genproto/googleapis/api => google.golang.org/genproto/googleapis/api v0.0.0-20230803162519-f966b187b2e5
 	google.golang.org/genproto/googleapis/rpc => google.golang.org/genproto/googleapis/rpc v0.0.0-20230803162519-f966b187b2e5
 )
+
+// TEMPORARY (ETL-1064): point at the local operator checkout so this branch
+// can consume the new spec.Resolved type from glassflow-etl-k8s-operator's
+// ETL-1063 branch before it merges to main. MUST be removed and the require
+// line bumped to a pseudo-version including ETL-1063's commit before this PR
+// can be merged.
+replace github.com/glassflow/glassflow-etl-k8s-operator => ../../glassflow-etl-k8s-operator

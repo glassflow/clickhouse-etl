@@ -21,6 +21,7 @@ import (
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/pipelinegraph"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/status"
 )
@@ -557,6 +558,16 @@ func (k *K8sOrchestrator) buildPipelineSpec(ctx context.Context, cfg *models.Pip
 		Resources: operatorResources,
 		// Config field is intentionally omitted - stored in secret instead
 	}
+
+	// ETL-1064: populate spec.Resolved with the API-computed allocation
+	// (stream names, subjects, per-node bindings). The operator reads this
+	// directly instead of running its own pipelinegraph resolver. See ETL-1063
+	// for the CRD shape and ETL-1065 for the operator-side consumer.
+	resolved, err := pipelinegraph.Resolve(spec)
+	if err != nil {
+		return nil, fmt.Errorf("resolve pipeline graph: %w", err)
+	}
+	spec.Resolved = &resolved
 
 	// Convert spec to map[string]interface{}
 	var specMap map[string]any
