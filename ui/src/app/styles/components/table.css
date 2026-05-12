@@ -108,7 +108,7 @@
   }
 
   .pipelines-table .table-header {
-    padding: 8px var(--unit-x4);
+    padding: 10px var(--unit-x4);
     border-radius: var(--table-radius) var(--table-radius) 0 0;
     border-bottom: 1px solid var(--color-gray-dark-800);
   }
@@ -118,11 +118,11 @@
   }
 
   .pipelines-table .table-row {
-    padding: 12px var(--unit-x4);
-    background-color: transparent;
+    padding: var(--unit-x5) var(--unit-x4);
+    background-color: var(--table-row-bg);
     border-radius: 0;
     border-bottom: 1px solid var(--color-gray-dark-800);
-    box-shadow: none; /* Override any inherited ring/shadow */
+    box-shadow: none;
   }
 
   .pipelines-table .table-row:last-child {
@@ -153,7 +153,7 @@
   }
 
   .table-body > .table-row {
-    animation: row-enter 220ms var(--easing-decelerate, cubic-bezier(0, 0, 0.2, 1)) both;
+    animation: row-enter 220ms var(--easing-decelerate, cubic-bezier(0, 0, 0.2, 1)) backwards;
   }
 
   .table-body > .table-row:nth-child(1)  { animation-delay: 0ms; }

@@ -326,17 +326,8 @@ export function PipelinesList({
   }, [bulk.selectedIds, bulk.selectedCount, pipelines, onUpdatePipelineTags])
 
   const getRowClassName = useCallback(
-    (pipeline: ListPipelineConfig): string => {
-      const effectiveStatus = getEffectiveStatus(pipeline) as string
-      if (effectiveStatus === 'failed') {
-        return 'bg-[color-mix(in_srgb,var(--color-foreground-critical)_5%,transparent)]'
-      }
-      if (pipeline.health_status === 'unstable' && effectiveStatus !== 'failed') {
-        return 'bg-[color-mix(in_srgb,var(--color-foreground-warning)_4%,transparent)]'
-      }
-      return ''
-    },
-    [getEffectiveStatus],
+    (_pipeline: ListPipelineConfig): string => '',
+    [],
   )
 
   const columns = useMemo(

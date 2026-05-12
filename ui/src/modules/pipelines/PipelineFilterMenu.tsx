@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useRef, useEffect } from 'react'
+import { useRef, useEffect } from 'react'
 import { cn } from '@/src/utils/common.client'
 import { PipelineStatus } from '@/src/types/pipeline'
 import type { FilterState } from './utils/filterUrl'
@@ -82,11 +82,10 @@ export function PipelineFilterMenu({
   return (
     <div
       ref={menuRef}
-      className="absolute z-50 w-64 rounded-lg shadow-lg"
+      className="absolute z-50 w-64 rounded-lg shadow-lg surface-gradient-border border-0 bg-[var(--color-background-elevation-raised-faded-2)] animate-slideDown"
       style={{
         top: anchorEl ? `${anchorEl.getBoundingClientRect().bottom + 4}px` : undefined,
         left: anchorEl ? `${anchorEl.getBoundingClientRect().left}px` : undefined,
-        backgroundColor: 'var(--color-background-elevation-raised-faded-2)',
       }}
     >
       <div className="p-4 space-y-4">
