@@ -1,14 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { SquareIcon, BarChartIcon, MoreHorizontalIcon } from 'lucide-react'
 import { cn } from '@/src/utils/common.client'
 import type { DashPipeline, DashPipelineStatus } from '../types'
 
 // ─── Column layout ─────────────────────────────────────────────────────────────
 
-const COLS = '2fr 2.5fr 1.2fr 1fr 1fr 0.8fr 1.5fr 44px'
-const HEADERS = ['Pipeline', 'Source → destination', 'Status', 'Throughput', 'Lag · p95', 'DLQ', 'Last deploy', '']
+const COLS = '2fr 2.5fr 1.2fr 1fr 1fr 0.8fr 1.5fr'
+const HEADERS = ['Pipeline', 'Source → destination', 'Status', 'Throughput', 'Lag · p95', 'DLQ', 'Last deploy']
 
 // ─── Status chip ───────────────────────────────────────────────────────────────
 
@@ -64,7 +63,7 @@ function PipelineRow({ p }: { p: DashPipeline }) {
     <div className="table-row group" style={{ gridTemplateColumns: COLS }}>
       {/* Pipeline name */}
       <div className="table-cell flex items-center gap-2 min-w-0">
-        <div className="title-6 font-semibold text-[var(--color-foreground-neutral)] flex items-center gap-2 truncate">
+        <div className="text-[13px] font-semibold font-[family-name:var(--font-family-title)] text-[var(--color-foreground-neutral)] flex items-center gap-2 truncate">
           <span className="truncate">{p.name}</span>
           <span className="font-mono text-[10px] font-normal text-[var(--color-gray-dark-500)] bg-[var(--dash-element-bg)] px-1.5 py-px rounded-[3px] shrink-0">
             {p.version}
@@ -103,24 +102,6 @@ function PipelineRow({ p }: { p: DashPipeline }) {
       <div className="table-cell">
         <span className="font-mono text-[11.5px] text-[var(--color-foreground-neutral)]">{p.lastDeploy}</span>
         <span className="font-mono text-[11px] text-[var(--color-gray-dark-500)]"> · {p.deployedBy}</span>
-      </div>
-
-      {/* Actions */}
-      <div className="table-cell flex items-center justify-end gap-1">
-        {[
-          { icon: <SquareIcon size={13} />, title: 'Open canvas' },
-          { icon: <BarChartIcon size={13} />, title: 'Metrics' },
-          { icon: <MoreHorizontalIcon size={13} />, title: 'More' },
-        ].map(({ icon, title }) => (
-          <button
-            key={title}
-            title={title}
-            type="button"
-            className="w-[26px] h-[26px] rounded-[5px] bg-transparent border border-transparent text-[var(--color-gray-dark-100)] cursor-pointer grid place-items-center opacity-0 group-hover:opacity-100 transition-all duration-[120ms] hover:bg-[var(--color-orange-alpha-10)] hover:border-[var(--color-gray-dark-700)] hover:text-[var(--color-orange-300)] focus-ring"
-          >
-            {icon}
-          </button>
-        ))}
       </div>
     </div>
   )
