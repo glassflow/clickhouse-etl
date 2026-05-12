@@ -339,10 +339,11 @@ func StartPostgresContainer(ctx context.Context) (*PostgresContainer, error) {
 			"POSTGRES_USER":     "testuser",
 			"POSTGRES_PASSWORD": "testpass",
 		},
-		WaitingFor: wait.ForAll(
-			wait.ForListeningPort(PostgresPort).WithStartupTimeout(30*time.Second),
-			wait.ForLog("database system is ready to accept connections").WithStartupTimeout(30*time.Second),
-		),
+		// ForSQL polls SELECT 1 until postgres accepts queries, avoiding the race
+		// where ForListeningPort+ForLog fires before postgres is fully initialized.
+		WaitingFor: wait.ForSQL(PostgresPort, "postgres", func(host string, port nat.Port) string {
+			return fmt.Sprintf("postgres://testuser:testpass@%s:%s/glassflow_test?sslmode=disable", host, port.Port())
+		}).WithStartupTimeout(30 * time.Second),
 	}
 
 	container, err := testcontainers.GenericContainer(ctx,
