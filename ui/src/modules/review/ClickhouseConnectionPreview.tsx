@@ -4,20 +4,20 @@ import { CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline'
 const renderConnectionStatus = (status: string | undefined) => {
   if (status === 'success') {
     return (
-      <span className="flex items-center text-green-500">
+      <span className="flex items-center text-[var(--color-foreground-positive)]">
         <CheckCircleIcon className="h-5 w-5 mr-1" />
         Connected
       </span>
     )
   } else if (status === 'error') {
     return (
-      <span className="flex items-center text-red-500">
+      <span className="flex items-center text-[var(--color-foreground-critical)]">
         <XCircleIcon className="h-5 w-5 mr-1" />
         Error
       </span>
     )
   }
-  return <span className="text-gray-400">Not tested</span>
+  return <span className="text-[var(--text-secondary)]">Not tested</span>
 }
 
 export function ClickhouseConnectionPreview({ clickhouseConnection }: { clickhouseConnection: any }) {

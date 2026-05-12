@@ -27,13 +27,15 @@ For a one-person frontend team, microfrontends are architectural cosplay. They w
 
 # 2\. Options compared
 
-| **Option**                                          | **Description**                                                                                                      | **Legal/source clarity** | **Engineering complexity** | **UX quality** | **Recommendation**                                                          |
-| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------ | -------------------------- | -------------- | --------------------------------------------------------------------------- |
-| A. One codebase + runtime gates only                | All UI code ships together; backend returns feature map/license capabilities; UI hides/locks enterprise surfaces.    | Weak to medium           | Low                        | Medium         | Useful as a gating layer, not enough as the full split.                     |
-| B. Single repo/monorepo with differential licensing | OSS core plus enterprise directories/packages with clear license boundaries; OSS and EE builds composed differently. | Medium to strong         | Medium                     | High           | Best default if proprietary code can live in same repo or private monorepo. |
-| C. Public OSS repo + private EE overlay repo        | EE app imports OSS UI as package/module and registers enterprise modules from a private repo.                        | Strong                   | Medium-high                | High           | Best if the OSS repo must remain clean and public.                          |
-| D. Microfrontends/plugin apps                       | Core shell loads separate enterprise apps/modules at runtime or deploy time.                                         | Strong                   | High                       | Medium-risk    | Future architecture, not MVP.                                               |
-| E. Fully separate OSS and EE apps                   | Two independently maintained UI apps with shared components copied or packaged.                                      | Strong                   | Very high                  | Low-medium     | Avoid. Drift and duplicated work will hurt fast.                            |
+```markdown
+| Option                                                    | Description                                                                                                              | Legal clarity | Engineering complexity |  UX quality | Recommendation                                                                      |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------: | ---------------------: | ----------: | ----------------------------------------------------------------------------------- |
+| **A. One codebase + runtime gates only**                  | All UI code ships together. Backend returns feature map/license capabilities. UI hides or locks enterprise surfaces.     |   Weak–medium |                    Low |      Medium | Useful as a gating layer, but not sufficient as the full split.                     |
+| **B. Single repo / monorepo with differential licensing** | OSS core plus enterprise directories/packages with clear license boundaries. OSS and EE builds are composed differently. | Medium–strong |                 Medium |        High | **Best default** if proprietary code can live in the same repo or private monorepo. |
+| **C. Public OSS repo + private EE overlay repo**          | EE app imports OSS UI as a package/module and registers enterprise modules from a private repo.                          |        Strong |            Medium–high |        High | **Best option** if the OSS repo must remain clean and fully public.                 |
+| **D. Microfrontends / plugin apps**                       | Core shell loads separate enterprise apps/modules at runtime or deploy time.                                             |        Strong |                   High | Medium–risk | Future architecture. Not for MVP.                                                   |
+| **E. Fully separate OSS and EE apps**                     | Two independently maintained UI apps with shared components copied or packaged.                                          |        Strong |              Very high |  Low–medium | Avoid. Drift and duplicated work compound quickly.                                  |
+```
 
 # 3\. Recommended architecture
 
@@ -143,13 +145,13 @@ For a one-person frontend team, microfrontends are architectural cosplay. They w
 
 # 2\. Options compared
 
-| **Option**                                          | **Description**                                                                                                      | **Legal/source clarity** | **Engineering complexity** | **UX quality** | **Recommendation**                                                          |
-| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------ | -------------------------- | -------------- | --------------------------------------------------------------------------- |
-| A. One codebase + runtime gates only                | All UI code ships together; backend returns feature map/license capabilities; UI hides/locks enterprise surfaces.    | Weak to medium           | Low                        | Medium         | Useful as a gating layer, not enough as the full split.                     |
-| B. Single repo/monorepo with differential licensing | OSS core plus enterprise directories/packages with clear license boundaries; OSS and EE builds composed differently. | Medium to strong         | Medium                     | High           | Best default if proprietary code can live in same repo or private monorepo. |
-| C. Public OSS repo + private EE overlay repo        | EE app imports OSS UI as package/module and registers enterprise modules from a private repo.                        | Strong                   | Medium-high                | High           | Best if the OSS repo must remain clean and public.                          |
-| D. Microfrontends/plugin apps                       | Core shell loads separate enterprise apps/modules at runtime or deploy time.                                         | Strong                   | High                       | Medium-risk    | Future architecture, not MVP.                                               |
-| E. Fully separate OSS and EE apps                   | Two independently maintained UI apps with shared components copied or packaged.                                      | Strong                   | Very high                  | Low-medium     | Avoid. Drift and duplicated work will hurt fast.                            |
+| **Option**                                              | **Description**                                                                                                      | **Legal clarity** | **Eng. complexity** | **UX quality** | **Recommendation**                                                                  |
+| ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ----------------- | ------------------- | -------------- | ----------------------------------------------------------------------------------- |
+| **A.** One codebase + runtime gates only                | All UI code ships together; backend returns feature map/license capabilities; UI hides/locks enterprise surfaces.    | Weak–medium       | Low                 | Medium         | Useful as a gating layer, not sufficient as the full split.                         |
+| **B.** Single repo/monorepo with differential licensing | OSS core plus enterprise directories/packages with clear license boundaries; OSS and EE builds composed differently. | Medium–strong     | Medium              | High           | **Best default** if proprietary code can live in the same repo or private monorepo. |
+| **C.** Public OSS repo + private EE overlay repo        | EE app imports OSS UI as a package/module and registers enterprise modules from a private repo.                      | Strong            | Medium–high         | High           | **Best** if the OSS repo must remain clean and fully public.                        |
+| **D.** Microfrontends / plugin apps                     | Core shell loads separate enterprise apps/modules at runtime or deploy time.                                         | Strong            | High                | Medium–risk    | Future architecture. Not for MVP.                                                   |
+| **E.** Fully separate OSS and EE apps                   | Two independently maintained UI apps with shared components copied or packaged.                                      | Strong            | Very high           | Low–medium     | Avoid. Drift and duplicated work compound quickly.                                  |
 
 # 3\. Recommended architecture
 
@@ -174,15 +176,15 @@ A pure runtime-gated UI still exposes enterprise implementation code to every OS
 
 The exact names can change, but the boundary should be deliberate and boring:
 
-apps/  
-ui-oss/ # OSS app entry point / build target  
-ui-ee/ # EE app entry point / build target, private or separately licensed  
-packages/  
-ui-core/ # app shell, layout, routing contracts, common providers  
-ui-components/ # shared design system, shadcn wrappers, tokens  
-ui-pipeline-core/ # OSS pipeline creation, Kafka/ClickHouse basics, config review  
-ui-capabilities/ # capability types, feature registry, guards, license client  
-ui-enterprise-modules/ # EE-only feature modules; private or commercial license  
+apps/
+ui-oss/ # OSS app entry point / build target
+ui-ee/ # EE app entry point / build target, private or separately licensed
+packages/
+ui-core/ # app shell, layout, routing contracts, common providers
+ui-components/ # shared design system, shadcn wrappers, tokens
+ui-pipeline-core/ # OSS pipeline creation, Kafka/ClickHouse basics, config review
+ui-capabilities/ # capability types, feature registry, guards, license client
+ui-enterprise-modules/ # EE-only feature modules; private or commercial license
 ui-enterprise-components/ # EE-only UI components if needed
 
 If GlassFlow wants the public OSS repository to contain no proprietary code, then keep \`ui-enterprise-modules\` and \`apps/ui-ee\` in a private repo. If GlassFlow is comfortable with source-available enterprise code, keep it in a separate top-level directory with explicit license files. Do not blur this boundary.
@@ -191,22 +193,22 @@ If GlassFlow wants the public OSS repository to contain no proprietary code, the
 
 Introduce a central registry where modules declare routes, navigation items, dashboard cards, settings panels, pipeline steps, validation enrichments, and empty-state CTAs. The app shell should not import random enterprise components directly.
 
-type CapabilityKey =  
-| 'pipeline.create.basic'  
-| 'pipeline.schemaRegistry'  
-| 'pipeline.dlq.reprocess'  
-| 'pipeline.versioning'  
-| 'observability.internal'  
-| 'admin.auditLog'  
-| 'sink.advanced';  
-<br/>type GlassFlowModule = {  
-id: string;  
-edition: 'oss' | 'enterprise';  
-requiredCapabilities?: CapabilityKey\[\];  
-routes?: RouteContribution\[\];  
-navItems?: NavigationContribution\[\];  
-pipelineSteps?: PipelineStepContribution\[\];  
-settingsPanels?: SettingsContribution\[\];  
+type CapabilityKey =
+| 'pipeline.create.basic'
+| 'pipeline.schemaRegistry'
+| 'pipeline.dlq.reprocess'
+| 'pipeline.versioning'
+| 'observability.internal'
+| 'admin.auditLog'
+| 'sink.advanced';
+<br/>type GlassFlowModule = {
+id: string;
+edition: 'oss' | 'enterprise';
+requiredCapabilities?: CapabilityKey\[\];
+routes?: RouteContribution\[\];
+navItems?: NavigationContribution\[\];
+pipelineSteps?: PipelineStepContribution\[\];
+settingsPanels?: SettingsContribution\[\];
 };
 
 OSS build registers OSS modules only. EE build registers OSS modules plus enterprise modules. Runtime capability checks determine whether a registered enterprise contribution is visible, locked, or usable.
@@ -215,22 +217,22 @@ OSS build registers OSS modules only. EE build registers OSS modules plus enterp
 
 The backend should expose a stable entitlement/capabilities endpoint. Keep it boring and explicit.
 
-GET /api/v1/license/capabilities  
-{  
-"edition": "oss" | "enterprise",  
-"licenseStatus": "active" | "expired" | "missing" | "invalid",  
-"plan": "community" | "team" | "enterprise",  
-"capabilities": {  
-"pipeline.create.basic": true,  
-"pipeline.schemaRegistry": true,  
-"pipeline.dlq.reprocess": false,  
-"observability.internal": true,  
-"admin.auditLog": true  
-},  
-"limits": {  
-"pipelines": 25,  
-"environments": 3  
-}  
+GET /api/v1/license/capabilities
+{
+"edition": "oss" | "enterprise",
+"licenseStatus": "active" | "expired" | "missing" | "invalid",
+"plan": "community" | "team" | "enterprise",
+"capabilities": {
+"pipeline.create.basic": true,
+"pipeline.schemaRegistry": true,
+"pipeline.dlq.reprocess": false,
+"observability.internal": true,
+"admin.auditLog": true
+},
+"limits": {
+"pipelines": 25,
+"environments": 3
+}
 }
 
 The UI should cache this response carefully, refresh it after license changes, and degrade safely. A missing or failed capability response should not accidentally unlock enterprise functionality.

@@ -4,6 +4,7 @@ import React, { useCallback, useMemo, useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { Label } from '@/src/components/ui/label'
 import { Button } from '@/src/components/ui/button'
+import { Card } from '@/src/components/ui/card'
 import { Input } from '@/src/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select'
 import { PlusIcon, TrashIcon, ChevronDownIcon, ChevronRightIcon, ArrowDownIcon } from '@heroicons/react/24/outline'
@@ -285,9 +286,10 @@ export function ConcatExpressionBuilder({
       {/* Slots list */}
       <div className="space-y-3">
         {effectiveSlots.map((slot, index) => (
-          <div
+          <Card
             key={slot.id}
-            className="card-outline rounded-[var(--radius-xl)] p-3 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]"
+            variant="outline"
+            className="rounded-[var(--radius-xl)] p-3 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]"
           >
             <div className="flex items-center gap-3">
               {/* Slot number indicator */}
@@ -350,7 +352,7 @@ export function ConcatExpressionBuilder({
                 </Button>
               )}
             </div>
-          </div>
+          </Card>
         ))}
       </div>
 
@@ -423,7 +425,10 @@ export function ConcatExpressionBuilder({
                           </div>
                         )}
 
-                        <div className="card-outline rounded-[var(--radius-xl)] p-3 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]">
+                        <Card
+                          variant="outline"
+                          className="rounded-[var(--radius-xl)] p-3 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]"
+                        >
                           <div className="flex items-start gap-2">
                             {/* Function number */}
                             <div className="flex-shrink-0 w-6 h-6 rounded-full bg-[var(--color-bg-accent-muted)] flex items-center justify-center text-xs font-medium text-[var(--text-accent)]">
@@ -456,9 +461,7 @@ export function ConcatExpressionBuilder({
                                               ? (func.additionalArgs[argIndex] as FunctionArgField).fieldName
                                               : ''
                                           }
-                                          onValueChange={(v) =>
-                                            handlePostProcessArgChange(index, argIndex, v, 'field')
-                                          }
+                                          onValueChange={(v) => handlePostProcessArgChange(index, argIndex, v, 'field')}
                                           availableFields={availableFields}
                                           placeholder="Select field"
                                           disabled={disabled}
@@ -498,7 +501,7 @@ export function ConcatExpressionBuilder({
                               </Button>
                             )}
                           </div>
-                        </div>
+                        </Card>
                       </div>
                     )
                   })}
@@ -507,12 +510,7 @@ export function ConcatExpressionBuilder({
 
               {/* Add function button */}
               {!disabled && postProcessChain.length < MAX_POST_PROCESS_FUNCTIONS && (
-                <Button
-                  variant="tertiary"
-                  size="sm"
-                  onClick={handleAddPostProcessFunction}
-                  className="text-xs"
-                >
+                <Button variant="tertiary" size="sm" onClick={handleAddPostProcessFunction} className="text-xs">
                   <PlusIcon className="h-3 w-3 mr-1" />
                   {postProcessChain.length === 0 ? 'Add Function' : 'Add Outer Function (wraps result)'}
                 </Button>

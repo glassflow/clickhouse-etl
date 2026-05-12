@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState, useEffect } from 'react'
 import { Label } from '@/src/components/ui/label'
 import { Input } from '@/src/components/ui/input'
 import { Button } from '@/src/components/ui/button'
+import { Card } from '@/src/components/ui/card'
 import { TrashIcon } from '@heroicons/react/24/outline'
 import { FilterCondition, FilterOperator } from '@/src/store/filter.store'
 import { SelectEnhanced } from '@/src/components/common/SelectEnhanced'
@@ -51,19 +52,19 @@ function NumericValueInput({
     // This prevents overwriting intermediate states like "3." with "3"
     const currentNum = parseFloat(inputValue)
     const externalNum = parseFloat(externalStr)
-    
+
     // Handle empty string case
     if (externalStr === '' && inputValue !== '') {
       setInputValue('')
       return
     }
-    
+
     // Handle NaN cases (intermediate states like "." or "-")
     if (isNaN(currentNum) && !isNaN(externalNum)) {
       setInputValue(externalStr)
       return
     }
-    
+
     // Only sync if the numeric values are different
     if (!isNaN(currentNum) && !isNaN(externalNum) && currentNum !== externalNum) {
       setInputValue(externalStr)
@@ -74,7 +75,13 @@ function NumericValueInput({
   const handleValueChange = useCallback(
     (newValue: string) => {
       // Allow empty string, decimal points in progress (e.g., "3.", ".5"), and negative signs
-      if (newValue === '' || newValue === '-' || newValue === '.' || newValue === '-.' || /^-?\d*\.?\d*$/.test(newValue)) {
+      if (
+        newValue === '' ||
+        newValue === '-' ||
+        newValue === '.' ||
+        newValue === '-.' ||
+        /^-?\d*\.?\d*$/.test(newValue)
+      ) {
         setInputValue(newValue)
         onChange(newValue)
       }
@@ -256,7 +263,7 @@ export function FilterConditionRow({
   }
 
   return (
-    <div className="card-outline rounded-[var(--radius-md)] p-3">
+    <Card variant="outline" className="rounded-[var(--radius-md)] p-3">
       <div className="flex items-start gap-3">
         {/* Field Select */}
         <div className="flex-1 min-w-0">
@@ -301,6 +308,6 @@ export function FilterConditionRow({
           </Button>
         </div>
       </div>
-    </div>
+    </Card>
   )
 }

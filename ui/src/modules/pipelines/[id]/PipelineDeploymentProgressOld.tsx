@@ -110,24 +110,31 @@ const PipelineDeploymentProgress = ({
   }
 
   return (
-    <div className={cn('min-h-screen bg-[var(--color-background-page)] transition-opacity duration-500', showTransition && 'opacity-0')}>
+    <div
+      className={cn(
+        'min-h-screen bg-[var(--color-background-page)] transition-opacity duration-500',
+        showTransition && 'opacity-0',
+      )}
+    >
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto space-y-6">
           {/* Header Section */}
-          <Card className="card-outline">
+          <Card variant="outline">
             <div className="flex flex-col items-center p-8 text-center">
               <h1 className="text-3xl font-bold text-[var(--color-foreground-neutral)] mb-4">{pipelineName}</h1>
               <Badge variant={getStatusVariant(deploymentPhase)} className="text-lg px-4 py-2 rounded-xl">
                 {getStatusLabel(deploymentPhase)}
               </Badge>
               {isPolling && (
-                <div className="mt-3 text-sm text-[var(--color-foreground-info)] animate-pulse">Monitoring deployment progress...</div>
+                <div className="mt-3 text-sm text-[var(--color-foreground-info)] animate-pulse">
+                  Monitoring deployment progress...
+                </div>
               )}
             </div>
           </Card>
 
           {/* Progress Section */}
-          <Card className="card-outline">
+          <Card variant="outline">
             <div className="p-8">
               <h2 className="text-xl font-semibold text-[var(--color-foreground-neutral)] mb-6">Deployment Progress</h2>
 
@@ -173,7 +180,9 @@ const PipelineDeploymentProgress = ({
                 <div className="flex items-start space-x-3">
                   <XCircleIcon className="w-6 h-6 text-[var(--color-foreground-critical)] flex-shrink-0 mt-0.5" />
                   <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-[var(--color-foreground-critical)] mb-2">Deployment Failed</h3>
+                    <h3 className="text-lg font-semibold text-[var(--color-foreground-critical)] mb-2">
+                      Deployment Failed
+                    </h3>
                     <p className="text-[var(--color-foreground-critical)] mb-4">
                       {error || 'An unexpected error occurred during pipeline deployment.'}
                     </p>
@@ -216,7 +225,9 @@ const PipelineDeploymentProgress = ({
                     />
                   </svg>
                 </div>
-                <h3 className="text-lg font-semibold text-[var(--color-foreground-positive)] mb-2">Deployment Successful!</h3>
+                <h3 className="text-lg font-semibold text-[var(--color-foreground-positive)] mb-2">
+                  Deployment Successful!
+                </h3>
                 <p className="text-[var(--color-foreground-positive)]">
                   Your pipeline is now active and ready to process data. You&apos;ll be redirected to the pipeline
                   details shortly.

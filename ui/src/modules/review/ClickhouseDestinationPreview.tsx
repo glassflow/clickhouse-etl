@@ -47,7 +47,7 @@ export function ClickhouseDestinationPreview({
           <div className="bg-[var(--color-background-neutral-faded)] rounded-md p-2 overflow-auto max-h-[400px]">
             <table className="min-w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-200">
+                <tr className="border-b border-[var(--surface-border)]">
                   <th className="text-left py-2 px-3 text-muted-foreground">Source Name</th>
                   <th className="text-left py-2 px-3 text-muted-foreground">Event Field</th>
                   <th className="text-left py-2 px-3 text-muted-foreground">→</th>
@@ -69,17 +69,17 @@ export function ClickhouseDestinationPreview({
                   if (!isMapped) {
                     if (hasDefault) {
                       status = 'Auto-populated'
-                      statusColor = 'text-orange-500'
+                      statusColor = 'text-[var(--color-foreground-warning)]'
                     } else if (isNullable) {
                       status = 'Optional (NULL)'
-                      statusColor = 'text-gray-400'
+                      statusColor = 'text-[var(--text-secondary)]'
                     } else {
                       status = 'Required'
-                      statusColor = 'text-red-500'
+                      statusColor = 'text-[var(--color-foreground-critical)]'
                     }
                   } else {
                     status = 'Mapped'
-                    statusColor = 'text-green-500'
+                    statusColor = 'text-[var(--color-foreground-positive)]'
                   }
 
                   return (

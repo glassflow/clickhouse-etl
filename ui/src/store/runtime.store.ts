@@ -10,10 +10,10 @@
 
 import { StateCreator } from 'zustand'
 
-export interface RuntimeState {
-  // Reserved for future observability data: throughput, lag, error rate
-  // Populated by /observability SSE stream in a future sprint
-}
+// Reserved for future observability data: throughput, lag, error rate.
+// Populated by /observability SSE stream in a future sprint.
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface RuntimeState {}
 
 export interface RuntimeActions {
   reset: () => void

@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState, useEffect } from 'react'
 import { Label } from '@/src/components/ui/label'
 import { Input } from '@/src/components/ui/input'
 import { Button } from '@/src/components/ui/button'
+import { Card } from '@/src/components/ui/card'
 import { Switch } from '@/src/components/ui/switch'
 import { TrashIcon, CalculatorIcon } from '@heroicons/react/24/outline'
 import {
@@ -292,7 +293,7 @@ export function QueryRule({
                 placeholder="e.g., 1, 2, 3"
                 disabled={readOnly}
                 variant={validation?.value ? 'error' : 'default'}
-              className="h-10"
+                className="h-10"
               />
               <div className="h-5 mt-0.5">
                 {validation?.value && <p className="input-description-error text-sm">{validation.value}</p>}
@@ -410,7 +411,7 @@ export function QueryRule({
             placeholder="Enter a value"
             disabled={readOnly}
             variant={validation?.value ? 'error' : 'default'}
-              className="h-10"
+            className="h-10"
           />
           {/* Reserve space for error message to prevent layout shift */}
           <div className="h-5 mt-0.5">
@@ -425,9 +426,10 @@ export function QueryRule({
   const isOperatorEnabled = isExpressionMode || !!rule.field
 
   return (
-    <div
+    <Card
+      variant="outline"
       className={cn(
-        'card-outline rounded-[var(--radius-xl)] p-3',
+        'rounded-[var(--radius-xl)] p-3',
         rule.not && 'border-[var(--color-border-primary)] bg-[var(--color-background-primary-faded)]/10',
       )}
     >
@@ -551,6 +553,6 @@ export function QueryRule({
           </div>
         )}
       </div>
-    </div>
+    </Card>
   )
 }

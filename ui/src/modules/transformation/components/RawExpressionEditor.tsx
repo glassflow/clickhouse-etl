@@ -5,6 +5,7 @@ import { Label } from '@/src/components/ui/label'
 import { Textarea } from '@/src/components/ui/textarea'
 import { Button } from '@/src/components/ui/button'
 import { Badge } from '@/src/components/ui/badge'
+import { Card } from '@/src/components/ui/card'
 import { ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline'
 import { TRANSFORMATION_FUNCTIONS, getCategoryLabel, getCategories } from '../functions'
 import { cn } from '@/src/utils/common.client'
@@ -113,7 +114,7 @@ export function RawExpressionEditor({
       {/* Reference sections */}
       <div className="space-y-2">
         {/* Available fields reference */}
-        <div className="card-outline rounded-[var(--radius-md)]">
+        <Card variant="outline" className="rounded-[var(--radius-md)]">
           <button
             type="button"
             onClick={() => setShowFieldsRef(!showFieldsRef)}
@@ -145,10 +146,10 @@ export function RawExpressionEditor({
               )}
             </div>
           )}
-        </div>
+        </Card>
 
         {/* Available functions reference */}
-        <div className="card-outline rounded-[var(--radius-md)]">
+        <Card variant="outline" className="rounded-[var(--radius-md)]">
           <button
             type="button"
             onClick={() => setShowFunctionsRef(!showFunctionsRef)}
@@ -187,7 +188,7 @@ export function RawExpressionEditor({
               })}
             </div>
           )}
-        </div>
+        </Card>
       </div>
 
       {/* Syntax hints */}

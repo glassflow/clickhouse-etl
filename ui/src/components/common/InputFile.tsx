@@ -176,11 +176,9 @@ export function InputFile({
 
       <InputGroup
         className={cn(
-          'input-border-regular',
-          displayError && 'input-border-error',
-          // Override default InputGroup focus ring to remove it
+          'border border-[var(--control-border)]',
+          displayError && '!border-[var(--control-border-error)]',
           'has-[[data-slot=input-group-control]:focus-visible]:!ring-0',
-          // Apply custom focus styling to match other form fields
           'has-[[data-slot=input-group-control]:focus-visible]:!border-[var(--color-background-primary)]',
           'has-[[data-slot=input-group-control]:focus-visible]:![box-shadow:var(--control-shadow-focus)]',
         )}

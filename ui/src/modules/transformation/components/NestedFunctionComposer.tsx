@@ -3,6 +3,7 @@
 import React, { useCallback, useMemo, useState, useEffect } from 'react'
 import { Label } from '@/src/components/ui/label'
 import { Button } from '@/src/components/ui/button'
+import { Card } from '@/src/components/ui/card'
 import { Input } from '@/src/components/ui/input'
 import { PlusIcon, TrashIcon, ArrowDownIcon } from '@heroicons/react/24/outline'
 import { FieldSelectCombobox } from './FieldSelectCombobox'
@@ -533,7 +534,10 @@ export function NestedFunctionComposer({
                     </div>
                   )}
 
-                  <div className="card-outline rounded-[var(--radius-xl)] p-3 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]">
+                  <Card
+                    variant="outline"
+                    className="rounded-[var(--radius-xl)] p-3 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]"
+                  >
                     <div className="flex items-start gap-2">
                       {/* Function number */}
                       <div className="flex-shrink-0 w-6 h-6 rounded-full bg-[var(--surface-bg-sunken)] flex items-center justify-center text-xs font-medium text-[var(--text-secondary)]">
@@ -605,7 +609,7 @@ export function NestedFunctionComposer({
                         </Button>
                       )}
                     </div>
-                  </div>
+                  </Card>
                 </div>
               )
             })}

@@ -152,26 +152,22 @@ export const getHealthStatusDisplayText = (status: PipelineHealthStatus): string
 export const getHealthStatusClasses = (status: PipelineHealthStatus): string => {
   switch (status) {
     case 'Created':
-      return 'text-blue-600 bg-blue-50 border-blue-200'
+      return 'text-[var(--color-foreground-info)] bg-[var(--color-background-info-faded)] border-[var(--color-border-info)]'
     case 'Running':
-      return 'text-green-600 bg-green-50 border-green-200'
+      return 'text-[var(--color-foreground-positive)] bg-[var(--color-background-positive-faded)] border-[var(--color-border-positive)]'
     case 'Paused':
-      return 'text-yellow-600 bg-yellow-50 border-yellow-200'
+      return 'text-[var(--color-foreground-warning)] bg-[var(--color-background-warning-faded)] border-[var(--color-border-warning)]'
     case 'Pausing':
-      return 'text-orange-600 bg-orange-50 border-orange-200'
     case 'Resuming':
-      return 'text-orange-600 bg-orange-50 border-orange-200'
     case 'Stopping':
-      return 'text-orange-600 bg-orange-50 border-orange-200'
-    case 'Stopped':
-      return 'text-gray-600 bg-gray-50 border-gray-200'
     case 'Terminating':
-      return 'text-orange-600 bg-orange-50 border-orange-200'
+      return 'text-[var(--color-foreground-warning)] bg-[var(--color-background-warning-faded)] border-[var(--color-border-warning)]'
+    case 'Stopped':
     case 'Terminated':
-      return 'text-gray-600 bg-gray-50 border-gray-200'
+      return 'text-[var(--text-secondary)] bg-[var(--color-background-neutral-faded)] border-[var(--surface-border)]'
     case 'Failed':
-      return 'text-red-600 bg-red-50 border-red-200'
+      return 'text-[var(--color-foreground-critical)] bg-[var(--color-background-critical-faded)] border-[var(--color-border-critical)]'
     default:
-      return 'text-gray-600 bg-gray-50 border-gray-200'
+      return 'text-[var(--text-secondary)] bg-[var(--color-background-neutral-faded)] border-[var(--surface-border)]'
   }
 }

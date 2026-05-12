@@ -49,7 +49,6 @@ export function HealthCheckProvider({ children }: HealthCheckProviderProps) {
     }
 
     checkConnection()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const handleTestConnection = async () => {
@@ -100,7 +99,7 @@ export function HealthCheckProvider({ children }: HealthCheckProviderProps) {
           />
           <button
             onClick={handleCloseHealthCheck}
-            className="absolute top-2 right-2 text-gray-400 hover:text-gray-600 transition-colors"
+            className="absolute top-2 right-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
             aria-label="Close health check dialog"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

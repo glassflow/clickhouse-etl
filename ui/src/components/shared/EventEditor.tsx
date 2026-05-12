@@ -95,7 +95,7 @@ export const EventEditor = ({
       ) : (
         <>
           {isEmptyTopic && (
-            <div className="bg-amber-500/20 p-3 mb-3 rounded-md text-amber-500 text-sm">
+            <div className="bg-[var(--color-background-warning-faded)] p-3 mb-3 rounded-md text-[var(--color-foreground-warning)] text-sm">
               This topic has no events. Please select a different topic with events or enter event schema manually to
               proceed.
             </div>
@@ -104,7 +104,7 @@ export const EventEditor = ({
           {/* Modified indicator */}
           {isModified && !isEmptyTopic && (
             <div className="flex items-center gap-2 mb-2">
-              <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-amber-500/20 text-amber-400 border border-amber-500/30">
+              <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-[var(--color-background-warning-faded)] text-[var(--color-foreground-warning)] border border-[var(--color-border-warning)]">
                 Schema Modified
               </span>
               <span className="text-xs text-[var(--color-foreground-neutral-faded)]">
@@ -153,11 +153,15 @@ export const EventEditor = ({
             )}
           </div>
           {!isValid && (
-            <div className="bg-red-500/20 p-3 mb-3 mt-3 rounded-md text-red-500 text-sm">{errorMessage}</div>
+            <div className="bg-[var(--color-red-alpha-20)] p-3 mb-3 mt-3 rounded-md text-[var(--color-foreground-critical)] text-sm">
+              {errorMessage}
+            </div>
           )}
 
           {eventError && !isEmptyTopic && (
-            <div className={`mt-2 text-sm ${eventError.includes('Note:') ? 'text-amber-500' : 'text-red-500'}`}>
+            <div
+              className={`mt-2 text-sm ${eventError.includes('Note:') ? 'text-[var(--color-foreground-warning)]' : 'text-[var(--color-foreground-critical)]'}`}
+            >
               {eventError}
             </div>
           )}

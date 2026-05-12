@@ -5,13 +5,8 @@ import { Label } from '@/src/components/ui/label'
 import { Textarea } from '@/src/components/ui/textarea'
 import { Button } from '@/src/components/ui/button'
 import { Badge } from '@/src/components/ui/badge'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/src/components/ui/select'
+import { Card } from '@/src/components/ui/card'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select'
 import { ChevronDownIcon, ChevronUpIcon, PlayIcon, ArrowLeftIcon } from '@heroicons/react/24/outline'
 import { Loader2 } from 'lucide-react'
 import { TRANSFORMATION_FUNCTIONS, getCategoryLabel, getCategories } from '../functions'
@@ -50,11 +45,7 @@ export type ExpressionPlaygroundProps = ExpressionPlaygroundSingleFieldProps | E
 type EvalStatus = 'idle' | 'evaluating' | 'valid' | 'invalid'
 
 export function ExpressionPlayground(props: ExpressionPlaygroundProps) {
-  const {
-    availableFields,
-    sampleEvent,
-    readOnly = false,
-  } = props
+  const { availableFields, sampleEvent, readOnly = false } = props
 
   const singleFieldMode = props.singleFieldMode === true
 
@@ -104,9 +95,8 @@ export function ExpressionPlayground(props: ExpressionPlaygroundProps) {
     setStatus('idle')
   }, [singleFieldMode, selectedFieldId, selectedField?.id])
 
-  const textareaId = singleFieldMode && props.textareaId
-    ? `playground-expression-${props.textareaId}`
-    : 'playground-expression-textarea'
+  const textareaId =
+    singleFieldMode && props.textareaId ? `playground-expression-${props.textareaId}` : 'playground-expression-textarea'
 
   const handleInsertField = useCallback(
     (fieldName: string) => {
@@ -200,10 +190,7 @@ export function ExpressionPlayground(props: ExpressionPlaygroundProps) {
         {!singleFieldMode && (
           <div className="flex items-center gap-2 min-w-0">
             <Label className="text-xs text-[var(--text-secondary)] whitespace-nowrap">Field</Label>
-            <Select
-              value={selectedFieldId ?? ''}
-              onValueChange={(v) => setSelectedFieldId(v || null)}
-            >
+            <Select value={selectedFieldId ?? ''} onValueChange={(v) => setSelectedFieldId(v || null)}>
               <SelectTrigger className="w-[220px]">
                 <SelectValue placeholder="Select a field to edit expression" />
               </SelectTrigger>
@@ -218,23 +205,13 @@ export function ExpressionPlayground(props: ExpressionPlaygroundProps) {
           </div>
         )}
         {singleFieldMode && canApplySingle && (
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={handleApplySingleField}
-            className="flex items-center gap-1.5"
-          >
+          <Button variant="secondary" size="sm" onClick={handleApplySingleField} className="flex items-center gap-1.5">
             <ArrowLeftIcon className="h-4 w-4" />
             Apply
           </Button>
         )}
         {!singleFieldMode && canApplyMulti && (
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={handleApplyMultiField}
-            className="flex items-center gap-1.5"
-          >
+          <Button variant="secondary" size="sm" onClick={handleApplyMultiField} className="flex items-center gap-1.5">
             <ArrowLeftIcon className="h-4 w-4" />
             Apply to field
           </Button>
@@ -276,7 +253,7 @@ export function ExpressionPlayground(props: ExpressionPlaygroundProps) {
             />
           </div>
 
-          <div className="card-outline rounded-[var(--radius-md)]">
+          <Card variant="outline" className="rounded-[var(--radius-md)]">
             <button
               type="button"
               onClick={() => setShowFieldsRef(!showFieldsRef)}
@@ -308,9 +285,9 @@ export function ExpressionPlayground(props: ExpressionPlaygroundProps) {
                 )}
               </div>
             )}
-          </div>
+          </Card>
 
-          <div className="card-outline rounded-[var(--radius-md)]">
+          <Card variant="outline" className="rounded-[var(--radius-md)]">
             <button
               type="button"
               onClick={() => setShowFunctionsRef(!showFunctionsRef)}
@@ -349,7 +326,7 @@ export function ExpressionPlayground(props: ExpressionPlaygroundProps) {
                 })}
               </div>
             )}
-          </div>
+          </Card>
         </div>
 
         {/* Right: sample event + result */}
@@ -383,16 +360,15 @@ export function ExpressionPlayground(props: ExpressionPlaygroundProps) {
                 </span>
               )}
             </Label>
-            <div
+            <Card
+              variant="outline"
               className={cn(
-                'card-outline rounded-[var(--radius-xl)] overflow-auto font-mono text-xs p-3 min-h-[120px] max-h-[200px]',
+                'rounded-[var(--radius-xl)] overflow-auto font-mono text-xs p-3 min-h-[120px] max-h-[200px]',
                 status === 'valid' && 'border-[var(--color-border-positive)]',
                 status === 'invalid' && 'border-[var(--color-border-critical)]',
               )}
             >
-              {status === 'evaluating' && (
-                <p className="text-[var(--text-secondary)] italic m-0">Evaluating...</p>
-              )}
+              {status === 'evaluating' && <p className="text-[var(--text-secondary)] italic m-0">Evaluating...</p>}
               {status === 'idle' && !result && !error && (
                 <p className="text-[var(--text-disabled)] italic m-0">Run the expression to see the result.</p>
               )}
@@ -401,10 +377,8 @@ export function ExpressionPlayground(props: ExpressionPlaygroundProps) {
                   {JSON.stringify(result, null, 2)}
                 </pre>
               )}
-              {status === 'invalid' && error && (
-                <p className="text-[var(--color-foreground-critical)] m-0">{error}</p>
-              )}
-            </div>
+              {status === 'invalid' && error && <p className="text-[var(--color-foreground-critical)] m-0">{error}</p>}
+            </Card>
           </div>
         </div>
       </div>

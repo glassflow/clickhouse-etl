@@ -79,7 +79,7 @@ export function MultipleSelect({
                   variant="ghost"
                   size="icon"
                   onClick={() => removeKey(index)}
-                  className="h-10 w-10 text-red-500 hover:text-red-700 hover:bg-red-100"
+                  className="h-10 w-10 text-[var(--color-foreground-critical)] hover:text-[var(--color-foreground-critical-faded)] hover:bg-[var(--color-background-critical-faded)]"
                 >
                   <XMarkIcon className="h-5 w-5" />
                 </Button>
@@ -102,7 +102,7 @@ export function MultipleSelect({
         )}
 
         {keys.length > 0 && getAvailableKeys().length === 0 && (
-          <p className="text-sm text-amber-500">All available keys have been added.</p>
+          <p className="text-sm text-[var(--color-foreground-warning)]">All available keys have been added.</p>
         )}
       </div>
     </div>

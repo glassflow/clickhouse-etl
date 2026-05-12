@@ -105,7 +105,11 @@ function PipelineDetailsHeader({
 
   // Hook for computing display status (variant, label)
   // Note: health polling removed - SSE provides status updates via centralizedStatus
-  const { variant: statusVariant, label: statusLabel, isHealthLoading } = usePipelineDisplayStatus({
+  const {
+    variant: statusVariant,
+    label: statusLabel,
+    isHealthLoading,
+  } = usePipelineDisplayStatus({
     pipelineStatus: pipeline.status,
     centralizedStatus,
     health: null,
@@ -338,7 +342,9 @@ function PipelineDetailsHeader({
         setCopied(true)
         setTimeout(() => setCopied(false), 2000)
       } catch (fallbackErr) {
-        structuredLogger.error('PipelineDetailsHeader fallback copy failed', { error: fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr) })
+        structuredLogger.error('PipelineDetailsHeader fallback copy failed', {
+          error: fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr),
+        })
       }
       document.body.removeChild(textArea)
     }
@@ -380,7 +386,11 @@ function PipelineDetailsHeader({
     )
   }
 
-  const renderMenuButton = (action: PipelineAction, label: string, Icon: React.ComponentType<{ className?: string }>) => {
+  const renderMenuButton = (
+    action: PipelineAction,
+    label: string,
+    Icon: React.ComponentType<{ className?: string }>,
+  ) => {
     const config = getActionConfiguration(action)
     // isActionDisabled already accounts for demo mode via the hook options
     const disabled = isActionDisabled(action)
@@ -594,7 +604,7 @@ function PipelineDetailsHeader({
         showHeader ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4',
       )}
     >
-      <Card className="card-outline py-2 px-6 mb-4">
+      <Card variant="outline" className="py-2 px-6 mb-4">
         <div className="flex flex-col gap-2">
           <div className="flex flex-row justify-between gap-4 items-start">
             <div className="flex flex-row flex-start gap-2 items-center min-w-0 flex-1">
@@ -617,12 +627,6 @@ function PipelineDetailsHeader({
               <Badge variant={statusVariant} className="rounded-xl my-2 mx-4 flex-shrink-0">
                 {isHealthLoading && !centralizedStatus ? 'Checking...' : statusLabel}
               </Badge>
-              {/* Debug info */}
-              {/* <div className="text-xs text-gray-500">
-                Debug: status={pipeline.status}, actionState.isLoading={actionState.isLoading ? 'true' : 'false'},
-                lastAction={actionState.lastAction}, health={health?.overall_status || 'none'}, recentAction=
-                {recentActionRef.current?.action || 'none'}
-              </div> */}
             </div>
             <div className="flex flex-row flex-end gap-2 flex-shrink-0">{actions || getActionButtons()}</div>
           </div>
@@ -634,7 +638,12 @@ function PipelineDetailsHeader({
                   tabIndex={0}
                   className="cursor-pointer hover:text-foreground transition-colors focus-ring rounded-sm"
                   onClick={handleCopyPipelineId}
-                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleCopyPipelineId() } }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      handleCopyPipelineId()
+                    }
+                  }}
                   title="Click to copy pipeline ID"
                 >
                   Pipeline ID: {pipeline.pipeline_id}

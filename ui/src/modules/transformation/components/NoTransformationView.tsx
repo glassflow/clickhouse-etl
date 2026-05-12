@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import { Card } from '@/src/components/ui/card'
 
 export interface NoTransformationViewProps {
   readOnly: boolean
@@ -14,14 +15,9 @@ export interface NoTransformationViewProps {
 export function NoTransformationView({ readOnly, hasAvailableFields }: NoTransformationViewProps) {
   return (
     <div className="space-y-4">
-      <div className="p-6 card-outline rounded-[var(--radius-xl)] text-center">
+      <Card variant="outline" className="p-6 rounded-[var(--radius-xl)] text-center">
         <div className="text-[var(--color-foreground-neutral-faded)] mb-2">
-          <svg
-            className="w-12 h-12 mx-auto mb-3 opacity-50"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
+          <svg className="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -37,7 +33,7 @@ export function NoTransformationView({ readOnly, hasAvailableFields }: NoTransfo
             Click the buttons below to add computed or passthrough fields.
           </p>
         )}
-      </div>
+      </Card>
     </div>
   )
 }

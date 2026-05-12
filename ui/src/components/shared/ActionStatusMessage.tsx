@@ -13,7 +13,9 @@ function ActionStatusMessage({ message, success }: { message: string; success: b
     <div className="mt-4 overflow-hidden">
       <div
         className={`p-3 rounded transform transition-all duration-500 ease-out ${
-          success ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+          success
+            ? 'bg-[var(--color-background-positive-faded)] text-[var(--color-foreground-positive)]'
+            : 'bg-[var(--color-background-critical-faded)] text-[var(--color-foreground-critical)]'
         } ${isVisible ? 'translate-y-0 opacity-100' : '-translate-y-4 opacity-0'}`}
       >
         {message}

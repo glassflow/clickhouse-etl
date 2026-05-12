@@ -4,6 +4,7 @@ import React, { useCallback, useMemo } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { Label } from '@/src/components/ui/label'
 import { Button } from '@/src/components/ui/button'
+import { Card } from '@/src/components/ui/card'
 import { Input } from '@/src/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select'
 import { PlusIcon, TrashIcon } from '@heroicons/react/24/outline'
@@ -295,9 +296,10 @@ export function WaterfallExpressionBuilder({
             slot.slotType === 'function' && slot.functionName ? getFunctionByName(slot.functionName) : null
 
           return (
-            <div
+            <Card
               key={slot.id}
-              className="card-outline rounded-[var(--radius-xl)] p-3 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]"
+              variant="outline"
+              className="rounded-[var(--radius-xl)] p-3 opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]"
             >
               <div className="flex items-start gap-3">
                 {/* Slot number indicator */}
@@ -437,7 +439,7 @@ export function WaterfallExpressionBuilder({
                   </Button>
                 )}
               </div>
-            </div>
+            </Card>
           )
         })}
       </div>

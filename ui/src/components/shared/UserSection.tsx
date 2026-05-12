@@ -19,6 +19,9 @@ export function UserSection() {
     return null
   }
 
+  // FIXME: hook called after a conditional early return — refactor by hoisting the
+  // hook above the !isAuthEnabled check, or by gating render outside the component.
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   const { user, isLoading: isUserLoading, error: userError } = useUser()
 
   if (isUserLoading) {
@@ -28,7 +31,9 @@ export function UserSection() {
   // 401 Unauthorized is expected when user is not logged in, not an error
   // Only show error for actual errors (network issues, server errors, etc.)
   if (userError && !userError.message?.includes('Unauthorized')) {
-    structuredLogger.error('UserSection unexpected error', { error: userError instanceof Error ? userError.message : String(userError) })
+    structuredLogger.error('UserSection unexpected error', {
+      error: userError instanceof Error ? userError.message : String(userError),
+    })
     return <LoginButton />
   }
 

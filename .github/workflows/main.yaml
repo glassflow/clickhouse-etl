@@ -8,6 +8,8 @@ on:
 jobs:
   build-binary:
     uses: ./.github/workflows/build_binary.yaml
+  ui-lint:
+    uses: ./.github/workflows/ui_lint.yaml
   test:
     needs:
       - build-binary
@@ -15,6 +17,7 @@ jobs:
   build:
     needs:
       - test
+      - ui-lint
     uses: ./.github/workflows/build_image.yaml
     with:
       push: true

@@ -26,16 +26,8 @@ type CustomDateRangeModalProps = {
  * 'custom' on the time-range picker. Stores values as datetime-local
  * (browser-supplied widget) and converts to epoch ms on Apply.
  */
-export function CustomDateRangeModal({
-  open,
-  initialFrom,
-  initialTo,
-  onClose,
-  onApply,
-}: CustomDateRangeModalProps) {
-  const [from, setFrom] = React.useState(() =>
-    toLocalIso(initialFrom ?? new Date(Date.now() - 60 * 60 * 1000)),
-  )
+export function CustomDateRangeModal({ open, initialFrom, initialTo, onClose, onApply }: CustomDateRangeModalProps) {
+  const [from, setFrom] = React.useState(() => toLocalIso(initialFrom ?? new Date(Date.now() - 60 * 60 * 1000)))
   const [to, setTo] = React.useState(() => toLocalIso(initialTo ?? new Date()))
   const [error, setError] = React.useState<string | null>(null)
 
@@ -72,7 +64,10 @@ export function CustomDateRangeModal({
           </DialogHeader>
           <div className="grid grid-cols-2 gap-3 py-3">
             <div className="flex flex-col gap-1.5">
-              <label htmlFor="custom-range-from" className="modal-input-label">
+              <label
+                htmlFor="custom-range-from"
+                className="body-3 font-medium text-[var(--color-foreground-neutral-faded)]"
+              >
                 From
               </label>
               <Input
@@ -83,23 +78,17 @@ export function CustomDateRangeModal({
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <label htmlFor="custom-range-to" className="modal-input-label">
+              <label
+                htmlFor="custom-range-to"
+                className="body-3 font-medium text-[var(--color-foreground-neutral-faded)]"
+              >
                 To
               </label>
-              <Input
-                id="custom-range-to"
-                type="datetime-local"
-                value={to}
-                onChange={(e) => setTo(e.target.value)}
-              />
+              <Input id="custom-range-to" type="datetime-local" value={to} onChange={(e) => setTo(e.target.value)} />
             </div>
           </div>
           {error && (
-            <div
-              className="caption-1 text-[var(--color-foreground-critical)]"
-              role="alert"
-              aria-live="polite"
-            >
+            <div className="caption-1 text-[var(--color-foreground-critical)]" role="alert" aria-live="polite">
               {error}
             </div>
           )}

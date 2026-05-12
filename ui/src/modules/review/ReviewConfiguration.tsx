@@ -21,7 +21,6 @@ import { createPipeline } from '@/src/api/pipeline-api'
 import { Pipeline } from '@/src/types/pipeline'
 import { isFiltersEnabled, isTransformationsEnabled } from '@/src/config/feature-flags'
 
-
 export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewConfigurationProps) {
   const {
     kafkaStore,
@@ -39,17 +38,16 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
   // Detect OTLP source using multiple signals — coreStore.sourceType can be unreliable
   // because enterCreateMode() resets it to 'kafka'. Check otlpStore.signalType (set by
   // the OtlpSignalTypeStep) and otlpStore.sourceId (set on the home page) as fallbacks.
-  const isOtlp = getSourceAdapter(coreStore.sourceType).type !== 'kafka'
-    || getSourceAdapter(otlpStore.signalType ?? '').type !== 'kafka'
-    || (otlpStore.sourceId !== '' && otlpStore.schemaFields.length > 0)
+  const isOtlp =
+    getSourceAdapter(coreStore.sourceType).type !== 'kafka' ||
+    getSourceAdapter(otlpStore.signalType ?? '').type !== 'kafka' ||
+    (otlpStore.sourceId !== '' && otlpStore.schemaFields.length > 0)
   const { apiConfig: legacyApiConfig, pipelineId, setPipelineId, pipelineName, pipelineVersion } = coreStore
   // A6: prefer domainStore.toWireFormat() when the domain has been populated;
   // fall back to the legacy coreStore.apiConfig during migration.
   const { domainStore } = useStore()
   const isDomainPopulated = domainStore.domain.name !== '' || domainStore.domain.sources.length > 0
-  const apiConfig = isDomainPopulated
-    ? domainStore.toWireFormat()
-    : legacyApiConfig
+  const apiConfig = isDomainPopulated ? domainStore.toWireFormat() : legacyApiConfig
   const { clickhouseConnection } = clickhouseConnectionStore
   const { clickhouseDestination } = clickhouseDestinationStore
   const router = useRouter()
@@ -131,7 +129,9 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
       setPipelineId(pipeline.pipeline_id || (payload as any).pipeline_id || '')
       router.push('/pipelines')
     } catch (error: any) {
-      structuredLogger.error('ReviewConfiguration failed to deploy pipeline', { error: error instanceof Error ? error.message : String(error) })
+      structuredLogger.error('ReviewConfiguration failed to deploy pipeline', {
+        error: error instanceof Error ? error.message : String(error),
+      })
       const message = error?.message || error?.error || 'Failed to deploy pipeline. Please try again.'
       setDeployError(message)
     }
@@ -236,7 +236,7 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
           )}
 
           {isFiltersEnabled() && filterStore?.filterConfig?.enabled && (
-            <div className="p-4 border-b border-gray-200 last:border-b-0 transition-all duration-200 hover:bg-[var(--color-background-neutral-faded)] animate-fade-in-up animate-delay-250">
+            <div className="p-4 border-b border-[var(--surface-border)] last:border-b-0 transition-all duration-200 hover:bg-[var(--color-background-neutral-faded)] animate-fade-in-up animate-delay-250">
               <h3 className="text-lg font-medium mb-2 transition-colors duration-200">Filter</h3>
               <div className="text-sm text-content">
                 <span className="text-muted-foreground">Expression: </span>
@@ -250,7 +250,7 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
           {isTransformationsEnabled() &&
             transformationStore?.transformationConfig?.enabled &&
             transformationStore.transformationConfig.fields?.length > 0 && (
-              <div className="p-4 border-b border-gray-200 last:border-b-0 transition-all duration-200 hover:bg-[var(--color-background-neutral-faded)] animate-fade-in-up animate-delay-275">
+              <div className="p-4 border-b border-[var(--surface-border)] last:border-b-0 transition-all duration-200 hover:bg-[var(--color-background-neutral-faded)] animate-fade-in-up animate-delay-275">
                 <h3 className="text-lg font-medium mb-2 transition-colors duration-200">Transformation</h3>
                 <div className="text-sm text-content">
                   <div>
@@ -265,7 +265,7 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
               </div>
             )}
 
-          <div className="p-4 border-b border-gray-200 last:border-b-0 transition-all duration-200 hover:bg-[var(--color-background-neutral-faded)] animate-fade-in-up animate-delay-300">
+          <div className="p-4 border-b border-[var(--surface-border)] last:border-b-0 transition-all duration-200 hover:bg-[var(--color-background-neutral-faded)] animate-fade-in-up animate-delay-300">
             <h3 className="text-lg font-medium mb-2 transition-colors duration-200">Clickhouse Connection</h3>
             <ClickhouseConnectionPreview clickhouseConnection={clickhouseConnection} />
           </div>
@@ -306,7 +306,7 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
 
       {deployError && (
         <div
-          className="mt-4 p-3 rounded-md bg-red-500/10 border border-red-500/30 text-sm text-red-600 dark:text-red-400 animate-fade-in-up"
+          className="mt-4 p-3 rounded-md bg-[var(--color-red-alpha-10)] border border-[var(--color-border-critical)] text-sm text-[var(--color-foreground-critical)] animate-fade-in-up"
           role="alert"
         >
           {deployError}
@@ -314,7 +314,9 @@ export function ReviewConfiguration({ steps, onCompleteStep, validate }: ReviewC
       )}
       <div className="flex justify-start mt-4 animate-fade-in-up animate-delay-500">
         <Button
-          variant="primary" size="custom" className="transition-all duration-200 hover:opacity-90"
+          variant="primary"
+          size="custom"
+          className="transition-all duration-200 hover:opacity-90"
           type="button"
           onClick={handleContinueToPipelines}
           disabled={!!configError}

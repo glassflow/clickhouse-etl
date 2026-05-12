@@ -89,7 +89,7 @@ function PipelineHealthCard({ health, isLoading, error }: PipelineHealthCardProp
   const statusInfo = getStatusInfo()
 
   return (
-    <Card className="card-outline py-2 px-6 mb-4 w-1/3">
+    <Card variant="outline" className="py-2 px-6 mb-4 w-1/3">
       <div className="flex flex-col gap-4">
         <div className="flex flex-row gap-2">
           <Image src={HealthIcon} alt="Health" className="w-6 h-6" width={24} height={24} />

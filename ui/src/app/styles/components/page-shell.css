@@ -1,0 +1,116 @@
+/* =================================================================
+   PageShell — page-level scaffolding (header + filters + body
+   + optional sidebar). Lives inside the global (shell) layout
+   which provides page background, max-width, and outer padding.
+   All values via design tokens — no hardcoded px.
+   ================================================================= */
+
+.page-shell {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  animation: page-shell-enter 260ms var(--easing-decelerate, cubic-bezier(0, 0, 0.2, 1)) both;
+}
+
+@keyframes page-shell-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Crumbs row ──────────────────────────────────────────────────── */
+.page-shell-crumbs {
+  margin-bottom: var(--unit-x4);
+}
+
+/* ── Header (title + subtitle + actions) ─────────────────────────── */
+.page-shell-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--unit-x4);
+  padding-bottom: var(--unit-x5);
+  margin-bottom: var(--unit-x5);
+  border-bottom: 1px solid var(--color-gray-dark-800);
+}
+
+.page-shell-compact .page-shell-header {
+  padding-bottom: var(--unit-x3);
+  margin-bottom: var(--unit-x4);
+}
+
+.page-shell-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--unit-x1);
+  min-width: 0;
+}
+
+.page-shell-title {
+  font-family: var(--font-family-title);
+  font-size: var(--font-size-title-3);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.page-shell-compact .page-shell-title {
+  font-size: var(--font-size-title-4);
+}
+
+.page-shell-subtitle {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.page-shell-status {
+  margin-top: var(--unit-x1);
+}
+
+.page-shell-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--unit-x2);
+  flex-shrink: 0;
+}
+
+/* ── Filters row (toolbar beneath header) ────────────────────────── */
+.page-shell-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--unit-x3);
+  margin-bottom: var(--unit-x4);
+}
+
+/* ── Body / Sidebar layout ───────────────────────────────────────── */
+.page-shell-layout {
+  display: flex;
+  gap: var(--unit-x8);
+}
+
+.page-shell-sidebar {
+  flex-shrink: 0;
+  /* Width is owned by the consumer's sidebar component */
+}
+
+.page-shell-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--unit-x4);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-shell {
+    animation: none;
+  }
+}

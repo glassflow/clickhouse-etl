@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Label } from '@/src/components/ui/label'
+import { inputVariants } from '@/src/components/ui/input'
 import { cn } from '@/src/utils/common.client'
 
 type BasicDropdownProps = {
@@ -60,9 +61,7 @@ export const BasicDropdown = ({
           type="button"
           className={cn(
             'w-full p-2 text-left rounded-md border',
-            'input-regular',
-            'input-border-regular',
-            error && 'input-border-error',
+            inputVariants({ variant: error ? 'error' : 'default' }),
             isOpen && 'input-gradient-active',
           )}
           onClick={() => setIsOpen(!isOpen)}

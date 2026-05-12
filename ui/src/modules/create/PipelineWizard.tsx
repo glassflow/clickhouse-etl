@@ -40,17 +40,14 @@ function PipelineWizard() {
     () => getWizardJourneyInstances(topicCount, sourceType),
     [topicCount, sourceType],
   )
-  const sidebarSteps = React.useMemo(
-    () => {
-      if (getSourceAdapter(sourceType).type !== 'kafka') {
-        return getSidebarStepsFromInstances(currentJourney, 1)
-      }
-      return topicCount && topicCount >= 1 && topicCount <= 2
-        ? getSidebarStepsFromInstances(currentJourney, topicCount)
-        : []
-    },
-    [currentJourney, topicCount, sourceType],
-  )
+  const sidebarSteps = React.useMemo(() => {
+    if (getSourceAdapter(sourceType).type !== 'kafka') {
+      return getSidebarStepsFromInstances(currentJourney, 1)
+    }
+    return topicCount && topicCount >= 1 && topicCount <= 2
+      ? getSidebarStepsFromInstances(currentJourney, topicCount)
+      : []
+  }, [currentJourney, topicCount, sourceType])
   const stepComponents = getWizardJourneySteps(topicCount, sourceType)
   const {
     completedStepIds,
@@ -204,7 +201,7 @@ function PipelineWizard() {
 
         <div className="grow">
           {currentActiveInstance && (
-            <Card className="card-dark p-4">
+            <Card variant="dark" className="p-4">
               <CardHeader>
                 <CardTitle>
                   <div className="flex items-center justify-between">

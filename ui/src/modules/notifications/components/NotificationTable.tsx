@@ -22,6 +22,7 @@ import {
 import { useStore } from '@/src/store'
 import { Button } from '@/src/components/ui/button'
 import { Badge } from '@/src/components/ui/badge'
+import { Card } from '@/src/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select'
 import { cn } from '@/src/utils/common.client'
 import type { Notification, NotificationSeverity } from '@/src/services/notifications-api'
@@ -167,43 +168,27 @@ export function NotificationTable() {
 
   if (error) {
     return (
-      <div
-        className={cn(
-          'card-outline p-8 text-center',
-          'transition-all duration-200'
-        )}
-      >
+      <Card variant="outline" className={cn('p-8 text-center', 'transition-all duration-200')}>
         <div className="p-4 rounded-full bg-[var(--color-background-critical-faded)] w-fit mx-auto">
           <AlertCircle className="h-10 w-10 text-[var(--color-foreground-critical)]" />
         </div>
         <p className="mt-4 text-sm text-[var(--text-error)]">{error}</p>
-        <Button
-          size="sm"
-          onClick={fetchNotifications}
-          variant="secondary" className="mt-4 transition-all duration-200"
-        >
+        <Button size="sm" onClick={fetchNotifications} variant="secondary" className="mt-4 transition-all duration-200">
           Try again
         </Button>
-      </div>
+      </Card>
     )
   }
 
   if (!isLoading && notifications.length === 0) {
     return (
-      <div
-        className={cn(
-          'card-outline p-12 text-center',
-          'transition-all duration-200'
-        )}
-      >
+      <Card variant="outline" className={cn('p-12 text-center', 'transition-all duration-200')}>
         <div className="p-5 rounded-full bg-[var(--color-background-neutral-faded)] w-fit mx-auto">
           <Bell className="h-12 w-12 text-[var(--text-secondary)] opacity-50" />
         </div>
         <p className="mt-6 text-lg font-medium text-[var(--text-primary)]">No notifications found</p>
-        <p className="mt-2 text-sm text-[var(--text-secondary)]">
-          Try adjusting your filters or check back later
-        </p>
-      </div>
+        <p className="mt-2 text-sm text-[var(--text-secondary)]">Try adjusting your filters or check back later</p>
+      </Card>
     )
   }
 
@@ -217,7 +202,7 @@ export function NotificationTable() {
             'rounded-[var(--radius-xl)]',
             'bg-[var(--color-background-primary-faded)] border border-[var(--color-border-primary-faded)]',
             'animate-slideDown',
-            'transition-all duration-200'
+            'transition-all duration-200',
           )}
         >
           <span className="text-sm text-[var(--text-primary)] font-medium">
@@ -228,10 +213,7 @@ export function NotificationTable() {
               variant="outline"
               size="sm"
               onClick={handleMarkSelectedAsRead}
-              className={cn(
-                'h-8',
-                'transition-all duration-200'
-              )}
+              className={cn('h-8', 'transition-all duration-200')}
             >
               <Check className="h-4 w-4 mr-1.5" />
               Mark as Read
@@ -245,7 +227,7 @@ export function NotificationTable() {
                 'text-[var(--color-foreground-critical)] hover:text-[var(--color-foreground-critical)]',
                 'border-[var(--color-border-critical-faded)] hover:border-[var(--color-border-critical)]',
                 'hover:bg-[var(--color-background-critical-faded)]',
-                'transition-all duration-200'
+                'transition-all duration-200',
               )}
             >
               <Trash2 className="h-4 w-4 mr-1.5" />
@@ -268,7 +250,7 @@ export function NotificationTable() {
                 className={cn(
                   'h-4 w-4 rounded cursor-pointer',
                   'border-[var(--control-border)] text-primary',
-                  'focus:ring-primary focus:ring-offset-0'
+                  'focus:ring-primary focus:ring-offset-0',
                 )}
                 aria-label="Select all"
                 disabled={notifications.length === 0}
@@ -319,15 +301,12 @@ export function NotificationTable() {
             'flex items-center justify-between',
             'p-4 rounded-[var(--radius-xl)]',
             'bg-[var(--surface-bg)] border border-[var(--surface-border)]',
-            'transition-all duration-200'
+            'transition-all duration-200',
           )}
         >
           <div className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
             <span>Show</span>
-            <Select
-              value={String(pageSize)}
-              onValueChange={(value) => handlePageSizeChange(Number(value))}
-            >
+            <Select value={String(pageSize)} onValueChange={(value) => handlePageSizeChange(Number(value))}>
               <SelectTrigger
                 size="sm"
                 className={cn(
@@ -336,22 +315,29 @@ export function NotificationTable() {
                   'text-[var(--text-primary)]',
                   'hover:border-[var(--control-border-hover)]',
                   'focus:border-[var(--control-border-focus)] focus:outline-none focus:shadow-[var(--control-shadow-focus)]',
-                  'transition-all duration-200'
+                  'transition-all duration-200',
                 )}
               >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="select-content-custom">
-                <SelectItem value="10" className="select-item-custom">10</SelectItem>
-                <SelectItem value="20" className="select-item-custom">20</SelectItem>
-                <SelectItem value="50" className="select-item-custom">50</SelectItem>
-                <SelectItem value="100" className="select-item-custom">100</SelectItem>
+                <SelectItem value="10" className="select-item-custom">
+                  10
+                </SelectItem>
+                <SelectItem value="20" className="select-item-custom">
+                  20
+                </SelectItem>
+                <SelectItem value="50" className="select-item-custom">
+                  50
+                </SelectItem>
+                <SelectItem value="100" className="select-item-custom">
+                  100
+                </SelectItem>
               </SelectContent>
             </Select>
             <span>per page</span>
             <span className="ml-4 text-[var(--text-primary)]">
-              Showing {(currentPage - 1) * pageSize + 1}-
-              {Math.min(currentPage * pageSize, totalCount)} of {totalCount}
+              Showing {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, totalCount)} of {totalCount}
             </span>
           </div>
 
@@ -360,7 +346,8 @@ export function NotificationTable() {
               size="sm"
               onClick={() => handlePageChange(currentPage - 1)}
               disabled={currentPage === 1}
-              variant="secondary" className="h-8 w-8 p-0 transition-all duration-200"
+              variant="secondary"
+              className="h-8 w-8 p-0 transition-all duration-200"
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
@@ -432,7 +419,9 @@ function NotificationTableRow({
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch (err) {
-      structuredLogger.error('NotificationTable failed to copy pipeline ID', { error: err instanceof Error ? err.message : String(err) })
+      structuredLogger.error('NotificationTable failed to copy pipeline ID', {
+        error: err instanceof Error ? err.message : String(err),
+      })
     }
   }
 
@@ -442,7 +431,7 @@ function NotificationTableRow({
         className={cn(
           'table-row notifications-table-row',
           !read && 'bg-[var(--color-background-primary)]/10',
-          isSelected && 'bg-[var(--option-bg-highlighted)]'
+          isSelected && 'bg-[var(--option-bg-highlighted)]',
         )}
       >
         <div className="table-cell">
@@ -454,7 +443,7 @@ function NotificationTableRow({
             className={cn(
               'h-4 w-4 rounded cursor-pointer',
               'border-[var(--control-border)] text-primary',
-              'focus:ring-primary focus:ring-offset-0'
+              'focus:ring-primary focus:ring-offset-0',
             )}
             aria-label={`Select notification: ${title}`}
           />
@@ -481,20 +470,24 @@ function NotificationTableRow({
           <div className="space-y-1 min-w-0">
             <div className="flex items-start gap-2">
               <div className="flex-1 min-w-0">
-                <p className={cn(
-                  'font-medium',
-                  !read && 'text-[var(--text-primary)]',
-                  read && 'text-[var(--text-secondary)]',
-                  !isExpanded && 'line-clamp-2',
-                  'break-words'
-                )}>
+                <p
+                  className={cn(
+                    'font-medium',
+                    !read && 'text-[var(--text-primary)]',
+                    read && 'text-[var(--text-secondary)]',
+                    !isExpanded && 'line-clamp-2',
+                    'break-words',
+                  )}
+                >
                   {title}
                 </p>
-                <p className={cn(
-                  'text-xs text-[var(--text-secondary)]',
-                  !isExpanded && 'line-clamp-1',
-                  'break-words mt-1'
-                )}>
+                <p
+                  className={cn(
+                    'text-xs text-[var(--text-secondary)]',
+                    !isExpanded && 'line-clamp-1',
+                    'break-words mt-1',
+                  )}
+                >
                   {message}
                 </p>
               </div>
@@ -506,15 +499,11 @@ function NotificationTableRow({
                 className={cn(
                   'flex-shrink-0 p-1 rounded hover:bg-[var(--color-background-neutral-faded)]',
                   'transition-all duration-200',
-                  'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                  'text-[var(--text-secondary)] hover:text-[var(--text-primary)]',
                 )}
                 aria-label={isExpanded ? 'Collapse row' : 'Expand row'}
               >
-                {isExpanded ? (
-                  <ChevronUp className="h-4 w-4" />
-                ) : (
-                  <ChevronDown className="h-4 w-4" />
-                )}
+                {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
               </button>
             </div>
           </div>
@@ -529,15 +518,11 @@ function NotificationTableRow({
                   'p-0.5 rounded transition-all duration-200',
                   copied
                     ? 'text-[var(--color-foreground-positive)]'
-                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--color-background-neutral-faded)]'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--color-background-neutral-faded)]',
                 )}
                 title={copied ? 'Copied!' : 'Copy pipeline ID'}
               >
-                {copied ? (
-                  <Check className="h-3 w-3" />
-                ) : (
-                  <Copy className="h-3 w-3" />
-                )}
+                {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
               </button>
               {showGoToPipeline && (
                 <Link
@@ -545,7 +530,7 @@ function NotificationTableRow({
                   onClick={(e) => e.stopPropagation()}
                   className={cn(
                     'p-0.5 rounded transition-all duration-200',
-                    'text-[var(--text-secondary)] hover:text-[var(--color-foreground-primary)] hover:bg-[var(--color-background-primary-faded)]'
+                    'text-[var(--text-secondary)] hover:text-[var(--color-foreground-primary)] hover:bg-[var(--color-background-primary-faded)]',
                   )}
                   title="Go to pipeline"
                 >
@@ -557,9 +542,7 @@ function NotificationTableRow({
             <span className="text-[var(--text-secondary)]">—</span>
           )}
         </div>
-        <div className="table-cell text-sm text-[var(--text-secondary)]">
-          {formatDate(timestamp)}
-        </div>
+        <div className="table-cell text-sm text-[var(--text-secondary)]">{formatDate(timestamp)}</div>
         <div className="table-cell">
           {read ? (
             <span className="text-xs text-[var(--text-secondary)]">Read</span>
@@ -582,7 +565,7 @@ function NotificationTableRow({
                 className={cn(
                   'h-7 w-7 p-0',
                   'hover:bg-[var(--color-background-positive-faded)] hover:text-[var(--color-foreground-positive)]',
-                  'transition-all duration-200'
+                  'transition-all duration-200',
                 )}
                 title="Mark as read"
               >
@@ -600,7 +583,7 @@ function NotificationTableRow({
                 'h-7 w-7 p-0',
                 'text-[var(--color-foreground-critical)] hover:text-[var(--color-foreground-critical)]',
                 'hover:bg-[var(--color-background-critical-faded)]',
-                'transition-all duration-200'
+                'transition-all duration-200',
               )}
               title="Delete"
             >
@@ -619,20 +602,20 @@ function NotificationTableRow({
             <div className="space-y-3">
               <div>
                 <p className="text-xs font-medium text-[var(--text-secondary)] mb-1">Title</p>
-                <p className={cn(
-                  'text-sm break-words',
-                  !read && 'text-[var(--text-primary)]',
-                  read && 'text-[var(--text-secondary)]'
-                )}>
+                <p
+                  className={cn(
+                    'text-sm break-words',
+                    !read && 'text-[var(--text-primary)]',
+                    read && 'text-[var(--text-secondary)]',
+                  )}
+                >
                   {title}
                 </p>
               </div>
               {message && (
                 <div>
                   <p className="text-xs font-medium text-[var(--text-secondary)] mb-1">Message</p>
-                  <p className="text-sm text-[var(--text-secondary)] break-words whitespace-pre-wrap">
-                    {message}
-                  </p>
+                  <p className="text-sm text-[var(--text-secondary)] break-words whitespace-pre-wrap">{message}</p>
                 </div>
               )}
               <div className="flex flex-wrap justify-end items-center gap-4 text-xs text-[var(--text-secondary)] mt-6">
@@ -646,15 +629,11 @@ function NotificationTableRow({
                         'p-0.5 rounded transition-all duration-200',
                         copied
                           ? 'text-[var(--color-foreground-positive)]'
-                          : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--color-background-neutral-faded)]'
+                          : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--color-background-neutral-faded)]',
                       )}
                       title={copied ? 'Copied!' : 'Copy pipeline ID'}
                     >
-                      {copied ? (
-                        <Check className="h-3 w-3" />
-                      ) : (
-                        <Copy className="h-3 w-3" />
-                      )}
+                      {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
                     </button>
                     {showGoToPipeline && (
                       <Link
@@ -662,7 +641,7 @@ function NotificationTableRow({
                         onClick={(e) => e.stopPropagation()}
                         className={cn(
                           'p-0.5 rounded transition-all duration-200',
-                          'text-[var(--text-secondary)] hover:text-[var(--color-foreground-primary)] hover:bg-[var(--color-background-primary-faded)]'
+                          'text-[var(--text-secondary)] hover:text-[var(--color-foreground-primary)] hover:bg-[var(--color-background-primary-faded)]',
                         )}
                         title="Go to pipeline"
                       >
@@ -672,12 +651,10 @@ function NotificationTableRow({
                   </div>
                 )}
                 <div>
-                  <span className="font-medium">Date:</span>{' '}
-                  <span>{formatDate(timestamp)}</span>
+                  <span className="font-medium">Date:</span> <span>{formatDate(timestamp)}</span>
                 </div>
                 <div>
-                  <span className="font-medium">Status:</span>{' '}
-                  <span>{read ? 'Read' : 'Unread'}</span>
+                  <span className="font-medium">Status:</span> <span>{read ? 'Read' : 'Unread'}</span>
                 </div>
               </div>
             </div>

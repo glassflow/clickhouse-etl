@@ -12,10 +12,7 @@ import {
 } from '@/src/components/ui/dialog'
 import { Button } from '@/src/components/ui/button'
 import { Textarea } from '@/src/components/ui/textarea'
-import {
-  computeNextSemver,
-  type SemverBump,
-} from '@/src/app/ui-api/library/schemas/[id]/versions/semver-util'
+import { computeNextSemver, type SemverBump } from '@/src/app/ui-api/library/schemas/[id]/versions/semver-util'
 import type { SchemaField } from './SchemaDiffViewer'
 
 type SchemaVersionPublishModalProps = {
@@ -23,11 +20,7 @@ type SchemaVersionPublishModalProps = {
   latestVersion: string | null
   currentFields: SchemaField[]
   onClose: () => void
-  onPublish: (data: {
-    bump: SemverBump
-    changeSummary: string | undefined
-    fields: SchemaField[]
-  }) => Promise<void>
+  onPublish: (data: { bump: SemverBump; changeSummary: string | undefined; fields: SchemaField[] }) => Promise<void>
 }
 
 export function SchemaVersionPublishModal({
@@ -41,10 +34,7 @@ export function SchemaVersionPublishModal({
   const [summary, setSummary] = React.useState('')
   const [submitting, setSubmitting] = React.useState(false)
 
-  const nextVersion = React.useMemo(
-    () => computeNextSemver(latestVersion, bump),
-    [latestVersion, bump],
-  )
+  const nextVersion = React.useMemo(() => computeNextSemver(latestVersion, bump), [latestVersion, bump])
 
   // Reset form on open
   React.useEffect(() => {
@@ -73,9 +63,7 @@ export function SchemaVersionPublishModal({
       <DialogOverlay className="!fixed !inset-0 modal-overlay" aria-hidden="true" />
       <DialogContent className="info-modal-container surface-gradient-border border-0 sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="modal-title title-4 text-[var(--text-primary)]">
-            Publish new version
-          </DialogTitle>
+          <DialogTitle className="modal-title title-4 text-[var(--text-primary)]">Publish new version</DialogTitle>
           <DialogDescription className="modal-description">
             Pinned pipelines stay on their current version. Owners must explicitly upgrade.
           </DialogDescription>
@@ -83,7 +71,7 @@ export function SchemaVersionPublishModal({
 
         <div className="flex flex-col gap-4 py-4">
           <fieldset className="flex flex-col gap-2">
-            <legend className="modal-input-label mb-2">Bump</legend>
+            <legend className="body-3 font-medium text-[var(--color-foreground-neutral-faded)] mb-2">Bump</legend>
             {(['major', 'minor', 'patch'] as SemverBump[]).map((b) => (
               <label
                 key={b}
@@ -113,7 +101,7 @@ export function SchemaVersionPublishModal({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="change-summary" className="modal-input-label">
+            <label htmlFor="change-summary" className="body-3 font-medium text-[var(--color-foreground-neutral-faded)]">
               Change summary
             </label>
             <Textarea
@@ -130,13 +118,7 @@ export function SchemaVersionPublishModal({
           <Button variant="ghost" size="sm" onClick={onClose} disabled={submitting}>
             Cancel
           </Button>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={handlePublish}
-            loading={submitting}
-            loadingText="Publishing…"
-          >
+          <Button variant="primary" size="sm" onClick={handlePublish} loading={submitting} loadingText="Publishing…">
             Publish {nextVersion}
           </Button>
         </DialogFooter>

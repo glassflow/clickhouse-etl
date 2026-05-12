@@ -103,7 +103,10 @@ export function FieldColumnMapper({
       } else {
         // Fallback: if sourceTopic is missing but we're in join mode, show primary icon
         // This handles cases where columns were mapped before join mode was properly initialized
-        structuredLogger.warn('FieldColumnMapper column missing sourceTopic in join mode, using primary icon as fallback', { column: column.name })
+        structuredLogger.warn(
+          'FieldColumnMapper column missing sourceTopic in join mode, using primary icon as fallback',
+          { column: column.name },
+        )
         return <Image src={leftTopicIcon} alt="Primary Topic (Fallback)" height={20} width={20} />
       }
     }
@@ -125,13 +128,10 @@ export function FieldColumnMapper({
             size="custom"
             onClick={onAutoMap}
             disabled={readOnly}
-            className={cn(
-              'transition-all duration-200',
-              {
-                'opacity-50 cursor-not-allowed': readOnly,
-                'text-muted-foreground': readOnly,
-              },
-            )}
+            className={cn('transition-all duration-200', {
+              'opacity-50 cursor-not-allowed': readOnly,
+              'text-muted-foreground': readOnly,
+            })}
             title="Auto-map event fields to columns by name"
           >
             <SparklesIcon
@@ -242,7 +242,9 @@ export function FieldColumnMapper({
                       <div
                         className={cn(
                           'w-full h-10 px-3 flex items-center rounded-md bg-[var(--surface-bg-sunken)] border text-content',
-                          hasTypeError ? 'border-2 border-[var(--control-border-error)]' : 'border-[var(--surface-border)]'
+                          hasTypeError
+                            ? 'border-2 border-[var(--control-border-error)]'
+                            : 'border-[var(--surface-border)]',
                         )}
                       >
                         {column.jsonType ?? ''}
@@ -273,7 +275,7 @@ export function FieldColumnMapper({
                     {hasAnyIssue && (
                       <div className="text-xs font-medium leading-tight overflow-hidden mt-1">
                         {hasTypeError ? (
-                          <span className="text-red-600">
+                          <span className="text-[var(--color-foreground-critical)]">
                             Type {column.jsonType} is incompatible with {column.type}
                           </span>
                         ) : (

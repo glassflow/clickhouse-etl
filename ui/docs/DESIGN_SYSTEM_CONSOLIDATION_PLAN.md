@@ -292,11 +292,11 @@ Not part of this plan, but flagged in the audit for future work:
 When resuming this plan in a fresh context, this is the minimal set:
 
 ```
-[ ] Phase 1 — Token cleanup (4 tasks)
+[x] Phase 1 — Token cleanup (4 tasks)
 [ ] Phase 2 — Primitive layer hardening (3 tasks)
-[ ] Phase 3 — <DataTable> primitive (3 tasks)
-[ ] Phase 4 — <PageShell> scaffolding (3 tasks)
-[ ] Phase 5 — Lint enforcement (4 tasks)
+[x] Phase 3 — <DataTable> primitive (3 tasks)
+[x] Phase 4 — <PageShell> scaffolding (3 tasks)
+[x] Phase 5 — Lint enforcement (4 tasks)
 [ ] Phase 6 — Migrate three surfaces (3 tasks, do in order)
 [ ] Phase 7 — Showcase polish (3 tasks)
 ```

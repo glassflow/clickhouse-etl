@@ -22,8 +22,9 @@ export function PipelineResourcesSection({
 
   return (
     <Card
+      variant="outline"
       className={cn(
-        'card-outline px-4 py-3',
+        'px-4 py-3',
         !disabled && 'cursor-pointer',
         disabled && 'opacity-50 cursor-not-allowed',
         selected && 'card-outline-selected',
@@ -38,7 +39,11 @@ export function PipelineResourcesSection({
         <div className="flex items-center gap-4 caption-1 text-muted-foreground">
           {hasValues ? (
             <>
-              {replicas != null && <span>{replicas} {replicas === 1 ? 'replica' : 'replicas'}</span>}
+              {replicas != null && (
+                <span>
+                  {replicas} {replicas === 1 ? 'replica' : 'replicas'}
+                </span>
+              )}
               {cpu && <span>CPU {cpu}</span>}
               {memory && <span>Mem {memory}</span>}
             </>

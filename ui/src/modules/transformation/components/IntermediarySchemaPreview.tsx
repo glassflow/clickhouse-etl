@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import { Card } from '@/src/components/ui/card'
 import { Label } from '@/src/components/ui/label'
 import { CheckCircleIcon, XCircleIcon, ChevronDownIcon } from '@heroicons/react/24/outline'
 import { TransformationConfig } from '@/src/store/transformation.store'
@@ -43,12 +44,10 @@ export function IntermediarySchemaPreview({
   const schemaFields = getIntermediarySchema(config)
 
   return (
-    <div className="mt-6 p-4 card-outline rounded-[var(--radius-xl)] space-y-2">
+    <Card variant="outline" className="mt-6 p-4 rounded-[var(--radius-xl)] space-y-2">
       {/* Header with validation status */}
       <div className="flex items-center justify-between">
-        <Label className="text-sm font-medium text-[var(--text-secondary)]">
-          Intermediary Schema Preview
-        </Label>
+        <Label className="text-sm font-medium text-[var(--text-secondary)]">Intermediary Schema Preview</Label>
         {validation.isValid ? (
           <div className="flex items-center gap-2 text-sm text-[var(--color-foreground-positive)]">
             <CheckCircleIcon className="w-4 h-4" />
@@ -90,9 +89,7 @@ export function IntermediarySchemaPreview({
                 <td className="py-1.5 pr-4 text-[var(--text-secondary)]">{field.type}</td>
                 <td className="py-1.5 text-[var(--text-secondary)]">
                   {field.sourceField && <span>← {field.sourceField}</span>}
-                  {field.functionName && (
-                    <span className="text-[var(--text-accent)]">fn: {field.functionName}()</span>
-                  )}
+                  {field.functionName && <span className="text-[var(--text-accent)]">fn: {field.functionName}()</span>}
                   {field.rawExpression && (
                     <span className="text-[var(--text-accent)] font-mono text-xs" title={field.rawExpression}>
                       raw:{' '}
@@ -120,10 +117,7 @@ export function IntermediarySchemaPreview({
                 </div>
                 <ul className="space-y-1">
                   {validation.globalErrors.map((error, i) => (
-                    <li
-                      key={i}
-                      className="text-sm text-[var(--color-foreground-critical)] flex items-start gap-2"
-                    >
+                    <li key={i} className="text-sm text-[var(--color-foreground-critical)] flex items-start gap-2">
                       <span className="text-[var(--color-foreground-critical)] mt-0.5">•</span>
                       <span>{error}</span>
                     </li>
@@ -141,9 +135,7 @@ export function IntermediarySchemaPreview({
                 <div className="space-y-2">
                   {validationErrorDetails.map((detail, idx) => (
                     <div key={idx} className="pl-3 border-l-2 border-[var(--color-border-critical)]">
-                      <div className="text-sm font-medium text-[var(--text-primary)]">
-                        {detail.fieldName}
-                      </div>
+                      <div className="text-sm font-medium text-[var(--text-primary)]">{detail.fieldName}</div>
                       <ul className="mt-0.5 space-y-0.5">
                         {detail.errors.map((error, errorIdx) => (
                           <li
@@ -163,7 +155,7 @@ export function IntermediarySchemaPreview({
           </div>
         </div>
       )}
-    </div>
+    </Card>
   )
 }
 

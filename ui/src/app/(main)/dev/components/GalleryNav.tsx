@@ -8,6 +8,7 @@ const sections = [
   { href: '/dev/components/foundations', label: 'Foundations' },
   { href: '/dev/components/buttons', label: 'Buttons' },
   { href: '/dev/components/display', label: 'Display' },
+  { href: '/dev/components/shell', label: 'Shell' },
   { href: '/dev/components/forms', label: 'Forms' },
   { href: '/dev/components/overlays', label: 'Overlays' },
   { href: '/dev/components/navigation', label: 'Navigation' },
@@ -21,9 +22,7 @@ export function GalleryNav() {
 
   return (
     <nav className="sticky top-8 flex flex-col gap-0.5">
-      <p className="body-3 text-[var(--text-secondary)] uppercase tracking-widest mb-3 px-3 font-medium">
-        Components
-      </p>
+      <p className="body-3 text-[var(--text-secondary)] uppercase tracking-widest mb-3 px-3 font-medium">Components</p>
       {sections.map(({ href, label, exact }) => {
         const isActive = exact ? pathname === href : pathname.startsWith(href)
         return (

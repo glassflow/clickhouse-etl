@@ -2,6 +2,7 @@
 
 import { useCallback } from 'react'
 import { Button } from '@/src/components/ui/button'
+import { Card } from '@/src/components/ui/card'
 import { Label } from '@/src/components/ui/label'
 import { Switch } from '@/src/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select'
@@ -60,9 +61,10 @@ export function QueryGroup({
   const canAddNestedGroup = depth < MAX_GROUP_DEPTH - 1
 
   return (
-    <div
+    <Card
+      variant="outline"
       className={cn(
-        'card-outline rounded-[var(--radius-xl)] p-4',
+        'rounded-[var(--radius-xl)] p-4',
         group.not && 'border-[var(--color-border-primary)]',
         !isRoot && 'ml-4',
       )}
@@ -106,7 +108,8 @@ export function QueryGroup({
             size="sm"
             onClick={() => onAddRule(group.id)}
             disabled={readOnly}
-            variant="tertiary" className="h-8 text-xs"
+            variant="tertiary"
+            className="h-8 text-xs"
           >
             <PlusIcon className="h-3 w-3 mr-1" />
             Add Rule
@@ -118,7 +121,8 @@ export function QueryGroup({
               size="sm"
               onClick={() => onAddGroup(group.id)}
               disabled={readOnly}
-              variant="tertiary" className="h-8 text-xs"
+              variant="tertiary"
+              className="h-8 text-xs"
             >
               <PlusIcon className="h-3 w-3 mr-1" />
               Add Group
@@ -199,6 +203,6 @@ export function QueryGroup({
           })
         )}
       </div>
-    </div>
+    </Card>
   )
 }

@@ -30,10 +30,10 @@ export interface PipelineListColumnsConfig {
 // ─── Status display ───────────────────────────────────────────────────────────
 
 function StatusCell({ pipeline, effectiveStatus }: { pipeline: ListPipelineConfig; effectiveStatus: PipelineStatus }) {
-  const isError    = effectiveStatus === 'failed'
-  const isWarn     = pipeline.health_status === 'unstable' && !isError
-  const isRunning  = effectiveStatus === 'active' && !isWarn
-  const isTransit  = effectiveStatus === 'pausing' || effectiveStatus === 'resuming' || effectiveStatus === 'stopping'
+  const isError = effectiveStatus === 'failed'
+  const isWarn = pipeline.health_status === 'unstable' && !isError
+  const isRunning = effectiveStatus === 'active' && !isWarn
+  const isTransit = effectiveStatus === 'pausing' || effectiveStatus === 'resuming' || effectiveStatus === 'stopping'
 
   let dotColor: string
   let textColor: string
@@ -78,11 +78,11 @@ function StatusCell({ pipeline, effectiveStatus }: { pipeline: ListPipelineConfi
 // ─── Type glyphs ─────────────────────────────────────────────────────────────
 
 const GLYPH_DEFS: { flag: string; label: string; color: string }[] = [
-  { flag: 'ingest',     label: 'I', color: 'var(--color-foreground-info)' },
-  { flag: 'join',       label: 'J', color: 'var(--color-foreground-warning)' },
-  { flag: 'dedup',      label: 'D', color: 'var(--color-purple-300)' },
-  { flag: 'filter',     label: 'F', color: 'var(--color-foreground-positive)' },
-  { flag: 'transform',  label: 'T', color: 'var(--color-foreground-primary)' },
+  { flag: 'ingest', label: 'I', color: 'var(--color-foreground-info)' },
+  { flag: 'join', label: 'J', color: 'var(--color-foreground-warning)' },
+  { flag: 'dedup', label: 'D', color: 'var(--color-purple-300)' },
+  { flag: 'filter', label: 'F', color: 'var(--color-foreground-positive)' },
+  { flag: 'transform', label: 'T', color: 'var(--color-foreground-primary)' },
 ]
 
 function TypeCell({ transformationType }: { transformationType: string }) {
@@ -106,9 +106,21 @@ function TypeCell({ transformationType }: { transformationType: string }) {
 // ─── ENV badge ────────────────────────────────────────────────────────────────
 
 const ENV_STYLES: Record<PipelineEnv, { bg: string; fg: string; border: string }> = {
-  PROD:    { bg: 'var(--color-background-neutral-faded)',            fg: 'var(--color-foreground-neutral-faded)',  border: 'var(--surface-border)' },
-  STAGING: { bg: 'color-mix(in srgb,var(--color-yellow-400) 12%,transparent)', fg: 'var(--color-yellow-400)', border: 'color-mix(in srgb,var(--color-yellow-400) 30%,transparent)' },
-  DEV:     { bg: 'color-mix(in srgb,var(--color-foreground-info) 12%,transparent)', fg: 'var(--color-foreground-info)', border: 'color-mix(in srgb,var(--color-foreground-info) 30%,transparent)' },
+  PROD: {
+    bg: 'var(--color-background-neutral-faded)',
+    fg: 'var(--color-foreground-neutral-faded)',
+    border: 'var(--surface-border)',
+  },
+  STAGING: {
+    bg: 'color-mix(in srgb,var(--color-yellow-400) 12%,transparent)',
+    fg: 'var(--color-yellow-400)',
+    border: 'color-mix(in srgb,var(--color-yellow-400) 30%,transparent)',
+  },
+  DEV: {
+    bg: 'color-mix(in srgb,var(--color-foreground-info) 12%,transparent)',
+    fg: 'var(--color-foreground-info)',
+    border: 'color-mix(in srgb,var(--color-foreground-info) 30%,transparent)',
+  },
 }
 
 function EnvBadge({ env }: { env: PipelineEnv }) {
@@ -125,19 +137,31 @@ function EnvBadge({ env }: { env: PipelineEnv }) {
 
 // ─── Owner avatar ─────────────────────────────────────────────────────────────
 
-function OwnerCell({ name, team, initials, colorToken }: { name: string; team: string; initials: string; colorToken: string }) {
+function OwnerCell({
+  name,
+  team,
+  initials,
+  colorToken,
+}: {
+  name: string
+  team: string
+  initials: string
+  colorToken: string
+}) {
   return (
     <div className="flex items-center gap-1.5 min-w-0">
       <div
         className="w-5 h-5 rounded-full flex items-center justify-center shrink-0 text-[9px] font-bold"
-        style={{ background: colorToken, color: 'var(--color-background-default, #0a0a0a)' }}
+        style={{ background: colorToken, color: 'var(--color-background-default)' }}
         title={name}
       >
         {initials}
       </div>
       <div className="flex flex-col min-w-0">
         <span className="caption-1 text-[var(--table-fg)] truncate leading-tight">{name}</span>
-        <span className="font-mono text-[9px] text-[var(--color-foreground-neutral-faded)] truncate leading-tight">{team}</span>
+        <span className="font-mono text-[9px] text-[var(--color-foreground-neutral-faded)] truncate leading-tight">
+          {team}
+        </span>
       </div>
     </div>
   )
@@ -149,7 +173,7 @@ function TagsCell({ tags }: { tags: string[] }) {
   if (!tags || tags.length === 0) {
     return <span className="caption-1 text-[var(--color-foreground-neutral-faded)]">—</span>
   }
-  const visible  = tags.slice(0, 2)
+  const visible = tags.slice(0, 2)
   const overflow = tags.length - visible.length
   return (
     <div className="flex flex-wrap gap-1">
@@ -162,9 +186,7 @@ function TagsCell({ tags }: { tags: string[] }) {
           {tag}
         </span>
       ))}
-      {overflow > 0 && (
-        <span className="caption-2 text-[var(--color-foreground-neutral-faded)]">+{overflow}</span>
-      )}
+      {overflow > 0 && <span className="caption-2 text-[var(--color-foreground-neutral-faded)]">+{overflow}</span>}
     </div>
   )
 }
@@ -175,8 +197,16 @@ export function getPipelineListColumns(config: PipelineListColumnsConfig): Table
   const {
     isPipelineLoading,
     getEffectiveStatus,
-    onStop, onResume, onEdit, onRename, onTerminate, onDelete, onDownload, onManageTags,
-    onToggleSelect, isSelected,
+    onStop,
+    onResume,
+    onEdit,
+    onRename,
+    onTerminate,
+    onDelete,
+    onDownload,
+    onManageTags,
+    onToggleSelect,
+    isSelected,
   } = config
 
   return [
@@ -189,7 +219,10 @@ export function getPipelineListColumns(config: PipelineListColumnsConfig): Table
       render: (pipeline) => (
         <div
           className="flex items-center justify-center"
-          onClick={(e) => { e.stopPropagation(); onToggleSelect(pipeline.pipeline_id) }}
+          onClick={(e) => {
+            e.stopPropagation()
+            onToggleSelect(pipeline.pipeline_id)
+          }}
         >
           <input
             type="checkbox"
@@ -228,7 +261,7 @@ export function getPipelineListColumns(config: PipelineListColumnsConfig): Table
       render: (pipeline) => {
         const effectiveStatus = getEffectiveStatus(pipeline)
         const stubs = enrichPipeline(pipeline, effectiveStatus)
-        const isFailed  = effectiveStatus === 'failed'
+        const isFailed = effectiveStatus === 'failed'
         return (
           <div className="flex flex-col gap-0 min-w-0">
             <span className="title-6 text-[var(--table-fg)] truncate">{pipeline.name}</span>
@@ -275,7 +308,7 @@ export function getPipelineListColumns(config: PipelineListColumnsConfig): Table
       sortable: false,
       render: (pipeline) => {
         const stubs = enrichPipeline(pipeline, getEffectiveStatus(pipeline))
-        const full  = `${stubs.sourceLabel} → ${stubs.sinkLabel}`
+        const full = `${stubs.sourceLabel} → ${stubs.sinkLabel}`
         return (
           <span
             className="font-mono caption-1 text-[var(--color-foreground-neutral-faded)] truncate block"
@@ -299,9 +332,8 @@ export function getPipelineListColumns(config: PipelineListColumnsConfig): Table
         const effectiveStatus = getEffectiveStatus(pipeline)
         const stubs = enrichPipeline(pipeline, effectiveStatus)
         const isActive = effectiveStatus === 'active'
-        const sparkColor = pipeline.health_status === 'unstable'
-          ? 'var(--color-foreground-warning)'
-          : 'var(--color-foreground-primary)'
+        const sparkColor =
+          pipeline.health_status === 'unstable' ? 'var(--color-foreground-warning)' : 'var(--color-foreground-primary)'
         return (
           <div className="flex items-center gap-2">
             <span className="font-mono caption-1 text-[var(--table-fg)] w-10 text-right tabular-nums shrink-0">
@@ -328,16 +360,14 @@ export function getPipelineListColumns(config: PipelineListColumnsConfig): Table
       sortKey: 'dlq_stats.unconsumed_messages',
       render: (pipeline) => {
         const count = pipeline.dlq_stats?.unconsumed_messages ?? 0
-        const color = count >= 100
-          ? 'var(--color-foreground-critical)'
-          : count >= 1
-            ? 'var(--color-foreground-warning)'
-            : 'var(--color-foreground-neutral-faded)'
+        const color =
+          count >= 100
+            ? 'var(--color-foreground-critical)'
+            : count >= 1
+              ? 'var(--color-foreground-warning)'
+              : 'var(--color-foreground-neutral-faded)'
         return (
-          <span
-            className={`font-mono caption-1 tabular-nums ${count > 0 ? 'font-semibold' : ''}`}
-            style={{ color }}
-          >
+          <span className={`font-mono caption-1 tabular-nums ${count > 0 ? 'font-semibold' : ''}`} style={{ color }}>
             {formatNumber(count)}
           </span>
         )
@@ -376,7 +406,9 @@ export function getPipelineListColumns(config: PipelineListColumnsConfig): Table
         return (
           <div className="flex flex-col">
             <span className="font-mono caption-1 text-[var(--table-fg)]">{stubs.lastDeployUser}</span>
-            <span className="font-mono text-[10px] text-[var(--color-foreground-neutral-faded)]">{stubs.lastDeployTime}</span>
+            <span className="font-mono text-[10px] text-[var(--color-foreground-neutral-faded)]">
+              {stubs.lastDeployTime}
+            </span>
           </div>
         )
       },

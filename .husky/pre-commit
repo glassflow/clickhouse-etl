@@ -1,0 +1,10 @@
+#!/usr/bin/env sh
+# Run lint-staged on UI files only if any are staged.
+# The Go backend in glassflow-api/ has its own CI checks via golangci-lint.
+
+set -e
+
+# Only run UI lint-staged if there are staged files in ui/
+if git diff --cached --name-only --diff-filter=ACMR | grep -q '^ui/'; then
+  cd ui && pnpm exec lint-staged
+fi

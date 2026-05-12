@@ -19,6 +19,10 @@ jobs:
           exit 1
   build-binary:
     uses: ./.github/workflows/build_binary.yaml
+  ui-lint:
+    if: >-
+      !contains(github.event.pull_request.labels.*.name || '', 'build-only')
+    uses: ./.github/workflows/ui_lint.yaml
   test:
     needs:
       - build-binary
@@ -29,9 +33,11 @@ jobs:
     needs:
       - build-binary
       - test
+      - ui-lint
     if: >-
-      always() && 
-      (needs.test.result == 'success' || needs.test.result == 'skipped')
+      always() &&
+      (needs.test.result == 'success' || needs.test.result == 'skipped') &&
+      (needs.ui-lint.result == 'success' || needs.ui-lint.result == 'skipped')
     uses: ./.github/workflows/build_image.yaml
     with:
       push: true

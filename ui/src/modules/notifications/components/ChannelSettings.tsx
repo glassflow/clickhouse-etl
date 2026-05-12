@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Mail, MessageSquare, RefreshCw, Settings, Plus } from 'lucide-react'
 import { Button } from '@/src/components/ui/button'
+import { Card } from '@/src/components/ui/card'
 import { Switch } from '@/src/components/ui/switch'
 import { Badge } from '@/src/components/ui/badge'
 import { cn } from '@/src/utils/common.client'
@@ -26,9 +27,7 @@ function ChannelCard({ channel, channelType, isLoading, onToggle, onConfigure }:
   const isSlack = channelType === 'slack'
   const Icon = isSlack ? MessageSquare : Mail
   const title = isSlack ? 'Slack' : 'Email'
-  const description = isSlack
-    ? 'Receive notifications via Slack webhook'
-    : 'Receive notifications via email'
+  const description = isSlack ? 'Receive notifications via Slack webhook' : 'Receive notifications via email'
 
   const isEnabled = channel?.enabled ?? false
   const isConfigured = channel !== null
@@ -62,7 +61,7 @@ function ChannelCard({ channel, channelType, isLoading, onToggle, onConfigure }:
         'content-card relative p-5',
         'transition-all duration-200',
         'hover:shadow-[var(--card-shadow-hover)]',
-        isEnabled && 'border-[var(--color-border-primary-faded)] bg-[var(--color-background-primary-faded)]/10'
+        isEnabled && 'border-[var(--color-border-primary-faded)] bg-[var(--color-background-primary-faded)]/10',
       )}
     >
       <div className="flex items-start justify-between">
@@ -73,7 +72,7 @@ function ChannelCard({ channel, channelType, isLoading, onToggle, onConfigure }:
               'transition-all duration-200',
               isEnabled
                 ? 'bg-[var(--color-background-primary-faded)] text-[var(--color-foreground-primary)]'
-                : 'bg-[var(--color-background-neutral-faded)] text-[var(--text-secondary)]'
+                : 'bg-[var(--color-background-neutral-faded)] text-[var(--text-secondary)]',
             )}
           >
             <Icon className="h-5 w-5" />
@@ -94,9 +93,7 @@ function ChannelCard({ channel, channelType, isLoading, onToggle, onConfigure }:
             <p className="text-sm text-[var(--text-secondary)] mt-1">{description}</p>
 
             {/* Configuration summary */}
-            {isConfigured && (
-              <p className="mt-2 text-xs text-[var(--text-secondary)]">{getConfigSummary()}</p>
-            )}
+            {isConfigured && <p className="mt-2 text-xs text-[var(--text-secondary)]">{getConfigSummary()}</p>}
           </div>
         </div>
 
@@ -106,7 +103,8 @@ function ChannelCard({ channel, channelType, isLoading, onToggle, onConfigure }:
             size="sm"
             onClick={onConfigure}
             disabled={isLoading}
-            variant="secondary" className="gap-1.5 transition-all duration-200"
+            variant="secondary"
+            className="gap-1.5 transition-all duration-200"
           >
             {isConfigured ? (
               <>
@@ -175,11 +173,7 @@ export function ChannelSettings() {
       const result = await notificationsApi.updateChannel(channelType, { enabled })
 
       if (result.success && result.data) {
-        setChannels((prev) =>
-          prev.map((ch) =>
-            ch.channel_type === channelType ? result.data! : ch,
-          ),
-        )
+        setChannels((prev) => prev.map((ch) => (ch.channel_type === channelType ? result.data! : ch)))
       } else {
         // Refetch to get correct state
         fetchChannels()
@@ -206,15 +200,14 @@ export function ChannelSettings() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold text-[var(--text-primary)]">Notification Channels</h2>
-          <p className="text-sm text-[var(--text-secondary)]">
-            Configure how you receive notifications
-          </p>
+          <p className="text-sm text-[var(--text-secondary)]">Configure how you receive notifications</p>
         </div>
         <Button
           size="sm"
           onClick={fetchChannels}
           disabled={isLoading}
-          variant="secondary" className="gap-2 transition-all duration-200"
+          variant="secondary"
+          className="gap-2 transition-all duration-200"
         >
           <RefreshCw className={cn('h-4 w-4', isLoading && 'animate-spin')} />
           Refresh
@@ -227,15 +220,11 @@ export function ChannelSettings() {
             'p-4 rounded-[var(--radius-xl)]',
             'border border-[var(--color-border-critical-faded)]',
             'bg-[var(--color-background-critical-faded)]/20',
-            'animate-slideDown'
+            'animate-slideDown',
           )}
         >
           <p className="text-sm text-[var(--text-error)]">{error}</p>
-          <Button
-            size="sm"
-            onClick={fetchChannels}
-            variant="secondary" className="mt-2 transition-all duration-200"
-          >
+          <Button size="sm" onClick={fetchChannels} variant="secondary" className="mt-2 transition-all duration-200">
             Try again
           </Button>
         </div>
@@ -259,36 +248,21 @@ export function ChannelSettings() {
       </div>
 
       {!isLoading && channels.length === 0 && !error && (
-        <div
-          className={cn(
-            'card-outline p-6 text-center',
-            'transition-all duration-200'
-          )}
-        >
+        <Card variant="outline" className={cn('p-6 text-center', 'transition-all duration-200')}>
           <p className="text-[var(--text-secondary)] mb-4">
             No channels configured yet. Configure a channel to start receiving notifications.
           </p>
           <div className="flex justify-center gap-3">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleConfigureChannel('slack')}
-              className="gap-2"
-            >
+            <Button variant="outline" size="sm" onClick={() => handleConfigureChannel('slack')} className="gap-2">
               <MessageSquare className="h-4 w-4" />
               Configure Slack
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleConfigureChannel('email')}
-              className="gap-2"
-            >
+            <Button variant="outline" size="sm" onClick={() => handleConfigureChannel('email')} className="gap-2">
               <Mail className="h-4 w-4" />
               Configure Email
             </Button>
           </div>
-        </div>
+        </Card>
       )}
 
       {/* Channel Configuration Dialog */}
@@ -296,9 +270,7 @@ export function ChannelSettings() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         channelType={editingChannelType}
-        existingChannel={
-          editingChannelType === 'slack' ? slackChannel : emailChannel
-        }
+        existingChannel={editingChannelType === 'slack' ? slackChannel : emailChannel}
         onSuccess={handleDialogSuccess}
       />
     </div>

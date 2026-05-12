@@ -22,6 +22,12 @@ const categories = [
     count: 'Card · Badge · Avatar · Table',
   },
   {
+    href: '/dev/components/shell',
+    title: 'Shell',
+    description: 'Page-level scaffolding: header, breadcrumbs, actions, filters toolbar, optional sidebar',
+    count: 'PageShell · 3 layouts · comfortable + compact density',
+  },
+  {
     href: '/dev/components/forms',
     title: 'Forms',
     description: 'Inputs, selects, checkboxes, switches, labels, textarea, and InputGroup',

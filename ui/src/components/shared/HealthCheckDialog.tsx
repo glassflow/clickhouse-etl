@@ -36,7 +36,7 @@ export function HealthCheckDialog({
             href="https://docs.glassflow.dev/getting-started/troubleshooting"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-blue-600 hover:text-blue-800 underline"
+            className="text-[var(--color-foreground-info)] hover:text-[var(--color-foreground-info-faded)] underline"
           >
             troubleshooting guide
           </a>{' '}
@@ -49,8 +49,13 @@ export function HealthCheckDialog({
           <span className="text-sm font-medium text-[var(--color-foreground-neutral-faded)]">Back-End Status</span>
           <div className="flex items-center gap-2">
             <div
-              className={`w-3 h-3 rounded-full ${isLoading ? 'bg-yellow-500 animate-pulse' : isConnected ? 'bg-green-500' : 'bg-red-500'
-                }`}
+              className={`w-3 h-3 rounded-full ${
+                isLoading
+                  ? 'bg-[var(--color-foreground-warning)] animate-pulse'
+                  : isConnected
+                    ? 'bg-[var(--color-foreground-positive)]'
+                    : 'bg-[var(--color-foreground-critical)]'
+              }`}
             />
             <span className="text-sm font-medium">
               {isLoading ? 'Testing...' : isConnected ? 'Active' : 'Not Responding'}
@@ -58,13 +63,7 @@ export function HealthCheckDialog({
           </div>
         </div>
 
-        <Button
-          variant="primary"
-          type="button"
-          size="custom"
-          onClick={onTestConnection}
-          disabled={isLoading}
-        >
+        <Button variant="primary" type="button" size="custom" onClick={onTestConnection} disabled={isLoading}>
           {isLoading ? 'Testing...' : 'Test Connection'}
         </Button>
       </div>

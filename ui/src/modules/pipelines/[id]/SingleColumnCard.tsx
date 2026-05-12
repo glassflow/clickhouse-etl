@@ -26,8 +26,9 @@ function SingleColumnCard({
 
   return (
     <Card
+      variant="outline"
       className={cn(
-        'card-outline p-4',
+        'p-4',
         widthClass,
         disabled && 'opacity-50 cursor-not-allowed',
         validation?.status === 'invalidated' && 'card-outline-error',

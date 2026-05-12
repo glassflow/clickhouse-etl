@@ -29,8 +29,9 @@ function DoubleColumnCard({
 
   return (
     <Card
+      variant="outline"
       className={cn(
-        'card-outline p-4',
+        'p-4',
         widthClass,
         disabled && 'opacity-50 cursor-not-allowed',
         isInvalid && 'card-outline-error',

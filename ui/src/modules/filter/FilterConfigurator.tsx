@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import { useStore } from '@/src/store'
 import { Button } from '@/src/components/ui/button'
+import { Card } from '@/src/components/ui/card'
 import { Label } from '@/src/components/ui/label'
 import { Textarea } from '@/src/components/ui/textarea'
 import { CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline'
@@ -365,7 +366,7 @@ export function FilterConfigurator({
   const renderHydratedExpressionView = () => (
     <div className="space-y-4">
       <Label className="text-lg font-medium text-content">Current Filter Expression</Label>
-      <div className="p-4 card-outline rounded-[var(--radius-xl)] space-y-2">
+      <Card variant="outline" className="p-4 rounded-[var(--radius-xl)] space-y-2">
         <div className="flex items-center justify-between">
           <Label className="text-sm font-medium text-[var(--text-secondary)]">Filter Expression</Label>
           <div className="flex items-center gap-2 text-sm text-[var(--color-foreground-positive)]">
@@ -380,7 +381,7 @@ export function FilterConfigurator({
           rows={3}
           wrap="soft"
         />
-      </div>
+      </Card>
       {!readOnly && (
         <div className="text-sm text-[var(--text-secondary)]">
           To modify this filter, you can rebuild the filter rules using the query builder below.
@@ -392,7 +393,7 @@ export function FilterConfigurator({
   // Render the no filter view
   const renderNoFilterView = () => (
     <div className="space-y-4">
-      <div className="p-6 card-outline rounded-[var(--radius-xl)] text-center">
+      <Card variant="outline" className="p-6 rounded-[var(--radius-xl)] text-center">
         <div className="text-[var(--color-foreground-neutral-faded)] mb-2">
           <svg className="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
@@ -410,7 +411,7 @@ export function FilterConfigurator({
             Click &quot;Edit&quot; to add filter conditions and only process events that match your criteria.
           </p>
         )}
-      </div>
+      </Card>
     </div>
   )
 
@@ -454,7 +455,7 @@ export function FilterConfigurator({
 
           {/* Generated expression preview */}
           {totalRules > 0 && (
-            <div className="mt-6 p-4 card-outline rounded-[var(--radius-xl)] space-y-2">
+            <Card variant="outline" className="mt-6 p-4 rounded-[var(--radius-xl)] space-y-2">
               <div className="flex items-center justify-between">
                 <Label className="text-sm font-medium text-[var(--text-secondary)]">Generated Expression</Label>
                 {renderValidationStatus()}
@@ -466,7 +467,7 @@ export function FilterConfigurator({
                 rows={3}
                 wrap="soft"
               />
-            </div>
+            </Card>
           )}
 
           {/* Global validation errors */}
@@ -482,9 +483,9 @@ export function FilterConfigurator({
 
       {/* Show no filter message in edit mode when no fields available */}
       {!readOnly && availableFields.length === 0 && hasNoFilter && (
-        <div className="p-4 card-outline rounded-[var(--radius-xl)] text-center text-[var(--text-secondary)]">
+        <Card variant="outline" className="p-4 rounded-[var(--radius-xl)] text-center text-[var(--text-secondary)]">
           <p>Waiting for topic data to configure filtering...</p>
-        </div>
+        </Card>
       )}
 
       {/* Action buttons */}

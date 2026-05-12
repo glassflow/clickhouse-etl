@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react'
 import { useStore } from '@/src/store'
 import { Button } from '@/src/components/ui/button'
+import { Card } from '@/src/components/ui/card'
 import FormActions from '@/src/components/shared/FormActions'
 import { isFieldComplete } from '@/src/store/transformation.store'
 import { useValidationEngine } from '@/src/store/state-machine/validation-engine'
@@ -65,9 +66,10 @@ export function TransformationConfigurator({
   }, [schemaFields])
 
   // For OTLP sources, use the predefined schema fields as override
-  const otlpFields = getSourceAdapter(coreStore.sourceType).type !== 'kafka'
-    ? otlpStore.schemaFields.map((f) => ({ name: f.name, type: f.type }))
-    : undefined
+  const otlpFields =
+    getSourceAdapter(coreStore.sourceType).type !== 'kafka'
+      ? otlpStore.schemaFields.map((f) => ({ name: f.name, type: f.type }))
+      : undefined
 
   // Custom hook for available fields derivation
   const availableFields = useAvailableFields(schemaFields, effectiveEventData, transformationConfig.fields, otlpFields)
@@ -205,10 +207,7 @@ export function TransformationConfigurator({
 
   // Show API validation status when transformation is enabled and has fields
   const showApiValidation =
-    !readOnly &&
-    transformationConfig.enabled &&
-    transformationConfig.fields.length > 0 &&
-    completeFieldCount > 0
+    !readOnly && transformationConfig.enabled && transformationConfig.fields.length > 0 && completeFieldCount > 0
 
   return (
     <div className="flex flex-col gap-6">
@@ -240,7 +239,8 @@ export function TransformationConfigurator({
         <div className="flex justify-start items-center">
           <Button
             onClick={actions.handleSkip}
-            variant="tertiary" className="flex-shrink-0 border-dashed hover:border-solid text-primary hover:text-primary-faded"
+            variant="tertiary"
+            className="flex-shrink-0 border-dashed hover:border-solid text-primary hover:text-primary-faded"
           >
             Skip Transformation
           </Button>
@@ -327,9 +327,9 @@ export function TransformationConfigurator({
 
       {/* No fields available message */}
       {!readOnly && availableFields.length === 0 && hasNoTransformation && (
-        <div className="p-4 card-outline rounded-[var(--radius-xl)] text-center text-[var(--text-secondary)]">
+        <Card variant="outline" className="p-4 rounded-[var(--radius-xl)] text-center text-[var(--text-secondary)]">
           <p>Waiting for field type verification to configure transformations...</p>
-        </div>
+        </Card>
       )}
 
       {/* Action buttons */}
@@ -357,7 +357,8 @@ export function TransformationConfigurator({
           <div className="flex justify-start items-center">
             <Button
               onClick={actions.handleSkip}
-              variant="tertiary" className="flex-shrink-0 border-dashed hover:border-solid text-primary hover:text-primary-faded"
+              variant="tertiary"
+              className="flex-shrink-0 border-dashed hover:border-solid text-primary hover:text-primary-faded"
             >
               Skip Transformation
             </Button>

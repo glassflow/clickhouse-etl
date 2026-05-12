@@ -2,6 +2,7 @@
 
 import React, { useCallback, useState, useRef, useEffect, useMemo } from 'react'
 import { Button } from '@/src/components/ui/button'
+import { Card } from '@/src/components/ui/card'
 import { Input } from '@/src/components/ui/input'
 import { Label } from '@/src/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select'
@@ -14,7 +15,14 @@ import {
   TransformArithmeticExpression,
 } from '@/src/store/transformation.store'
 import { JSON_DATA_TYPES } from '@/src/config/constants'
-import { FieldValidation, inferOutputType, normalizeToJsonDataType, createFieldArg, createLiteralArg, fieldToExpr } from '../utils'
+import {
+  FieldValidation,
+  inferOutputType,
+  normalizeToJsonDataType,
+  createFieldArg,
+  createLiteralArg,
+  fieldToExpr,
+} from '../utils'
 import { getFunctionByName } from '../functions'
 import { cn } from '@/src/utils/common.client'
 import TypeToggle from './TypeToggle'
@@ -353,14 +361,14 @@ export function TransformationFieldRow({
       // Initialize function arguments based on function definition
       const initialArgs: FunctionArg[] = funcDef
         ? funcDef.args.map((argDef) => {
-          if (argDef.type === 'field') {
-            return createFieldArg('', '')
-          } else if (argDef.type === 'literal') {
-            return createLiteralArg('', argDef.literalType || 'string')
-          } else {
-            return { type: 'array' as const, values: [], elementType: 'string' as const }
-          }
-        })
+            if (argDef.type === 'field') {
+              return createFieldArg('', '')
+            } else if (argDef.type === 'literal') {
+              return createLiteralArg('', argDef.literalType || 'string')
+            } else {
+              return { type: 'array' as const, values: [], elementType: 'string' as const }
+            }
+          })
         : []
 
       updateLocalField({
@@ -521,9 +529,10 @@ export function TransformationFieldRow({
   const hasPassthroughArithmetic = field.type === 'passthrough' && !!field.arithmeticExpression && !!field.sourceField
 
   return (
-    <div
+    <Card
+      variant="outline"
       className={cn(
-        'card-outline rounded-[var(--radius-xl)] overflow-hidden transition-all duration-200',
+        'rounded-[var(--radius-xl)] overflow-hidden transition-all duration-200',
         errors && Object.keys(errors).length > 0 && 'border-[var(--color-border-critical)]',
         isExpanded && 'ring-1 ring-[var(--color-border-accent)]',
       )}
@@ -860,7 +869,7 @@ export function TransformationFieldRow({
           <p className="text-xs text-[var(--color-foreground-critical)]">{errors.outputFieldName}</p>
         </div>
       )}
-    </div>
+    </Card>
   )
 }
 

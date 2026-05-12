@@ -10,7 +10,7 @@ describe('recharts smoke', () => {
       <LineChart width={400} height={200} data={data}>
         <XAxis dataKey="t" />
         <YAxis />
-        <Line type="monotone" dataKey="v" stroke="#e89159" />
+        <Line type="monotone" dataKey="v" stroke="currentColor" />
       </LineChart>,
     )
 

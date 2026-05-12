@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { BellOff, Bell } from 'lucide-react'
 import { Switch } from '@/src/components/ui/switch'
+import { Card } from '@/src/components/ui/card'
 import { cn } from '@/src/utils/common.client'
 import { ChannelSettings } from './components/ChannelSettings'
 import { SeverityMappings } from './components/SeverityMappings'
@@ -39,12 +40,13 @@ export function NotificationSettingsPanel() {
   return (
     <div className="flex flex-col gap-8">
       {/* Mute Toggle Section */}
-      <div
+      <Card
+        variant="outline"
         className={cn(
-          'card-outline relative p-6',
+          'relative p-6',
           'transition-all duration-200',
           'hover:shadow-[var(--card-shadow-hover)]',
-          isMuted && 'border-[var(--color-border-warning)] bg-[var(--color-background-warning-faded)]/10'
+          isMuted && 'border-[var(--color-border-warning)] bg-[var(--color-background-warning-faded)]/10',
         )}
       >
         <div className="flex items-start justify-between">
@@ -55,14 +57,10 @@ export function NotificationSettingsPanel() {
                 'transition-all duration-200',
                 isMuted
                   ? 'bg-[var(--color-background-warning-faded)] text-[var(--color-foreground-warning)]'
-                  : 'bg-[var(--color-background-primary-faded)] text-[var(--color-foreground-primary)]'
+                  : 'bg-[var(--color-background-primary-faded)] text-[var(--color-foreground-primary)]',
               )}
             >
-              {isMuted ? (
-                <BellOff className="h-6 w-6" />
-              ) : (
-                <Bell className="h-6 w-6" />
-              )}
+              {isMuted ? <BellOff className="h-6 w-6" /> : <Bell className="h-6 w-6" />}
             </div>
             <div>
               <h2 className="text-lg font-semibold text-[var(--text-primary)]">
@@ -82,9 +80,7 @@ export function NotificationSettingsPanel() {
           </div>
 
           <div className="flex items-center gap-3">
-            <span className="text-sm text-[var(--text-secondary)]">
-              {isMuted ? 'Muted' : 'Active'}
-            </span>
+            <span className="text-sm text-[var(--text-secondary)]">{isMuted ? 'Muted' : 'Active'}</span>
             {isHydrated && (
               <Switch
                 checked={!isMuted}
@@ -94,14 +90,14 @@ export function NotificationSettingsPanel() {
             )}
           </div>
         </div>
-      </div>
+      </Card>
 
       {/* Channel Settings */}
       <div
         className={cn(
           'animate-fadeIn animate-delay-100',
           'transition-all duration-300',
-          isMuted && 'opacity-50 pointer-events-none'
+          isMuted && 'opacity-50 pointer-events-none',
         )}
       >
         <ChannelSettings />
@@ -112,7 +108,7 @@ export function NotificationSettingsPanel() {
         className={cn(
           'animate-fadeIn animate-delay-200',
           'transition-all duration-300',
-          isMuted && 'opacity-50 pointer-events-none'
+          isMuted && 'opacity-50 pointer-events-none',
         )}
       >
         <SeverityMappings />
@@ -126,13 +122,12 @@ export function NotificationSettingsPanel() {
             'border border-[var(--color-border-warning)]',
             'bg-[var(--color-background-warning-faded)]/10',
             'animate-slideDown',
-            'transition-all duration-200'
+            'transition-all duration-200',
           )}
         >
           <p className="text-sm text-[var(--color-foreground-warning)]">
-            <strong>Notifications are muted.</strong> The settings above are dimmed but your
-            configuration will be preserved. Toggle the mute switch above to resume receiving
-            notifications.
+            <strong>Notifications are muted.</strong> The settings above are dimmed but your configuration will be
+            preserved. Toggle the mute switch above to resume receiving notifications.
           </p>
         </div>
       )}

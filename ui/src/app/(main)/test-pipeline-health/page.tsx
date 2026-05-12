@@ -37,7 +37,7 @@ export default function TestPipelineHealthPage() {
   const getStatusColor = (status: PipelineHealthStatus) => {
     switch (status) {
       case 'Running':
-        return 'text-green-600'
+        return 'text-[var(--color-foreground-positive)]'
       case 'Created':
         return 'text-[var(--color-foreground-info)]'
       case 'Terminating':
@@ -56,7 +56,7 @@ export default function TestPipelineHealthPage() {
       <div className="max-w-2xl w-full space-y-6">
         <h1 className="text-3xl font-bold text-center">Pipeline Health Test</h1>
 
-        <Card className="card-dark">
+        <Card variant="dark">
           <CardHeader>
             <CardTitle>Test Pipeline Health Endpoint</CardTitle>
             <CardDescription>Enter a pipeline ID and test the health endpoint with real-time polling</CardDescription>

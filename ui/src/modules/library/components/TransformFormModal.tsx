@@ -13,13 +13,7 @@ import {
 import { Button } from '@/src/components/ui/button'
 import { Input } from '@/src/components/ui/input'
 import { Textarea } from '@/src/components/ui/textarea'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/src/components/ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select'
 import type { LibraryTransform } from '@/src/hooks/useLibraryConnections'
 import { notify } from '@/src/notifications'
 import { getApiUrl } from '@/src/utils/mock-api'
@@ -31,12 +25,7 @@ type TransformFormModalProps = {
   transform?: LibraryTransform | null
 }
 
-export function TransformFormModal({
-  open,
-  onClose,
-  onSaved,
-  transform,
-}: TransformFormModalProps) {
+export function TransformFormModal({ open, onClose, onSaved, transform }: TransformFormModalProps) {
   const editing = Boolean(transform)
   const [name, setName] = React.useState('')
   const [description, setDescription] = React.useState('')
@@ -56,9 +45,7 @@ export function TransformFormModal({
   const handleSubmit = async () => {
     setSubmitting(true)
     try {
-      const url = editing
-        ? getApiUrl(`library/transforms/${transform!.id}`)
-        : getApiUrl('library/transforms')
+      const url = editing ? getApiUrl(`library/transforms/${transform!.id}`) : getApiUrl('library/transforms')
       const res = await fetch(url, {
         method: editing ? 'PATCH' : 'POST',
         headers: { 'content-type': 'application/json' },
@@ -105,16 +92,12 @@ export function TransformFormModal({
 
         <div className="flex flex-col gap-4 py-4">
           <div className="flex flex-col gap-1.5">
-            <label className="modal-input-label">Name</label>
-            <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. normalize-orders"
-            />
+            <label className="body-3 font-medium text-[var(--color-foreground-neutral-faded)]">Name</label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. normalize-orders" />
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label className="modal-input-label">Description</label>
+            <label className="body-3 font-medium text-[var(--color-foreground-neutral-faded)]">Description</label>
             <Textarea
               rows={2}
               value={description}
@@ -124,7 +107,7 @@ export function TransformFormModal({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label className="modal-input-label">Language</label>
+            <label className="body-3 font-medium text-[var(--color-foreground-neutral-faded)]">Language</label>
             <Select value={language} onValueChange={(v: string) => setLanguage(v as 'js' | 'sql')}>
               <SelectTrigger>
                 <SelectValue />
@@ -137,15 +120,13 @@ export function TransformFormModal({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label className="modal-input-label">Code</label>
+            <label className="body-3 font-medium text-[var(--color-foreground-neutral-faded)]">Code</label>
             <Textarea
               className="mono-1"
               rows={10}
               value={code}
               onChange={(e) => setCode(e.target.value)}
-              placeholder={
-                language === 'js' ? '// (event) => event' : '-- SELECT … FROM input'
-              }
+              placeholder={language === 'js' ? '// (event) => event' : '-- SELECT … FROM input'}
             />
           </div>
         </div>

@@ -25,14 +25,7 @@ export default function PipelineDetailsClientWrapper({ pipelineId }: PipelineDet
 
   // Use the centralized pipeline fetch hook
   // Skip initial fetch if in deployment mode (we'll fetch after deployment completes)
-  const {
-    pipeline,
-    loading,
-    error,
-    isNotFound,
-    refetch,
-    setPipeline,
-  } = usePipelineDetailsData(pipelineId, {
+  const { pipeline, loading, error, isNotFound, refetch, setPipeline } = usePipelineDetailsData(pipelineId, {
     skipInitialFetch: isDeploymentMode,
   })
 
@@ -57,7 +50,7 @@ export default function PipelineDetailsClientWrapper({ pipelineId }: PipelineDet
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <div className="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+          <div className="animate-spin h-8 w-8 border-4 border-[var(--color-foreground-info)] border-t-transparent rounded-full mx-auto mb-4"></div>
           <p className="text-[var(--color-foreground-neutral-faded)]">Loading pipeline details...</p>
         </div>
       </div>
@@ -111,8 +104,12 @@ export default function PipelineDetailsClientWrapper({ pipelineId }: PipelineDet
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <div className="text-[var(--color-foreground-neutral-faded)] text-lg font-semibold mb-2">Pipeline Not Found</div>
-          <p className="text-[var(--color-foreground-neutral-faded)]">Pipeline with ID &quot;{pipelineId}&quot; could not be found.</p>
+          <div className="text-[var(--color-foreground-neutral-faded)] text-lg font-semibold mb-2">
+            Pipeline Not Found
+          </div>
+          <p className="text-[var(--color-foreground-neutral-faded)]">
+            Pipeline with ID &quot;{pipelineId}&quot; could not be found.
+          </p>
         </div>
       </div>
     )

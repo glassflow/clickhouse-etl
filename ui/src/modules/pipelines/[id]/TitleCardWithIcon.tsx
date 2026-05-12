@@ -30,9 +30,10 @@ function TitleCardWithIcon({
 
   return (
     <Card
+      variant="outline"
       className={cn(
-        'card-outline p-5 items-center justify-center',
-        (onClick && !disabled) && 'cursor-pointer',
+        'p-5 items-center justify-center',
+        onClick && !disabled && 'cursor-pointer',
         isClickable && 'hover:scale-[1.02]',
         disabled && 'opacity-50 cursor-not-allowed',
         validation?.status === 'invalidated' && 'card-outline-error',
@@ -48,7 +49,9 @@ function TitleCardWithIcon({
             {subtitle}
           </p>
         )}
-        {isClickable && <p className="caption-1 text-[var(--color-foreground-neutral-faded)] text-center">Click to edit</p>}
+        {isClickable && (
+          <p className="caption-1 text-[var(--color-foreground-neutral-faded)] text-center">Click to edit</p>
+        )}
       </div>
     </Card>
   )

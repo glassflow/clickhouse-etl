@@ -5,14 +5,9 @@ import { Filter, X, CalendarIcon } from 'lucide-react'
 import { format } from 'date-fns'
 import { useStore } from '@/src/store'
 import { Button } from '@/src/components/ui/button'
+import { Card } from '@/src/components/ui/card'
 import { Input } from '@/src/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/src/components/ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select'
 import { Calendar } from '@/src/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/src/components/ui/popover'
 import { cn } from '@/src/utils/common.client'
@@ -99,12 +94,13 @@ export function NotificationFilters() {
     filters.pipeline_id || filters.severity || filters.start_date || filters.end_date || filters.read_status
 
   return (
-    <div
+    <Card
+      variant="outline"
       className={cn(
-        'card-outline relative',
+        'relative',
         'space-y-4 p-5',
         'transition-all duration-200',
-        'hover:shadow-[var(--card-shadow-hover)]'
+        'hover:shadow-[var(--card-shadow-hover)]',
       )}
     >
       <div className="flex items-center justify-between">
@@ -120,7 +116,7 @@ export function NotificationFilters() {
               'space-y-1.5 flex-shrink-0 w-[100px] overflow-hidden transition-all duration-200',
               hasActiveFilters
                 ? 'opacity-100 max-h-[200px] translate-y-0'
-                : 'opacity-0 max-h-0 -translate-y-4 pointer-events-none'
+                : 'opacity-0 max-h-0 -translate-y-4 pointer-events-none',
             )}
           >
             <label className="text-xs text-[var(--text-secondary)] invisible font-medium">Clear all</label>
@@ -132,7 +128,7 @@ export function NotificationFilters() {
                 'px-2 text-xs',
                 'text-[var(--text-secondary)] hover:text-[var(--text-secondary-faded)]',
                 'transition-colors duration-200',
-                'w-full'
+                'w-full',
               )}
             >
               Clear all
@@ -143,7 +139,7 @@ export function NotificationFilters() {
               'space-y-1.5 flex-shrink-0 w-[100px] overflow-hidden transition-all duration-200',
               hasActiveFilters
                 ? 'opacity-100 max-h-[200px] translate-y-0'
-                : 'opacity-0 max-h-0 -translate-y-4 pointer-events-none'
+                : 'opacity-0 max-h-0 -translate-y-4 pointer-events-none',
             )}
           >
             <label className="text-xs text-[var(--text-secondary)] invisible font-medium">Apply</label>
@@ -155,14 +151,13 @@ export function NotificationFilters() {
                 'px-2 text-xs',
                 'text-[var(--text-primary)] hover:text-[var(--text-primary-faded)]',
                 'transition-all duration-200',
-                'w-full'
+                'w-full',
               )}
             >
               Apply
             </Button>
           </div>
         </div>
-
       </div>
 
       <div className="flex items-center justify-between gap-4">
@@ -179,7 +174,7 @@ export function NotificationFilters() {
                 'bg-[var(--control-bg)] border-[var(--control-border)]',
                 'hover:border-[var(--control-border-hover)]',
                 'focus:border-[var(--control-border-focus)] focus:shadow-[var(--control-shadow-focus)]',
-                'transition-all duration-200'
+                'transition-all duration-200',
               )}
             />
           </div>
@@ -187,16 +182,13 @@ export function NotificationFilters() {
           {/* Severity Filter */}
           <div className="flex-1 space-y-1.5">
             <label className="text-xs text-[var(--text-secondary)] font-medium">Severity</label>
-            <Select
-              value={filters.severity || 'all'}
-              onValueChange={handleSeverityChange}
-            >
+            <Select value={filters.severity || 'all'} onValueChange={handleSeverityChange}>
               <SelectTrigger
                 className={cn(
                   'h-9 w-full px-3 rounded-[var(--radius-md)]',
                   'bg-[var(--control-bg)] border border-[var(--control-border)]',
                   'hover:border-[var(--control-border-hover)] hover:bg-[var(--control-bg-hover)]',
-                  'transition-all duration-200'
+                  'transition-all duration-200',
                 )}
               >
                 <SelectValue placeholder="All Severities" />
@@ -204,7 +196,7 @@ export function NotificationFilters() {
               <SelectContent
                 className={cn(
                   'bg-[var(--select-content-background-color)] border border-[var(--select-content-border-color)]',
-                  'rounded-[var(--radius-md)] shadow-[var(--select-content-shadow)]'
+                  'rounded-[var(--radius-md)] shadow-[var(--select-content-shadow)]',
                 )}
               >
                 {SEVERITY_OPTIONS.map((option) => (
@@ -223,16 +215,13 @@ export function NotificationFilters() {
           {/* Read Status Filter */}
           <div className="flex-1 space-y-1.5">
             <label className="text-xs text-[var(--text-secondary)] font-medium">Status</label>
-            <Select
-              value={filters.read_status || 'all'}
-              onValueChange={handleReadStatusChange}
-            >
+            <Select value={filters.read_status || 'all'} onValueChange={handleReadStatusChange}>
               <SelectTrigger
                 className={cn(
                   'h-9 w-full px-3 rounded-[var(--radius-md)]',
                   'bg-[var(--control-bg)] border border-[var(--control-border)]',
                   'hover:border-[var(--control-border-hover)] hover:bg-[var(--control-bg-hover)]',
-                  'transition-all duration-200'
+                  'transition-all duration-200',
                 )}
               >
                 <SelectValue placeholder="All Status" />
@@ -240,7 +229,7 @@ export function NotificationFilters() {
               <SelectContent
                 className={cn(
                   'bg-[var(--select-content-background-color)] border border-[var(--select-content-border-color)]',
-                  'rounded-[var(--radius-md)] shadow-[var(--select-content-shadow)]'
+                  'rounded-[var(--radius-md)] shadow-[var(--select-content-shadow)]',
                 )}
               >
                 {READ_STATUS_OPTIONS.map((option) => (
@@ -270,7 +259,7 @@ export function NotificationFilters() {
                     'hover:border-[var(--control-border-hover)] hover:bg-[var(--control-bg-hover)]',
                     'focus:border-[var(--control-border-focus)] focus:shadow-[var(--control-shadow-focus)]',
                     !startDate && 'text-[var(--text-secondary)]',
-                    'transition-all duration-200'
+                    'transition-all duration-200',
                   )}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
@@ -281,16 +270,11 @@ export function NotificationFilters() {
                 className={cn(
                   'w-auto p-0',
                   'bg-[var(--select-content-background-color)] border border-[var(--select-content-border-color)]',
-                  'rounded-[var(--radius-md)] shadow-[var(--select-content-shadow)]'
+                  'rounded-[var(--radius-md)] shadow-[var(--select-content-shadow)]',
                 )}
                 align="start"
               >
-                <Calendar
-                  mode="single"
-                  selected={startDate}
-                  onSelect={handleStartDateSelect}
-                  initialFocus
-                />
+                <Calendar mode="single" selected={startDate} onSelect={handleStartDateSelect} initialFocus />
               </PopoverContent>
             </Popover>
           </div>
@@ -309,7 +293,7 @@ export function NotificationFilters() {
                     'hover:border-[var(--control-border-hover)] hover:bg-[var(--control-bg-hover)]',
                     'focus:border-[var(--control-border-focus)] focus:shadow-[var(--control-shadow-focus)]',
                     !endDate && 'text-[var(--text-secondary)]',
-                    'transition-all duration-200'
+                    'transition-all duration-200',
                   )}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
@@ -320,21 +304,16 @@ export function NotificationFilters() {
                 className={cn(
                   'w-auto p-0',
                   'bg-[var(--select-content-background-color)] border border-[var(--select-content-border-color)]',
-                  'rounded-[var(--radius-md)] shadow-[var(--select-content-shadow)]'
+                  'rounded-[var(--radius-md)] shadow-[var(--select-content-shadow)]',
                 )}
                 align="start"
               >
-                <Calendar
-                  mode="single"
-                  selected={endDate}
-                  onSelect={handleEndDateSelect}
-                  initialFocus
-                />
+                <Calendar mode="single" selected={endDate} onSelect={handleEndDateSelect} initialFocus />
               </PopoverContent>
             </Popover>
           </div>
         </div>
       </div>
-    </div>
+    </Card>
   )
 }

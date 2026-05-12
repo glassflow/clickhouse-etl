@@ -23,7 +23,7 @@ function StepRendererPageComponent({
   loadingText = 'Processing...',
 }: StepRendererPageComponentProps) {
   return (
-    <Card className="card-dark mt-6 w-full animate-in fade-in slide-in-from-top-2 duration-300">
+    <Card variant="dark" className="mt-6 w-full animate-in fade-in slide-in-from-top-2 duration-300">
       {/* Header */}
       <CardHeader>
         <div className="flex items-center justify-between">

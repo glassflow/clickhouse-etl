@@ -1,4 +1,4 @@
-import { Input } from '@/src/components/ui/input'
+import { Input, inputVariants } from '@/src/components/ui/input'
 import { Label } from '@/src/components/ui/label'
 import { cn } from '@/src/utils/common.client'
 import { TransformationField } from '@/src/store/transformation.store'
@@ -37,7 +37,12 @@ function OutputField({
         {/* Output type (read-only) */}
         <div className="w-32">
           <Label className="text-xs text-[var(--text-secondary)] mb-1 block">Output Type</Label>
-          <div className="input-regular input-border-regular text-sm h-10 flex items-center px-3 text-[var(--text-secondary)] bg-[var(--surface-bg-sunken)]">
+          <div
+            className={cn(
+              inputVariants(),
+              'text-sm h-10 flex items-center px-3 text-[var(--text-secondary)] bg-[var(--surface-bg-sunken)]',
+            )}
+          >
             {field.outputFieldType ? normalizeToJsonDataType(field.outputFieldType) : ''}
           </div>
         </div>

@@ -23,7 +23,7 @@ function StepRendererModal({ children, stepInfo, handleBack, onClose }: StepRend
             </Button>
             <div>
               <h2 className="text-xl font-semibold">{stepInfo.title}</h2>
-              <p className="text-sm text-gray-600">{stepInfo.description}</p>
+              <p className="text-sm text-[var(--text-secondary)]">{stepInfo.description}</p>
             </div>
           </div>
           <Button variant="ghost" size="sm" onClick={onClose} className="p-2">

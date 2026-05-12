@@ -78,7 +78,7 @@ export function LogViewer() {
 
   if (error) {
     return (
-      <div className="text-red-500 text-center p-4">
+      <div className="text-[var(--color-foreground-critical)] text-center p-4">
         <p>{error}</p>
         <p className="text-sm mt-1">Please check if the server is running and try again.</p>
       </div>
@@ -86,7 +86,7 @@ export function LogViewer() {
   }
 
   return (
-    <div className="bg-gray-900 text-gray-100 rounded-lg p-4">
+    <div className="bg-[var(--color-background-elevation-sunken)] text-[var(--text-primary)] rounded-lg p-4">
       <div ref={logContainerRef} className="h-[600px] overflow-y-auto font-mono text-sm whitespace-pre-wrap">
         {logs.map((log, index) => (
           <div key={index} className="py-1">

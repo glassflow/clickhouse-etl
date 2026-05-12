@@ -34,10 +34,10 @@ export default function TestHealthPage() {
               <span
                 className={`px-2 py-1 rounded text-sm ${
                   healthStatus === 'Healthy'
-                    ? 'bg-green-100 text-green-800'
+                    ? 'bg-[var(--color-background-positive-faded)] text-[var(--color-foreground-positive)]'
                     : healthStatus === 'Unhealthy'
-                      ? 'bg-red-100 text-red-800'
-                      : 'bg-gray-100 text-gray-800'
+                      ? 'bg-[var(--color-background-critical-faded)] text-[var(--color-foreground-critical)]'
+                      : 'bg-[var(--color-background-neutral-faded)] text-[var(--text-secondary)]'
                 }`}
               >
                 {healthStatus}
