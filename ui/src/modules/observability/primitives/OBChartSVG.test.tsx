@@ -115,6 +115,20 @@ describe('OBChartSVG brush', () => {
     expect(container.querySelector('rect[data-brush-region]')).not.toBeNull()
   })
 
+  it('mouseUp outside the svg clears the in-flight drag without firing onBrushChange', () => {
+    const onBrushChange = vi.fn()
+    const { container } = render(
+      <OBChartSVG series={series} width={400} height={200} showBrush onBrushChange={onBrushChange} />,
+    )
+    const svg = container.querySelector('svg')!
+    fireEvent.mouseDown(svg, { clientX: 100, clientY: 100 })
+    fireEvent.mouseMove(svg, { clientX: 200, clientY: 100 })
+    // User releases outside the SVG — dispatched on window, not the svg.
+    fireEvent.mouseUp(window)
+    expect(onBrushChange).not.toHaveBeenCalled()
+    expect(container.querySelector('rect[data-brush-region]')).toBeNull()
+  })
+
   it('arrow key on focused svg nudges brush when brush is set', () => {
     const onBrushChange = vi.fn()
     const { container } = render(

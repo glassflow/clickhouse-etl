@@ -41,10 +41,22 @@ export function OBChartSVG({
   onBrushChange,
   onBrushClear,
 }: OBChartSVGProps) {
-  const svgRef = React.useRef<SVGSVGElement | null>(null)
   const [hoverX, setHoverX] = React.useState<number | null>(null)
   const [dragStartMs, setDragStartMs] = React.useState<number | null>(null)
   const [dragCurrentMs, setDragCurrentMs] = React.useState<number | null>(null)
+
+  // Cancel an in-flight drag if the user releases outside the SVG.
+  // SVG mouseUp doesn't fire when the pointer leaves the element, so without
+  // this the brush state stays stuck and a phantom rectangle lingers.
+  React.useEffect(() => {
+    if (dragStartMs == null) return
+    const cancel = () => {
+      setDragStartMs(null)
+      setDragCurrentMs(null)
+    }
+    window.addEventListener('mouseup', cancel)
+    return () => window.removeEventListener('mouseup', cancel)
+  }, [dragStartMs])
 
   const allTs: number[] = []
   const allVs: number[] = []
@@ -139,7 +151,6 @@ export function OBChartSVG({
 
   return (
     <svg
-      ref={svgRef}
       width={width}
       height={height}
       viewBox={`0 0 ${width} ${height}`}
