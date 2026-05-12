@@ -23,35 +23,25 @@
 
 ## Pre-flight: confirm assumptions
 
-- [ ] **Step 1: Run the existing test suite to confirm green baseline**
+> **Verified 2026-05-12 (post-plan audit on branch `ui-ux-revamp-2.0`):**
+>
+> - **Baseline tests:** Pre-existing failures unrelated to observability — 8 failures in `modules/pipelines/columns/pipelineListColumns.test.tsx`, 1 in `modules/library/components/SchemaList.test.tsx`, plus unhandled rejections in `lib/__tests__/retry-logic.test.ts`. **Observability tests are green.** When a task step says "all green", interpret as "no NEW failures introduced by this task" — diff against this baseline.
+> - **Env vars:** This codebase uses runtime injection (`window.__ENV__` from `generate-env.mjs` for client, `process.env` directly for server). Adding to `next.config.ts` is **NOT required** — server-side code in `/ui-api/observability/stack/route.ts` already reads `VM_RETENTION`/`VL_RETENTION` via `process.env`. Skip the next.config.ts step.
+> - **Stack route shape:** `/ui-api/observability/stack` already returns a richer nested shape — see Task 3 notes below. **No backend changes needed.**
+
+- [ ] **Step 1: Run the existing test suite to capture the baseline**
 
 ```
 pnpm test:run
 ```
 
-Expected: all existing tests pass. If any fail, stop and surface the failures before proceeding — the plan assumes a green baseline.
+Expected baseline: 9 failed, 1075 passed (see verification block above). Subsequent task steps must not increase the failure count.
 
-- [ ] **Step 2: Confirm the four ETL-1074 env vars are declared in `next.config.ts`**
+- [ ] **Step 2: Env vars — NO-OP (see verification note above)**
 
-Read `next.config.ts`. Confirm or add:
-```ts
-NEXT_PUBLIC_INTERNAL_METRICS_ENABLED
-NEXT_PUBLIC_INTERNAL_LOGS_ENABLED
-NEXT_PUBLIC_INTERNAL_METRICS_URL
-NEXT_PUBLIC_INTERNAL_LOGS_URL
-NEXT_PUBLIC_EXTERNAL_GRAFANA_URL
-```
+This codebase uses runtime env injection; no `next.config.ts` change is required for Phase 1.
 
-The audit confirmed the first two exist as the OTEL pair (`NEXT_PUBLIC_OTEL_METRICS_ENABLED` etc.); the `NEXT_PUBLIC_INTERNAL_*` pair from ETL-1074 may or may not be plumbed yet. If missing, add them to the `env` block in `next.config.ts` and to `generate-env.mjs` if it lists them explicitly.
-
-- [ ] **Step 3: Confirm `/ui-api/observability/stack` returns disk-used + retention fields**
-
-Run:
-```
-curl -s http://localhost:3000/ui-api/observability/stack | jq
-```
-
-If the response doesn't include `metricsDiskBytes`, `logsDiskBytes`, `metricsRetention`, `logsRetention`, plan to extend it in Task 3.
+- [ ] **Step 3: Stack route — already returns disk/retention (see Task 3 for actual shape)**
 
 ---
 
@@ -419,28 +409,38 @@ git commit -m "feat(obs): add AutoRefreshControl dropdown (off/15s/30s/60s)"
 
 ## Task 3: StatusPill component
 
-**Why:** Toolbar chip showing `internal stack · 1.4 GB · 7d` from Helm env vars / `/ui-api/observability/stack`. Lets engineers see the operational stack state without navigating to /workspace/observability.
+**Why:** Toolbar chip showing `internal stack · 1.4 GB · 7d` from `/ui-api/observability/stack`. Lets engineers see the operational stack state without navigating to /workspace/observability.
 
 **Files:**
 - Create: `src/modules/observability/StatusPill.tsx`
 - Create: `src/modules/observability/StatusPill.test.tsx`
-- Modify (maybe): `src/app/ui-api/observability/stack/route.ts` (only if it doesn't already return disk/retention)
 - Modify: `src/modules/observability/MetricsToolbar.tsx`
 - Modify: `src/modules/observability/LogsToolbar.tsx`
 
-- [ ] **Step 1: Check what the stack route returns today**
+> **Actual stack route response shape** (verified 2026-05-12 — see `src/app/ui-api/observability/stack/route.ts`):
+> ```ts
+> type ObservabilityStackResponse = {
+>   vmsingle: {
+>     version: string | null
+>     retention: string                 // e.g. "7d", from VM_RETENTION env
+>     diskUsageBytes: number | null     // from vm_data_size_bytes query
+>     diskQuotaBytes: number | null
+>   }
+>   victoriaLogs: {
+>     version: string | null
+>     retention: string
+>     diskUsageBytes: number | null
+>     diskQuotaBytes: number | null
+>   }
+>   fanOut: { ... }
+>   cardinality: Array<{ ... }>
+> }
+> ```
+> **The route already exists and returns retention + disk usage.** Task 3 is a pure frontend task — no backend changes needed. StatusPill reads `data.vmsingle.retention`, `data.vmsingle.diskUsageBytes`, `data.victoriaLogs.retention`, `data.victoriaLogs.diskUsageBytes` from this nested shape.
 
-```
-cat src/app/ui-api/observability/stack/route.ts
-```
+- [ ] **Step 1: SKIP — stack route already exists with required fields**
 
-If the response already includes `metricsDiskBytes`, `metricsRetention`, `logsDiskBytes`, `logsRetention`, skip Step 2. Otherwise extend it.
-
-- [ ] **Step 2 (conditional): Extend `/observability/stack` route**
-
-If the route does not yet return disk/retention, add VM `vm_data_size_bytes` and VL `vl_storage_data_size_bytes` queries server-side. Retention comes from the Helm-injected `NEXT_PUBLIC_INTERNAL_METRICS_RETENTION` / `_LOGS_RETENTION` env vars — if those env vars don't exist yet, plumb them in `next.config.ts` and Helm `ui-configmap.yaml` (add a parallel ticket on the chart side).
-
-Pragmatic short-circuit: if disk-via-VM is too much for this pass, the route can return just `{ metricsRetention: process.env.NEXT_PUBLIC_INTERNAL_METRICS_RETENTION ?? '7d', logsRetention: '3d' }` and the pill renders `internal stack · 7d / 3d` without disk numbers. This is acceptable for Phase 1.
+- [ ] **Step 2: SKIP — no backend changes needed**
 
 - [ ] **Step 3: Write the failing test**
 
@@ -473,10 +473,10 @@ describe('StatusPill', () => {
     fetchMock.mockResolvedValue({
       ok: true,
       json: async () => ({
-        metricsRetention: '7d',
-        logsRetention: '3d',
-        metricsDiskBytes: 1_500_000_000,
-        logsDiskBytes: 4_700_000_000,
+        vmsingle: { version: null, retention: '7d', diskUsageBytes: 1_500_000_000, diskQuotaBytes: null },
+        victoriaLogs: { version: null, retention: '3d', diskUsageBytes: 4_700_000_000, diskQuotaBytes: null },
+        fanOut: { collectorEndpoint: null, external: [] },
+        cardinality: [],
       }),
     })
     render(<StatusPill />)
@@ -511,15 +511,9 @@ Create `src/modules/observability/StatusPill.tsx`:
 'use client'
 
 import * as React from 'react'
+import type { ObservabilityStackResponse } from '@/src/app/ui-api/observability/stack/route'
 
-type StackInfo = {
-  metricsRetention?: string
-  logsRetention?: string
-  metricsDiskBytes?: number
-  logsDiskBytes?: number
-}
-
-function formatBytes(bytes?: number): string | null {
+function formatBytes(bytes: number | null | undefined): string | null {
   if (!bytes || !Number.isFinite(bytes)) return null
   const gb = bytes / 1_000_000_000
   if (gb >= 1) return `${gb.toFixed(1)} GB`
@@ -528,7 +522,7 @@ function formatBytes(bytes?: number): string | null {
 }
 
 export function StatusPill() {
-  const [info, setInfo] = React.useState<StackInfo | null>(null)
+  const [info, setInfo] = React.useState<ObservabilityStackResponse | null>(null)
   const [error, setError] = React.useState(false)
 
   React.useEffect(() => {
@@ -539,7 +533,7 @@ export function StatusPill() {
           if (!cancelled) setError(true)
           return
         }
-        const data = (await res.json()) as StackInfo
+        const data = (await res.json()) as ObservabilityStackResponse
         if (!cancelled) setInfo(data)
       })
       .catch(() => {
@@ -552,10 +546,12 @@ export function StatusPill() {
 
   if (error || !info) return null
 
-  const disk = formatBytes(info.metricsDiskBytes)
+  const disk = formatBytes(info.vmsingle?.diskUsageBytes)
+  const metricsRetention = info.vmsingle?.retention
+  const logsRetention = info.victoriaLogs?.retention
   const parts: string[] = ['internal stack']
   if (disk) parts.push(disk)
-  if (info.metricsRetention) parts.push(`${info.metricsRetention} / ${info.logsRetention ?? '—'}`)
+  if (metricsRetention) parts.push(`${metricsRetention} / ${logsRetention ?? '—'}`)
 
   return (
     <span
