@@ -6,6 +6,7 @@ import { HeroCard } from './HeroCard'
 import { MetricsToolbar } from './MetricsToolbar'
 import { ScopingNoteBanner } from './ScopingNoteBanner'
 import { DisabledState } from './DisabledState'
+import { useSelectedMetricsComponents, type MetricsComponent } from './MetricsComponentFilter'
 import { CHART_GRID, HERO_CARDS, type ChartSpec } from './canonicalDashboard'
 import { useMetricsQuery } from '@/src/hooks/useMetricsQuery'
 import { useObservabilityFlag } from '@/src/hooks/useObservabilityFlag'
@@ -15,6 +16,7 @@ type MetricsTabProps = { pipelineId: string }
 
 export function MetricsTab({ pipelineId }: MetricsTabProps) {
   const enabled = useObservabilityFlag()
+  const selectedComponents = useSelectedMetricsComponents()
 
   if (!enabled) {
     return <DisabledState surface="metrics" />
@@ -39,7 +41,7 @@ export function MetricsTab({ pipelineId }: MetricsTabProps) {
             href={`/pipelines/${pipelineId}/metrics/${spec.key}`}
             className="block focus:outline-none focus:ring-2 focus:ring-[var(--color-foreground-primary)] rounded-md"
           >
-            <ChartCardSlot pipelineId={pipelineId} spec={spec} />
+            <ChartCardSlot pipelineId={pipelineId} spec={spec} selectedComponents={selectedComponents} />
           </Link>
         ))}
       </div>
@@ -52,9 +54,24 @@ function HeroCardSlot({ pipelineId, spec }: { pipelineId: string; spec: ChartSpe
   return <HeroCard title={spec.title} unit={spec.unit} data={data} error={error} loading={isLoading} />
 }
 
-function ChartCardSlot({ pipelineId: _pipelineId, spec }: { pipelineId: string; spec: ChartSpec }) {
+function ChartCardSlot({
+  pipelineId: _pipelineId,
+  spec,
+  selectedComponents,
+}: {
+  pipelineId: string
+  spec: ChartSpec
+  selectedComponents: MetricsComponent[]
+}) {
   const { data, error, isLoading } = useMetricsQuery(_pipelineId, spec.key)
   return (
-    <ChartCard title={spec.title} query={CANONICAL_QUERIES[spec.key]} data={data} error={error} loading={isLoading} />
+    <ChartCard
+      title={spec.title}
+      query={CANONICAL_QUERIES[spec.key]}
+      data={data}
+      error={error}
+      loading={isLoading}
+      selectedComponents={selectedComponents}
+    />
   )
 }
