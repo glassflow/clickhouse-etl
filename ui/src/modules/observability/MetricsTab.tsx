@@ -5,6 +5,7 @@ import { ChartCard } from './ChartCard'
 import { HeroCard } from './HeroCard'
 import { MetricsToolbar } from './MetricsToolbar'
 import { ScopingNoteBanner } from './ScopingNoteBanner'
+import { DLQPeekPanel } from './DLQPeekPanel'
 import { DisabledState } from './DisabledState'
 import { useSelectedMetricsComponents, type MetricsComponent } from './MetricsComponentFilter'
 import { CHART_GRID, HERO_CARDS, type ChartSpec } from './canonicalDashboard'
@@ -44,6 +45,7 @@ export function MetricsTab({ pipelineId }: MetricsTabProps) {
             <ChartCardSlot pipelineId={pipelineId} spec={spec} selectedComponents={selectedComponents} />
           </Link>
         ))}
+        <DLQPeekPanel pipelineId={pipelineId} />
       </div>
     </div>
   )

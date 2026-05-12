@@ -18,5 +18,5 @@ export const CHART_GRID: ChartSpec[] = [
   { key: 'records_sunk', title: 'Records sunk', unit: 'rec/s' },
   { key: 'latency_p95', title: 'Latency p95', unit: 's' },
   { key: 'errors_total', title: 'Errors', unit: '/s' },
-  { key: 'consumer_lag', title: 'Consumer lag', unit: 'msg' },
+  // 6th cell in the grid is the DLQPeekPanel, rendered alongside CHART_GRID in MetricsTab
 ]
