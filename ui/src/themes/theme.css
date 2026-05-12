@@ -403,9 +403,10 @@
 
   /* ================== Table Tokens ================== */
 
-  /* Table Background */
-  --table-header-bg: var(--color-background-elevation-raised-faded);
-  --table-row-bg: var(--color-background-elevation-raised-faded-2);
+  /* Table Background — aligned with --color-surface-* scale so tables share
+     the same elevation as KPI/attention/chart cards. See base.css:223–227. */
+  --table-header-bg: var(--color-surface-subdued);
+  --table-row-bg: var(--color-surface-card);
   --table-row-bg-hover: var(--color-background-neutral-faded);
   --table-body-bg: transparent;
 
@@ -451,11 +452,11 @@
   --select-content-border-color-disabled: var(--color-gray-500);
 
   /* ============ Dashboard Tokens ============ */
-  --dash-page-bg:      var(--color-surface-page);
-  --dash-card-bg:      var(--color-surface-card);
-  --dash-subdued-bg:   var(--color-surface-subdued);
-  --dash-element-bg:   var(--color-surface-element);
-  --dash-row-hover:    var(--color-surface-row-hover);
+  --dash-page-bg: var(--color-surface-page);
+  --dash-card-bg: var(--color-surface-card);
+  --dash-subdued-bg: var(--color-surface-subdued);
+  --dash-element-bg: var(--color-surface-element);
+  --dash-row-hover: var(--color-surface-row-hover);
 
   /* ============ Observability ============ */
   /* Chart series — used in metrics drill-down component split */
