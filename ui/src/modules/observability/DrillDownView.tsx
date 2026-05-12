@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { OBChartSVG, type OBSeries } from './primitives/OBChartSVG'
 import { ChartFrame, type ChartFrameState } from './ChartFrame'
 import { MetricsToolbar } from './MetricsToolbar'
-import { useMetricsQuery } from '@/src/hooks/useMetricsQuery'
+import { useMetricsQuery, type MetricSeries } from '@/src/hooks/useMetricsQuery'
 import type { CanonicalQueryKey } from '@/src/app/ui-api/pipelines/[id]/metrics/_lib/canonical-queries'
 import { Button } from '@/src/components/ui/button'
 import { useStore } from '@/src/store'
@@ -16,6 +16,7 @@ const COMPONENT_COLORS: Record<string, string> = {
   sink: 'var(--obs-chart-sink)',
 }
 const FALLBACK_COLOR = 'var(--color-foreground-primary)'
+const EMPTY_RAW: MetricSeries[] = []
 
 type DrillDownViewProps = {
   pipelineId: string
@@ -25,7 +26,7 @@ type DrillDownViewProps = {
 export function DrillDownView({ pipelineId, queryKey }: DrillDownViewProps) {
   const { observabilityStore } = useStore()
   const { data, error, isLoading } = useMetricsQuery(pipelineId, queryKey)
-  const rawSeries = data?.result?.result ?? []
+  const rawSeries = data?.result?.result ?? EMPTY_RAW
 
   const obSeries: OBSeries[] = React.useMemo(
     () =>
