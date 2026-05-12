@@ -4,7 +4,7 @@ import * as React from 'react'
 import type { ObservabilityStackResponse } from '@/src/app/ui-api/observability/stack/route'
 
 function formatBytes(bytes: number | null | undefined): string | null {
-  if (!bytes || !Number.isFinite(bytes)) return null
+  if (bytes == null || !Number.isFinite(bytes)) return null
   const gb = bytes / 1_000_000_000
   if (gb >= 1) return `${gb.toFixed(1)} GB`
   const mb = bytes / 1_000_000
@@ -45,7 +45,7 @@ export function StatusPill() {
 
   return (
     <span
-      className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-[var(--surface-bg)] border border-[var(--surface-border)] caption-2 mono-2 text-[var(--text-secondary)]"
+      className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-[var(--surface-bg)] border border-[var(--surface-border)] caption-2 mono-3 text-[var(--text-secondary)]"
       aria-label="Internal observability stack status"
     >
       {parts.join(' · ')}

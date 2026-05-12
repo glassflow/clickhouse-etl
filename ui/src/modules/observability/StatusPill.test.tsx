@@ -32,8 +32,23 @@ describe('StatusPill', () => {
     })
     render(<StatusPill />)
     await waitFor(() => expect(screen.getByText(/internal stack/i)).toBeInTheDocument())
+    expect(screen.getByText(/1\.5 GB/)).toBeInTheDocument()
     expect(screen.getByText(/7d/)).toBeInTheDocument()
     expect(screen.getByText(/3d/)).toBeInTheDocument()
+  })
+
+  it('formats 0 disk bytes as "0 MB" (not omitted)', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        vmsingle: { version: null, retention: '7d', diskUsageBytes: 0, diskQuotaBytes: null },
+        victoriaLogs: { version: null, retention: '3d', diskUsageBytes: 0, diskQuotaBytes: null },
+        fanOut: { collectorEndpoint: null, external: [] },
+        cardinality: [],
+      }),
+    })
+    render(<StatusPill />)
+    await waitFor(() => expect(screen.getByText(/0 MB/)).toBeInTheDocument())
   })
 
   it('renders nothing when the stack route errors out', async () => {
