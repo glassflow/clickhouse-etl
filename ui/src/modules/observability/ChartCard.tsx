@@ -13,7 +13,7 @@ import {
   YAxis,
 } from 'recharts'
 import { ChartFrame, type ChartFrameState } from './ChartFrame'
-import type { MetricResult } from '@/src/hooks/useMetricsQuery'
+import type { MetricResult, MetricSeries } from '@/src/hooks/useMetricsQuery'
 import { useStore } from '@/src/store'
 
 type ChartCardProps = {
@@ -40,6 +40,7 @@ const COMPONENT_COLORS: Record<string, string> = {
 
 const FALLBACK_COLOR = 'var(--color-foreground-primary)'
 const FALLBACK_KEY = 'all'
+const EMPTY_SERIES: MetricSeries[] = []
 
 function colorFor(component: string): string {
   return COMPONENT_COLORS[component] ?? FALLBACK_COLOR
@@ -57,7 +58,7 @@ export function ChartCard({
 }: ChartCardProps) {
   const { observabilityStore } = useStore()
 
-  const seriesArray = data?.result?.result ?? []
+  const seriesArray = data?.result?.result ?? EMPTY_SERIES
 
   // Pivot a series-per-component response into a flat array of timestamp-keyed
   // rows that Recharts can consume. Each row looks like
