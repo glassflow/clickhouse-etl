@@ -1,0 +1,79 @@
+---
+title: 'ClickHouse Sink'
+description: 'ClickHouse sink configuration and error handling reference'
+---
+import { Callout } from 'nextra/components'
+
+# ClickHouse Sink
+
+## Error Classification
+
+When the sink fails to write a batch to ClickHouse, it classifies the error before deciding what to do next.
+
+| Classification | Sink action | When |
+|----------------|-------------|------|
+| **Retryable** | NACK — NATS redelivers the batch after a delay | Transient condition; the same data would succeed once CH recovers |
+| **Permanent** | DLQ — batch is written to the Dead Letter Queue | Data or schema problem; the same message will fail again on retry |
+| **Unknown** | DLQ (conservative) | Error code not yet classified; logged with `needs_classification` so the list can be extended from real traffic |
+
+<Callout type="info">
+  The delay between a NACK and redelivery is controlled by `NatsConsumerNakDelay` (default 5 s). The maximum number of redeliveries before NATS stops redelivering is `NatsConsumerMaxDeliver` (default 10).
+</Callout>
+
+### Retryable errors
+
+These are transient conditions where the same message is expected to succeed once ClickHouse or the network recovers.
+
+| Code | Name | Reason |
+|------|------|--------|
+| 159 | `TIMEOUT_EXCEEDED` | Query timeout |
+| 202 | `TOO_MANY_SIMULTANEOUS_QUERIES` | Server overloaded |
+| 209 | `SOCKET_TIMEOUT` | Network timeout |
+| 210 | `NETWORK_ERROR` | Network layer error |
+| 241 | `MEMORY_LIMIT_EXCEEDED` | Transient resource pressure |
+| 242 | `TABLE_IS_READ_ONLY` | Replica recovery in progress |
+| 243 | `NOT_ENOUGH_SPACE` | Disk pressure (may clear) |
+| 279 | `ALL_CONNECTION_TRIES_FAILED` | All replicas unreachable |
+| 289 | `REPLICA_IS_NOT_IN_QUORUM` | Replication lag |
+| 290 | `LIMIT_EXCEEDED` | Rate or resource limit |
+| — | Network/IO | `io.EOF`, `io.ErrUnexpectedEOF`, `ECONNREFUSED`, `ECONNRESET`, `EPIPE`, timeout |
+
+### Permanent errors
+
+These are data or schema problems where retrying the same message will produce the same failure. Operator intervention is required.
+
+| Code | Name | Reason |
+|------|------|--------|
+| 6 | `CANNOT_PARSE_TEXT` | Malformed payload |
+| 7 | `INCORRECT_NUMBER_OF_COLUMNS` | Schema mismatch |
+| 16 | `NO_SUCH_COLUMN_IN_TABLE` | Column missing from table |
+| 18 | `CANNOT_INSERT_ELEMENT_INTO_CONSTANT_COLUMN` | Bad data value |
+| 20 | `NUMBER_OF_COLUMNS_DOESNT_MATCH` | Schema mismatch |
+| 25 | `CANNOT_PARSE_ESCAPE_SEQUENCE` | Malformed payload |
+| 26 | `CANNOT_PARSE_QUOTED_STRING` | Malformed payload |
+| 27 | `CANNOT_PARSE_INPUT_ASSERTION_FAILED` | Malformed payload |
+| 38 | `CANNOT_PARSE_DATE` | Bad date value in payload |
+| 41 | `CANNOT_PARSE_DATETIME` | Bad datetime value in payload |
+| 43 | `ILLEGAL_TYPE_OF_ARGUMENT` | Type mismatch |
+| 44 | `ILLEGAL_COLUMN` | Column issue |
+| 47 | `UNKNOWN_IDENTIFIER` | Unknown column reference |
+| 53 | `TYPE_MISMATCH` | Type mismatch |
+| 60 | `UNKNOWN_TABLE` | Table does not exist |
+| 164 | `READONLY` | ClickHouse in readonly mode |
+| 193 | `WRONG_PASSWORD` | Authentication failure |
+| 516 | `AUTHENTICATION_FAILED` | Authentication failure |
+
+<Callout type="warning">
+  **Code 60 (UNKNOWN_TABLE)** is classified as permanent. During a live schema migration the table may briefly not exist; if this causes unexpected DLQ traffic, pause the pipeline until the migration completes.
+</Callout>
+
+### Unknown errors
+
+Any error code not in the lists above is classified as `unknown` and treated as permanent — the batch is written to the DLQ. The sink logs these with a `needs_classification` attribute so they can be identified from metrics or logs and added to the appropriate list.
+
+To add a new code, add one line to `internal/sink/errors/classification.go`:
+
+```go
+// in retryableCodes or permanentCodes map
+int32(chproto.ErrNewCode): {}, // NNN — reason
+```
