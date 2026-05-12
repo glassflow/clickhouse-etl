@@ -54,6 +54,14 @@ func (m *MockOrchestrator) EditPipeline(ctx context.Context, pid string, newCfg 
 	return args.Error(0)
 }
 
+func (m *MockOrchestrator) GetStreamNames(ctx context.Context, cfg models.PipelineConfig) (models.PipelineStreamNames, error) {
+	args := m.Called(ctx, cfg)
+	if v, ok := args.Get(0).(models.PipelineStreamNames); ok {
+		return v, args.Error(1)
+	}
+	return models.PipelineStreamNames{}, args.Error(1)
+}
+
 // MockPipelineStore is a mock implementation of PipelineStore
 type MockPipelineStore struct {
 	mock.Mock

@@ -20,6 +20,11 @@ type Orchestrator interface {
 	DeletePipeline(ctx context.Context, pid string) error
 	ResumePipeline(ctx context.Context, pid string, newCfg *models.PipelineConfig) error
 	EditPipeline(ctx context.Context, pid string, newCfg *models.PipelineConfig) error
+
+	// GetStreamNames returns the JetStream stream names that exist at runtime
+	// for the given pipeline. K8s mode reads from spec.Resolved; local mode
+	// uses the legacy models helpers. See ETL-1066 / T13 S-10.
+	GetStreamNames(ctx context.Context, cfg models.PipelineConfig) (models.PipelineStreamNames, error)
 }
 
 type PipelineStore interface {

@@ -637,6 +637,10 @@ func (d JSONDuration) Duration() time.Duration {
 	return d.t
 }
 
+// GetJoinedStreamName produces the join output stream name. Used by the local
+// orchestrator and (because join names happen to agree across modes today) by
+// the K8s path indirectly via Orchestrator.GetStreamNames. Prefer
+// Orchestrator.GetStreamNames in new code so the agreement stays explicit.
 func GetJoinedStreamName(pipelineID string) string {
 	hash := GenerateStreamHash(pipelineID)
 	return fmt.Sprintf("%s-%s-%s", internal.PipelineStreamPrefix, hash, "joined")
@@ -676,6 +680,11 @@ func GenerateStreamHash(pipelineID string) string {
 	return hex.EncodeToString(hash[:])[:8]
 }
 
+// GetIngestorStreamName produces a per-topic stream name for the local
+// (docker) orchestrator. **Do not use in K8s production paths** — the operator
+// names streams differently (gfm-<H>-<nodeID>-out_<i>) and these would diverge.
+// In K8s mode, query the deployed names via Orchestrator.GetStreamNames, which
+// reads from spec.Resolved (see ETL-1066 / T13 S-10).
 func GetIngestorStreamName(pipelineID, topicName string) string {
 	hash := GenerateStreamHash(pipelineID)
 	sanitizedTopic := SanitizeNATSSubject(topicName)
@@ -744,6 +753,9 @@ func GetNATSDedupConsumerName(pipelineID string) string {
 
 // GetDedupOutputStreamName generates the output stream name for a deduplicated topic
 // Format: gf-{hash}-{sanitized_topic}-dedup
+//
+// **Local-mode only**, same caveat as GetIngestorStreamName. In K8s mode use
+// Orchestrator.GetStreamNames. See ETL-1066 / T13 S-10.
 func GetDedupOutputStreamName(pipelineID, topicName string) string {
 	// Get the base ingestor stream name
 	baseStreamName := GetIngestorStreamName(pipelineID, topicName)

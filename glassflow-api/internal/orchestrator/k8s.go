@@ -504,7 +504,62 @@ func (k *K8sOrchestrator) EditPipeline(ctx context.Context, pipelineID string, n
 }
 
 // buildPipelineSpec creates a complete PipelineSpec from a PipelineConfig
-func (k *K8sOrchestrator) buildPipelineSpec(ctx context.Context, cfg *models.PipelineConfig) (map[string]any, error) {
+// buildOperatorSpec converts a PipelineConfig into an operator.PipelineSpec
+// with spec.Resolved populated (the API-computed graph allocation). This is
+// the single place that knows how to translate API-side config into CRD
+// shape; both CR-write paths (via buildPipelineSpec) and read paths (via
+// GetStreamNames) call it.
+// GetStreamNames returns the JetStream stream names for the pipeline as the
+// operator deployed them — read from spec.Resolved via the same path that
+// produced the CR. Closes T13 S-10: usage_stats_collector now sees the
+// real names instead of the broken topic-sanitized helpers.
+func (k *K8sOrchestrator) GetStreamNames(_ context.Context, cfg models.PipelineConfig) (models.PipelineStreamNames, error) {
+	spec, err := k.buildOperatorSpec(&cfg)
+	if err != nil {
+		return models.PipelineStreamNames{}, fmt.Errorf("build operator spec: %w", err)
+	}
+	if spec.Resolved == nil {
+		return models.PipelineStreamNames{}, fmt.Errorf("resolved spec is nil for pipeline %s", cfg.ID)
+	}
+
+	names := models.PipelineStreamNames{
+		DLQStream: models.GetDLQStreamName(cfg.ID),
+	}
+
+	if !cfg.SourceType.IsOTLP() {
+		for i, topic := range cfg.Ingestor.KafkaTopics {
+			ingestorNode := spec.Resolved.FindNode(pipelinegraph.IngestorNodeID(spec, i))
+			if ingestorNode != nil && ingestorNode.Output != nil && len(ingestorNode.Output.Streams) > 0 {
+				names.IngestorStreams = append(names.IngestorStreams, ingestorNode.Output.Streams[0].Name)
+			} else {
+				names.IngestorStreams = append(names.IngestorStreams, "")
+			}
+
+			if topic.Deduplication.Enabled {
+				dedupNode := spec.Resolved.FindNode(pipelinegraph.DedupNodeID(spec, i))
+				dedupName := ""
+				if dedupNode != nil && dedupNode.Output != nil && len(dedupNode.Output.Streams) > 0 {
+					dedupName = dedupNode.Output.Streams[0].Name
+				}
+				names.DedupStreams = append(names.DedupStreams, models.DedupStreamName{
+					TopicIndex: i,
+					StreamName: dedupName,
+				})
+			}
+		}
+	}
+
+	if cfg.Join.Enabled {
+		joinNode := spec.Resolved.FindNode(pipelinegraph.JoinNodeID())
+		if joinNode != nil && joinNode.Output != nil && len(joinNode.Output.Streams) > 0 {
+			names.JoinStream = joinNode.Output.Streams[0].Name
+		}
+	}
+
+	return names, nil
+}
+
+func (k *K8sOrchestrator) buildOperatorSpec(cfg *models.PipelineConfig) (operator.PipelineSpec, error) {
 	var src []operator.SourceStream
 	var sourceType string
 	var isDedupEnabled bool
@@ -532,7 +587,7 @@ func (k *K8sOrchestrator) buildPipelineSpec(ctx context.Context, cfg *models.Pip
 
 	operatorResources, err := toOperatorResources(cfg.PipelineResources)
 	if err != nil {
-		return nil, fmt.Errorf("build operator resources: %w", err)
+		return operator.PipelineSpec{}, fmt.Errorf("build operator resources: %w", err)
 	}
 
 	spec := operator.PipelineSpec{
@@ -565,9 +620,18 @@ func (k *K8sOrchestrator) buildPipelineSpec(ctx context.Context, cfg *models.Pip
 	// for the CRD shape and ETL-1065 for the operator-side consumer.
 	resolved, err := pipelinegraph.Resolve(spec)
 	if err != nil {
-		return nil, fmt.Errorf("resolve pipeline graph: %w", err)
+		return operator.PipelineSpec{}, fmt.Errorf("resolve pipeline graph: %w", err)
 	}
 	spec.Resolved = &resolved
+
+	return spec, nil
+}
+
+func (k *K8sOrchestrator) buildPipelineSpec(ctx context.Context, cfg *models.PipelineConfig) (map[string]any, error) {
+	spec, err := k.buildOperatorSpec(cfg)
+	if err != nil {
+		return nil, err
+	}
 
 	// Convert spec to map[string]interface{}
 	var specMap map[string]any
