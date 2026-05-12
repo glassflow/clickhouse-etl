@@ -44,4 +44,30 @@ describe('OBChartSVG base rendering', () => {
     fireEvent.mouseMove(svg, { clientX: 200, clientY: 100 })
     expect(container.querySelector('[data-crosshair]')).toBeNull()
   })
+
+  it('renders an empty svg (no axes/paths) when series have no points', () => {
+    const { container } = render(<OBChartSVG series={[]} width={400} height={200} />)
+    expect(container.querySelector('svg')).not.toBeNull()
+    expect(container.querySelectorAll('path[data-series-id]').length).toBe(0)
+    expect(container.querySelectorAll('text[data-axis="y"]').length).toBe(0)
+  })
+
+  it('skips non-finite values when building the path', () => {
+    const withGap = [
+      {
+        id: 's',
+        color: 'var(--obs-chart-ingestor)',
+        points: [
+          [1, 10],
+          [2, Number.NaN],
+          [3, 20],
+        ] as Array<[number, number]>,
+      },
+    ]
+    const { container } = render(<OBChartSVG series={withGap} width={400} height={200} />)
+    const d = container.querySelector('path[data-series-id]')?.getAttribute('d') ?? ''
+    expect(d).not.toMatch(/NaN/)
+    // Two finite points produce two segments: an M and another M (new subpath after the gap).
+    expect(d.split('M').length - 1).toBe(2)
+  })
 })

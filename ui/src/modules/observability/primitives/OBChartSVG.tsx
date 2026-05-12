@@ -47,6 +47,20 @@ export function OBChartSVG({
       if (Number.isFinite(v)) allVs.push(v)
     }
   }
+
+  if (allTs.length === 0) {
+    return (
+      <svg
+        width={width}
+        height={height}
+        viewBox={`0 0 ${width} ${height}`}
+        role="img"
+        aria-label="Time series chart"
+        style={{ display: 'block' }}
+      />
+    )
+  }
+
   const tMin = Math.min(...allTs)
   const tMax = Math.max(...allTs)
   const vMin = yMin ?? Math.min(...allVs)
@@ -59,11 +73,8 @@ export function OBChartSVG({
   const xScale = (t: number) => pad.l + ((t - tMin) / (tMax - tMin || 1)) * plotW
   const yScale = (v: number) => pad.t + plotH - ((v - vMin) / vRange) * plotH
 
-  const yTicks = React.useMemo(() => {
-    const ticks: number[] = []
-    for (let i = 0; i <= 4; i++) ticks.push(vMin + (vRange * i) / 4)
-    return ticks
-  }, [vMin, vRange])
+  const yTicks: number[] = []
+  for (let i = 0; i <= 4; i++) yTicks.push(vMin + (vRange * i) / 4)
 
   const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
     if (!showCrosshair) return
@@ -161,8 +172,18 @@ function pathFromPoints(
   xScale: (t: number) => number,
   yScale: (v: number) => number,
 ): string {
-  if (points.length === 0) return ''
-  return points.map(([t, v], i) => `${i === 0 ? 'M' : 'L'} ${xScale(t).toFixed(2)} ${yScale(v).toFixed(2)}`).join(' ')
+  const segments: string[] = []
+  let needMoveTo = true
+  for (const [t, v] of points) {
+    if (!Number.isFinite(v)) {
+      // Gap in the series — next finite point starts a new subpath.
+      needMoveTo = true
+      continue
+    }
+    segments.push(`${needMoveTo ? 'M' : 'L'} ${xScale(t).toFixed(2)} ${yScale(v).toFixed(2)}`)
+    needMoveTo = false
+  }
+  return segments.join(' ')
 }
 
 function formatYTick(v: number): string {
