@@ -20,7 +20,13 @@ const (
 
 // IngestorNodeID returns the graph node ID for the ingestor serving streamIndex.
 func IngestorNodeID(spec etlv1alpha1.PipelineSpec, streamIndex int) string {
-	if spec.Join.Enabled {
+	return IngestorNodeIDForIndex(streamIndex, spec.Join.Enabled)
+}
+
+// IngestorNodeIDForIndex returns the ingestor node ID for a topic index without
+// requiring a full PipelineSpec.
+func IngestorNodeIDForIndex(streamIndex int, hasJoin bool) string {
+	if hasJoin {
 		return ingestorNodeID + "_" + joinSide(streamIndex).String()
 	}
 	return ingestorNodeID
@@ -28,10 +34,25 @@ func IngestorNodeID(spec etlv1alpha1.PipelineSpec, streamIndex int) string {
 
 // DedupNodeID returns the graph node ID for the dedup serving streamIndex.
 func DedupNodeID(spec etlv1alpha1.PipelineSpec, streamIndex int) string {
-	if spec.Join.Enabled {
+	return DedupNodeIDForIndex(streamIndex, spec.Join.Enabled)
+}
+
+// DedupNodeIDForIndex returns the dedup node ID for a topic index without
+// requiring a full PipelineSpec.
+func DedupNodeIDForIndex(streamIndex int, hasJoin bool) string {
+	if hasJoin {
 		return dedupNodeID + "_" + joinSide(streamIndex).String()
 	}
 	return dedupNodeID
+}
+
+// StreamName returns the NATS JetStream stream name for a pipeline node —
+// the same deterministic formula the graph resolver uses, without requiring
+// a full PipelineSpec or graph resolution.
+func StreamName(pipelineID, nodeID string) string {
+	hash := generatePipelineHash(pipelineID)
+	prefix := truncateName(fmt.Sprintf("%s-%s-%s-%s", namePrefix, hash, sanitizeName(nodeID), nodeOutSuffix))
+	return prefix + "_0"
 }
 
 // JoinNodeID returns the graph node ID for the join component.
