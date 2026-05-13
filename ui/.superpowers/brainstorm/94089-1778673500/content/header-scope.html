@@ -1,0 +1,90 @@
+<h2>What lives above the pipeline table?</h2>
+<p class="subtitle">The command center needs a header section. The question is how much fleet-level aggregation you want before the per-pipeline rows.</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Stat cards only (status signals)</h3>
+      <p>4 KPI cards: Running / Needs attention / Paused / DLQ backlog. These come from the pipeline list API — no VM query needed. Fast, always available.</p>
+      <div class="mockup" style="margin-top:10px">
+        <div class="mockup-header">Header — stat cards</div>
+        <div class="mockup-body">
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">
+            <div style="border:1px solid #2a2a3a;border-radius:8px;padding:10px;background:#0f1117">
+              <div style="font-size:10px;color:#64748b;margin-bottom:6px">RUNNING</div>
+              <div style="font-size:22px;color:#4ade80;font-weight:700">8</div>
+            </div>
+            <div style="border:1px solid #5a1e1e;border-radius:8px;padding:10px;background:#1a0808">
+              <div style="font-size:10px;color:#64748b;margin-bottom:6px">NEEDS ATTENTION</div>
+              <div style="font-size:22px;color:#f87171;font-weight:700">2</div>
+            </div>
+            <div style="border:1px solid #2a2a3a;border-radius:8px;padding:10px;background:#0f1117">
+              <div style="font-size:10px;color:#64748b;margin-bottom:6px">PAUSED</div>
+              <div style="font-size:22px;color:#94a3b8;font-weight:700">1</div>
+            </div>
+            <div style="border:1px solid #5a1e1e;border-radius:8px;padding:10px;background:#1a0808">
+              <div style="font-size:10px;color:#64748b;margin-bottom:6px">DLQ BACKLOG</div>
+              <div style="font-size:22px;color:#f87171;font-weight:700">47</div>
+              <div style="font-size:9px;color:#64748b">unconsumed msgs</div>
+            </div>
+          </div>
+          <div style="border:1px solid #2a2a3a;border-radius:8px;padding:8px;background:#0a0a10;font-size:10px;color:#475569;text-align:center">↓ pipeline table with sparklines below</div>
+        </div>
+      </div>
+      <div class="pros-cons" style="margin-top:8px">
+        <div class="pros"><h4>Pros</h4><ul><li>Zero extra VM queries</li><li>Always current (from pipeline list API)</li><li>Already built — just needs cleanup</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>No throughput trend at the fleet level</li><li>Can't answer "is total system load rising?"</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Stat cards + fleet-wide throughput chart</h3>
+      <p>Stat cards + a single fleet-wide throughput chart showing total events/s across all pipelines over the selected time range. One VM query with no <code>pipeline_id</code> filter (or sum of all). Shows the system pulse.</p>
+      <div class="mockup" style="margin-top:10px">
+        <div class="mockup-header">Header — stats + fleet chart</div>
+        <div class="mockup-body">
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">
+            <div style="border:1px solid #2a2a3a;border-radius:8px;padding:10px;background:#0f1117">
+              <div style="font-size:10px;color:#64748b;margin-bottom:6px">RUNNING</div>
+              <div style="font-size:22px;color:#4ade80;font-weight:700">8</div>
+            </div>
+            <div style="border:1px solid #5a1e1e;border-radius:8px;padding:10px;background:#1a0808">
+              <div style="font-size:10px;color:#64748b;margin-bottom:6px">NEEDS ATTENTION</div>
+              <div style="font-size:22px;color:#f87171;font-weight:700">2</div>
+            </div>
+            <div style="border:1px solid #2a2a3a;border-radius:8px;padding:10px;background:#0f1117">
+              <div style="font-size:10px;color:#64748b;margin-bottom:6px">TOTAL EV/S</div>
+              <div style="font-size:22px;color:#e2e8f0;font-weight:700">15.6k</div>
+            </div>
+            <div style="border:1px solid #5a1e1e;border-radius:8px;padding:10px;background:#1a0808">
+              <div style="font-size:10px;color:#64748b;margin-bottom:6px">DLQ BACKLOG</div>
+              <div style="font-size:22px;color:#f87171;font-weight:700">47</div>
+            </div>
+          </div>
+          <div style="border:1px solid #2a2a3a;border-radius:8px;padding:10px;background:#0a0a10;margin-bottom:10px">
+            <div style="font-size:10px;color:#64748b;margin-bottom:6px">FLEET THROUGHPUT — last 1h</div>
+            <svg width="100%" height="48" viewBox="0 0 400 48" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="fleetGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#6366f1" stop-opacity="0.3"/>
+                  <stop offset="100%" stop-color="#6366f1" stop-opacity="0"/>
+                </linearGradient>
+              </defs>
+              <path d="M0,36 L40,32 L80,28 L120,30 L160,24 L200,20 L240,22 L280,26 L320,18 L360,14 L400,16 L400,48 L0,48 Z" fill="url(#fleetGrad)"/>
+              <polyline points="0,36 40,32 80,28 120,30 160,24 200,20 240,22 280,26 320,18 360,14 400,16" fill="none" stroke="#6366f1" stroke-width="1.5"/>
+            </svg>
+          </div>
+          <div style="border:1px solid #2a2a3a;border-radius:8px;padding:8px;background:#0a0a10;font-size:10px;color:#475569;text-align:center">↓ pipeline table with sparklines below</div>
+        </div>
+      </div>
+      <div class="pros-cons" style="margin-top:8px">
+        <div class="pros"><h4>Pros</h4><ul><li>Shows "is the system pulse healthy?" at a glance</li><li>Good for on-call engineers — one chart captures everything</li><li>Only 1 extra VM query (sum across all pipelines)</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Requires VM to be enabled — hidden otherwise</li><li>More visual complexity in the header</li></ul></div>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { CANONICAL_QUERIES, isCanonicalKey } from './_lib/canonical-queries'
 import { enforcePipelineScope } from './_lib/scope-enforcer'
+import { isMockMode } from '@/src/utils/mock-api'
+import { buildMetricsFixture, parseScenario } from '../_mock/fixtures'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -24,6 +26,29 @@ export async function GET(req: Request, { params }: Params): Promise<NextRespons
   const step = url.searchParams.get('step') ?? '15s'
   const rawQuery = url.searchParams.get('rawQuery')
 
+  // Mock-mode short-circuit — keeps shape parity with the real VM proxy.
+  // `?mock=populated|empty|retention|error` switches scenarios per-tab.
+  if (isMockMode()) {
+    if (!rawQuery && !isCanonicalKey(queryName)) {
+      return NextResponse.json({ error: `unknown canonical query: ${queryName}` }, { status: 400 })
+    }
+    const scenario = parseScenario(url.searchParams.get('mock'))
+    if (scenario === 'error') {
+      return NextResponse.json({ error: 'VM 503 (mock)' }, { status: 503 })
+    }
+    return NextResponse.json(
+      buildMetricsFixture({
+        pipelineId: id,
+        queryName,
+        rawQuery,
+        fromMs: from ? Number(from) : Date.now() - 3_600_000,
+        toMs: to ? Number(to) : Date.now(),
+        step,
+        scenario,
+      }),
+    )
+  }
+
   let promql: string
   try {
     if (rawQuery) {
@@ -32,16 +57,10 @@ export async function GET(req: Request, { params }: Params): Promise<NextRespons
     } else if (isCanonicalKey(queryName)) {
       promql = enforcePipelineScope(CANONICAL_QUERIES[queryName], id)
     } else {
-      return NextResponse.json(
-        { error: `unknown canonical query: ${queryName}` },
-        { status: 400 },
-      )
+      return NextResponse.json({ error: `unknown canonical query: ${queryName}` }, { status: 400 })
     }
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'invalid query' },
-      { status: 400 },
-    )
+    return NextResponse.json({ error: err instanceof Error ? err.message : 'invalid query' }, { status: 400 })
   }
 
   const fromSec = from ? Math.floor(Number(from) / 1000) : Math.floor(Date.now() / 1000) - 3600
@@ -65,9 +84,6 @@ export async function GET(req: Request, { params }: Params): Promise<NextRespons
       result: json.data,
     })
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'fetch failed' },
-      { status: 503 },
-    )
+    return NextResponse.json({ error: err instanceof Error ? err.message : 'fetch failed' }, { status: 503 })
   }
 }

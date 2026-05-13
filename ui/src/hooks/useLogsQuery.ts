@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { useMetricsRange } from './useMetricsRange'
 
 export type LogLine = {
@@ -32,18 +33,20 @@ type FetchState = {
  * resolved range. Mirrors the `useDetailFetch` pattern used by the Library
  * hooks: cancellable fetch on URL change, no SWR.
  */
-export function useLogsQuery(
-  pipelineId: string,
-  query: string,
-  opts?: { skip?: boolean; limit?: number },
-): FetchState {
+export function useLogsQuery(pipelineId: string, query: string, opts?: { skip?: boolean; limit?: number }): FetchState {
   const { fromMs, toMs } = useMetricsRange()
   const skip = opts?.skip ?? false
   const limit = opts?.limit ?? 500
 
+  // Dev-only: forward `?mock=` from the page URL so the mock-mode route
+  // can scenario-switch. No-op outside mock mode.
+  const sp = useSearchParams()
+  const mockParam = sp?.get('mock') ?? null
+  const mockSuffix = mockParam ? `&mock=${encodeURIComponent(mockParam)}` : ''
+
   const url = skip
     ? null
-    : `/ui-api/pipelines/${pipelineId}/logs?query=${encodeURIComponent(query)}&from=${fromMs}&to=${toMs}&limit=${limit}`
+    : `/ui-api/pipelines/${pipelineId}/logs?query=${encodeURIComponent(query)}&from=${fromMs}&to=${toMs}&limit=${limit}${mockSuffix}`
 
   const [data, setData] = useState<LogsResponse | undefined>(undefined)
   const [error, setError] = useState<Error | undefined>(undefined)

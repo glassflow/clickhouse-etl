@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { useStore } from '@/src/store'
 import { useMetricsRange } from './useMetricsRange'
 import type { CanonicalQueryKey } from '@/src/app/ui-api/pipelines/[id]/metrics/_lib/canonical-queries'
@@ -39,6 +40,13 @@ export function useMetricsQuery(pipelineId: string, queryName: CanonicalQueryKey
   const polling = observabilityStore.autoRefreshIntervalMs != null && isAnchoredNow
   const intervalMs = observabilityStore.autoRefreshIntervalMs ?? REFRESH_MS
 
+  // Dev-only: when the page URL has `?mock=<scenario>`, forward it so the
+  // mock-mode route in `/ui-api/.../metrics` can switch fixture scenarios.
+  // No-op outside mock mode (the route ignores the param).
+  const sp = useSearchParams()
+  const mockParam = sp?.get('mock') ?? null
+  const mockSuffix = mockParam ? `&mock=${encodeURIComponent(mockParam)}` : ''
+
   const [data, setData] = useState<MetricResult | undefined>(undefined)
   const [error, setError] = useState<Error | undefined>(undefined)
   const [isLoading, setIsLoading] = useState(true)
@@ -47,7 +55,7 @@ export function useMetricsQuery(pipelineId: string, queryName: CanonicalQueryKey
   // Build a URL that's stable enough to drive useEffect, even when toMs floats.
   // For polling, we explicitly bump `tick` on the configured interval; we don't
   // want each render to refetch just because Date.now() changed.
-  const url = `/ui-api/pipelines/${pipelineId}/metrics?query=${queryName}&from=${fromMs}&to=${toMs}&step=${step}`
+  const url = `/ui-api/pipelines/${pipelineId}/metrics?query=${queryName}&from=${fromMs}&to=${toMs}&step=${step}${mockSuffix}`
 
   useEffect(() => {
     let cancelled = false

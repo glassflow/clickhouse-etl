@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useSearchParams } from 'next/navigation'
 import type { LogLine } from './useLogsQuery'
 
 const MAX_BUFFER = 500
@@ -24,12 +25,18 @@ export function useLogStream(pipelineId: string, query: string, paused: boolean)
   const [error, setError] = React.useState<string | null>(null)
   const [connected, setConnected] = React.useState(false)
 
+  // Dev-only: forward `?mock=` from the page URL so the mock-mode SSE route
+  // can scenario-switch. No-op outside mock mode.
+  const sp = useSearchParams()
+  const mockParam = sp?.get('mock') ?? null
+
   React.useEffect(() => {
     if (paused) {
       setConnected(false)
       return
     }
-    const url = `/ui-api/pipelines/${pipelineId}/logs/stream?query=${encodeURIComponent(query)}`
+    const mockSuffix = mockParam ? `&mock=${encodeURIComponent(mockParam)}` : ''
+    const url = `/ui-api/pipelines/${pipelineId}/logs/stream?query=${encodeURIComponent(query)}${mockSuffix}`
     const es = new EventSource(url)
     setError(null)
 
@@ -60,7 +67,7 @@ export function useLogStream(pipelineId: string, query: string, paused: boolean)
       es.close()
       setConnected(false)
     }
-  }, [pipelineId, query, paused])
+  }, [pipelineId, query, paused, mockParam])
 
   const clear = React.useCallback(() => setLines([]), [])
 

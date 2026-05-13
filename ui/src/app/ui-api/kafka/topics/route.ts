@@ -3,8 +3,13 @@ import { KafkaConfig } from '@/src/lib/kafka-client'
 import { getKafkaConfig } from '../../utils'
 import { KafkaService } from '@/src/services/kafka-service'
 import { structuredLogger } from '@/src/observability'
+import { isMockMode, generateMockKafkaTopics } from '@/src/utils/mock-api'
 
 export async function POST(request: Request) {
+  if (isMockMode()) {
+    return NextResponse.json({ success: true, topics: generateMockKafkaTopics() })
+  }
+
   try {
     const requestBody = await request.json()
 
@@ -36,14 +41,18 @@ export async function POST(request: Request) {
         topics,
       })
     } catch (error) {
-      structuredLogger.error('Error fetching Kafka topics', { error: error instanceof Error ? error.message : String(error) })
+      structuredLogger.error('Error fetching Kafka topics', {
+        error: error instanceof Error ? error.message : String(error),
+      })
       return NextResponse.json({
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error occurred',
       })
     }
   } catch (error) {
-    structuredLogger.error('Error processing Kafka topics request', { error: error instanceof Error ? error.message : String(error) })
+    structuredLogger.error('Error processing Kafka topics request', {
+      error: error instanceof Error ? error.message : String(error),
+    })
     return NextResponse.json(
       {
         success: false,

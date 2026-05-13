@@ -1,0 +1,118 @@
+<h2>Section 3 — Route and navigation changes</h2>
+<p class="subtitle">What moves, what redirects, what disappears.</p>
+
+<div class="section">
+  <h3>Sidebar: before → after</h3>
+  <div class="split">
+    <div class="mockup">
+      <div class="mockup-header">Before</div>
+      <div class="mockup-body" style="font-size:11px;font-family:sans-serif">
+        <div style="padding:6px 10px;color:#64748b;font-size:9px;letter-spacing:0.1em;text-transform:uppercase">Primary</div>
+        <div style="padding:7px 12px;border-radius:6px;color:#818cf8;background:rgba(99,102,241,0.1);margin:2px 4px;display:flex;align-items:center;gap:8px"><span>⊞</span> Dashboard</div>
+        <div style="padding:7px 12px;border-radius:6px;color:#94a3b8;margin:2px 4px;display:flex;align-items:center;gap:8px"><span>⇄</span> Pipelines</div>
+        <div style="padding:7px 12px;border-radius:6px;color:#94a3b8;margin:2px 4px;display:flex;align-items:center;gap:8px"><span>📚</span> Library</div>
+        <div style="padding:6px 10px;color:#64748b;font-size:9px;letter-spacing:0.1em;text-transform:uppercase;margin-top:8px">Workspace</div>
+        <div style="padding:7px 12px;border-radius:6px;color:#94a3b8;margin:2px 4px;display:flex;align-items:center;gap:8px"><span>📊</span> Observability <span style="font-size:9px;color:#475569;margin-left:auto">→ /workspace/observability</span></div>
+      </div>
+    </div>
+    <div class="mockup">
+      <div class="mockup-header">After</div>
+      <div class="mockup-body" style="font-size:11px;font-family:sans-serif">
+        <div style="padding:6px 10px;color:#64748b;font-size:9px;letter-spacing:0.1em;text-transform:uppercase">Primary</div>
+        <div style="padding:7px 12px;border-radius:6px;color:#818cf8;background:rgba(99,102,241,0.1);margin:2px 4px;display:flex;align-items:center;gap:8px"><span>⊞</span> Dashboard</div>
+        <div style="padding:7px 12px;border-radius:6px;color:#94a3b8;margin:2px 4px;display:flex;align-items:center;gap:8px"><span>⇄</span> Pipelines</div>
+        <div style="padding:7px 12px;border-radius:6px;color:#94a3b8;margin:2px 4px;display:flex;align-items:center;gap:8px"><span>📚</span> Library</div>
+        <div style="padding:7px 12px;border-radius:6px;color:#94a3b8;margin:2px 4px;display:flex;align-items:center;gap:8px"><span>📊</span> Observability <span style="font-size:9px;color:#4ade80;margin-left:auto">→ /observability ✓</span></div>
+        <div style="padding:6px 10px;color:#334155;font-size:9px;letter-spacing:0.1em;text-transform:uppercase;margin-top:8px;opacity:0.4">Workspace</div>
+        <div style="padding:7px 12px;border-radius:6px;color:#334155;margin:2px 4px;display:flex;align-items:center;gap:8px;opacity:0.35;text-decoration:line-through"><span>📊</span> Observability (stack admin) <span style="font-size:9px;margin-left:auto">removed</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Route map: what happens to each URL</h3>
+  <div class="mockup">
+    <div class="mockup-header">Route changes</div>
+    <div class="mockup-body" style="font-size:11px;font-family:monospace">
+      <table style="width:100%;border-collapse:collapse">
+        <tr style="border-bottom:1px solid #2a2a3a;opacity:0.6">
+          <td style="padding:6px 10px;width:35%">ROUTE</td>
+          <td style="padding:6px 10px;width:20%">ACTION</td>
+          <td style="padding:6px 10px">OUTCOME</td>
+        </tr>
+        <tr style="border-bottom:1px solid #1e1e2e">
+          <td style="padding:8px 10px;color:#818cf8">/observability</td>
+          <td style="padding:8px 10px"><span style="color:#4ade80;font-size:10px">REPLACE</span></td>
+          <td style="padding:8px 10px;color:#94a3b8">New ObservabilityCommandCenter component</td>
+        </tr>
+        <tr style="border-bottom:1px solid #1e1e2e;background:#0a0c12">
+          <td style="padding:8px 10px;color:#f87171">/observability/[id]</td>
+          <td style="padding:8px 10px"><span style="color:#fb923c;font-size:10px">REDIRECT</span></td>
+          <td style="padding:8px 10px;color:#94a3b8">→ /pipelines/[id]/overview (then delete file)</td>
+        </tr>
+        <tr style="border-bottom:1px solid #1e1e2e">
+          <td style="padding:8px 10px;color:#f87171">/workspace/observability</td>
+          <td style="padding:8px 10px"><span style="color:#ef4444;font-size:10px">DELETE</span></td>
+          <td style="padding:8px 10px;color:#94a3b8">StackAdminPanel removed. /workspace/observability → 404 or redirect to /observability</td>
+        </tr>
+        <tr style="border-bottom:1px solid #1e1e2e;background:#0a0c12">
+          <td style="padding:8px 10px;color:#4ade80">/pipelines/[id]/metrics</td>
+          <td style="padding:8px 10px"><span style="color:#64748b;font-size:10px">UNCHANGED</span></td>
+          <td style="padding:8px 10px;color:#64748b">Stays as the canonical per-pipeline metrics tab</td>
+        </tr>
+        <tr style="border-bottom:1px solid #1e1e2e">
+          <td style="padding:8px 10px;color:#4ade80">/pipelines/[id]/logs</td>
+          <td style="padding:8px 10px"><span style="color:#64748b;font-size:10px">UNCHANGED</span></td>
+          <td style="padding:8px 10px;color:#64748b">Stays as the canonical per-pipeline logs tab</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 10px;color:#4ade80">/pipelines/[id]/dlq</td>
+          <td style="padding:8px 10px"><span style="color:#64748b;font-size:10px">UNCHANGED</span></td>
+          <td style="padding:8px 10px;color:#64748b">Stays as the canonical DLQ tab</td>
+        </tr>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Files to create / modify / delete</h3>
+  <div class="mockup">
+    <div class="mockup-header">File map</div>
+    <div class="mockup-body" style="font-size:11px;font-family:monospace">
+      <div style="margin-bottom:10px">
+        <div style="color:#4ade80;margin-bottom:4px">NEW</div>
+        <div style="color:#94a3b8;padding-left:12px;line-height:1.9">
+          src/modules/observability/ObservabilityCommandCenter.tsx<br>
+          src/modules/observability/ObservabilityStatCards.tsx<br>
+          src/modules/observability/ObservabilityFleetTable.tsx<br>
+          src/modules/observability/ObservabilityFleetRow.tsx
+        </div>
+      </div>
+      <div style="margin-bottom:10px">
+        <div style="color:#818cf8;margin-bottom:4px">MODIFY</div>
+        <div style="color:#94a3b8;padding-left:12px;line-height:1.9">
+          src/app/(shell)/observability/page.tsx  ← swap ObservabilityLandingClient → ObservabilityCommandCenter<br>
+          src/components/shared/AppSidebar.tsx  ← update href + move to primaryNavItems
+        </div>
+      </div>
+      <div style="margin-bottom:10px">
+        <div style="color:#f87171;margin-bottom:4px">REDIRECT / DELETE</div>
+        <div style="color:#94a3b8;padding-left:12px;line-height:1.9">
+          src/app/(shell)/observability/[id]/page.tsx  ← replace with redirect<br>
+          src/app/(shell)/workspace/observability/page.tsx  ← delete (or redirect)<br>
+          src/modules/observability/ObservabilityLandingClient.tsx  ← delete after cutover
+        </div>
+      </div>
+      <div>
+        <div style="color:#64748b;margin-bottom:4px">UNTOUCHED</div>
+        <div style="color:#475569;padding-left:12px;line-height:1.9">
+          All per-pipeline observability: MetricsTab, LogsTab, DrillDownView, OBChartSVG, etc.<br>
+          All per-pipeline hooks: useMetricsQuery, useLogsQuery, useLogStream<br>
+          observability.store.ts, API routes (no changes needed)
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

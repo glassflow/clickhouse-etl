@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import { enforceLogsPipelineScope } from './_lib/logsql-scope'
+import { isMockMode } from '@/src/utils/mock-api'
+import { buildLogsFixture, parseScenario } from '../_mock/fixtures'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -27,6 +29,24 @@ export async function GET(req: Request, { params }: Params): Promise<NextRespons
   const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 5_000) : 200
 
   const query = enforceLogsPipelineScope(rawQuery, id)
+
+  // Mock-mode short-circuit — `?mock=populated|empty|retention|error`.
+  if (isMockMode()) {
+    const scenario = parseScenario(url.searchParams.get('mock'))
+    if (scenario === 'error') {
+      return NextResponse.json({ error: 'VL 503 (mock)' }, { status: 503 })
+    }
+    return NextResponse.json(
+      buildLogsFixture({
+        pipelineId: id,
+        query,
+        fromMs: from ? Number(from) : Date.now() - 3_600_000,
+        toMs: to ? Number(to) : Date.now(),
+        limit,
+        scenario,
+      }),
+    )
+  }
 
   const fromSec = from ? Math.floor(Number(from) / 1000) : Math.floor(Date.now() / 1000) - 3600
   const toSec = to ? Math.floor(Number(to) / 1000) : Math.floor(Date.now() / 1000)
@@ -58,9 +78,6 @@ export async function GET(req: Request, { params }: Params): Promise<NextRespons
       .filter((v): v is Record<string, unknown> => v !== null)
     return NextResponse.json({ query, lines, count: lines.length })
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'fetch failed' },
-      { status: 503 },
-    )
+    return NextResponse.json({ error: err instanceof Error ? err.message : 'fetch failed' }, { status: 503 })
   }
 }

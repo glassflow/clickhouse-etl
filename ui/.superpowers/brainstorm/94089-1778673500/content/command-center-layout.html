@@ -1,0 +1,205 @@
+<h2>Design: Observability Command Center</h2>
+<p class="subtitle">Full-page layout — section 1 of 3. Review and confirm before we move to data flow.</p>
+
+<div class="mockup">
+  <div class="mockup-header">
+    /observability — ObservabilityCommandCenter
+  </div>
+  <div class="mockup-body" style="padding:0">
+
+    <!-- Page header -->
+    <div style="padding:16px 20px 12px;border-bottom:1px solid #1e1e2e">
+      <div style="font-size:18px;font-weight:700;color:#e2e8f0;margin-bottom:2px">Observability</div>
+      <div style="font-size:12px;color:#64748b">Fleet health and triage across all running pipelines</div>
+    </div>
+
+    <!-- Stat cards row -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding:14px 20px;border-bottom:1px solid #1e1e2e">
+      <div style="border:1px solid #2a2a3a;border-radius:8px;padding:12px;background:#0f1117">
+        <div style="font-size:9px;color:#64748b;letter-spacing:0.08em;margin-bottom:6px">RUNNING</div>
+        <div style="font-size:24px;color:#4ade80;font-weight:700;line-height:1">8</div>
+      </div>
+      <div style="border:1px solid #5a1e1e;border-radius:8px;padding:12px;background:#1a0808">
+        <div style="font-size:9px;color:#64748b;letter-spacing:0.08em;margin-bottom:6px">NEEDS ATTENTION</div>
+        <div style="font-size:24px;color:#f87171;font-weight:700;line-height:1">2</div>
+      </div>
+      <div style="border:1px solid #2a2a3a;border-radius:8px;padding:12px;background:#0f1117">
+        <div style="font-size:9px;color:#64748b;letter-spacing:0.08em;margin-bottom:6px">PAUSED</div>
+        <div style="font-size:24px;color:#94a3b8;font-weight:700;line-height:1">1</div>
+      </div>
+      <div style="border:1px solid #5a1e1e;border-radius:8px;padding:12px;background:#1a0808">
+        <div style="font-size:9px;color:#64748b;letter-spacing:0.08em;margin-bottom:6px">DLQ BACKLOG</div>
+        <div style="font-size:24px;color:#f87171;font-weight:700;line-height:1">47</div>
+        <div style="font-size:9px;color:#64748b;margin-top:2px">unconsumed msgs</div>
+      </div>
+    </div>
+
+    <!-- Toolbar: filters + time range + refresh -->
+    <div style="display:flex;align-items:center;gap:8px;padding:10px 20px;border-bottom:1px solid #1e1e2e;flex-wrap:wrap">
+      <!-- Status filter pills -->
+      <div style="display:flex;gap:4px">
+        <span style="font-size:10px;padding:3px 10px;border-radius:20px;border:1px solid #6366f1;color:#818cf8;background:rgba(99,102,241,0.1)">All (11)</span>
+        <span style="font-size:10px;padding:3px 10px;border-radius:20px;border:1px solid #2a3a2a;color:#4ade80">Active (8)</span>
+        <span style="font-size:10px;padding:3px 10px;border-radius:20px;border:1px solid #3a2a2a;color:#f87171">Degraded (2)</span>
+        <span style="font-size:10px;padding:3px 10px;border-radius:20px;border:1px solid #2a2a3a;color:#94a3b8">Paused (1)</span>
+      </div>
+      <div style="flex:1"></div>
+      <!-- Time range -->
+      <div style="display:flex;gap:2px;background:#0a0a10;border:1px solid #2a2a3a;border-radius:6px;padding:2px">
+        <span style="font-size:10px;padding:3px 8px;color:#64748b">15m</span>
+        <span style="font-size:10px;padding:3px 8px;border-radius:4px;background:#1e1e38;color:#818cf8;border:1px solid #3a3a5a">1h</span>
+        <span style="font-size:10px;padding:3px 8px;color:#64748b">6h</span>
+        <span style="font-size:10px;padding:3px 8px;color:#64748b">24h</span>
+      </div>
+      <!-- Auto-refresh -->
+      <div style="font-size:10px;color:#475569;border:1px solid #2a2a3a;border-radius:6px;padding:3px 8px">↻ 30s</div>
+    </div>
+
+    <!-- Table -->
+    <div style="font-size:11px;font-family:monospace">
+      <table style="width:100%;border-collapse:collapse">
+        <!-- Header -->
+        <tr style="border-bottom:1px solid #1e1e2e;background:#080810">
+          <td style="padding:8px 20px;font-size:9px;color:#475569;letter-spacing:0.08em">PIPELINE</td>
+          <td style="padding:8px 12px;font-size:9px;color:#475569;letter-spacing:0.08em">STATUS</td>
+          <td style="padding:8px 12px;font-size:9px;color:#475569;letter-spacing:0.08em">THROUGHPUT ↕</td>
+          <td style="padding:8px 12px;font-size:9px;color:#475569;letter-spacing:0.08em">ERRORS ↕</td>
+          <td style="padding:8px 12px;font-size:9px;color:#475569;letter-spacing:0.08em">DLQ ↕</td>
+          <td style="padding:8px 12px;width:30px"></td>
+        </tr>
+
+        <!-- Row 1: degraded, DLQ > 0 -->
+        <tr style="border-bottom:1px solid #1e1e2e;background:rgba(239,68,68,0.04)">
+          <td style="padding:10px 20px">
+            <div style="color:#e2e8f0;font-weight:600">analytics-stream</div>
+            <div style="font-size:9px;color:#475569;margin-top:2px">prod · 2 topics</div>
+          </td>
+          <td style="padding:10px 12px">
+            <span style="color:#f87171;background:#2f0f0f;padding:2px 8px;border-radius:4px;font-size:10px">● degraded</span>
+          </td>
+          <td style="padding:10px 12px">
+            <div style="display:flex;align-items:center;gap:6px">
+              <svg width="80" height="20" viewBox="0 0 80 20">
+                <polyline points="0,10 13,9 27,8 40,10 53,14 67,17 80,18" fill="none" stroke="#fb923c" stroke-width="1.5"/>
+              </svg>
+              <span style="color:#94a3b8;font-size:10px">3.2k ev/s</span>
+            </div>
+          </td>
+          <td style="padding:10px 12px">
+            <div style="display:flex;align-items:center;gap:6px">
+              <svg width="60" height="20" viewBox="0 0 60 20">
+                <polyline points="0,18 15,17 30,14 45,8 60,4" fill="none" stroke="#f87171" stroke-width="1.5"/>
+              </svg>
+              <span style="color:#f87171;font-size:10px">2.4%</span>
+            </div>
+          </td>
+          <td style="padding:10px 12px">
+            <span style="color:#f87171;font-weight:700;font-size:12px">47</span>
+          </td>
+          <td style="padding:10px 12px;text-align:center;color:#475569">›</td>
+        </tr>
+
+        <!-- Row 2: active -->
+        <tr style="border-bottom:1px solid #1e1e2e">
+          <td style="padding:10px 20px;background:#0a0c12">
+            <div style="color:#e2e8f0;font-weight:600">prod-orders</div>
+            <div style="font-size:9px;color:#475569;margin-top:2px">prod · 1 topic</div>
+          </td>
+          <td style="padding:10px 12px;background:#0a0c12">
+            <span style="color:#4ade80;background:#0f2f1f;padding:2px 8px;border-radius:4px;font-size:10px">● active</span>
+          </td>
+          <td style="padding:10px 12px;background:#0a0c12">
+            <div style="display:flex;align-items:center;gap:6px">
+              <svg width="80" height="20" viewBox="0 0 80 20">
+                <polyline points="0,14 13,13 27,11 40,12 53,9 67,7 80,8" fill="none" stroke="#4ade80" stroke-width="1.5"/>
+              </svg>
+              <span style="color:#94a3b8;font-size:10px">12.4k ev/s</span>
+            </div>
+          </td>
+          <td style="padding:10px 12px;background:#0a0c12">
+            <div style="display:flex;align-items:center;gap:6px">
+              <svg width="60" height="20" viewBox="0 0 60 20">
+                <polyline points="0,18 15,18 30,18 45,18 60,18" fill="none" stroke="#2a3a2a" stroke-width="1.5" stroke-dasharray="3,2"/>
+              </svg>
+              <span style="color:#475569;font-size:10px">0.0%</span>
+            </div>
+          </td>
+          <td style="padding:10px 12px;background:#0a0c12">
+            <span style="color:#475569;font-size:12px">0</span>
+          </td>
+          <td style="padding:10px 12px;background:#0a0c12;text-align:center;color:#475569">›</td>
+        </tr>
+
+        <!-- Row 3: degraded, no DLQ but errors -->
+        <tr style="border-bottom:1px solid #1e1e2e;background:rgba(239,68,68,0.02)">
+          <td style="padding:10px 20px">
+            <div style="color:#e2e8f0;font-weight:600">user-events-v2</div>
+            <div style="font-size:9px;color:#475569;margin-top:2px">staging · 1 topic</div>
+          </td>
+          <td style="padding:10px 12px">
+            <span style="color:#f87171;background:#2f0f0f;padding:2px 8px;border-radius:4px;font-size:10px">● degraded</span>
+          </td>
+          <td style="padding:10px 12px">
+            <div style="display:flex;align-items:center;gap:6px">
+              <svg width="80" height="20" viewBox="0 0 80 20">
+                <polyline points="0,12 13,12 27,11 40,11 53,11 67,12 80,11" fill="none" stroke="#94a3b8" stroke-width="1.5"/>
+              </svg>
+              <span style="color:#94a3b8;font-size:10px">8.1k ev/s</span>
+            </div>
+          </td>
+          <td style="padding:10px 12px">
+            <div style="display:flex;align-items:center;gap:6px">
+              <svg width="60" height="20" viewBox="0 0 60 20">
+                <polyline points="0,16 15,15 30,13 45,10 60,7" fill="none" stroke="#f87171" stroke-width="1.5"/>
+              </svg>
+              <span style="color:#f87171;font-size:10px">0.8%</span>
+            </div>
+          </td>
+          <td style="padding:10px 12px">
+            <span style="color:#475569;font-size:12px">0</span>
+          </td>
+          <td style="padding:10px 12px;text-align:center;color:#475569">›</td>
+        </tr>
+
+        <!-- Row 4: paused -->
+        <tr style="opacity:0.55">
+          <td style="padding:10px 20px;background:#0a0c12">
+            <div style="color:#94a3b8;font-weight:600">clickstream-old</div>
+            <div style="font-size:9px;color:#475569;margin-top:2px">prod · 1 topic</div>
+          </td>
+          <td style="padding:10px 12px;background:#0a0c12">
+            <span style="color:#94a3b8;background:#1e1e2e;padding:2px 8px;border-radius:4px;font-size:10px">● paused</span>
+          </td>
+          <td style="padding:10px 12px;background:#0a0c12">
+            <span style="color:#334155;font-size:10px">—</span>
+          </td>
+          <td style="padding:10px 12px;background:#0a0c12">
+            <span style="color:#334155;font-size:10px">—</span>
+          </td>
+          <td style="padding:10px 12px;background:#0a0c12">
+            <span style="color:#475569;font-size:12px">0</span>
+          </td>
+          <td style="padding:10px 12px;background:#0a0c12;text-align:center;color:#334155">›</td>
+        </tr>
+
+      </table>
+    </div>
+
+    <!-- Context links legend -->
+    <div style="padding:10px 20px;border-top:1px solid #1e1e2e;background:#060810">
+      <div style="font-size:10px;color:#334155">
+        <span style="color:#475569">Click targets:</span>
+        &nbsp;· Pipeline name → <span style="color:#6366f1">/metrics</span>
+        &nbsp;· Error sparkline → <span style="color:#6366f1">/logs</span>
+        &nbsp;· DLQ count (when &gt;0) → <span style="color:#6366f1">/dlq</span>
+        &nbsp;· Throughput sparkline → <span style="color:#6366f1">/metrics</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="section">
+  <h3>Does this layout look right to you?</h3>
+  <p>Key things to confirm: stat cards → filter pills + time range → table with sparklines. Context links at the bottom are for illustration — they'll be invisible in the actual UI (the elements themselves are clickable). Respond in the terminal.</p>
+</div>

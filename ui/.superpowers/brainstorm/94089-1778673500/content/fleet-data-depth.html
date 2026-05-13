@@ -1,0 +1,156 @@
+<h2>What data density lives at the command center level?</h2>
+<p class="subtitle">The top-level /observability page shows all pipelines. The question is how much metric signal lives <em>inline</em> vs. only available after you click into a pipeline.</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Status-first (lightweight)</h3>
+      <p>Each pipeline row shows: name, status badge, DLQ count, last-seen throughput number (a single value). No sparklines. Fast to load, low VM query cost. You drill in to see charts.</p>
+      <div class="mockup" style="margin-top:12px">
+        <div class="mockup-header">Command center — status table</div>
+        <div class="mockup-body" style="font-size:11px;font-family:monospace">
+          <table style="width:100%;border-collapse:collapse">
+            <tr style="opacity:0.5;border-bottom:1px solid #444;padding-bottom:4px">
+              <td style="padding:4px 8px">PIPELINE</td>
+              <td style="padding:4px 8px">STATUS</td>
+              <td style="padding:4px 8px">THROUGHPUT</td>
+              <td style="padding:4px 8px">DLQ</td>
+              <td style="padding:4px 8px">ERROR RATE</td>
+            </tr>
+            <tr style="border-bottom:1px solid #333">
+              <td style="padding:6px 8px;color:#e2e8f0">prod-orders</td>
+              <td style="padding:6px 8px"><span style="color:#4ade80;background:#0f2f1f;padding:2px 8px;border-radius:4px;font-size:10px">● active</span></td>
+              <td style="padding:6px 8px;color:#94a3b8">12,450 ev/s</td>
+              <td style="padding:6px 8px;color:#94a3b8">0</td>
+              <td style="padding:6px 8px;color:#94a3b8">0.01%</td>
+            </tr>
+            <tr style="border-bottom:1px solid #333;background:rgba(239,68,68,0.05)">
+              <td style="padding:6px 8px;color:#e2e8f0">analytics-stream</td>
+              <td style="padding:6px 8px"><span style="color:#f87171;background:#2f0f0f;padding:2px 8px;border-radius:4px;font-size:10px">● degraded</span></td>
+              <td style="padding:6px 8px;color:#94a3b8">3,210 ev/s</td>
+              <td style="padding:6px 8px;color:#f87171;font-weight:600">47</td>
+              <td style="padding:6px 8px;color:#f87171">2.4%</td>
+            </tr>
+            <tr>
+              <td style="padding:6px 8px;color:#e2e8f0">user-events</td>
+              <td style="padding:6px 8px"><span style="color:#94a3b8;background:#1e1e2e;padding:2px 8px;border-radius:4px;font-size:10px">● paused</span></td>
+              <td style="padding:6px 8px;color:#475569">—</td>
+              <td style="padding:6px 8px;color:#94a3b8">0</td>
+              <td style="padding:6px 8px;color:#475569">—</td>
+            </tr>
+          </table>
+        </div>
+      </div>
+      <div class="pros-cons" style="margin-top:8px">
+        <div class="pros"><h4>Pros</h4><ul><li>Very fast to load</li><li>Scales to 50+ pipelines</li><li>Easy to scan</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>No trend visibility — can't see "it was fine, then spiked"</li><li>A single throughput value hides anomalies</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Sparkline-enhanced (medium density)</h3>
+      <p>Each row has a 60-minute throughput sparkline and a 60-minute error-rate sparkline pulled from VM. Instantly shows trends and anomalies without needing to click in. Moderate VM query cost (one query per pipeline).</p>
+      <div class="mockup" style="margin-top:12px">
+        <div class="mockup-header">Command center — sparkline table</div>
+        <div class="mockup-body" style="font-size:11px;font-family:monospace">
+          <table style="width:100%;border-collapse:collapse">
+            <tr style="opacity:0.5;border-bottom:1px solid #444">
+              <td style="padding:4px 8px">PIPELINE</td>
+              <td style="padding:4px 8px">STATUS</td>
+              <td style="padding:4px 8px;min-width:100px">THROUGHPUT (1h)</td>
+              <td style="padding:4px 8px;min-width:80px">ERRORS (1h)</td>
+              <td style="padding:4px 8px">DLQ</td>
+            </tr>
+            <tr style="border-bottom:1px solid #333">
+              <td style="padding:6px 8px;color:#e2e8f0">prod-orders</td>
+              <td style="padding:6px 8px"><span style="color:#4ade80;background:#0f2f1f;padding:2px 8px;border-radius:4px;font-size:10px">● active</span></td>
+              <td style="padding:6px 8px">
+                <svg width="90" height="24" viewBox="0 0 90 24">
+                  <polyline points="0,18 15,16 30,14 45,15 60,12 75,10 90,11" fill="none" stroke="#4ade80" stroke-width="1.5"/>
+                </svg>
+              </td>
+              <td style="padding:6px 8px">
+                <svg width="70" height="24" viewBox="0 0 70 24">
+                  <polyline points="0,20 15,20 30,20 45,21 60,20 70,20" fill="none" stroke="#475569" stroke-width="1.5"/>
+                </svg>
+              </td>
+              <td style="padding:6px 8px;color:#94a3b8">0</td>
+            </tr>
+            <tr style="border-bottom:1px solid #333;background:rgba(239,68,68,0.05)">
+              <td style="padding:6px 8px;color:#e2e8f0">analytics-stream</td>
+              <td style="padding:6px 8px"><span style="color:#f87171;background:#2f0f0f;padding:2px 8px;border-radius:4px;font-size:10px">● degraded</span></td>
+              <td style="padding:6px 8px">
+                <svg width="90" height="24" viewBox="0 0 90 24">
+                  <polyline points="0,12 15,11 30,10 45,8 60,14 75,18 90,20" fill="none" stroke="#fb923c" stroke-width="1.5"/>
+                </svg>
+              </td>
+              <td style="padding:6px 8px">
+                <svg width="70" height="24" viewBox="0 0 70 24">
+                  <polyline points="0,20 15,20 30,19 45,15 60,6 70,4" fill="none" stroke="#f87171" stroke-width="1.5"/>
+                </svg>
+              </td>
+              <td style="padding:6px 8px;color:#f87171;font-weight:600">47</td>
+            </tr>
+          </table>
+        </div>
+      </div>
+      <div class="pros-cons" style="margin-top:8px">
+        <div class="pros"><h4>Pros</h4><ul><li>Trend visibility at a glance — "it was fine, then dropped"</li><li>Degraded pipelines stand out visually</li><li>Cross-pipeline throughput comparison is instant</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>N VM queries for N pipelines (can batch)</li><li>Slightly slower first paint</li><li>More complex to implement</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Card grid (high density)</h3>
+      <p>Each pipeline gets a card with a small chart, status, and key numbers. More visual, works well for 6–12 pipelines. Gets crowded at 20+.</p>
+      <div class="mockup" style="margin-top:12px">
+        <div class="mockup-header">Command center — card grid</div>
+        <div class="mockup-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+            <div style="border:1px solid #333;border-radius:8px;padding:10px;background:#0f1117">
+              <div style="font-size:11px;color:#e2e8f0;font-weight:600;margin-bottom:4px">prod-orders</div>
+              <div style="font-size:10px;color:#4ade80;margin-bottom:8px">● active</div>
+              <svg width="100%" height="32" viewBox="0 0 120 32">
+                <polyline points="0,24 20,22 40,20 60,22 80,16 100,12 120,14" fill="none" stroke="#4ade80" stroke-width="1.5"/>
+              </svg>
+              <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:10px;color:#64748b">
+                <span>12,450 ev/s</span><span>DLQ: 0</span>
+              </div>
+            </div>
+            <div style="border:1px solid #5a1e1e;border-radius:8px;padding:10px;background:#1a0808">
+              <div style="font-size:11px;color:#e2e8f0;font-weight:600;margin-bottom:4px">analytics-stream</div>
+              <div style="font-size:10px;color:#f87171;margin-bottom:8px">● degraded</div>
+              <svg width="100%" height="32" viewBox="0 0 120 32">
+                <polyline points="0,16 20,14 40,12 60,14 80,20 100,24 120,26" fill="none" stroke="#f87171" stroke-width="1.5"/>
+              </svg>
+              <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:10px;color:#64748b">
+                <span>3,210 ev/s</span><span style="color:#f87171">DLQ: 47</span>
+              </div>
+            </div>
+            <div style="border:1px solid #252535;border-radius:8px;padding:10px;background:#0f0f18;opacity:0.6">
+              <div style="font-size:11px;color:#94a3b8;font-weight:600;margin-bottom:4px">user-events</div>
+              <div style="font-size:10px;color:#475569;margin-bottom:8px">● paused</div>
+              <svg width="100%" height="32" viewBox="0 0 120 32">
+                <line x1="0" y1="20" x2="120" y2="20" stroke="#334155" stroke-width="1" stroke-dasharray="4,4"/>
+              </svg>
+              <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:10px;color:#475569">
+                <span>—</span><span>DLQ: 0</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="pros-cons" style="margin-top:8px">
+        <div class="pros"><h4>Pros</h4><ul><li>Visually rich — each pipeline has a full presence</li><li>Status colors pop immediately</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Doesn't scale past ~12 pipelines</li><li>Hard to compare numbers across cards</li></ul></div>
+      </div>
+    </div>
+  </div>
+</div>

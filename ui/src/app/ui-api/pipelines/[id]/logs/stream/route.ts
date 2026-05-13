@@ -1,4 +1,6 @@
 import { enforceLogsPipelineScope } from '../_lib/logsql-scope'
+import { isMockMode } from '@/src/utils/mock-api'
+import { buildLogsFixture, parseScenario } from '../../_mock/fixtures'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -21,6 +23,14 @@ export async function GET(req: Request, { params }: Params): Promise<Response> {
   const rawQuery = url.searchParams.get('query') ?? ''
   const query = enforceLogsPipelineScope(rawQuery, id)
 
+  if (isMockMode()) {
+    return mockSseStream({
+      pipelineId: id,
+      query,
+      scenario: parseScenario(url.searchParams.get('mock')),
+    })
+  }
+
   const upstreamUrl = new URL(`${getVlBase()}/select/logsql/tail`)
   upstreamUrl.searchParams.set('query', query)
 
@@ -29,17 +39,17 @@ export async function GET(req: Request, { params }: Params): Promise<Response> {
     upstream = await fetch(upstreamUrl.toString(), { cache: 'no-store' })
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'fetch failed'
-    return new Response(
-      `data: ${JSON.stringify({ type: 'error', message: msg })}\n\n`,
-      { status: 200, headers: sseHeaders() },
-    )
+    return new Response(`data: ${JSON.stringify({ type: 'error', message: msg })}\n\n`, {
+      status: 200,
+      headers: sseHeaders(),
+    })
   }
 
   if (!upstream.ok || !upstream.body) {
-    return new Response(
-      `data: ${JSON.stringify({ type: 'error', message: `VL ${upstream.status}` })}\n\n`,
-      { status: 200, headers: sseHeaders() },
-    )
+    return new Response(`data: ${JSON.stringify({ type: 'error', message: `VL ${upstream.status}` })}\n\n`, {
+      status: 200,
+      headers: sseHeaders(),
+    })
   }
 
   // Re-encode NDJSON → SSE.
@@ -70,9 +80,7 @@ export async function GET(req: Request, { params }: Params): Promise<Response> {
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err)
-        controller.enqueue(
-          encoder.encode(`data: ${JSON.stringify({ type: 'error', message: msg })}\n\n`),
-        )
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'error', message: msg })}\n\n`))
       } finally {
         controller.close()
       }
@@ -91,4 +99,98 @@ function sseHeaders(): HeadersInit {
     'cache-control': 'no-cache',
     connection: 'keep-alive',
   }
+}
+
+/**
+ * Mock-mode SSE: emit an initial burst of seeded log lines, then drip-feed
+ * new lines on an interval so the live-tail feel is preserved. The browser's
+ * EventSource will see exactly the same `data: {…json…}\n\n` framing as the
+ * real VictoriaLogs proxy above.
+ */
+function mockSseStream({
+  pipelineId,
+  query,
+  scenario,
+}: {
+  pipelineId: string
+  query: string
+  scenario: 'populated' | 'empty' | 'retention' | 'error'
+}): Response {
+  const encoder = new TextEncoder()
+  const now = Date.now()
+  let dripInterval: ReturnType<typeof setInterval> | null = null
+  let heartbeat: ReturnType<typeof setInterval> | null = null
+
+  const cleanup = () => {
+    if (dripInterval) clearInterval(dripInterval)
+    if (heartbeat) clearInterval(heartbeat)
+    dripInterval = null
+    heartbeat = null
+  }
+
+  const stream = new ReadableStream({
+    start(controller) {
+      if (scenario === 'error') {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'error', message: 'VL 503 (mock)' })}\n\n`))
+        controller.close()
+        return
+      }
+
+      // Initial burst — covers the last 5 minutes so the buffer renders
+      // immediately on connect instead of waiting for the first drip.
+      if (scenario !== 'empty') {
+        const burst = buildLogsFixture({
+          pipelineId,
+          query,
+          fromMs: now - 5 * 60 * 1000,
+          toMs: now,
+          limit: 40,
+          scenario: 'populated',
+        })
+        // useLogStream appends in arrival order — emit oldest first so the
+        // newest end up at the bottom (matches the live-tail expectation).
+        for (const line of [...burst.lines].reverse()) {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(line)}\n\n`))
+        }
+      }
+
+      let tick = 0
+      dripInterval = setInterval(() => {
+        if (scenario === 'empty') return // keep connection alive, no lines
+        tick++
+        const fresh = buildLogsFixture({
+          pipelineId: `${pipelineId}|tick${tick}`,
+          query,
+          fromMs: Date.now() - 1000,
+          toMs: Date.now(),
+          limit: 1 + Math.floor(Math.random() * 2),
+          scenario: 'populated',
+        })
+        for (const line of fresh.lines) {
+          // Stamp to *now* so the inspector's timestamps look live.
+          line._time = new Date().toISOString()
+          try {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(line)}\n\n`))
+          } catch {
+            cleanup()
+          }
+        }
+      }, 900)
+
+      // SSE comment — keeps proxies from buffering the empty scenario.
+      heartbeat = setInterval(() => {
+        try {
+          controller.enqueue(encoder.encode(`: heartbeat\n\n`))
+        } catch {
+          cleanup()
+        }
+      }, 15_000)
+    },
+    cancel() {
+      // Browsers call this when the EventSource on the client closes.
+      cleanup()
+    },
+  })
+
+  return new Response(stream, { headers: sseHeaders() })
 }

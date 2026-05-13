@@ -4,7 +4,21 @@
       "Bash(pnpm test:run *)",
       "Bash(pnpm exec tsc --noEmit)",
       "Bash(pnpm tsc --noEmit)",
-      "Bash(pnpm lint *)"
+      "Bash(pnpm lint *)",
+      "Bash(pnpm build *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git rm *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git status)",
+      "Bash(git show *)",
+      "Bash(grep *)",
+      "Bash(find . *)",
+      "Bash(rm *)",
+      "Bash(cat *)",
+      "Bash(ls *)",
+      "Bash(cd * && pnpm *)"
     ]
   }
 }

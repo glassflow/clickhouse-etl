@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { KafkaConfig } from '@/src/lib/kafka-client'
 import { getKafkaConfig } from '../../utils'
 import { KafkaService } from '@/src/services/kafka-service'
+import { isMockMode, generateMockKafkaEvent } from '@/src/utils/mock-api'
 
 export async function POST(request: Request) {
   try {
@@ -22,6 +23,22 @@ export async function POST(request: Request) {
     // Validate input
     if (!topic) {
       return NextResponse.json({ success: false, error: 'Missing required parameters' }, { status: 400 })
+    }
+
+    if (isMockMode()) {
+      const offset = typeof currentOffset === 'number' ? currentOffset + 1 : 100
+      const event = generateMockKafkaEvent(offset)
+      return NextResponse.json({
+        success: true,
+        event,
+        isMock: true,
+        metadata: event._metadata,
+        offset: event._metadata.offset,
+        hasMoreEvents: true,
+        isAtLatest: position === 'latest',
+        isAtEarliest: position === 'earliest',
+        position: position || 'default',
+      })
     }
 
     // Base Kafka config

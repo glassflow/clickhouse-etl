@@ -3,8 +3,13 @@ import { KafkaConfig } from '@/src/lib/kafka-client'
 import { getKafkaConfig } from '../utils'
 import { KafkaService } from '@/src/services/kafka-service'
 import { structuredLogger } from '@/src/observability'
+import { isMockMode } from '@/src/utils/mock-api'
 
 export async function POST(request: Request) {
+  if (isMockMode()) {
+    return NextResponse.json({ success: true })
+  }
+
   try {
     const requestBody = await request.json()
     const kafkaConfig = getKafkaConfig(requestBody)
@@ -25,7 +30,9 @@ export async function POST(request: Request) {
       })
     }
   } catch (error) {
-    structuredLogger.error('Error testing Kafka connection', { error: error instanceof Error ? error.message : String(error) })
+    structuredLogger.error('Error testing Kafka connection', {
+      error: error instanceof Error ? error.message : String(error),
+    })
     return NextResponse.json(
       {
         success: false,
