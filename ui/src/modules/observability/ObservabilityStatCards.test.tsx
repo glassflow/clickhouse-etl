@@ -52,9 +52,22 @@ describe('ObservabilityStatCards', () => {
     expect(screen.getByText('17')).toBeInTheDocument()
   })
 
-  it('shows 0 needs-attention in positive colour when no degraded pipelines', () => {
+  it('uses muted colour for needs-attention when count is 0', () => {
     const pipelines = [makeP({ status: 'active', health_status: 'stable' })]
     render(<ObservabilityStatCards pipelines={pipelines} />)
-    expect(screen.getByText('Needs attention')).toBeInTheDocument()
+    const valueEl = screen
+      .getByText('Needs attention')
+      .closest('[class*="rounded-xl"]')
+      ?.querySelector('[class*="title-"]')
+    expect(valueEl?.className).not.toContain('foreground-critical')
+    expect(valueEl?.className).toContain('text-secondary')
+  })
+
+  it('uses muted colour for DLQ backlog when count is 0', () => {
+    const pipelines = [makeP({ status: 'active', health_status: 'stable' })]
+    render(<ObservabilityStatCards pipelines={pipelines} />)
+    const valueEl = screen.getByText('DLQ backlog').closest('[class*="rounded-xl"]')?.querySelector('[class*="title-"]')
+    expect(valueEl?.className).not.toContain('foreground-critical')
+    expect(valueEl?.className).toContain('text-secondary')
   })
 })
