@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { ActivityIcon, ChevronUpIcon, ChevronDownIcon } from 'lucide-react'
 import { cn } from '@/src/utils/common.client'
 import { ObservabilityFleetRow } from './ObservabilityFleetRow'
+import { isDegraded } from './pipeline-health'
 import type { ListPipelineConfig } from '@/src/types/pipeline'
 
 type SortBy = 'name' | 'dlq'
@@ -16,10 +17,6 @@ type Props = {
   toMs: number
   step: string
   autoRefreshIntervalMs: number | null
-}
-
-function isDegraded(p: ListPipelineConfig): boolean {
-  return p.status === 'failed' || p.health_status === 'unstable'
 }
 
 function sortPriority(p: ListPipelineConfig): number {

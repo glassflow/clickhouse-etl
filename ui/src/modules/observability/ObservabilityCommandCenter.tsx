@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { getPipelines } from '@/src/api/pipeline-api'
 import { cn } from '@/src/utils/common.client'
 import { ObservabilityStatCards } from './ObservabilityStatCards'
 import { ObservabilityFleetTable } from './ObservabilityFleetTable'
+import { isDegraded, isPaused } from './pipeline-health'
 import type { ListPipelineConfig } from '@/src/types/pipeline'
 
 type TimeRange = '15m' | '1h' | '6h' | '24h'
@@ -44,13 +45,21 @@ export function ObservabilityCommandCenter() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [autoRefreshInterval, setAutoRefreshInterval] = useState<number | null>(30_000)
   const [tick, setTick] = useState(0)
+  const genRef = useRef(0)
 
   const load = useCallback(() => {
     setError(null)
+    const gen = ++genRef.current
     getPipelines()
-      .then(setPipelines)
-      .catch(() => setError('Failed to load pipeline data'))
-      .finally(() => setIsLoading(false))
+      .then((data) => {
+        if (gen === genRef.current) setPipelines(data)
+      })
+      .catch(() => {
+        if (gen === genRef.current) setError('Failed to load pipeline data')
+      })
+      .finally(() => {
+        if (gen === genRef.current) setIsLoading(false)
+      })
   }, [])
 
   useEffect(() => {
@@ -64,9 +73,6 @@ export function ObservabilityCommandCenter() {
   }, [autoRefreshInterval])
 
   const { fromMs, toMs, step } = computeRange(timeRange)
-
-  const isDegraded = (p: ListPipelineConfig) => p.status === 'failed' || p.health_status === 'unstable'
-  const isPaused = (p: ListPipelineConfig) => p.status === 'paused' || p.status === 'pausing'
 
   const filteredPipelines =
     statusFilter === 'all'

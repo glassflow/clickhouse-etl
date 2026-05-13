@@ -1,10 +1,7 @@
 import { CheckCircle2Icon, AlertCircleIcon, PauseCircleIcon, InboxIcon } from 'lucide-react'
 import { cn } from '@/src/utils/common.client'
 import type { ListPipelineConfig } from '@/src/types/pipeline'
-
-function isDegraded(p: ListPipelineConfig): boolean {
-  return p.status === 'failed' || p.health_status === 'unstable'
-}
+import { isDegraded } from './pipeline-health'
 
 type Props = { pipelines: ListPipelineConfig[] }
 

@@ -8,14 +8,7 @@ import { cn } from '@/src/utils/common.client'
 import { PIPELINE_STATUS_CONFIG } from '@/src/config/constants'
 import type { StatusType } from '@/src/config/constants'
 import type { ListPipelineConfig } from '@/src/types/pipeline'
-
-function isDegraded(p: ListPipelineConfig): boolean {
-  return p.status === 'failed' || p.health_status === 'unstable'
-}
-
-function isPaused(p: ListPipelineConfig): boolean {
-  return p.status === 'paused' || p.status === 'pausing'
-}
+import { isDegraded, isPaused } from './pipeline-health'
 
 function toStatusType(status: string | undefined): StatusType | null {
   if (!status) return null
@@ -56,7 +49,7 @@ export function ObservabilityFleetRow({ pipeline, fromMs, toMs, step, autoRefres
   const errorRate =
     errors.latest != null && throughput.latest != null && throughput.latest > 0
       ? (errors.latest / throughput.latest) * 100
-      : (errors.latest ?? 0)
+      : null
 
   const errorsLink =
     errors.latest != null && errors.latest > 0
@@ -78,9 +71,9 @@ export function ObservabilityFleetRow({ pipeline, fromMs, toMs, step, autoRefres
         'group transition-colors',
         !isLast && 'border-b border-[var(--surface-border)]',
         degraded && 'bg-[var(--color-background-critical-faded,var(--surface-bg))]',
+        !degraded && 'bg-[var(--table-row-bg)]',
         paused && 'opacity-55',
       )}
-      style={!degraded ? { backgroundColor: 'var(--table-row-bg)' } : undefined}
     >
       {/* Pipeline name */}
       <td className="px-4 py-3">
@@ -130,7 +123,7 @@ export function ObservabilityFleetRow({ pipeline, fromMs, toMs, step, autoRefres
                 data={errors.values}
                 width={56}
                 height={20}
-                stroke={errorRate > 0 ? 'var(--color-foreground-critical)' : 'var(--text-tertiary)'}
+                stroke={(errorRate ?? 0) > 0 ? 'var(--color-foreground-critical)' : 'var(--text-tertiary)'}
                 strokeWidth={1.5}
               />
             )}
@@ -140,10 +133,16 @@ export function ObservabilityFleetRow({ pipeline, fromMs, toMs, step, autoRefres
             <span
               className={cn(
                 'caption-1 tabular-nums',
-                errorRate > 0 ? 'text-[var(--color-foreground-critical)]' : 'text-[var(--text-tertiary)]',
+                (errorRate ?? 0) > 0 ? 'text-[var(--color-foreground-critical)]' : 'text-[var(--text-tertiary)]',
               )}
             >
-              {errors.isLoading ? '…' : `${errorRate.toFixed(1)}%`}
+              {errors.isLoading
+                ? '…'
+                : errorRate != null
+                  ? `${errorRate.toFixed(1)}%`
+                  : errors.latest != null && errors.latest > 0
+                    ? `${errors.latest.toFixed(1)}/s`
+                    : '0.0%'}
             </span>
           </Link>
         )}
