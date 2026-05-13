@@ -20,7 +20,7 @@ export function useFleetSparkline(
 ): FleetSparklineState {
   const [values, setValues] = useState<number[]>([])
   const [error, setError] = useState<Error | undefined>(undefined)
-  const [isLoading, setIsLoading] = useState(pipelineId !== '')
+  const [isLoading, setIsLoading] = useState(false)
   const [tick, setTick] = useState(0)
 
   useEffect(() => {
@@ -30,12 +30,13 @@ export function useFleetSparkline(
     }
 
     let cancelled = false
+    const controller = new AbortController()
     setIsLoading(true)
     setError(undefined)
 
     const url = `/ui-api/pipelines/${pipelineId}/metrics?query=${queryName}&from=${fromMs}&to=${toMs}&step=${step}`
 
-    fetch(url)
+    fetch(url, { signal: controller.signal })
       .then(async (res) => {
         if (!res.ok) {
           let msg = `HTTP ${res.status}`
@@ -64,6 +65,7 @@ export function useFleetSparkline(
 
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [pipelineId, queryName, fromMs, toMs, step, tick])
 

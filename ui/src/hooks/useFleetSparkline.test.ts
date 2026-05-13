@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from '@testing-library/react'
+import { act, renderHook, waitFor } from '@testing-library/react'
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { useFleetSparkline } from './useFleetSparkline'
 
@@ -67,5 +67,57 @@ describe('useFleetSparkline', () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false))
     expect(result.current.error?.message).toBe('internal error')
     expect(result.current.values).toEqual([])
+  })
+
+  it('falls back to HTTP status message when error body has no message', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: false,
+      status: 503,
+      json: async () => {
+        throw new Error('not json')
+      },
+    } as unknown as Response)
+
+    const { result } = renderHook(() =>
+      useFleetSparkline('pipe-1', 'records_ingested', 1700000000000, 1700003600000, '15s', null),
+    )
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    expect(result.current.error?.message).toBe('HTTP 503')
+  })
+
+  it('re-fetches on auto-refresh interval and clears interval on unmount', async () => {
+    vi.useFakeTimers()
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true,
+      json: async () => MOCK_RESULT,
+    } as Response)
+
+    const { unmount } = renderHook(() =>
+      useFleetSparkline('pipe-1', 'records_ingested', 1700000000000, 1700003600000, '15s', 30000),
+    )
+
+    // Let the initial fetch complete (no timers needed, just flush microtasks)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1)
+
+    // Advance past the refresh interval — the setInterval fires, tick increments,
+    // the effect re-runs, and fetch is called again
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30000)
+    })
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(2)
+
+    unmount()
+
+    // Advancing after unmount must not trigger another fetch
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30000)
+    })
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(2)
+
+    vi.useRealTimers()
   })
 })
