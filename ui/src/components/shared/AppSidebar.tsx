@@ -58,8 +58,6 @@ const primaryNavItems: NavItem[] = [
   },
 ]
 
-const workspaceNavItems: NavItem[] = []
-
 const accountNavItems: NavItem[] = [
   {
     href: '/account/profile',
