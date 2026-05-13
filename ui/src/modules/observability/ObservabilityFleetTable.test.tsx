@@ -53,4 +53,21 @@ describe('ObservabilityFleetTable', () => {
     render(<ObservabilityFleetTable {...TABLE_PROPS} />)
     expect(screen.getByText(/all pipelines \(4\)/i)).toBeInTheDocument()
   })
+
+  it('sorts degraded pipelines to the top regardless of input order', () => {
+    const pipelines = [
+      makeP('z-active', 'active', 0),
+      makeP('a-degraded', 'failed', 10),
+      makeP('m-active', 'active', 0),
+    ]
+    render(<ObservabilityFleetTable {...TABLE_PROPS} pipelines={pipelines} />)
+    const nameLinks = screen.getAllByRole('link').filter((l) => l.textContent?.startsWith('pipeline-'))
+    expect(nameLinks[0].textContent).toBe('pipeline-a-degraded')
+  })
+
+  it('empty state has a link to /home', () => {
+    render(<ObservabilityFleetTable {...TABLE_PROPS} pipelines={[]} />)
+    const link = screen.getByRole('link', { name: /create your first pipeline/i })
+    expect(link).toHaveAttribute('href', '/home')
+  })
 })
