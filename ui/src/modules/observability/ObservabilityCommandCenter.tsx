@@ -46,6 +46,7 @@ export function ObservabilityCommandCenter() {
   const [tick, setTick] = useState(0)
 
   const load = useCallback(() => {
+    setError(null)
     getPipelines()
       .then(setPipelines)
       .catch(() => setError('Failed to load pipeline data'))

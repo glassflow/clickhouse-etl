@@ -96,4 +96,26 @@ describe('ObservabilityCommandCenter', () => {
     expect(screen.getByText('Needs attention')).toBeInTheDocument()
     expect(screen.getByText('DLQ backlog')).toBeInTheDocument()
   })
+
+  it('renders all four time range buttons', async () => {
+    render(<ObservabilityCommandCenter />)
+    expect(screen.getByRole('button', { name: /15m/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /1h/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /6h/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /24h/i })).toBeInTheDocument()
+  })
+
+  it('renders all auto-refresh options', async () => {
+    render(<ObservabilityCommandCenter />)
+    expect(screen.getByRole('button', { name: /off/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /30s/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /60s/i })).toBeInTheDocument()
+  })
+
+  it('renders status filter pills after data loads', async () => {
+    render(<ObservabilityCommandCenter />)
+    await waitFor(() => expect(screen.getByText(/all \(2\)/i)).toBeInTheDocument())
+    expect(screen.getByText(/active \(1\)/i)).toBeInTheDocument()
+    expect(screen.getByText(/degraded \(1\)/i)).toBeInTheDocument()
+  })
 })
