@@ -50,16 +50,15 @@ const primaryNavItems: NavItem[] = [
     icon: <LibraryBigIcon size={18} />,
     matchPaths: ['/library'],
   },
-]
-
-const workspaceNavItems: NavItem[] = [
   {
-    href: '/workspace/observability',
+    href: '/observability',
     label: 'Observability',
     icon: <ActivityIcon size={18} />,
-    matchPaths: ['/workspace/observability', '/observability'],
+    matchPaths: ['/observability'],
   },
 ]
+
+const workspaceNavItems: NavItem[] = []
 
 const accountNavItems: NavItem[] = [
   {
@@ -81,11 +80,7 @@ function NavGroup({
 }) {
   return (
     <div className="flex flex-col gap-1">
-      {label && (
-        <p className="caption-1 text-[var(--text-tertiary)] uppercase tracking-wider px-3 py-1.5">
-          {label}
-        </p>
-      )}
+      {label && <p className="caption-1 text-[var(--text-tertiary)] uppercase tracking-wider px-3 py-1.5">{label}</p>}
       {items.map((item) => {
         const active = isActive(item)
         return (
@@ -102,9 +97,7 @@ function NavGroup({
           >
             <span
               className={
-                active
-                  ? 'text-[var(--color-foreground-primary)]'
-                  : 'text-[var(--color-foreground-neutral-faded)]'
+                active ? 'text-[var(--color-foreground-primary)]' : 'text-[var(--color-foreground-neutral-faded)]'
               }
               aria-hidden="true"
             >
@@ -131,10 +124,7 @@ function HelpMenu() {
         aria-expanded={isOpen}
         aria-label="Help menu"
       >
-        <ChevronDownIcon
-          size={14}
-          className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
-        />
+        <ChevronDownIcon size={14} className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
         Help
       </Button>
 
@@ -198,14 +188,7 @@ export function AppSidebar({ onCreateClick }: AppSidebarProps) {
       {/* Logo */}
       <div className="flex items-center px-5 h-16 border-b border-[var(--surface-border)] shrink-0">
         <Link href="/dashboard" aria-label="Go to dashboard">
-          <Image
-            src={logoFullName}
-            alt="Glassflow"
-            width={130}
-            height={28}
-            className="w-auto h-[18px]"
-            priority
-          />
+          <Image src={logoFullName} alt="Glassflow" width={130} height={28} className="w-auto h-[18px]" priority />
         </Link>
       </div>
 
@@ -231,7 +214,6 @@ export function AppSidebar({ onCreateClick }: AppSidebarProps) {
         </div>
 
         <NavGroup label="" items={primaryNavItems} isActive={isActive} />
-        <NavGroup label="Workspace" items={workspaceNavItems} isActive={isActive} />
         <NavGroup label="Account" items={accountNavItems} isActive={isActive} />
       </nav>
 
