@@ -49,6 +49,12 @@ UI metrics use the prefix `gfm_ui_` and are exported via OTLP.
 The namespace prefix is automatically added based on your deployment configuration. If you deploy GlassFlow in a different namespace, the prefix will change accordingly.
 </Callout>
 
+<Callout type="important">
+**Counter metrics gain a `_total` suffix at scrape time.** The OpenTelemetry-to-Prometheus exporter appends `_total` to every counter when it exposes the `/metrics` endpoint. The base names shown in this document are the names used in GlassFlow source code; the names you query in Prometheus include the suffix.
+
+For example, the source-side name `gfm_receiver_request_count` is scraped as `glassflow_gfm_receiver_request_count_total`. The histogram metrics (`_seconds`) are unaffected. When in doubt, query the Prometheus `/metrics` endpoint and use the names you see there.
+</Callout>
+
 ## Core Metrics
 
 ### Data Ingestion Metrics
@@ -117,23 +123,36 @@ In this example, `glassflow` is the namespace prefix. If you deploy in a differe
 - **Type**: Counter
 - **Description**: Total number of messages processed by a processor, by status
 - **Unit**: Messages
-- **Components**: Ingestor, Sink, Transform, Filter, Dedup
+- **Components**: `filter`, `transform`, `dedup`, `otlp.logs`, `otlp.metrics`, `otlp.traces`
 - **Labels**:
   - `component`: Component type - *Added by GlassFlow*
   - `pipeline_id`: Unique pipeline identifier - *Added by GlassFlow*
-  - `status`: Outcome - *Added by GlassFlow* — Values: `success`, `error`, `filtered`, `duplicate`, `out`
+  - `status`: Outcome - *Added by GlassFlow*. The valid `status` values depend on the emitting component (see table below).
   - `instance`: Instance identifier - *Added by Prometheus*
   - `job`: Job identifier - *Added by Prometheus*
 
+**Status values by component**:
+
+| Component | Statuses |
+| -- | -- |
+| `filter` | `success`, `filtered`, `error` |
+| `transform` | `success`, `error` |
+| `dedup` | `success`, `duplicate` |
+| `otlp.logs` / `otlp.metrics` / `otlp.traces` | `out` |
+
+<Callout type="warning">
+The Kafka ingestor and ClickHouse sink **do not** emit this metric — queries like `processor_messages_total{component="ingestor"}` or `component="sink"` will return no series. For ingestor counts use `gfm_kafka_records_read_total`; for sink counts use `gfm_clickhouse_records_written_total`.
+</Callout>
+
 <Callout type="info">
-There is no separate `gfm_records_filtered_total` metric. To track filtered records, query `gfm_processor_messages_total` with `status="filtered"`.
+There is no separate `gfm_records_filtered_total` metric. To track filtered records, query `gfm_processor_messages_total` with `component="filter"` and `status="filtered"`.
 </Callout>
 
 #### `{namespace}_gfm_bytes_processed_total`
 - **Type**: Counter
 - **Description**: Total bytes processed
 - **Unit**: Bytes
-- **Components**: Ingestor, Sink, Transform, Filter, Dedup
+- **Components**: `ingestor`, `sink`, `transform`, `filter`, `dedup`, `otlp.logs`, `otlp.metrics`, `otlp.traces`
 - **Labels**:
   - `component`: Component type - *Added by GlassFlow*
   - `pipeline_id`: Unique pipeline identifier - *Added by GlassFlow*
@@ -389,7 +408,6 @@ UI metrics are exported via OTLP (not Prometheus scraping). All UI metrics use t
 The Ingestor component primarily exports:
 - `{namespace}_gfm_kafka_records_read_total` - Records consumed from Kafka
 - `{namespace}_gfm_processing_duration_seconds` - Processing time for ingested records
-- `{namespace}_gfm_processor_messages_total` - Message counts by status
 - `{namespace}_gfm_bytes_processed_total` - Bytes processed (in/out)
 - `{namespace}_gfm_dlq_records_written_total` - Records sent to DLQ on processing errors
 - `{namespace}_gfm_ingestor_backpressure_active` - 1 while blocked on NATS back-pressure
@@ -402,8 +420,7 @@ The Ingestor component primarily exports:
 The Sink component primarily exports:
 - `{namespace}_gfm_clickhouse_records_written_total` - Records written to ClickHouse
 - `{namespace}_gfm_clickhouse_records_written_per_second` - Write rate to ClickHouse
-- `{namespace}_gfm_processing_duration_seconds` - Processing time for sink operations (with optional `stage`: `dedup_filter`, `dedup_write`, `schema_mapping`, `total_preparation`, `per_message`)
-- `{namespace}_gfm_processor_messages_total` - Message counts by status
+- `{namespace}_gfm_processing_duration_seconds` - Processing time for sink operations (with optional `stage`: `schema_mapping`, `total_preparation`, `per_message`)
 - `{namespace}_gfm_bytes_processed_total` - Bytes processed (in/out)
 - `{namespace}_gfm_dlq_records_written_total` - Records sent to DLQ on write errors
 
@@ -434,6 +451,7 @@ The API server exports HTTP metrics when metrics are enabled:
 The OTLP receiver components (otlp.logs, otlp.metrics, otlp.traces) export:
 - `{namespace}_gfm_receiver_request_count` - Receiver request count by transport (`http`/`grpc`) and status (`ok`/`error`)
 - `{namespace}_gfm_receiver_request_duration_seconds` - Receiver request duration by transport and status
+- `{namespace}_gfm_processor_messages_total` - Records emitted to downstream (`status="out"`)
 - `{namespace}_gfm_bytes_processed_total` - Bytes processed (in/out)
 
 <Callout type="info">
