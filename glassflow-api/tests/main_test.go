@@ -145,6 +145,18 @@ func testAPIFeatures(t *testing.T) {
 	runSingleSuite(t, "api", apiSuite, config)
 }
 
+func testRetryableFeatures(t *testing.T) {
+	sinkSuite := steps.NewSinkTestSuite()
+
+	config := TestConfig{
+		FeaturePaths: []string{filepath.Join("features", "sink", "retryable.feature")},
+		Tags:         "@retryable",
+		Format:       "pretty",
+	}
+
+	runSingleSuite(t, "retryable", sinkSuite, config)
+}
+
 // TestFeatures runs all feature tests but in separate contexts
 func TestFeatures(t *testing.T) {
 	// Run tests in subtests to isolate them
@@ -154,4 +166,10 @@ func TestFeatures(t *testing.T) {
 	t.Run("IngestorFeatures", testIngetorFeatures)
 	t.Run("PlatformFeatures", testPlatformFeatures)
 	t.Run("APIFeatures", testAPIFeatures)
+}
+
+// TestRetryableFeatures runs only the sink retry-classification scenarios.
+// Use this during development to iterate on ETL-1027 without running the full sink suite.
+func TestRetryableFeatures(t *testing.T) {
+	testRetryableFeatures(t)
 }

@@ -426,6 +426,15 @@ func (ch *ClickHouseSink) sendBatch(ctx context.Context, messages []jetstream.Ms
 
 	batchesBySchema, err := ch.createCHBatches(ctx, messages)
 	if err != nil {
+		classification := sinkerrors.Classify(err)
+		errorName := sinkerrors.ErrorName(err)
+		observability.RecordSinkErrorClassification(ctx, classification.String(), errorName)
+		if classification == sinkerrors.Retryable {
+			ch.log.WarnContext(ctx, "retryable error creating CH batches, NACKing batch", "error", err)
+			ch.nakMessages(ctx, messages)
+			observability.RecordSinkNackMessages(ctx, int64(len(messages)))
+			return nil
+		}
 		return fmt.Errorf("create CH batches: %w", err)
 	}
 
