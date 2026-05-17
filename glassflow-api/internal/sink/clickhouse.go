@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"log/slog"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 	"github.com/avast/retry-go"
 
 	"github.com/nats-io/nats.go/jetstream"
@@ -21,6 +23,35 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 )
+
+// Temporary back-pressure for testing: when the target table is missing or the
+// ClickHouse server is unreachable, the sink waits and retries instead of
+// failing the batch into the DLQ.
+const (
+	sinkBackpressureInitialDelay = 500 * time.Millisecond
+	sinkBackpressureMaxDelay     = 30 * time.Second
+)
+
+// isClickHouseRetryable reports whether err is a transient condition we should
+// wait out: a server-side UNKNOWN_TABLE / UNKNOWN_DATABASE response, or a
+// connection-level failure that suggests ClickHouse is unavailable.
+func isClickHouseRetryable(err error) bool {
+	if err == nil {
+		return false
+	}
+	var chErr *proto.Exception
+	if errors.As(err, &chErr) {
+		// 60 = UNKNOWN_TABLE, 81 = UNKNOWN_DATABASE.
+		return chErr.Code == 60 || chErr.Code == 81
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "connection refused") ||
+		strings.Contains(msg, "no connection") ||
+		strings.Contains(msg, "closed connection") ||
+		strings.Contains(msg, "broken pipe") ||
+		strings.Contains(msg, "i/o timeout") ||
+		strings.Contains(msg, "EOF")
+}
 
 // workerJob represents a chunk of messages to be processed by a worker
 type workerJob struct {
@@ -702,12 +733,30 @@ func (ch *ClickHouseSink) createBatchForSchemaVersion(ctx context.Context, schem
 		quoteIdentifier(ch.client.GetTableName()),
 		quoteIdentifiers(columns),
 	)
-	batch, err := clickhouse.NewClickHouseBatch(ctx, ch.client, query)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create batch for schema version %s: %w", schemaVersionID, err)
-	}
 
-	return batch, nil
+	backoff := sinkBackpressureInitialDelay
+	for {
+		batch, err := clickhouse.NewClickHouseBatch(ctx, ch.client, query)
+		if err == nil {
+			return batch, nil
+		}
+		if !isClickHouseRetryable(err) {
+			return nil, fmt.Errorf("failed to create batch for schema version %s: %w", schemaVersionID, err)
+		}
+		ch.log.WarnContext(ctx, "ClickHouse not ready, applying backpressure to sink batch",
+			"schema_version_id", schemaVersionID,
+			"delay", backoff,
+			"error", err)
+		select {
+		case <-ctx.Done():
+			return nil, fmt.Errorf("create batch for schema version %s aborted: %w", schemaVersionID, ctx.Err())
+		case <-time.After(backoff):
+		}
+		backoff *= 2
+		if backoff > sinkBackpressureMaxDelay {
+			backoff = sinkBackpressureMaxDelay
+		}
+	}
 }
 
 func (ch *ClickHouseSink) clearConn() {
