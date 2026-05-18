@@ -94,8 +94,23 @@ func InitMetrics(cfg *Config) error {
 	)
 	otel.SetMeterProvider(meterProvider)
 
-	m := otel.Meter("glassflow-etl")
+	initMetricInstruments(otel.Meter("glassflow-etl"))
 
+	return nil
+}
+
+// InitMetricsForTesting sets up a ManualReader-backed meter provider and
+// initialises all instrument vars. Returns the reader so tests can call
+// Collect() to inspect recorded values.
+func InitMetricsForTesting() *sdkmetric.ManualReader {
+	reader := sdkmetric.NewManualReader()
+	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	otel.SetMeterProvider(mp)
+	initMetricInstruments(mp.Meter("glassflow-etl"))
+	return reader
+}
+
+func initMetricInstruments(m metric.Meter) {
 	KafkaRecordsRead = mustCreateCounter(m, GfMetricPrefix+"_"+"kafka_records_read_total",
 		"Total number of records read from Kafka")
 	DLQRecordsWritten = mustCreateCounter(m, GfMetricPrefix+"_"+"dlq_records_written_total",
@@ -137,8 +152,6 @@ func InitMetrics(cfg *Config) error {
 		"Number of messages currently stored in a JetStream stream")
 	StreamDepthRatio = mustCreateGauge(m, GfMetricPrefix+"_"+"stream_depth_ratio",
 		"Stream depth divided by max_messages, 0.0-1.0")
-
-	return nil
 }
 
 func mustCreateCounter(m metric.Meter, name, description string) metric.Int64Counter {
