@@ -39,13 +39,19 @@ function GitHubIcon() {
   )
 }
 
-export function AuthPanel() {
+interface AuthPanelProps {
+  loginPath: string
+  githubConnection: string
+  googleConnection: string
+}
+
+export function AuthPanel({ loginPath, githubConnection, googleConnection }: AuthPanelProps) {
   const [email, setEmail] = useState('')
 
   function handleEmailSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const params = new URLSearchParams({ login_hint: email })
-    window.location.href = `/api/auth/login?${params}`
+    window.location.href = `${loginPath}?${params}`
   }
 
   return (
@@ -63,13 +69,13 @@ export function AuthPanel() {
       {/* Social auth buttons */}
       <div className="flex flex-col gap-3">
         <Button variant="secondary" size="default" asChild className="w-full justify-center gap-3">
-          <a href="/api/auth/login?connection=google-oauth2">
+          <a href={`${loginPath}?connection=${googleConnection}`}>
             <GoogleIcon />
             Continue with Google
           </a>
         </Button>
         <Button variant="secondary" size="default" asChild className="w-full justify-center gap-3">
-          <a href="/api/auth/login?connection=github-com">
+          <a href={`${loginPath}?connection=${githubConnection}`}>
             <GitHubIcon />
             Continue with GitHub
           </a>
@@ -110,7 +116,7 @@ export function AuthPanel() {
       <p className="body-3 text-center" style={{ color: 'var(--text-secondary)' }}>
         Don&apos;t have an account?{' '}
         <a
-          href="/api/auth/login?screen_hint=signup"
+          href={`${loginPath}?screen_hint=signup`}
           className="body-3 underline underline-offset-2"
           style={{ color: 'var(--text-accent)' }}
         >

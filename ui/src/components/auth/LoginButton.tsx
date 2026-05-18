@@ -2,10 +2,14 @@
 
 import { Button } from '@/src/components/ui/button'
 
-export default function LoginButton() {
+interface LoginButtonProps {
+  loginPath?: string
+}
+
+export default function LoginButton({ loginPath = '/api/auth/login' }: LoginButtonProps) {
   return (
     <Button asChild type="button" variant="primary" size="custom" className="flex items-center gap-2">
-      <a href="/api/auth/login">Log In / Sign Up</a>
+      <a href={loginPath}>Log In / Sign Up</a>
     </Button>
   )
 }
