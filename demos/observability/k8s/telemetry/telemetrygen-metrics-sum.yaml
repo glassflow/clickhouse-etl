@@ -2,8 +2,9 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: telemetrygen-metrics-sum
-  namespace: otel
+  namespace: glassflow
 spec:
+  parallelism: 30
   template:
     spec:
       restartPolicy: OnFailure
@@ -12,11 +13,20 @@ spec:
           image: ghcr.io/open-telemetry/opentelemetry-collector-contrib/telemetrygen:latest
           args:
             - metrics
-            - --otlp-endpoint=opentelemetry-collector.otel.svc.cluster.local:4317
+            - '--otlp-header=x-glassflow-pipeline-id="otlp-metrics"'
+            - --otlp-endpoint=glassflow-otlp-receiver.glassflow.svc.cluster.local:4317
             - --otlp-insecure
             - --metric-type=Sum
             - --aggregation-temporality=cumulative
             - --otlp-metric-name=gen-sum
-            - --duration=50m
-            - --rate=50
-
+            - --duration=10m
+            - --rate=50000
+            - --batch-size=2000
+            - --workers=30
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "1000m"
+            limits:
+              memory: "2Gi"
+              cpu: "2000m"
