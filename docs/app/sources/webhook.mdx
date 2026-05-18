@@ -1,0 +1,21 @@
+---
+title: 'Webhook (HTTP)'
+description: 'Receive events from external systems via HTTP webhooks and stream them into ClickHouse'
+---
+import { Callout } from 'nextra/components'
+
+# Webhook (HTTP)
+
+A webhook is an HTTP-based event delivery mechanism where external systems send real-time data to a specified endpoint. It enables push-based integrations by triggering automated data ingestion whenever events occur, without the need for polling APIs.
+
+## Using webhooks with GlassFlow
+
+GlassFlow can receive webhook payloads from any HTTP-capable producer and write the events to ClickHouse with the same pipeline capabilities available to all GlassFlow sources — deduplication, filtering, and stateless transformations.
+
+<Callout type="info">
+**Available on request.** Webhook (HTTP) support is delivered as part of our managed integration program. [Contact us](/support) to discuss your use case, expected volumes, and timeline — we ship new integrations within 10 days of a confirmed request.
+</Callout>
+
+## Related
+
+- [Sources overview](/sources)

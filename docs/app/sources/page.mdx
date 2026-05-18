@@ -3,14 +3,59 @@ title: 'Sources'
 asIndexPage: true
 description: 'Choose and configure the data source for your GlassFlow pipelines'
 ---
+import { Callout } from 'nextra/components'
 
 # Sources
 
-GlassFlow supports two types of data sources. Each source type defines how data enters the pipeline before it is processed and written to ClickHouse.
+GlassFlow connects to a growing list of data sources and streams them into ClickHouse with deduplication, joins, filtering, and stateless transformations.
 
-| Source | Description | Best for |
-|--------|-------------|----------|
-| [Kafka](/sources/kafka) | Consume from one or more Kafka topics with support for deduplication, joins, filtering, and transforms | Event streams, CDC, and any workload already backed by Kafka |
-| [OTLP](/sources/otlp) | Receive OpenTelemetry logs, traces, and metrics directly via the OTLP protocol -- no Kafka required | Observability data from OTel-instrumented services |
+Sources marked **Available** are supported today and have full configuration documentation. Sources marked **On request** are delivered as part of our managed integration program — [contact us](/support) and we ship new integrations within 10 days of a confirmed request.
 
-Both source types write to ClickHouse through the same sink configuration and support the same [transformations](/transformations) (filter, stateless transformation, deduplication). Joins are only available with Kafka sources.
+| Source | Category | Availability |
+|--------|----------|--------------|
+| [Airbyte](/sources/airbyte) | Data integration | On request |
+| [Amazon S3](/sources/s3) | Object storage | On request |
+| [Apache Cassandra](/sources/cassandra) | Database | On request |
+| [Apache Iceberg](/sources/iceberg) | Table format | On request |
+| [Apache Kafka](/sources/kafka) | Streaming | Available |
+| [AWS CloudWatch](/sources/cloudwatch) | Telemetry | On request |
+| [AWS Kinesis](/sources/kinesis) | Streaming | On request |
+| [AWS MSK](/sources/aws-msk) | Streaming (Kafka-compatible) | Available |
+| [Azure Event Hubs](/sources/azure-event-hubs) | Streaming | On request |
+| [Confluent Cloud](/sources/confluent) | Streaming (Kafka-compatible) | Available |
+| [Delta Lake](/sources/delta-lake) | Table format | On request |
+| [DynamoDB](/sources/dynamodb) | Database | On request |
+| [Fluent Bit](/sources/fluent-bit) | Telemetry collector | On request |
+| [Fluentd](/sources/fluentd) | Telemetry collector | On request |
+| [Google Cloud Storage](/sources/gcs) | Object storage | On request |
+| [Google Pub/Sub](/sources/pubsub) | Streaming | On request |
+| [Grafana Alloy](/sources/grafana-alloy) | Telemetry collector | On request |
+| [Kinesis Firehose](/sources/kinesis-firehose) | Streaming | On request |
+| [Logstash](/sources/logstash) | Telemetry collector | On request |
+| [MariaDB](/sources/mariadb) | Database | On request |
+| [MongoDB](/sources/mongodb) | Database | On request |
+| [MySQL](/sources/mysql) | Database | On request |
+| [Neon](/sources/neon) | Database | On request |
+| [OpenTelemetry (OTLP)](/sources/otlp) | Telemetry | Available |
+| [PostgreSQL](/sources/postgresql) | Database | On request |
+| [PostHog](/sources/posthog) | Product analytics | On request |
+| [Redpanda](/sources/redpanda) | Streaming (Kafka-compatible) | Available |
+| [Segment](/sources/segment) | Customer data platform | On request |
+| [Supabase](/sources/supabase) | Database | On request |
+| [WarpStream](/sources/warpstream) | Streaming (Kafka-compatible) | Available |
+| [Webhook (HTTP)](/sources/webhook) | HTTP | On request |
+
+<Callout type="info">
+**Missing an integration?** Let us know which source you need and we will deliver it within 10 days. [Contact us](/support) with your use case, expected volumes, and timeline.
+</Callout>
+
+## How sources work
+
+All source types feed into the same pipeline runtime. Once data is ingested, every source supports:
+
+- **Deduplication** — drop duplicate records based on a key and time window
+- **Filtering** — keep only records matching an expression
+- **Stateless transformations** — map fields, derive values, reshape records
+- **Joins** — combine related streams (Kafka sources only)
+
+Output is always written to ClickHouse via the same [sink configuration](/configuration/sink).

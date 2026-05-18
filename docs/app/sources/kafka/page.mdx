@@ -64,6 +64,15 @@ For detailed examples of each protocol and authentication method (including Kerb
 | Filter | Yes | [Filter](/transformations/filter) |
 | Stateless Transformation | Yes | [Stateless Transformation](/transformations/stateless-transformation) |
 
+## Kafka-compatible providers
+
+The Kafka source works against any Kafka API-compatible broker. The following providers are validated and have provider-specific connection guides:
+
+- [Confluent Cloud](/sources/confluent) -- managed Kafka with API-key SASL auth
+- [Redpanda](/sources/redpanda) -- Kafka-compatible streaming without JVM
+- [AWS MSK](/sources/aws-msk) -- managed Kafka on AWS, connect via SASL/SCRAM
+- [WarpStream](/sources/warpstream) -- Kafka-compatible with object-storage backend
+
 ## Next Steps
 
 - [Examples](/sources/kafka/examples) -- quick start and full pipeline examples

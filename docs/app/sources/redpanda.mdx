@@ -1,0 +1,60 @@
+---
+title: 'Redpanda'
+description: 'Stream data from Redpanda into ClickHouse via the GlassFlow Kafka source'
+---
+import { Callout } from 'nextra/components'
+
+# Redpanda
+
+Redpanda is a Kafka-compatible streaming platform designed for low-latency and high-performance workloads without JVM overhead. It eliminates ZooKeeper and reduces infrastructure complexity while exposing the Kafka API.
+
+## Using Redpanda with GlassFlow
+
+Redpanda implements the Kafka wire protocol. Connect with the GlassFlow [Kafka source](/sources/kafka) — the configuration is identical to any other Kafka cluster.
+
+### Local / unsecured Redpanda
+
+```json
+{
+  "type": "kafka",
+  "source_id": "events",
+  "connection_params": {
+    "brokers": ["redpanda:9092"],
+    "protocol": "PLAINTEXT",
+    "mechanism": "NO_AUTH"
+  },
+  "topic": "events",
+  "consumer_group_initial_offset": "earliest",
+  "schema_fields": [
+    {"name": "event_id", "type": "string"}
+  ]
+}
+```
+
+### Redpanda Cloud / SASL_SSL
+
+```json
+{
+  "type": "kafka",
+  "source_id": "events",
+  "connection_params": {
+    "brokers": ["seed-xxxxx.region.aws.cloud.redpanda.com:9092"],
+    "protocol": "SASL_SSL",
+    "mechanism": "SCRAM-SHA-256",
+    "username": "<REDPANDA_USERNAME>",
+    "password": "<REDPANDA_PASSWORD>"
+  },
+  "topic": "events",
+  "consumer_group_initial_offset": "earliest",
+  "schema_fields": [
+    {"name": "event_id", "type": "string"}
+  ]
+}
+```
+
+Redpanda Cloud also supports `SCRAM-SHA-512` — set `mechanism` accordingly. Use the user/role credentials created in the Redpanda Cloud console under *Security → Users*.
+
+## Related
+
+- [Kafka source documentation](/sources/kafka) -- full configuration reference
+- [Connection examples](/sources/kafka/connections) -- all supported protocols and auth methods
