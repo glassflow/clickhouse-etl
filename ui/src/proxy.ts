@@ -55,9 +55,12 @@ export default async function proxy(request: NextRequest) {
 }
 
 // Configure which routes the proxy runs on (Next.js 16+)
+// NOTE: Next.js evaluates this matcher at compile time — it cannot be driven by env vars.
+// If AUTH0_LOGIN_PATH / AUTH0_CALLBACK_PATH / AUTH0_LOGOUT_PATH are changed from their
+// defaults, this matcher must be updated manually to keep the middleware in sync.
 export const config = {
   matcher: [
-    // Run proxy on Auth0 routes
+    // Run proxy on Auth0 routes (matches default AUTH0_LOGIN/CALLBACK/LOGOUT_PATH values)
     '/api/auth/:path*',
     // Protected page routes
     '/',
