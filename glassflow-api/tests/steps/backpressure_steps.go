@@ -296,7 +296,7 @@ func (b *BackpressureTestSuite) scenarioCleanup() error {
 		b.drainCancel = nil
 		b.drainWg.Wait()
 	}
-	return b.IngestorTestSuite.fastCleanUp()
+	return b.fastCleanUp()
 }
 
 // --- step registration ---
