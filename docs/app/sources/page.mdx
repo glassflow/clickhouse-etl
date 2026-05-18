@@ -4,6 +4,7 @@ asIndexPage: true
 description: 'Choose and configure the data source for your GlassFlow pipelines'
 ---
 import { Callout } from 'nextra/components'
+import { SortableTable } from '../components/SortableTable'
 
 # Sources
 
@@ -11,39 +12,49 @@ GlassFlow connects to a growing list of data sources and streams them into Click
 
 Sources marked **Available** are supported today and have full configuration documentation. Sources marked **On request** are delivered as part of our managed integration program — [contact us](/support) and we ship new integrations within 10 days of a confirmed request.
 
-| Source | Category | Availability |
-|--------|----------|--------------|
-| [Airbyte](/sources/airbyte) | Data integration | On request |
-| [Amazon S3](/sources/s3) | Object storage | On request |
-| [Apache Cassandra](/sources/cassandra) | Database | On request |
-| [Apache Iceberg](/sources/iceberg) | Table format | On request |
-| [Apache Kafka](/sources/kafka) | Streaming | Available |
-| [AWS CloudWatch](/sources/cloudwatch) | Telemetry | On request |
-| [AWS Kinesis](/sources/kinesis) | Streaming | On request |
-| [AWS MSK](/sources/aws-msk) | Streaming (Kafka-compatible) | Available |
-| [Azure Event Hubs](/sources/azure-event-hubs) | Streaming | On request |
-| [Confluent Cloud](/sources/confluent) | Streaming (Kafka-compatible) | Available |
-| [Delta Lake](/sources/delta-lake) | Table format | On request |
-| [DynamoDB](/sources/dynamodb) | Database | On request |
-| [Fluent Bit](/sources/fluent-bit) | Telemetry collector | On request |
-| [Fluentd](/sources/fluentd) | Telemetry collector | On request |
-| [Google Cloud Storage](/sources/gcs) | Object storage | On request |
-| [Google Pub/Sub](/sources/pubsub) | Streaming | On request |
-| [Grafana Alloy](/sources/grafana-alloy) | Telemetry collector | On request |
-| [Kinesis Firehose](/sources/kinesis-firehose) | Streaming | On request |
-| [Logstash](/sources/logstash) | Telemetry collector | On request |
-| [MariaDB](/sources/mariadb) | Database | On request |
-| [MongoDB](/sources/mongodb) | Database | On request |
-| [MySQL](/sources/mysql) | Database | On request |
-| [Neon](/sources/neon) | Database | On request |
-| [OpenTelemetry (OTLP)](/sources/otlp) | Telemetry | Available |
-| [PostgreSQL](/sources/postgresql) | Database | On request |
-| [PostHog](/sources/posthog) | Product analytics | On request |
-| [Redpanda](/sources/redpanda) | Streaming (Kafka-compatible) | Available |
-| [Segment](/sources/segment) | Customer data platform | On request |
-| [Supabase](/sources/supabase) | Database | On request |
-| [WarpStream](/sources/warpstream) | Streaming (Kafka-compatible) | Available |
-| [Webhook (HTTP)](/sources/webhook) | HTTP | On request |
+export const sources = [
+  // Available — alphabetical by Source
+  { name: 'Apache Kafka',            slug: 'kafka',             category: 'Streaming',                         availability: 'Available' },
+  { name: 'AWS MSK',                 slug: 'aws-msk',           category: 'Streaming (Kafka-compatible)',      availability: 'Available' },
+  { name: 'Confluent Cloud',         slug: 'confluent',         category: 'Streaming (Kafka-compatible)',      availability: 'Available' },
+  { name: 'OpenTelemetry (OTLP)',    slug: 'otlp',              category: 'Telemetry',                         availability: 'Available' },
+  { name: 'Redpanda',                slug: 'redpanda',          category: 'Streaming (Kafka-compatible)',      availability: 'Available' },
+  { name: 'WarpStream',              slug: 'warpstream',        category: 'Streaming (Kafka-compatible)',      availability: 'Available' },
+  // On request — alphabetical by Source
+  { name: 'Airbyte',                 slug: 'airbyte',           category: 'Data integration',                  availability: 'On request' },
+  { name: 'Amazon S3',               slug: 's3',                category: 'Object storage',                    availability: 'On request' },
+  { name: 'Apache Cassandra',        slug: 'cassandra',         category: 'Database',                          availability: 'On request' },
+  { name: 'Apache Iceberg',          slug: 'iceberg',           category: 'Table format',                      availability: 'On request' },
+  { name: 'AWS CloudWatch',          slug: 'cloudwatch',        category: 'Telemetry',                         availability: 'On request' },
+  { name: 'AWS Kinesis',             slug: 'kinesis',           category: 'Streaming',                         availability: 'On request' },
+  { name: 'Azure Event Hubs',        slug: 'azure-event-hubs',  category: 'Streaming',                         availability: 'On request' },
+  { name: 'Delta Lake',              slug: 'delta-lake',        category: 'Table format',                      availability: 'On request' },
+  { name: 'DynamoDB',                slug: 'dynamodb',          category: 'Database',                          availability: 'On request' },
+  { name: 'Fluent Bit',              slug: 'fluent-bit',        category: 'Telemetry collector',               availability: 'On request' },
+  { name: 'Fluentd',                 slug: 'fluentd',           category: 'Telemetry collector',               availability: 'On request' },
+  { name: 'Google Cloud Storage',    slug: 'gcs',               category: 'Object storage',                    availability: 'On request' },
+  { name: 'Google Pub/Sub',          slug: 'pubsub',            category: 'Streaming',                         availability: 'On request' },
+  { name: 'Grafana Alloy',           slug: 'grafana-alloy',     category: 'Telemetry collector',               availability: 'On request' },
+  { name: 'Kinesis Firehose',        slug: 'kinesis-firehose',  category: 'Streaming',                         availability: 'On request' },
+  { name: 'Logstash',                slug: 'logstash',          category: 'Telemetry collector',               availability: 'On request' },
+  { name: 'MariaDB',                 slug: 'mariadb',           category: 'Database',                          availability: 'On request' },
+  { name: 'MongoDB',                 slug: 'mongodb',           category: 'Database',                          availability: 'On request' },
+  { name: 'MySQL',                   slug: 'mysql',             category: 'Database',                          availability: 'On request' },
+  { name: 'Neon',                    slug: 'neon',              category: 'Database',                          availability: 'On request' },
+  { name: 'PostgreSQL',              slug: 'postgresql',        category: 'Database',                          availability: 'On request' },
+  { name: 'PostHog',                 slug: 'posthog',           category: 'Product analytics',                 availability: 'On request' },
+  { name: 'Segment',                 slug: 'segment',           category: 'Customer data platform',            availability: 'On request' },
+  { name: 'Supabase',                slug: 'supabase',          category: 'Database',                          availability: 'On request' },
+  { name: 'Webhook (HTTP)',          slug: 'webhook',           category: 'HTTP',                              availability: 'On request' },
+]
+
+export const sourceColumns = [
+  { key: 'name',         label: 'Source',       type: 'link', hrefField: 'slug', hrefPrefix: '/sources/' },
+  { key: 'category',     label: 'Category' },
+  { key: 'availability', label: 'Availability' },
+]
+
+<SortableTable columns={sourceColumns} rows={sources} />
 
 <Callout type="info">
 **Missing an integration?** Let us know which source you need and we will deliver it within 10 days. [Contact us](/support) with your use case, expected volumes, and timeline.
