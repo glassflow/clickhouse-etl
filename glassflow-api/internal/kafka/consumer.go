@@ -343,7 +343,7 @@ func (c *Consumer) processBatch(ctx context.Context) error {
 	// Record Kafka read metric
 	observability.RecordKafkaRead(ctx, "ingestor", int64(size))
 	duration := time.Since(start).Seconds()
-	observability.RecordProcessingDuration(ctx, "ingestor", duration/float64(size))
+	observability.RecordProcessingDurationWithStage(ctx, "ingestor", "unspecified", duration/float64(size))
 	observability.RecordBytesProcessed(ctx, "ingestor", "in", totalBytes)
 
 	return nil

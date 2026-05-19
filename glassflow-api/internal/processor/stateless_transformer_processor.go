@@ -64,12 +64,16 @@ func (stp *StatelessTransformerProcessor) ProcessBatch(
 	}
 
 	duration := time.Since(start).Seconds()
-	observability.RecordProcessingDuration(ctx, "transform", duration)
+	observability.RecordProcessingDurationWithStage(ctx, "transform", "unspecified", duration)
 	if len(result.Messages) > 0 {
 		observability.RecordProcessorMessages(ctx, "transform", "success", int64(len(result.Messages)))
 	}
-	if len(result.FailedMessages) > 0 {
-		observability.RecordProcessorMessages(ctx, "transform", "error", int64(len(result.FailedMessages)))
+	for _, fm := range result.FailedMessages {
+		status := "error"
+		if models.IsSchemaError(fm.Error) {
+			status = "schema_error"
+		}
+		observability.RecordProcessorMessages(ctx, "transform", status, 1)
 	}
 
 	var outBytes int64
