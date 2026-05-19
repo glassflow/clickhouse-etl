@@ -8,13 +8,15 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 )
 
-// DLQMiddleware returns a middleware that wraps a processor and writes failed messages to DLQ
-func DLQMiddleware(dlqWriter batch.BatchWriter, role string) func(Processor) Processor {
+// DLQMiddleware returns a middleware that wraps a processor and writes failed messages to DLQ.
+// reason must be one of the observability.DLQReason* constants.
+func DLQMiddleware(dlqWriter batch.BatchWriter, role, reason string) func(Processor) Processor {
 	return func(next Processor) Processor {
 		return &dlqMiddleware{
 			next:      next,
 			dlqWriter: dlqWriter,
 			role:      role,
+			reason:    reason,
 		}
 	}
 }
@@ -23,6 +25,7 @@ type dlqMiddleware struct {
 	next      Processor
 	dlqWriter batch.BatchWriter
 	role      string
+	reason    string
 }
 
 func (d *dlqMiddleware) Close(ctx context.Context) error {
@@ -57,7 +60,7 @@ func (d *dlqMiddleware) ProcessBatch(ctx context.Context, batch ProcessorBatch) 
 			return result
 		}
 
-		observability.RecordDLQWrite(ctx, d.role, int64(len(result.FailedMessages)))
+		observability.RecordDLQWrite(ctx, d.role, d.reason, int64(len(result.FailedMessages)))
 
 		result.FailedMessages = nil
 	}

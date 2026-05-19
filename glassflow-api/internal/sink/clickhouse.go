@@ -392,7 +392,7 @@ func (ch *ClickHouseSink) flushFailedBatch(
 	batchErr error,
 ) error {
 	for _, msg := range messages {
-		err := ch.pushMsgToDLQ(ctx, msg.Data(), batchErr)
+		err := ch.pushMsgToDLQ(ctx, msg.Data(), batchErr, observability.DLQReasonSinkRejection)
 		if err != nil {
 			return fmt.Errorf("push message to DLQ: %w", err)
 		}
@@ -609,7 +609,7 @@ func (ch *ClickHouseSink) createCHBatches(
 		for _, procMsg := range result.processed {
 			// If there was an error during processing, push to DLQ and skip
 			if procMsg.err != nil {
-				dlqErr := ch.pushMsgToDLQ(ctx, procMsg.msg.Data(), procMsg.err)
+				dlqErr := ch.pushMsgToDLQ(ctx, procMsg.msg.Data(), procMsg.err, observability.DLQReasonSchemaMismatch)
 				if dlqErr != nil {
 					return nil, fmt.Errorf("failed to push bad message to DLQ: %w", dlqErr)
 				}
@@ -640,7 +640,7 @@ func (ch *ClickHouseSink) createCHBatches(
 					ch.log.Warn("Failed to append message to batch, pushing to DLQ",
 						slog.Any("error", err))
 
-					dlqErr := ch.pushMsgToDLQ(ctx, procMsg.msg.Data(), err)
+					dlqErr := ch.pushMsgToDLQ(ctx, procMsg.msg.Data(), err, observability.DLQReasonSinkRejection)
 					if dlqErr != nil {
 						return nil, fmt.Errorf("failed to push bad message to DLQ: %w", dlqErr)
 					}
@@ -735,7 +735,7 @@ func (ch *ClickHouseSink) Stop(noWait bool) {
 	})
 }
 
-func (ch *ClickHouseSink) pushMsgToDLQ(ctx context.Context, orgMsg []byte, err error) error {
+func (ch *ClickHouseSink) pushMsgToDLQ(ctx context.Context, orgMsg []byte, err error, reason string) error {
 	data, err := models.NewDLQMessage(internal.RoleSink, err.Error(), orgMsg).ToJSON()
 	if err != nil {
 		return fmt.Errorf("convert DLQ message to JSON: %w", err)
@@ -746,8 +746,7 @@ func (ch *ClickHouseSink) pushMsgToDLQ(ctx context.Context, orgMsg []byte, err e
 		return fmt.Errorf("publish to DLQ: %w", err)
 	}
 
-	// Record DLQ write metric
-	observability.RecordDLQWrite(ctx, "sink", 1)
+	observability.RecordDLQWrite(ctx, "sink", reason, 1)
 
 	return nil
 }

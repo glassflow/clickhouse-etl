@@ -194,7 +194,7 @@ func NewDedupComponent(
 	}
 
 	statelessTransformerProcessor := processor.ChainProcessors(
-		processor.ChainMiddlewares(processor.DLQMiddleware(dlqWriter, role)),
+		processor.ChainMiddlewares(processor.DLQMiddleware(dlqWriter, role, observability.DLQReasonDedupOverflow)),
 		statelessTransformerProcessorBase,
 	)
 
@@ -203,7 +203,7 @@ func NewDedupComponent(
 		return nil, err
 	}
 	filterProcessor := processor.ChainProcessors(
-		processor.ChainMiddlewares(processor.DLQMiddleware(dlqWriter, role)),
+		processor.ChainMiddlewares(processor.DLQMiddleware(dlqWriter, role, observability.DLQReasonDedupOverflow)),
 		filterProcessorBase,
 	)
 
