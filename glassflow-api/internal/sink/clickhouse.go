@@ -423,6 +423,7 @@ func (ch *ClickHouseSink) sendBatch(ctx context.Context, messages []jetstream.Ms
 	}
 
 	observability.RecordBytesProcessed(ctx, "sink", "in", totalBytes)
+	observability.RecordSinkBatchSize(ctx, int64(len(messages)), totalBytes)
 
 	batchesBySchema, err := ch.createCHBatches(ctx, messages)
 	if err != nil {
@@ -452,6 +453,8 @@ func (ch *ClickHouseSink) sendBatch(ctx context.Context, messages []jetstream.Ms
 					"batch_size", len(schemaData.messages))
 				ch.nakMessages(ctx, schemaData.messages)
 				observability.RecordSinkNackMessages(ctx, int64(len(schemaData.messages)))
+				observability.RecordProcessorMessages(ctx, "sink", "retry", int64(size))
+				observability.RecordSinkRetry(ctx, "retry", int64(size))
 				continue
 			}
 
@@ -460,6 +463,9 @@ func (ch *ClickHouseSink) sendBatch(ctx context.Context, messages []jetstream.Ms
 				"error", err,
 				"classification", classification.String(),
 				"batch_size", len(schemaData.messages))
+
+			observability.RecordProcessorMessages(ctx, "sink", "error", int64(size))
+			observability.RecordSinkRetry(ctx, "exhausted", int64(size))
 
 			flushErr := ch.flushFailedBatch(ctx, schemaData.messages, err)
 			if flushErr != nil {
@@ -479,6 +485,7 @@ func (ch *ClickHouseSink) sendBatch(ctx context.Context, messages []jetstream.Ms
 			"message_count", size)
 
 		observability.RecordClickHouseWrite(ctx, "sink", int64(size))
+		observability.RecordProcessorMessages(ctx, "sink", "success", int64(size))
 
 		duration := time.Since(start).Seconds()
 		if duration > 0 {
