@@ -145,6 +145,23 @@ func testAPIFeatures(t *testing.T) {
 	runSingleSuite(t, "api", apiSuite, config)
 }
 
+func testBackpressureFeatures(t *testing.T) {
+	bpSuite := steps.NewBackpressureTestSuite()
+
+	config := TestConfig{
+		FeaturePaths: []string{filepath.Join("features", "backpressure")},
+		Tags:         "@backpressure",
+		Format:       "pretty",
+	}
+
+	runSingleSuite(t, "backpressure", bpSuite, config)
+}
+
+// TestBackpressureFeatures runs the back-pressure propagation scenarios (ETL-1022).
+func TestBackpressureFeatures(t *testing.T) {
+	testBackpressureFeatures(t)
+}
+
 // TestFeatures runs all feature tests but in separate contexts
 func TestFeatures(t *testing.T) {
 	// Run tests in subtests to isolate them
@@ -154,4 +171,5 @@ func TestFeatures(t *testing.T) {
 	t.Run("IngestorFeatures", testIngetorFeatures)
 	t.Run("PlatformFeatures", testPlatformFeatures)
 	t.Run("APIFeatures", testAPIFeatures)
+	t.Run("BackpressureFeatures", testBackpressureFeatures)
 }
