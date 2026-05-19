@@ -1,11 +1,15 @@
 ---
-title: 'OTLP'
+title: 'OpenTelemetry (OTLP)'
 asIndexPage: true
 description: 'Ingest OpenTelemetry logs, traces, and metrics into ClickHouse via the native OTLP receiver — no Kafka cluster required'
 ---
 import { Callout } from 'nextra/components'
 
-# OTLP Source
+# OpenTelemetry (OTLP)
+
+OpenTelemetry is an open standard for collecting traces, metrics, and logs from distributed systems. It provides a unified way to instrument applications and export telemetry data to observability backends.
+
+## Using OpenTelemetry with GlassFlow
 
 OTLP source pipelines let GlassFlow ingest OpenTelemetry data directly via the OTLP protocol. GlassFlow runs its own OTLP receiver that accepts data on the standard OTLP ports, so you do not need a Kafka cluster to get observability data into ClickHouse.
 

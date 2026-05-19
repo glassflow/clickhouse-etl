@@ -18,7 +18,10 @@ const banner = <Banner storageKey="some-key">GlassFlow ClickHouse ETL is release
 const navbar = <Navbar logo={<Logo />} projectLink="https://github.com/glassflow/clickhouse-etl" />
 const footer = (
   <Footer className="flex-col items-center md:items-start">
-    {`ClickHouse ETL ${new Date().getFullYear()} © GlassFlow.`}
+    <div>{`ClickHouse ETL ${new Date().getFullYear()} © GlassFlow.`}</div>
+    <div style={{ fontSize: '0.75rem', opacity: 0.7, marginTop: '0.75rem', lineHeight: 1.55 }}>
+      Apache®, Apache Kafka®, Apache Cassandra®, Apache Iceberg®, and associated open-source project names are trademarks of the Apache Software Foundation. GlassFlow is not affiliated with, endorsed, or sponsored by Grafana Labs or its affiliates. All other product names, logos, and brands are the property of their respective owners and are used for identification purposes only.
+    </div>
   </Footer>
 )
 
