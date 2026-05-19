@@ -391,8 +391,9 @@ func (ch *ClickHouseSink) flushFailedBatch(
 	messages []jetstream.Msg,
 	batchErr error,
 ) error {
+	reason := observability.DLQReasonSinkRejection + "_" + sinkerrors.ErrorName(batchErr)
 	for _, msg := range messages {
-		err := ch.pushMsgToDLQ(ctx, msg.Data(), batchErr, observability.DLQReasonSinkRejection)
+		err := ch.pushMsgToDLQ(ctx, msg.Data(), batchErr, reason)
 		if err != nil {
 			return fmt.Errorf("push message to DLQ: %w", err)
 		}
@@ -640,7 +641,7 @@ func (ch *ClickHouseSink) createCHBatches(
 					ch.log.Warn("Failed to append message to batch, pushing to DLQ",
 						slog.Any("error", err))
 
-					dlqErr := ch.pushMsgToDLQ(ctx, procMsg.msg.Data(), err, observability.DLQReasonSinkRejection)
+					dlqErr := ch.pushMsgToDLQ(ctx, procMsg.msg.Data(), err, observability.DLQReasonSinkRejection+"_"+sinkerrors.ErrorName(err))
 					if dlqErr != nil {
 						return nil, fmt.Errorf("failed to push bad message to DLQ: %w", dlqErr)
 					}
