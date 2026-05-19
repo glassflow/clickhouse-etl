@@ -84,17 +84,30 @@ jobs:
             echo "dockerfile=glassflow-api/docker/${{ matrix.component.name }}/Dockerfile" >> $GITHUB_OUTPUT
           fi
       - name: Build & push Docker image
-        uses: docker/build-push-action@v6
         id: build-arch-image
-        with:
-          platforms: ${{ matrix.platform.os }}/${{ matrix.platform.arch }}
-          context: .
-          file: ${{ steps.set-dockerfile.outputs.dockerfile }}
-          push: ${{ inputs.push }}
-          provenance: false
-          outputs: push-by-digest=true,type=image
-          tags: |
-            ghcr.io/glassflow/${{ matrix.component.image_name }}
+        run: |
+          METADATA_FILE=$(mktemp)
+          OUTPUT="push-by-digest=true,type=image"
+          if [ "${{ inputs.push }}" = "true" ]; then
+            OUTPUT="${OUTPUT},push=true"
+          fi
+          for attempt in 1 2 3; do
+            if docker buildx build \
+              --platform "${{ matrix.platform.os }}/${{ matrix.platform.arch }}" \
+              --file "${{ steps.set-dockerfile.outputs.dockerfile }}" \
+              --provenance=false \
+              --output "$OUTPUT" \
+              --tag "ghcr.io/glassflow/${{ matrix.component.image_name }}" \
+              --metadata-file "$METADATA_FILE" \
+              .; then
+              break
+            fi
+            [ $attempt -eq 3 ] && exit 1
+            echo "Attempt $attempt failed, retrying in 15s..."
+            sleep 15
+          done
+          DIGEST=$(jq -r '."containerimage.digest"' "$METADATA_FILE")
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
       - name: Generate output
         id: gen-output
         run: echo "${COMPONENT}-${ARCH}=$DIGEST" >> "$GITHUB_OUTPUT"
@@ -167,7 +180,12 @@ jobs:
             docker manifest create "$REPOSITORY:$TAG" \
               --amend "$REPOSITORY@$AMD64_DIGEST" \
               --amend "$REPOSITORY@$ARM64_DIGEST"
-            docker manifest push "$REPOSITORY:$TAG"
+            for attempt in 1 2 3; do
+              docker manifest push "$REPOSITORY:$TAG" && break
+              [ $attempt -eq 3 ] && exit 1
+              echo "Attempt $attempt failed, retrying in 15s..."
+              sleep 15
+            done
           done
         env:
           AMD64_DIGEST: ${{ matrix.component.amd64_digest }}
