@@ -255,9 +255,11 @@ func TestProcessBatch_FatalFutureErrCleanupDLQs(t *testing.T) {
 
 // ctx cancellation during the backoff sleep returns within bounded time.
 // All records take server-side NAKs so they sit in the backpressure carry
-// slice; cleanup DLQs them so lastProcessed can advance through the
-// contiguous walk to the end of the batch.
-func TestProcessBatch_CtxCancelDuringBackoffDLQsCarry(t *testing.T) {
+// slice. On ctx cancel the carry must NOT be DLQ'd: those records were only
+// throttled, not failed, and should be re-consumed from Kafka on restart.
+// lastProcessed must stay at the highest contiguous-acked record before the
+// carry (here: nil — nothing acked).
+func TestProcessBatch_CtxCancelLeavesBackpressureCarryUncommitted(t *testing.T) {
 	pub := newFakePublisher("out")
 	pub.setPublish(func(_ int, msg *nats.Msg) (jetstream.PubAckFuture, error) {
 		return newErrFuture(msg, streamFullErr()), nil
@@ -279,24 +281,24 @@ func TestProcessBatch_CtxCancelDuringBackoffDLQsCarry(t *testing.T) {
 	require.ErrorIs(t, err, context.Canceled)
 	require.Less(t, elapsed, internal.IngestorBackpressureMaxDelay,
 		"ctx cancel during backoff should return well before the max delay")
-	require.Equal(t, int32(3), pub.dlqCalls.Load(),
-		"every record in the carry slice should be DLQ'd on cleanup")
-	require.Same(t, batch[2], last,
-		"contiguous walk should reach the end after cleanup DLQs the carry")
+	require.Equal(t, int32(0), pub.dlqCalls.Load(),
+		"backpressure carry must not be DLQ'd on ctx cancel — those records are merely throttled and should be re-consumed from Kafka")
+	require.Nil(t, last,
+		"with nothing acked before the carry, lastProcessed must stay nil so the consumer does not advance the Kafka offset")
 }
 
-// If a DLQ push fails during cleanup, processBatchAsync should expose the DLQ
-// error in the wrapped error chain and return the partial lastProcessed (the
-// contiguous prefix it was able to DLQ before the failure).
-func TestProcessBatch_DLQFailureDuringCleanup(t *testing.T) {
+// Mixed case: some records ack, then sustained server-side NAKs push the
+// remainder into the backpressure carry, then ctx cancels. The acked prefix
+// is reflected in lastProcessed; the carry stays uncommitted (no DLQ).
+func TestProcessBatch_CtxCancelKeepsAckedPrefix(t *testing.T) {
 	pub := newFakePublisher("out")
-	pub.setPublish(func(_ int, msg *nats.Msg) (jetstream.PubAckFuture, error) {
+	const ackUpTo = 2 // r0, r1 ack; r2..r4 NAK
+	pub.setPublish(func(idx int, msg *nats.Msg) (jetstream.PubAckFuture, error) {
+		if idx < ackUpTo {
+			return newOkFuture(msg), nil
+		}
 		return newErrFuture(msg, streamFullErr()), nil
 	})
-	dlqErr := errors.New("dlq stream down")
-	pub.mu.Lock()
-	pub.dlqFn = func(_ []byte) error { return dlqErr }
-	pub.mu.Unlock()
 	p := newProcessor(t, pub)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -305,7 +307,34 @@ func TestProcessBatch_DLQFailureDuringCleanup(t *testing.T) {
 		cancel()
 	}()
 
-	last, err := p.ProcessBatch(ctx, makeBatch(3))
+	batch := makeBatch(5)
+	last, err := p.ProcessBatch(ctx, batch)
+
+	require.Error(t, err)
+	require.ErrorIs(t, err, context.Canceled)
+	require.Equal(t, int32(0), pub.dlqCalls.Load(),
+		"throttled records in the carry must not be DLQ'd on ctx cancel")
+	require.Same(t, batch[ackUpTo-1], last,
+		"lastProcessed must reflect the highest contiguous-acked record before the carry")
+}
+
+// If a DLQ push fails during cleanup of a fatal error (not ctx cancel),
+// processBatchAsync should expose the DLQ error in the wrapped error chain
+// and return the partial lastProcessed (the contiguous prefix it was able to
+// DLQ before the failure).
+func TestProcessBatch_DLQFailureDuringCleanup(t *testing.T) {
+	pub := newFakePublisher("out")
+	fatalErr := errors.New("stream gone")
+	pub.setPublish(func(_ int, msg *nats.Msg) (jetstream.PubAckFuture, error) {
+		return newErrFuture(msg, fatalErr), nil
+	})
+	dlqErr := errors.New("dlq stream down")
+	pub.mu.Lock()
+	pub.dlqFn = func(_ []byte) error { return dlqErr }
+	pub.mu.Unlock()
+	p := newProcessor(t, pub)
+
+	last, err := p.ProcessBatch(context.Background(), makeBatch(3))
 
 	require.Error(t, err)
 	require.ErrorIs(t, err, dlqErr,
