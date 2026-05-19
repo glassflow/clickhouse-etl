@@ -196,3 +196,7 @@ func (m *MockK8sOrchestrator) ResumePipeline(_ context.Context, _ string, _ *mod
 func (m *MockK8sOrchestrator) EditPipeline(_ context.Context, _ string, _ *models.PipelineConfig) error {
 	return fmt.Errorf("not implemented for testing")
 }
+
+func (m *MockK8sOrchestrator) GetStreamNames(_ context.Context, _ models.PipelineConfig) (models.PipelineStreamNames, error) {
+	return models.PipelineStreamNames{}, fmt.Errorf("not implemented for testing")
+}

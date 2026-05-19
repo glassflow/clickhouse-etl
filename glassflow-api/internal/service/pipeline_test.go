@@ -55,6 +55,10 @@ func (m *mockOrchestrator) EditPipeline(ctx context.Context, pid string, newCfg 
 	return nil
 }
 
+func (m *mockOrchestrator) GetStreamNames(_ context.Context, _ models.PipelineConfig) (models.PipelineStreamNames, error) {
+	return models.PipelineStreamNames{}, nil
+}
+
 // mockPipelineStore is a mock implementation of the PipelineStore interface
 type mockPipelineStore struct {
 	mu                 sync.RWMutex
