@@ -11,7 +11,7 @@ require (
 	github.com/dgraph-io/badger/v4 v4.8.0
 	github.com/docker/go-connections v0.6.0
 	github.com/expr-lang/expr v1.17.7
-	github.com/glassflow/glassflow-etl-k8s-operator v1.9.1-0.20260428094045-49ae7481a5fa
+	github.com/glassflow/glassflow-etl-k8s-operator v1.9.1-0.20260519082137-b008142ac8f6
 	github.com/golang-migrate/migrate/v4 v4.19.1
 	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0
@@ -177,10 +177,3 @@ replace (
 	google.golang.org/genproto/googleapis/api => google.golang.org/genproto/googleapis/api v0.0.0-20230803162519-f966b187b2e5
 	google.golang.org/genproto/googleapis/rpc => google.golang.org/genproto/googleapis/rpc v0.0.0-20230803162519-f966b187b2e5
 )
-
-// TEMPORARY (ETL-1064): point at the local operator checkout so this branch
-// can consume the new spec.Resolved type from glassflow-etl-k8s-operator's
-// ETL-1063 branch before it merges to main. MUST be removed and the require
-// line bumped to a pseudo-version including ETL-1063's commit before this PR
-// can be merged.
-replace github.com/glassflow/glassflow-etl-k8s-operator => ../../glassflow-etl-k8s-operator
