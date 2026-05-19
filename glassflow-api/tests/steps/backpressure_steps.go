@@ -30,7 +30,12 @@ type BackpressureTestSuite struct {
 
 func NewBackpressureTestSuite() *BackpressureTestSuite {
 	return &BackpressureTestSuite{
-		IngestorTestSuite: *NewIngestorTestSuite(),
+		IngestorTestSuite: IngestorTestSuite{ //nolint:exhaustruct // optional config
+			BaseTestSuite: BaseTestSuite{ //nolint:exhaustruct // optional config
+				suiteName: "backpressure",
+			},
+			logger: testutils.NewTestLogger(),
+		},
 	}
 }
 

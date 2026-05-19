@@ -30,6 +30,7 @@ type PlatformSteps struct {
 func NewPlatformSteps() *PlatformSteps {
 	return &PlatformSteps{
 		BaseTestSuite: BaseTestSuite{
+			suiteName:      "platform",
 			kafkaContainer: nil,
 		},
 		log: testutils.NewTestLogger(),

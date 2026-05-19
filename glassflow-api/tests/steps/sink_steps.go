@@ -45,7 +45,8 @@ type SinkTestSuite struct {
 func NewSinkTestSuite() *SinkTestSuite {
 	return &SinkTestSuite{ //nolint:exhaustruct // optional config
 		BaseTestSuite: BaseTestSuite{ //nolint:exhaustruct // optional config
-			wg: sync.WaitGroup{},
+			suiteName: "sink",
+			wg:        sync.WaitGroup{},
 		},
 	}
 }
