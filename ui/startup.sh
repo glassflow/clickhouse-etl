@@ -95,6 +95,13 @@ export AUTH0_ISSUER_BASE_URL=${AUTH0_ISSUER_BASE_URL:-}
 export AUTH0_CLIENT_ID=${AUTH0_CLIENT_ID:-}
 export AUTH0_CLIENT_SECRET=${AUTH0_CLIENT_SECRET:-}
 export APP_BASE_URL=${APP_BASE_URL:-http://localhost:8080}
+# Auth route paths — must stay in sync with the matcher array in src/proxy.ts if changed
+export AUTH0_LOGIN_PATH=${AUTH0_LOGIN_PATH:-/api/auth/login}
+export AUTH0_CALLBACK_PATH=${AUTH0_CALLBACK_PATH:-/api/auth/callback}
+export AUTH0_LOGOUT_PATH=${AUTH0_LOGOUT_PATH:-/api/auth/logout}
+# Auth0 social connection names as configured in the Auth0 tenant
+export AUTH0_GITHUB_CONNECTION=${AUTH0_GITHUB_CONNECTION:-github}
+export AUTH0_GOOGLE_CONNECTION=${AUTH0_GOOGLE_CONNECTION:-google-oauth2}
 
 # CRITICAL: Sync NEXT_PUBLIC_AUTH0_ENABLED to match AUTH0_ENABLED
 # This ensures client-side and server-side auth state are always in agreement

@@ -12,7 +12,7 @@ import { Toaster } from '@/src/components/ui/sonner'
 import { NotificationProvider } from '@/src/components/providers/NotificationProvider'
 import { AuthProvider } from '@/src/components/providers/AuthProvider'
 import { ObservabilityProvider } from '@/src/components/providers/ObservabilityProvider'
-import { NotificationsPanel } from '@/src/components/notifications/NotificationsPanel'
+import { NotificationsPanelWrapper } from '@/src/components/notifications/NotificationsPanelWrapper'
 import Script from 'next/script'
 
 // Define the fonts
@@ -67,7 +67,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                         </div>
                       </footer>
                       <Toaster />
-                      <NotificationsPanel />
+                      <NotificationsPanelWrapper />
                     </AuthProvider>
                   </NotificationProvider>
                 </PlatformProvider>

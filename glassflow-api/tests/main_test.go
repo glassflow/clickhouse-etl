@@ -145,6 +145,18 @@ func testAPIFeatures(t *testing.T) {
 	runSingleSuite(t, "api", apiSuite, config)
 }
 
+func testBackpressureFeatures(t *testing.T) {
+	bpSuite := steps.NewBackpressureTestSuite()
+
+	config := TestConfig{
+		FeaturePaths: []string{filepath.Join("features", "backpressure")},
+		Tags:         "@backpressure",
+		Format:       "pretty",
+	}
+
+	runSingleSuite(t, "backpressure", bpSuite, config)
+}
+
 func testRetryableFeatures(t *testing.T) {
 	sinkSuite := steps.NewSinkTestSuite()
 
@@ -166,10 +178,15 @@ func TestFeatures(t *testing.T) {
 	t.Run("IngestorFeatures", testIngetorFeatures)
 	t.Run("PlatformFeatures", testPlatformFeatures)
 	t.Run("APIFeatures", testAPIFeatures)
+	t.Run("BackpressureFeatures", testBackpressureFeatures)
 }
 
 // TestRetryableFeatures runs only the sink retry-classification scenarios.
-// Use this during development to iterate on ETL-1027 without running the full sink suite.
 func TestRetryableFeatures(t *testing.T) {
 	testRetryableFeatures(t)
+}
+
+// TestBackpressureFeatures runs the back-pressure propagation scenarios
+func TestBackpressureFeatures(t *testing.T) {
+	testBackpressureFeatures(t)
 }

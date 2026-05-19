@@ -2,10 +2,14 @@
 
 import { Button } from '@/src/components/ui/button'
 
-export default function LogoutButton() {
+interface LogoutButtonProps {
+  logoutPath?: string
+}
+
+export default function LogoutButton({ logoutPath = '/api/auth/logout' }: LogoutButtonProps) {
   return (
     <Button asChild variant="ghost" size="sm">
-      <a href="/api/auth/logout">Log Out</a>
+      <a href={logoutPath}>Log Out</a>
     </Button>
   )
 }

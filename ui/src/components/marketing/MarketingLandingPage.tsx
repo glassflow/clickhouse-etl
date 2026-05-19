@@ -1,5 +1,6 @@
 import React from 'react'
 import { AuthPanel } from './AuthPanel'
+import { getAuthPaths, getAuthConnections } from '@/src/utils/auth-config.server'
 
 // ─── Compact step visuals ─────────────────────────────────────────────────────
 
@@ -118,6 +119,9 @@ const STEPS = [
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function MarketingLandingPage() {
+  const { login: loginPath } = getAuthPaths()
+  const { github: githubConnection, google: googleConnection } = getAuthConnections()
+
   return (
     <div
       className="grid grid-cols-1 lg:grid-cols-[55%_45%] min-h-[calc(100vh-5rem)]"
@@ -224,7 +228,7 @@ export function MarketingLandingPage() {
         style={{ background: 'var(--surface-bg)' }}
       >
         <div className="w-full max-w-sm">
-          <AuthPanel />
+          <AuthPanel loginPath={loginPath} githubConnection={githubConnection} googleConnection={googleConnection} />
         </div>
       </div>
     </div>
