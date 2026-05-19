@@ -88,6 +88,38 @@ curl -v http://localhost:8081/api/v1/pipeline \
   --data @glassflow-api/bin/<payload>.json
 ```
 
+## Testing
+
+### Unit tests (`internal/`)
+
+Unit tests live alongside the code they test (`*_test.go` in the same package). They use `testing` + `testify/require` and run with `-race`. Write table-driven tests (`[]struct{ name, input, want }`) for pure logic; use real embedded dependencies (BadgerDB, in-process NATS) rather than mocks wherever practical.
+
+```bash
+go test ./internal/... -race                        # all unit tests
+go test ./internal/... -run TestFunctionName -race  # single test
+make run-short-test                                 # short/fast subset only
+```
+
+### E2E tests (`tests/`)
+
+E2E tests are BDD-style using **Cucumber/Godog**. Feature files (`.feature`) live in `tests/features/<domain>/` (e.g. `sink`, `join`, `pipeline`, `ingestor`, `backpressure`). Step implementations live in `tests/steps/`. Each suite has a `SetupResources`/`CleanupResources` lifecycle and is tagged (e.g. `@sink`, `@join`).
+
+- Run all suites: `make run-e2e-test`
+- Run a specific suite by tag: `TEST_TAGS=@sink go test ./tests/... -v`
+- New feature scenarios belong in the matching `features/<domain>/` directory; new domains get a new subdirectory + suite registered in `tests/main_test.go`
+
+### Pre-push gate for glassflow-api changes
+
+**Before opening a PR for any changes in `glassflow-api/`, always run:**
+
+```bash
+cd glassflow-api
+make run-test       # unit tests with -race
+make run-e2e-test   # full E2E suite
+```
+
+Both must pass. `make pre-push-check` runs the full suite including lint.
+
 ## Git & PR conventions
 
 - Branch naming follows Linear ticket ID: `ETL-XYZ` or `username/ETL-XYZ-description`
@@ -107,5 +139,6 @@ The shared context repo lives at `../glassflow-agent-context/` (sibling director
 - **Writing a PR description** → read `../glassflow-agent-context/prompts/pr-description.md`
 - **Domain terminology is ambiguous** → read `../glassflow-agent-context/domain/glossary.md`
 - **Designing a new component or data flow** → read `../glassflow-agent-context/projects/clickhouse-etl/architecture.md` and `domain/deployment-topology.md`
+- **Writing new E2E scenarios** → look at an existing feature file in `glassflow-api/tests/features/` for style conventions before adding a new one
 
 Don't load these for routine bug fixes or code tasks — read the code directly instead.
