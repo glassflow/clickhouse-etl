@@ -503,57 +503,32 @@ func (k *K8sOrchestrator) EditPipeline(ctx context.Context, pipelineID string, n
 	return nil
 }
 
-// buildPipelineSpec creates a complete PipelineSpec from a PipelineConfig
-// buildOperatorSpec converts a PipelineConfig into an operator.PipelineSpec
-// with spec.Resolved populated (the API-computed graph allocation). This is
-// the single place that knows how to translate API-side config into CRD
-// shape; both CR-write paths (via buildPipelineSpec) and read paths (via
-// GetStreamNames) call it.
-// GetStreamNames returns the JetStream stream names for the pipeline as the
-// operator deployed them — read from spec.Resolved via the same path that
-// produced the CR. Closes T13 S-10: usage_stats_collector now sees the
-// real names instead of the broken topic-sanitized helpers.
+// GetStreamNames returns the JetStream stream names for a K8s-deployed pipeline.
+// Stream names are deterministic from (pipelineID, topicIndex, join.Enabled) so
+// we compute them directly instead of building a full operator spec.
 func (k *K8sOrchestrator) GetStreamNames(_ context.Context, cfg models.PipelineConfig) (models.PipelineStreamNames, error) {
-	spec, err := k.buildOperatorSpec(&cfg)
-	if err != nil {
-		return models.PipelineStreamNames{}, fmt.Errorf("build operator spec: %w", err)
-	}
-	if spec.Resolved == nil {
-		return models.PipelineStreamNames{}, fmt.Errorf("resolved spec is nil for pipeline %s", cfg.ID)
-	}
-
 	names := models.PipelineStreamNames{
 		DLQStream: models.GetDLQStreamName(cfg.ID),
 	}
 
 	if !cfg.SourceType.IsOTLP() {
+		hasJoin := cfg.Join.Enabled
 		for i, topic := range cfg.Ingestor.KafkaTopics {
-			ingestorNode := spec.Resolved.FindNode(pipelinegraph.IngestorNodeID(spec, i))
-			if ingestorNode != nil && ingestorNode.Output != nil && len(ingestorNode.Output.Streams) > 0 {
-				names.IngestorStreams = append(names.IngestorStreams, ingestorNode.Output.Streams[0].Name)
-			} else {
-				names.IngestorStreams = append(names.IngestorStreams, "")
-			}
+			nodeID := pipelinegraph.IngestorNodeIDForIndex(i, hasJoin)
+			names.IngestorStreams = append(names.IngestorStreams, pipelinegraph.StreamName(cfg.ID, nodeID))
 
 			if topic.Deduplication.Enabled {
-				dedupNode := spec.Resolved.FindNode(pipelinegraph.DedupNodeID(spec, i))
-				dedupName := ""
-				if dedupNode != nil && dedupNode.Output != nil && len(dedupNode.Output.Streams) > 0 {
-					dedupName = dedupNode.Output.Streams[0].Name
-				}
+				dNodeID := pipelinegraph.DedupNodeIDForIndex(i, hasJoin)
 				names.DedupStreams = append(names.DedupStreams, models.DedupStreamName{
 					TopicIndex: i,
-					StreamName: dedupName,
+					StreamName: pipelinegraph.StreamName(cfg.ID, dNodeID),
 				})
 			}
 		}
 	}
 
 	if cfg.Join.Enabled {
-		joinNode := spec.Resolved.FindNode(pipelinegraph.JoinNodeID())
-		if joinNode != nil && joinNode.Output != nil && len(joinNode.Output.Streams) > 0 {
-			names.JoinStream = joinNode.Output.Streams[0].Name
-		}
+		names.JoinStream = pipelinegraph.StreamName(cfg.ID, pipelinegraph.JoinNodeID())
 	}
 
 	return names, nil
