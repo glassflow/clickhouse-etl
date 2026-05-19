@@ -43,6 +43,9 @@ var (
 
 	SinkErrorsByClassification metric.Int64Counter
 	SinkNackMessagesTotal      metric.Int64Counter
+	SinkBatchSizeRecords       metric.Int64Histogram
+	SinkBatchSizeBytes         metric.Int64Histogram
+	SinkRetriesTotal           metric.Int64Counter
 
 	IngestorBackpressureActive   metric.Int64Gauge
 	IngestorBackpressureEvents   metric.Int64Counter
@@ -140,6 +143,17 @@ func initMetricInstruments(m metric.Meter) {
 	SinkNackMessagesTotal = mustCreateCounter(m,
 		GfMetricPrefix+"_"+"sink_nack_messages_total",
 		"Messages NACKed by the sink due to retryable ClickHouse errors")
+	SinkBatchSizeRecords = mustCreateInt64Histogram(m,
+		GfMetricPrefix+"_"+"sink_batch_size_records",
+		"Distribution of records per sink batch", "1",
+		1, 10, 100, 1_000, 10_000, 100_000)
+	SinkBatchSizeBytes = mustCreateInt64Histogram(m,
+		GfMetricPrefix+"_"+"sink_batch_size_bytes",
+		"Distribution of bytes per sink batch", "By",
+		1_024, 10_240, 102_400, 1_048_576, 10_485_760, 104_857_600)
+	SinkRetriesTotal = mustCreateCounter(m,
+		GfMetricPrefix+"_"+"sink_retries_total",
+		"Sink batch retry attempts labelled by outcome (exhausted|retry)")
 
 	IngestorBackpressureActive = mustCreateInt64Gauge(m, GfMetricPrefix+"_"+"ingestor_backpressure_active",
 		"1 while the ingestor is in back-pressure, 0 otherwise")
@@ -193,6 +207,17 @@ func mustCreateBackpressureDurationHistogram(m metric.Meter, name, description s
 		panic(fmt.Sprintf("failed to create histogram %s: %v", name, err))
 	}
 	return histogram
+}
+
+func mustCreateInt64Histogram(m metric.Meter, name, description, unit string, buckets ...float64) metric.Int64Histogram {
+	h, err := m.Int64Histogram(name,
+		metric.WithDescription(description),
+		metric.WithUnit(unit),
+		metric.WithExplicitBucketBoundaries(buckets...))
+	if err != nil {
+		panic(fmt.Sprintf("failed to create histogram %s: %v", name, err))
+	}
+	return h
 }
 
 func mustCreateHistogram(m metric.Meter, name, description string) metric.Float64Histogram {
@@ -408,5 +433,25 @@ func RecordStreamDepthRatio(ctx context.Context, streamName string, ratio float6
 	StreamDepthRatio.Record(ctx, ratio, metric.WithAttributes(
 		attribute.String("pipeline_id", pipelineID),
 		attribute.String("stream", streamName),
+	))
+}
+
+func RecordSinkBatchSize(ctx context.Context, records, bytes int64) {
+	attrs := metric.WithAttributes(attribute.String("pipeline_id", pipelineID))
+	if SinkBatchSizeRecords != nil {
+		SinkBatchSizeRecords.Record(ctx, records, attrs)
+	}
+	if SinkBatchSizeBytes != nil {
+		SinkBatchSizeBytes.Record(ctx, bytes, attrs)
+	}
+}
+
+func RecordSinkRetry(ctx context.Context, outcome string, count int64) {
+	if SinkRetriesTotal == nil {
+		return
+	}
+	SinkRetriesTotal.Add(ctx, count, metric.WithAttributes(
+		attribute.String("pipeline_id", pipelineID),
+		attribute.String("outcome", outcome),
 	))
 }
