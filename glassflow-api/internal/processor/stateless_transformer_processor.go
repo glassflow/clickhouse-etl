@@ -64,7 +64,7 @@ func (stp *StatelessTransformerProcessor) ProcessBatch(
 	}
 
 	duration := time.Since(start).Seconds()
-	observability.RecordProcessingDurationWithStage(ctx, "transform", "unspecified", duration)
+	observability.RecordProcessingDurationWithStage(ctx, "transform", "transform", duration)
 	if len(result.Messages) > 0 {
 		observability.RecordProcessorMessages(ctx, "transform", "success", int64(len(result.Messages)))
 	}

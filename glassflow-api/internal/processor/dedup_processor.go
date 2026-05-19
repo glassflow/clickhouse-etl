@@ -50,7 +50,7 @@ func (dp *DedupProcessor) ProcessBatch(
 	}
 
 	lookupDuration := time.Since(start).Seconds()
-	observability.RecordProcessingDurationWithStage(ctx, "dedup_filter", "unspecified", lookupDuration)
+	observability.RecordProcessingDurationWithStage(ctx, "dedup_filter", "lookup", lookupDuration)
 	duplicatesFound := int64(len(batch.Messages) - len(deduplicatedMessages))
 	if duplicatesFound > 0 {
 		observability.RecordProcessorMessages(ctx, "dedup", "duplicate", duplicatesFound)
@@ -73,7 +73,7 @@ func (dp *DedupProcessor) ProcessBatch(
 		}
 
 		commitDuration := time.Since(commitStart).Seconds()
-		observability.RecordProcessingDurationWithStage(ctx, "dedup_write", "unspecified", commitDuration)
+		observability.RecordProcessingDurationWithStage(ctx, "dedup_write", "commit", commitDuration)
 
 		return nil
 	}
