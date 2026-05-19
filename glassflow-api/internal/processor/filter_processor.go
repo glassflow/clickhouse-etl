@@ -61,7 +61,7 @@ func (fp *FilterProcessor) ProcessBatch(
 	}
 
 	duration := time.Since(start).Seconds()
-	observability.RecordProcessingDuration(ctx, "filter", duration)
+	observability.RecordProcessingDurationWithStage(ctx, "filter", "filter", duration)
 
 	successCount := int64(len(messages))
 	if successCount > 0 {
