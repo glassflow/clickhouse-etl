@@ -1,9 +1,12 @@
 package processor
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -21,6 +24,85 @@ func TestErrStreamBackpressure_WrapsBackpressureError(t *testing.T) {
 
 	require.True(t, errors.Is(wrapped, models.ErrStreamBackpressure))
 	require.True(t, errors.Is(wrapped, stream.ErrStreamMaxPendingMsgs))
+}
+
+// capturePublisher records SendSignal calls for test assertions.
+type capturePublisher struct {
+	mu      sync.Mutex
+	signals []models.ComponentSignal
+}
+
+func (c *capturePublisher) SendSignal(_ context.Context, sig models.ComponentSignal) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.signals = append(c.signals, sig)
+	return nil
+}
+
+func (c *capturePublisher) count() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return len(c.signals)
+}
+
+func newProcessorWithPublisher(pub backpressureSignalSender) *Processor {
+	return &Processor{
+		natsWriterCache:        make(map[string]writerConfig),
+		sem:                    make(chan struct{}, 10),
+		signalSender:           pub,
+		lastBackpressureSignal: make(map[string]time.Time),
+	}
+}
+
+func TestEmitBackpressureSignal_SendsOnFirstCall(t *testing.T) {
+	pub := &capturePublisher{}
+	p := newProcessorWithPublisher(pub)
+
+	p.emitBackpressureSignal(context.Background(), "pipe-1")
+
+	require.Equal(t, 1, pub.count())
+	assert.Equal(t, internal.RoleOLTPReceiver, pub.signals[0].Component)
+	assert.Equal(t, "pipe-1", pub.signals[0].PipelineID)
+}
+
+func TestEmitBackpressureSignal_RateLimitedWithinCooldown(t *testing.T) {
+	pub := &capturePublisher{}
+	p := newProcessorWithPublisher(pub)
+
+	p.emitBackpressureSignal(context.Background(), "pipe-1")
+	p.emitBackpressureSignal(context.Background(), "pipe-1")
+	p.emitBackpressureSignal(context.Background(), "pipe-1")
+
+	require.Equal(t, 1, pub.count(), "should emit only once within cooldown window")
+}
+
+func TestEmitBackpressureSignal_SendsAgainAfterCooldown(t *testing.T) {
+	pub := &capturePublisher{}
+	p := newProcessorWithPublisher(pub)
+
+	// Backdate last signal to just beyond the cooldown window.
+	p.lastBackpressureSignal["pipe-1"] = time.Now().Add(-(backpressureSignalCooldown + time.Second))
+
+	p.emitBackpressureSignal(context.Background(), "pipe-1")
+
+	require.Equal(t, 1, pub.count(), "should emit after cooldown expires")
+}
+
+func TestEmitBackpressureSignal_IndependentPerPipeline(t *testing.T) {
+	pub := &capturePublisher{}
+	p := newProcessorWithPublisher(pub)
+
+	p.emitBackpressureSignal(context.Background(), "pipe-1")
+	p.emitBackpressureSignal(context.Background(), "pipe-2")
+	p.emitBackpressureSignal(context.Background(), "pipe-1") // should be suppressed
+
+	require.Equal(t, 2, pub.count(), "each pipeline has its own cooldown")
+}
+
+func TestEmitBackpressureSignal_NilPublisher(t *testing.T) {
+	p := newProcessorWithPublisher(nil)
+	// must not panic
+	p.emitBackpressureSignal(context.Background(), "pipe-1")
 }
 
 func TestSetupNatsDedupHeader(t *testing.T) {

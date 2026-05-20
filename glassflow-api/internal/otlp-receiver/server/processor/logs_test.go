@@ -55,7 +55,7 @@ func TestProcessLogs(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	proc := processor.NewProcessor(&stubOTLPConfigFetcher{}, nc, 50, 1000)
+	proc := processor.NewProcessor(&stubOTLPConfigFetcher{}, nc, 50, 1000, nil)
 
 	req := &collogspb.ExportLogsServiceRequest{
 		ResourceLogs: []*logsv1.ResourceLogs{

@@ -3,6 +3,7 @@ package observability
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	"go.opentelemetry.io/otel"
@@ -32,7 +33,6 @@ var (
 	KafkaRecordsRead         metric.Int64Counter
 	DLQRecordsWritten        metric.Int64Counter
 	ClickHouseRecordsWritten metric.Int64Counter
-	SinkRecordsPerSec        metric.Float64Gauge
 	ProcessorMessages        metric.Int64Counter
 	ProcessingDuration       metric.Float64Histogram
 	HTTPRequestCount         metric.Int64Counter
@@ -120,11 +120,9 @@ func initMetricInstruments(m metric.Meter) {
 		"Total number of records written to dead letter queue")
 	ClickHouseRecordsWritten = mustCreateCounter(m, GfMetricPrefix+"_"+"clickhouse_records_written_total",
 		"Total number of records written to ClickHouse")
-	SinkRecordsPerSec = mustCreateGauge(m, GfMetricPrefix+"_"+"clickhouse_records_written_per_second",
-		"Number of records written to ClickHouse per second")
 	ProcessingDuration = mustCreateHistogram(m, GfMetricPrefix+"_"+"processing_duration_seconds",
 		"Processing duration in seconds")
-	HTTPRequestCount = mustCreateCounter(m, GfMetricPrefix+"_"+"http_server_request_count",
+	HTTPRequestCount = mustCreateCounter(m, GfMetricPrefix+"_"+"http_server_request_count_total",
 		"Total number of HTTP requests")
 	HTTPRequestDuration = mustCreateHistogram(m, GfMetricPrefix+"_"+"http_server_request_duration_seconds",
 		"Duration of HTTP requests")
@@ -132,7 +130,7 @@ func initMetricInstruments(m metric.Meter) {
 		"Total number of messages processed by processor")
 	BytesProcessed = mustCreateCounter(m, GfMetricPrefix+"_"+"bytes_processed_total",
 		"Total bytes processed by component and direction")
-	ReceiverRequestCount = mustCreateCounter(m, GfMetricPrefix+"_"+"receiver_request_count",
+	ReceiverRequestCount = mustCreateCounter(m, GfMetricPrefix+"_"+"receiver_request_count_total",
 		"Total number of requests received by the receiver")
 	ReceiverRequestDuration = mustCreateHistogram(m, GfMetricPrefix+"_"+"receiver_request_duration_seconds",
 		"Duration of receiver requests in seconds")
@@ -237,6 +235,9 @@ func mustCreateHistogram(m metric.Meter, name, description string) metric.Float6
 			2.5,   // 2.5s
 			5.0,   // 5s
 			10.0,  // 10s
+			30.0,  // 30s
+			60.0,  // 1m
+			120.0, // 2m
 		))
 	if err != nil {
 		panic(fmt.Sprintf("failed to create histogram %s: %v", name, err))
@@ -280,26 +281,6 @@ func RecordClickHouseWrite(ctx context.Context, component string, count int64) {
 		return
 	}
 	ClickHouseRecordsWritten.Add(ctx, count, metric.WithAttributes(
-		attribute.String("component", component),
-		attribute.String("pipeline_id", pipelineID),
-	))
-}
-
-func RecordSinkRate(ctx context.Context, component string, rate float64) {
-	if SinkRecordsPerSec == nil {
-		return
-	}
-	SinkRecordsPerSec.Record(ctx, rate, metric.WithAttributes(
-		attribute.String("component", component),
-		attribute.String("pipeline_id", pipelineID),
-	))
-}
-
-func RecordProcessingDuration(ctx context.Context, component string, duration float64) {
-	if ProcessingDuration == nil {
-		return
-	}
-	ProcessingDuration.Record(ctx, duration, metric.WithAttributes(
 		attribute.String("component", component),
 		attribute.String("pipeline_id", pipelineID),
 	))
@@ -364,7 +345,7 @@ func RecordHTTPRequest(ctx context.Context, method, route string, status int, du
 	attrs := []attribute.KeyValue{
 		attribute.String("method", method),
 		attribute.String("path", route),
-		attribute.Int("status", status),
+		attribute.String("status", strconv.Itoa(status)),
 	}
 	if HTTPRequestCount != nil {
 		HTTPRequestCount.Add(ctx, 1, metric.WithAttributes(attrs...))

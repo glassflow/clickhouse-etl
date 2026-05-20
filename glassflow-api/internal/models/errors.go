@@ -64,6 +64,18 @@ func IsIncompatibleSchemaError(err error) bool {
 	return errors.As(err, &incompatibleErr)
 }
 
+// IsSchemaError returns true when err is any schema-related error (missing,
+// incompatible, unparseable ID). Used to distinguish schema failures from
+// transform-rule failures in processor_messages_total.
+func IsSchemaError(err error) bool {
+	return errors.Is(err, ErrSchemaNotFound) ||
+		errors.Is(err, ErrSchemaVerionNotFound) ||
+		errors.Is(err, ErrSchemaIDIsMissingInHeader) ||
+		errors.Is(err, ErrMessageIsTooShort) ||
+		errors.Is(err, ErrFailedToParseSchemaID) ||
+		IsIncompatibleSchemaError(err)
+}
+
 var ErrMessageIsTooShort = errors.New("message is too short to contain schema ID")
 var ErrFailedToParseSchemaID = errors.New("failed to parse schema ID from message")
 var ErrCompileTransformation = errors.New("failed to compile transformation")
