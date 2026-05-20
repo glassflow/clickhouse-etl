@@ -449,7 +449,6 @@ func (ch *ClickHouseSink) sendBatch(ctx context.Context, messages []jetstream.Ms
 			continue
 		}
 
-		start := time.Now()
 		err = schemaData.batch.Send(ctx)
 		if err != nil {
 			classification := sinkerrors.Classify(err)
@@ -496,12 +495,6 @@ func (ch *ClickHouseSink) sendBatch(ctx context.Context, messages []jetstream.Ms
 
 		observability.RecordClickHouseWrite(ctx, "sink", int64(size))
 		observability.RecordProcessorMessages(ctx, "sink", "success", int64(size))
-
-		duration := time.Since(start).Seconds()
-		if duration > 0 {
-			rate := float64(size) / duration
-			observability.RecordSinkRate(ctx, "sink", rate)
-		}
 
 		observability.RecordBytesProcessed(ctx, "sink", "out", totalBytes)
 	}
