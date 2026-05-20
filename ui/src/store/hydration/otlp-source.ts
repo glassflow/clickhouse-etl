@@ -4,7 +4,11 @@ import type { PipelineConfigForHydration } from '@/src/types/pipeline'
 
 export function hydrateOtlpSource(config: PipelineConfigForHydration) {
   const state = useStore.getState()
-  const sourceType = config.source?.type
+  const cfg = config as any
+
+  // Handle both internal format (config.source.type) and v3 wire format (config.sources[0].type)
+  const sourceType = config.source?.type ?? cfg.sources?.[0]?.type
+  const sourceId = config.source?.id ?? cfg.sources?.[0]?.source_id
 
   if (!sourceType || !sourceType.startsWith('otlp.')) return
 
@@ -14,7 +18,7 @@ export function hydrateOtlpSource(config: PipelineConfigForHydration) {
 
   // Set OTLP store
   state.otlpStore.setSignalType(sourceType as SourceType)
-  state.otlpStore.setSourceId(config.source?.id || '')
+  state.otlpStore.setSourceId(sourceId || '')
 
   // Set deduplication if present.
   // Backend V3 wire format uses `key`; fall back to `id_field` for any legacy configs.
