@@ -44,6 +44,7 @@ type PipelineSteps struct {
 func NewPipelineSteps() *PipelineSteps {
 	return &PipelineSteps{ //nolint:exhaustruct // only necessary fields
 		BaseTestSuite: BaseTestSuite{ //nolint:exhaustruct // only necessary fields
+			suiteName:      "pipeline",
 			kafkaContainer: nil,
 		},
 		kTopics: make([]string, 0),

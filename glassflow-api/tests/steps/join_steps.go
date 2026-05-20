@@ -46,7 +46,8 @@ type JoinTestSuite struct {
 
 func NewJoinTestSuite() *JoinTestSuite {
 	return &JoinTestSuite{
-		logger: testutils.NewTestLogger(),
+		BaseTestSuite: BaseTestSuite{suiteName: "join"}, //nolint:exhaustruct // optional config
+		logger:        testutils.NewTestLogger(),
 	}
 }
 

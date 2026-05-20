@@ -64,9 +64,9 @@ type NATSContainer struct {
 	uri       string
 }
 
-func StartNATSContainer(ctx context.Context) (*NATSContainer, error) {
+func StartNATSContainer(ctx context.Context, name string) (*NATSContainer, error) {
 	req := testcontainers.ContainerRequest{ //nolint:exhaustruct // optional config
-		Name:         "testcontainers-nats",
+		Name:         "testcontainers-nats-" + name,
 		Image:        NATSContainerImage,
 		ExposedPorts: []string{NATSPort},
 		Cmd:          []string{"-js"},
@@ -134,7 +134,7 @@ type ClickHouseContainer struct {
 }
 
 // StartClickHouseContainer starts a ClickHouse container
-func StartClickHouseContainer(ctx context.Context) (*ClickHouseContainer, error) {
+func StartClickHouseContainer(ctx context.Context, name string) (*ClickHouseContainer, error) {
 	container, err := chContainer.Run(
 		ctx,
 		ClickHouseContainerImage,
@@ -142,7 +142,7 @@ func StartClickHouseContainer(ctx context.Context) (*ClickHouseContainer, error)
 			wait.ForHTTP("/").
 				WithPort("8123/tcp").
 				WithStartupTimeout(60*time.Second)),
-		testcontainers.WithReuseByName("testcontainers-clickhouse"),
+		testcontainers.WithReuseByName("testcontainers-clickhouse-"+name),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to start ClickHouse container %w", err)
@@ -209,11 +209,11 @@ type KafkaContainer struct {
 	uri       string
 }
 
-func StartKafkaContainer(ctx context.Context) (*KafkaContainer, error) {
+func StartKafkaContainer(ctx context.Context, name string) (*KafkaContainer, error) {
 	clusterID := "test-cluster"
 
 	req := testcontainers.ContainerRequest{ //nolint:exhaustruct // necessary fields only
-		Name:         "testcontainers-kafka",
+		Name:         "testcontainers-kafka-" + name,
 		Image:        KafkaContainerImage,
 		ExposedPorts: []string{string(KafkaPort)},
 		Env: map[string]string{
@@ -329,9 +329,9 @@ type PostgresContainer struct {
 }
 
 // StartPostgresContainer starts a Postgres container
-func StartPostgresContainer(ctx context.Context) (*PostgresContainer, error) {
+func StartPostgresContainer(ctx context.Context, name string) (*PostgresContainer, error) {
 	req := testcontainers.ContainerRequest{ //nolint:exhaustruct // optional config
-		Name:         "testcontainers-postgres",
+		Name:         "testcontainers-postgres-" + name,
 		Image:        PostgresContainerImage,
 		ExposedPorts: []string{PostgresPort},
 		Env: map[string]string{
