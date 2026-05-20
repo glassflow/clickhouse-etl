@@ -339,11 +339,9 @@ func (s *SinkTestSuite) iRunClickHouseSink() error {
 
 	s.errCh = make(chan error, 1)
 
-	s.wg.Add(1)
-	go func() {
-		defer s.wg.Done()
+	s.wg.Go(func() {
 		s.chSink.Start(context.Background(), s.errCh)
-	}()
+	})
 
 	return nil
 }

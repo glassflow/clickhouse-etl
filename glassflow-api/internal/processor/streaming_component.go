@@ -73,9 +73,7 @@ func (sc *StreamingComponent) Start(ctx context.Context) error {
 	defer sc.streaming.bufferFlushTicker.Stop()
 
 	flushWg := sync.WaitGroup{}
-	flushWg.Add(1)
-	go func() {
-		defer flushWg.Done()
+	flushWg.Go(func() {
 		for {
 			select {
 			case <-ctx.Done():
@@ -84,7 +82,7 @@ func (sc *StreamingComponent) Start(ctx context.Context) error {
 				sc.flushBuffer(ctx)
 			}
 		}
-	}()
+	})
 
 	messageHandler := func(msg models.Message) {
 		sc.streaming.bufferMu.Lock()

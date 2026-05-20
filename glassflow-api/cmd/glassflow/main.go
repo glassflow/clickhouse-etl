@@ -300,11 +300,9 @@ func mainEtl(
 
 	wg := sync.WaitGroup{}
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		serverErr <- apiServer.Start()
-	}()
+	})
 
 	go func() {
 		time.Sleep(2 * time.Second) // small delay to wait for server to start
@@ -323,14 +321,13 @@ func mainEtl(
 		log.Info("Received termination signal - service will shutdown")
 
 		wg.Add(2)
-		go func() {
+		wg.Go(func() {
 			if err := apiServer.Shutdown(ctx, cfg.ServerShutdownTimeout); err != nil {
 				log.Error("failed to shutdown server", slog.Any("error", err))
 			}
-			wg.Done()
-		}()
+		})
 
-		go func() {
+		wg.Go(func() {
 			switch o := orch.(type) {
 			case *orchestrator.LocalOrchestrator:
 				err := orch.StopPipeline(ctx, o.ActivePipelineID())
@@ -341,7 +338,7 @@ func mainEtl(
 			default:
 				wg.Done()
 			}
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -528,11 +525,9 @@ func runWithGracefulShutdown(
 	serverErr := make(chan error, 1)
 	wg := sync.WaitGroup{}
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		serverErr <- runner.Start(ctx)
-	}()
+	})
 
 	log.Info("Running service", slog.String("service", serviceName))
 
@@ -552,10 +547,10 @@ func runWithGracefulShutdown(
 			log.Info("Received termination signal - shutting down", slog.String("service", serviceName))
 			wg.Add(1)
 			usageStatsClient.SendEvent("terminated", serviceName, nil)
-			go func() {
+			wg.Go(func() {
 				defer wg.Done()
 				runner.Shutdown()
-			}()
+			})
 			wg.Wait()
 			return nil
 		}
