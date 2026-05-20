@@ -132,7 +132,7 @@ Feature: Clickhouse ETL sink
                 "stream": "test_stream",
                 "subject": "test_subject",
                 "consumer": "test_consumer",
-                "ack_wait": "3s"
+                "ack_wait": "30s"
             }
             """
         And a pipeline with configuration
@@ -489,7 +489,7 @@ Feature: Clickhouse ETL sink
                 "stream": "test_stream",
                 "subject": "test_subject",
                 "consumer": "test_consumer",
-                "ack_wait": "5s"
+                "ack_wait": "30s"
             }
             """
         And a pipeline with configuration
@@ -574,7 +574,7 @@ Feature: Clickhouse ETL sink
                 "stream": "test_stream",
                 "subject": "test_subject",
                 "consumer": "test_consumer",
-                "ack_wait": "3s"
+                "ack_wait": "30s"
             }
             """
         And a pipeline with configuration

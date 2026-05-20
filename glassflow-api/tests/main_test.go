@@ -157,9 +157,16 @@ func testBackpressureFeatures(t *testing.T) {
 	runSingleSuite(t, "backpressure", bpSuite, config)
 }
 
-// TestBackpressureFeatures runs the back-pressure propagation scenarios (ETL-1022).
-func TestBackpressureFeatures(t *testing.T) {
-	testBackpressureFeatures(t)
+func testRetryableFeatures(t *testing.T) {
+	sinkSuite := steps.NewSinkTestSuite()
+
+	config := TestConfig{
+		FeaturePaths: []string{filepath.Join("features", "sink", "retryable.feature")},
+		Tags:         "@retryable",
+		Format:       "pretty",
+	}
+
+	runSingleSuite(t, "retryable", sinkSuite, config)
 }
 
 // TestFeatures runs all feature tests in parallel, each in its own container namespace.
@@ -192,4 +199,14 @@ func TestFeatures(t *testing.T) {
 		t.Parallel()
 		testBackpressureFeatures(t)
 	})
+}
+
+// TestRetryableFeatures runs only the sink retry-classification scenarios.
+func TestRetryableFeatures(t *testing.T) {
+	testRetryableFeatures(t)
+}
+
+// TestBackpressureFeatures runs the back-pressure propagation scenarios
+func TestBackpressureFeatures(t *testing.T) {
+	testBackpressureFeatures(t)
 }
