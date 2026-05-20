@@ -23,10 +23,17 @@ type OTLPDataProcessor interface {
 	ProcessMetrics(ctx context.Context, pipelineID string, exportMetricsRequest *colmetricspb.ExportMetricsServiceRequest) error
 }
 
+// NATSHealthProbe reports whether NATS has acknowledged a recent JetStream
+// request. Used by /healthz so kubelet sees a wedged NATS connection.
+type NATSHealthProbe interface {
+	Healthy() (ok bool, lastGood time.Time)
+}
+
 type handler struct {
 	ready             *atomic.Bool
 	log               *slog.Logger
 	otlpDataProcessor OTLPDataProcessor
+	natsHealth        NATSHealthProbe
 }
 
 type healthResponse struct {
@@ -43,6 +50,7 @@ func NewHTTPServer(
 	ready *atomic.Bool,
 	log *slog.Logger,
 	otlpDataProcessor OTLPDataProcessor,
+	natsHealth NATSHealthProbe,
 ) *server.Server {
 	r := mux.NewRouter()
 
@@ -58,6 +66,7 @@ func NewHTTPServer(
 		ready:             ready,
 		log:               log,
 		otlpDataProcessor: otlpDataProcessor,
+		natsHealth:        natsHealth,
 	}
 	registerHumaHandler("/healthz", h.healthz, healthzOperation(), humaAPI)
 	registerHumaHandler("/readyz", h.readyz, readyzOperation(), humaAPI)
@@ -106,6 +115,19 @@ func readyzOperation() huma.Operation {
 }
 
 func (h handler) healthz(_ context.Context, _ *struct{}) (*healthResponse, error) {
+	if h.natsHealth != nil {
+		if ok, lastGood := h.natsHealth.Healthy(); !ok {
+			h.log.Warn("healthz: NATS unhealthy",
+				slog.Time("last_good", lastGood))
+			return &healthResponse{
+				Status: nethttp.StatusServiceUnavailable,
+				Body: healthStatus{
+					Status: "nats unhealthy",
+				},
+			}, nil
+		}
+	}
+
 	return &healthResponse{
 		Status: nethttp.StatusOK,
 		Body: healthStatus{
