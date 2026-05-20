@@ -6,6 +6,7 @@ import {
   getTwoTopicJourney,
   getSingleTopicJourneyInstances,
   getTwoTopicJourneyInstances,
+  getOtlpJourneyInstances,
   getSidebarStepsFromInstances,
   getWizardJourneySteps,
   type StepInstance,
@@ -156,6 +157,24 @@ describe('create/utils', () => {
         expect(s.key).toBeDefined()
         expect(s.title).toBeDefined()
       })
+    })
+
+    it('OTLP: includes FILTER_CONFIGURATOR and TRANSFORMATION_CONFIGURATOR as substeps of OTLP_SIGNAL_TYPE', () => {
+      const journey = getOtlpJourneyInstances()
+      const sidebar = getSidebarStepsFromInstances(journey, 1)
+      const filter = sidebar.find((s) => s.key === StepKeys.FILTER_CONFIGURATOR)
+      const transform = sidebar.find((s) => s.key === StepKeys.TRANSFORMATION_CONFIGURATOR)
+      expect(filter).toBeDefined()
+      expect(filter?.parent).toBe(StepKeys.OTLP_SIGNAL_TYPE)
+      expect(transform).toBeDefined()
+      expect(transform?.parent).toBe(StepKeys.OTLP_SIGNAL_TYPE)
+    })
+
+    it('OTLP: no sidebar step has KAFKA_TYPE_VERIFICATION as parent', () => {
+      const journey = getOtlpJourneyInstances()
+      const sidebar = getSidebarStepsFromInstances(journey, 1)
+      const kafkaParented = sidebar.filter((s) => s.parent === StepKeys.KAFKA_TYPE_VERIFICATION)
+      expect(kafkaParented).toHaveLength(0)
     })
   })
 
