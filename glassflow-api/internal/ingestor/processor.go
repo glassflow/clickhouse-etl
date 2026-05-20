@@ -108,7 +108,7 @@ func NewKafkaMsgProcessor(
 	}, nil
 }
 
-func (k *KafkaMsgProcessor) pushMsgToDLQ(ctx context.Context, orgMsg []byte, err error) error {
+func (k *KafkaMsgProcessor) pushMsgToDLQ(ctx context.Context, orgMsg []byte, err error, reason string) error {
 	k.log.Error("Pushing message to DLQ", slog.Any("error", err), slog.String("topic", k.topic.Name))
 
 	data, err := models.NewDLQMessage(internal.RoleIngestor, err.Error(), orgMsg).ToJSON()
@@ -123,7 +123,7 @@ func (k *KafkaMsgProcessor) pushMsgToDLQ(ctx context.Context, orgMsg []byte, err
 		return fmt.Errorf("failed to publish to DLQ: %w", err)
 	}
 
-	observability.RecordDLQWrite(ctx, internal.RoleIngestor, 1)
+	observability.RecordDLQWrite(ctx, internal.RoleIngestor, reason, 1)
 
 	return nil
 }
@@ -209,7 +209,7 @@ func (k *KafkaMsgProcessor) prepareMesssage(ctx context.Context, msg *kgo.Record
 			validationErr = err
 		}
 
-		if dlqErr := k.pushMsgToDLQ(ctx, msg.Value, validationErr); dlqErr != nil {
+		if dlqErr := k.pushMsgToDLQ(ctx, msg.Value, validationErr, observability.DLQReasonParseError); dlqErr != nil {
 			return nil, fmt.Errorf("failed to push to DLQ: %w", dlqErr)
 		}
 		return nil, nil
@@ -221,7 +221,7 @@ func (k *KafkaMsgProcessor) prepareMesssage(ctx context.Context, msg *kgo.Record
 	}
 	subject, dedupKeyStr, err := k.getSubjectAndDedupKey(ctx, version, msgData)
 	if err != nil {
-		if dlqErr := k.pushMsgToDLQ(ctx, msg.Value, fmt.Errorf("%w: %w", models.ErrDeduplicateData, err)); dlqErr != nil {
+		if dlqErr := k.pushMsgToDLQ(ctx, msg.Value, fmt.Errorf("%w: %w", models.ErrDeduplicateData, err), observability.DLQReasonParseError); dlqErr != nil {
 			return nil, fmt.Errorf("failed to push to DLQ: %w", dlqErr)
 		}
 		return nil, nil
@@ -315,7 +315,7 @@ func (k *KafkaMsgProcessor) processBatchSync(ctx context.Context, batch []*kgo.R
 				slog.String("topic", msg.Topic),
 				slog.Int("partition", int(msg.Partition)))
 
-			if dlqErr := k.pushMsgToDLQ(ctx, msg.Value, err); dlqErr != nil {
+			if dlqErr := k.pushMsgToDLQ(ctx, msg.Value, err, observability.DLQReasonUnrecoverable); dlqErr != nil {
 				k.log.Error("Failed to push failed message to DLQ",
 					slog.Any("error", dlqErr),
 					slog.String("topic", msg.Topic),
@@ -605,7 +605,7 @@ func (k *KafkaMsgProcessor) drainToDLQ(ctx context.Context, s *asyncBatchState, 
 		if s.completed[idx] {
 			continue
 		}
-		err := k.pushMsgToDLQ(ctx, s.batch[idx].Value, fmt.Errorf("ingestor cleanup: %w", cause))
+		err := k.pushMsgToDLQ(ctx, s.batch[idx].Value, fmt.Errorf("ingestor cleanup: %w", cause), observability.DLQReasonUnrecoverable)
 		if err != nil {
 			return err
 		}
