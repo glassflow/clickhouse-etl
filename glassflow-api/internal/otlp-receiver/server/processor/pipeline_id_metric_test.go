@@ -59,7 +59,7 @@ func TestProcessTraces_PipelineIDMetricLabel(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	proc := processor.NewProcessor(&stubOTLPConfigFetcher{}, nc, 50, 1000)
+	proc := processor.NewProcessor(&stubOTLPConfigFetcher{}, nc, 50, 1000, nil)
 
 	const pipelineID = "my-pipeline-123"
 

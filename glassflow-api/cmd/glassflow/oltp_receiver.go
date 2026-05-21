@@ -6,6 +6,7 @@ import (
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/componentsignals"
 	oltp_receiver "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/otlp-receiver/server"
 	configFetcher "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/otlp-receiver/server/config/fetcher"
 	otlp_processor "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/otlp-receiver/server/processor"
@@ -18,7 +19,13 @@ func mainOLTPReceiver(
 	log *slog.Logger,
 ) error {
 	fetcher := configFetcher.New(cfg.OTLPConfigFetcherBaseURL)
-	otlpDataProcessor := otlp_processor.NewProcessor(fetcher, nc, cfg.OTLPMaxConcurrentRequests, cfg.OTLPNatsChunkSize)
+
+	signalPublisher, err := componentsignals.NewPublisher(nc)
+	if err != nil {
+		return err
+	}
+
+	otlpDataProcessor := otlp_processor.NewProcessor(fetcher, nc, cfg.OTLPMaxConcurrentRequests, cfg.OTLPNatsChunkSize, signalPublisher)
 	r, err := oltp_receiver.New(log, nc, otlpDataProcessor)
 	if err != nil {
 		return err
