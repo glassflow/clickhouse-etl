@@ -320,7 +320,6 @@ func mainEtl(
 	case <-ctx.Done():
 		log.Info("Received termination signal - service will shutdown")
 
-		wg.Add(2)
 		wg.Go(func() {
 			if err := apiServer.Shutdown(ctx, cfg.ServerShutdownTimeout); err != nil {
 				log.Error("failed to shutdown server", slog.Any("error", err))
@@ -334,9 +333,6 @@ func mainEtl(
 				if err != nil && !errors.Is(err, service.ErrPipelineNotFound) {
 					log.Error("pipeline stop error", slog.Any("error", err))
 				}
-				wg.Done()
-			default:
-				wg.Done()
 			}
 		})
 	}
@@ -545,10 +541,8 @@ func runWithGracefulShutdown(
 			return fmt.Errorf("%s component stopped by itself", serviceName)
 		case <-ctx.Done():
 			log.Info("Received termination signal - shutting down", slog.String("service", serviceName))
-			wg.Add(1)
 			usageStatsClient.SendEvent("terminated", serviceName, nil)
 			wg.Go(func() {
-				defer wg.Done()
 				runner.Shutdown()
 			})
 			wg.Wait()

@@ -193,9 +193,7 @@ func (b *BackpressureTestSuite) iDrainTheNatsOutputStream() error {
 	ctx, cancel := context.WithCancel(context.Background())
 	b.drainCancel = cancel
 
-	b.drainWg.Add(1)
-	go func() {
-		defer b.drainWg.Done()
+	b.drainWg.Go(func() {
 		for ctx.Err() == nil {
 			msgs, fetchErr := consumer.Fetch(100, jetstream.FetchMaxWait(300*time.Millisecond))
 			if fetchErr != nil {
@@ -205,7 +203,7 @@ func (b *BackpressureTestSuite) iDrainTheNatsOutputStream() error {
 				_ = msg.Ack()
 			}
 		}
-	}()
+	})
 
 	return nil
 }

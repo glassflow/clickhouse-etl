@@ -585,12 +585,10 @@ func (s *SinkTestSuite) iDisruptAndScheduleRestore(duration string) error {
 	if err := s.iDisruptClickHouseWrites(); err != nil {
 		return err
 	}
-	s.wg.Add(1)
-	go func() {
-		defer s.wg.Done()
+	s.wg.Go(func() {
 		time.Sleep(dur)
 		_ = s.iRestoreClickHouseWrites()
-	}()
+	})
 	return nil
 }
 
@@ -885,11 +883,9 @@ func (s *SinkTestSuite) iRunSecondClickHouseSink() error {
 	}
 	s.chSinkB = sink
 	s.errChB = make(chan error, 1)
-	s.wgB.Add(1)
-	go func() {
-		defer s.wgB.Done()
+	s.wgB.Go(func() {
 		s.chSinkB.Start(context.Background(), s.errChB)
-	}()
+	})
 	return nil
 }
 
