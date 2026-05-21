@@ -283,9 +283,9 @@ HTTP server metrics do not include `component` or `pipeline_id` labels. They are
 
 **Histogram Buckets**: Same as `processing_duration_seconds` (0.001 to 10.0).
 
-### Back-Pressure Metrics
+### Backpressure Metrics
 
-These metrics are emitted by the ingestor component and the NATS stream sampler. They help identify whether back-pressure is active and how long episodes last.
+These metrics are emitted by the ingestor component and the NATS stream sampler. They help identify whether backpressure is active and how long episodes last.
 
 #### `{namespace}_gfm_ingestor_backpressure_active`
 - **Type**: Gauge (Int64)
@@ -299,7 +299,7 @@ These metrics are emitted by the ingestor component and the NATS stream sampler.
 
 #### `{namespace}_gfm_ingestor_backpressure_events_total`
 - **Type**: Counter
-- **Description**: Total number of times the ingestor entered a back-pressure episode
+- **Description**: Total number of times the ingestor entered a backpressure episode
 - **Unit**: Events
 - **Components**: Ingestor
 - **Labels**:
@@ -309,7 +309,7 @@ These metrics are emitted by the ingestor component and the NATS stream sampler.
 
 #### `{namespace}_gfm_ingestor_backpressure_duration_seconds`
 - **Type**: Histogram
-- **Description**: Duration of each ingestor back-pressure episode in seconds
+- **Description**: Duration of each ingestor backpressure episode in seconds
 - **Unit**: Seconds
 - **Components**: Ingestor
 - **Labels**:
@@ -333,7 +333,7 @@ These metrics are emitted by the ingestor component and the NATS stream sampler.
 
 #### `{namespace}_gfm_stream_depth_ratio`
 - **Type**: Gauge (Float64)
-- **Description**: Stream depth divided by `max_messages`; ranges from `0.0` to `1.0`. Sustained values near `1.0` indicate the stream is near capacity and back-pressure is likely
+- **Description**: Stream depth divided by `max_messages`; ranges from `0.0` to `1.0`. Sustained values near `1.0` indicate the stream is near capacity and backpressure is likely
 - **Unit**: Ratio (0.0–1.0)
 - **Components**: Ingestor
 - **Labels**:
@@ -410,9 +410,9 @@ The Ingestor component primarily exports:
 - `{namespace}_gfm_processing_duration_seconds` - Processing time for ingested records
 - `{namespace}_gfm_bytes_processed_total` - Bytes processed (in/out)
 - `{namespace}_gfm_dlq_records_written_total` - Records sent to DLQ on processing errors
-- `{namespace}_gfm_ingestor_backpressure_active` - 1 while blocked on NATS back-pressure
-- `{namespace}_gfm_ingestor_backpressure_events_total` - Count of back-pressure episodes
-- `{namespace}_gfm_ingestor_backpressure_duration_seconds` - Duration of each back-pressure episode
+- `{namespace}_gfm_ingestor_backpressure_active` - 1 while blocked on NATS backpressure
+- `{namespace}_gfm_ingestor_backpressure_events_total` - Count of backpressure episodes
+- `{namespace}_gfm_ingestor_backpressure_duration_seconds` - Duration of each backpressure episode
 - `{namespace}_gfm_stream_depth` - Current message count in the JetStream stream
 - `{namespace}_gfm_stream_depth_ratio` - Stream fill ratio (0.0–1.0)
 
@@ -582,9 +582,9 @@ The `job` label in your metrics comes from the `job_name` field in your Promethe
    - `rate({namespace}_gfm_receiver_request_count{status="error"}[5m])` - OTLP receiver error rate
    - `histogram_quantile(0.95, rate({namespace}_gfm_receiver_request_duration_seconds_bucket[5m]))` - 95th percentile receiver latency
 
-5. **Back-Pressure Metrics** (Kafka ingestor pipelines only):
-   - `{namespace}_gfm_ingestor_backpressure_active` - Currently in back-pressure (`1`) or not (`0`)
-   - `rate({namespace}_gfm_ingestor_backpressure_events_total[5m])` - Rate of new back-pressure episodes
+5. **Backpressure Metrics** (Kafka ingestor pipelines only):
+   - `{namespace}_gfm_ingestor_backpressure_active` - Currently in backpressure (`1`) or not (`0`)
+   - `rate({namespace}_gfm_ingestor_backpressure_events_total[5m])` - Rate of new backpressure episodes
    - `histogram_quantile(0.95, rate({namespace}_gfm_ingestor_backpressure_duration_seconds_bucket[5m]))` - 95th percentile episode duration
    - `{namespace}_gfm_stream_depth_ratio` - Stream fill ratio; alert when sustained near `1.0`
    - `{namespace}_gfm_stream_depth` - Absolute message backlog in stream

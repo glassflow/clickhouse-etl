@@ -359,13 +359,13 @@ sources:
 | `replicas` | Number of receiver pods | `1` | Increase to distribute ingest load across pods |
 | `resources.requests` | Minimum resources per pod | `256Mi / 250m` | Scale with ingest volume |
 | `resources.limits` | Maximum resources per pod | `512Mi / 500m` | Keep headroom above `maxConcurrentRequests × 4 MiB` |
-| `maxConcurrentRequests` | Max in-flight batches before back-pressure | `50` | Increase with spare CPU/memory; `peak_memory ≈ maxConcurrentRequests × 4 MiB` |
+| `maxConcurrentRequests` | Max in-flight batches before backpressure | `50` | Increase with spare CPU/memory; `peak_memory ≈ maxConcurrentRequests × 4 MiB` |
 | `natsChunkSize` | Messages per NATS async-publish chunk | `1000` | Lower if individual messages are large |
 | `service.grpcPort` | gRPC listener port | `4317` | Standard OTLP/gRPC port |
 | `service.httpPort` | HTTP listener port | `4318` | Standard OTLP/HTTP port |
 
 <Callout type="info">
-When the receiver reaches `maxConcurrentRequests` it returns `429 Too Many Requests` (HTTP) or `ResourceExhausted` (gRPC). Standard OTel Collector exporters retry these responses automatically. See [Back-Pressure](/sources/otlp/back-pressure) for tuning guidance.
+When the receiver reaches `maxConcurrentRequests` it returns `429 Too Many Requests` (HTTP) or `ResourceExhausted` (gRPC). Standard OTel Collector exporters retry these responses automatically. See [Backpressure](/sources/otlp/back-pressure) for tuning guidance.
 </Callout>
 
 ## NATS Configuration

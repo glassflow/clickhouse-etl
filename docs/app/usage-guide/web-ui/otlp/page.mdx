@@ -1,5 +1,5 @@
 ---
-title: 'OTLP Pipeline'
+title: 'Create an OTLP Pipeline with GlassFlow'
 description: 'Step-by-step walkthrough of creating an OTLP source pipeline in the GlassFlow web UI'
 ---
 import { Callout, Steps } from 'nextra/components'
@@ -8,7 +8,7 @@ import { Callout, Steps } from 'nextra/components'
 
 This guide walks through the OTLP pipeline wizard step by step — picking the OpenTelemetry signal type, configuring optional dedup/filter/transform, mapping to ClickHouse, and deploying.
 
-Unlike the Kafka wizard, the OTLP source has no connection step — GlassFlow runs its own OTLP receiver inside the cluster. Once the pipeline is deployed, you point your OpenTelemetry Collector or SDK at the receiver and tag every request with the pipeline's ID. See [Sending data](/sources/otlp/sending-data) for collector configs and SDK examples.
+Unlike the Kafka wizard, the OTLP source has no connection step. GlassFlow runs its own OTLP receiver inside the cluster. Once the pipeline is deployed, you point your OpenTelemetry Collector or SDK at the receiver and tag every request with the pipeline's ID. See [Sending data](/sources/otlp/sending-data) for collector configs and SDK examples.
 
 <Callout type="important">
 The OTLP receiver must be enabled in your GlassFlow Helm release (`otlpReceiver.enabled=true`). See [OTLP source prerequisites](/sources/otlp#prerequisites).
@@ -36,7 +36,7 @@ Pick which OpenTelemetry signal this pipeline ingests:
 | **Traces** | Distributed trace spans |
 | **Metrics** | Metric data points (gauge, sum, histogram, summary) |
 
-Unlike Kafka, the OTLP source has a **predefined schema per signal type** — the fields and their types are dictated by the OpenTelemetry spec. The wizard shows the full schema in a table below the signal selector. You can't add or remove fields here.
+Unlike Kafka, the OTLP source has a **predefined schema per signal type**: the fields and their types are dictated by the OpenTelemetry spec. The wizard shows the full schema in a table below the signal selector. You can't add or remove fields here.
 
 Click **Continue** when ready.
 
@@ -55,7 +55,7 @@ Click **Continue** to keep the deduplication, or **Skip deduplication** to pass 
 
 ### Configure Filter (optional)
 
-Filtering keeps only records that match a condition. Identical to the Kafka pipeline filter step — see [the Filter step in the Kafka guide](/usage-guide/web-ui/kafka#configure-filter-optional) for the visual builder, expression mode, and grouping behavior.
+Filtering keeps only records that match a condition. This step is identical to the Kafka pipeline filter step. See [the Filter step in the Kafka guide](/usage-guide/web-ui/kafka#configure-filter-optional) for the visual builder, expression mode, and grouping behavior.
 
 ![OTLP filter](/assets/ui_otlp_filter.png)
 
@@ -63,11 +63,11 @@ Click **Save Filter** to apply, or **Skip Filter** to pass all records through.
 
 ### Configure Transform (optional)
 
-Transformation lets you reshape each record before it reaches ClickHouse — rename fields, derive new ones, drop fields you don't need.
+Transformation lets you reshape each record before it reaches ClickHouse. Rename fields, derive new ones, drop fields you don't need.
 
 ![OTLP transform](/assets/ui_otlp_transform.png)
 
-By default the wizard adds every OTLP field as a **pass-through**. The behavior matches the [Kafka Transform step](/usage-guide/web-ui/kafka#configure-transform-optional) — you can rename, remove, add computed fields, restore defaults, or clear all.
+By default the wizard adds every OTLP field as a **pass-through**. The behavior matches the [Kafka Transform step](/usage-guide/web-ui/kafka#configure-transform-optional). You can rename, remove, add computed fields, restore defaults, or clear all.
 
 Click **Skip Transformation** to pass all fields through unchanged, or **Continue** when your transformations are ready.
 
@@ -90,7 +90,7 @@ Click **Continue**. The wizard validates the connection.
 
 ### Configure Mapping
 
-Map OTLP fields to a ClickHouse table. The mapping step is the same as the Kafka pipeline — pick **Create New Table** or **Use Existing Table** and configure the table and field mapping:
+Map OTLP fields to a ClickHouse table. The mapping step is the same as the Kafka pipeline. Pick **Create New Table** or **Use Existing Table** and configure the table and field mapping:
 
 ![OTLP mapping](/assets/ui_otlp_mapping.png)
 
@@ -108,11 +108,11 @@ Click **Continue** when the mapping is complete.
 
 ### Configure Pipeline Resources
 
-OTLP pipelines have fewer components than Kafka pipelines because there's no separate Kafka ingestor — the OTLP receiver is a shared cluster-wide component. The Pipeline Resources step lets you size the **Sink** and **Transform/Dedup** workers, plus the NATS buffer between them.
+OTLP pipelines have fewer components than Kafka pipelines because there's no separate Kafka ingestor. The OTLP receiver is a shared cluster-wide component. The Pipeline Resources step lets you size the **Sink** and **Transform/Dedup** workers, plus the NATS buffer between them.
 
 ![OTLP Pipeline Resources](/assets/ui_otlp_pipeline_resources.png)
 
-The configuration knobs match the Kafka pipeline's — see [Pipeline Resources in the Kafka guide](/usage-guide/web-ui/kafka#configure-pipeline-resources) for details on replicas, CPU/memory, and NATS stream settings. For tuning guidance against specific throughput targets, see the [Scaling Guide](/installation/kubernetes/scaling).
+The configuration knobs match the Kafka pipeline's. See [Pipeline Resources in the Kafka guide](/usage-guide/web-ui/kafka#configure-pipeline-resources) for details on replicas, CPU/memory, and NATS stream settings. For tuning guidance against specific throughput targets, see the [Scaling Guide](/installation/kubernetes/scaling).
 
 Click **Continue** to deploy the pipeline.
 
@@ -122,23 +122,23 @@ The wizard validates the configuration, sends it to the GlassFlow API, and provi
 
 ![Deployed OTLP pipeline](/assets/ui_otlp_pipeline_page.png)
 
-The pipeline detail page shows the same monitoring widgets as a Kafka pipeline — DLQ metrics, ClickHouse insert rate, visual source-to-sink flow, and lifecycle controls.
+The pipeline detail page shows the same monitoring widgets as a Kafka pipeline: DLQ metrics, ClickHouse insert rate, visual source-to-sink flow, and lifecycle controls.
 
 </Steps>
 
 ## Sending Data to the Pipeline
 
-After deployment, point your OpenTelemetry Collector or SDK at the GlassFlow OTLP receiver. **Every OTLP request must carry the `x-glassflow-pipeline-id` header** with the pipeline's ID as the value — without it the receiver returns `400 Bad Request`.
+After deployment, point your OpenTelemetry Collector or SDK at the GlassFlow OTLP receiver. **Every OTLP request must carry the `x-glassflow-pipeline-id` header** with the pipeline's ID as the value. Without it, the receiver returns `400 Bad Request`.
 
 See [Sending data](/sources/otlp/sending-data) for ready-to-use OTel Collector configs (HTTP and gRPC), SDK examples in Python/Go/Node.js, and signal-specific guidance.
 
 ## Pipeline Stop / Terminate Behavior
 
-Because the OTLP receiver is a shared component, the receiver keeps accepting incoming data for stopped or terminated pipelines — events are buffered in NATS JetStream until the pipeline is resumed. See [OTLP source — Pipeline Stop and Terminate behavior](/sources/otlp#pipeline-stop-and-terminate-behaviour) for details and the implications for `max_bytes` / `max_age` retention.
+Because the OTLP receiver is a shared component, it continues accepting incoming data for stopped or terminated pipelines. The events are buffered in NATS JetStream until the pipeline is resumed. See [OTLP source — Pipeline Stop and Terminate behavior](/sources/otlp#pipeline-stop-and-terminate-behaviour) for details and the implications for `max_bytes` / `max_age` retention.
 
-## Back-Pressure
+## Backpressure
 
-The OTLP receiver signals back-pressure to upstream OTel Collectors and SDKs when the pipeline can't keep up — returning `429 Too Many Requests` (HTTP) or `ResourceExhausted` (gRPC). Standard OTel exporters retry these responses automatically. See [Back-Pressure](/sources/otlp/back-pressure) for tuning the two back-pressure gates.
+The OTLP receiver signals backpressure to upstream OTel Collectors and SDKs when the pipeline can't keep up — returning `429 Too Many Requests` (HTTP) or `ResourceExhausted` (gRPC). Standard OTel exporters retry these responses automatically. See [Backpressure](/sources/otlp/back-pressure) for tuning the two backpressure gates.
 
 ## Next Steps
 
