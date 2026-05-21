@@ -26,7 +26,7 @@ func mainOLTPReceiver(
 	}
 
 	otlpDataProcessor := otlp_processor.NewProcessor(fetcher, nc, cfg.OTLPMaxConcurrentRequests, cfg.OTLPNatsChunkSize, signalPublisher)
-	r, err := oltp_receiver.New(log, otlpDataProcessor)
+	r, err := oltp_receiver.New(log, nc, otlpDataProcessor)
 	if err != nil {
 		return err
 	}

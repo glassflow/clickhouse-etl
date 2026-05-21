@@ -62,7 +62,7 @@ func (w *BatchWriter) WriteBatch(ctx context.Context, messages []models.Message)
 	return failedMessages
 }
 
-func (w *BatchWriter) writeChunk(_ context.Context, messages []models.Message) []models.FailedMessage {
+func (w *BatchWriter) writeChunk(ctx context.Context, messages []models.Message) []models.FailedMessage {
 	futures := make([]jetstream.PubAckFuture, 0, len(messages))
 	var failedMessages []models.FailedMessage
 
@@ -88,7 +88,15 @@ func (w *BatchWriter) writeChunk(_ context.Context, messages []models.Message) [
 		return failedMessages
 	}
 
-	<-w.js.PublishAsyncComplete()
+	// Honor ctx so a wedged JetStream connection (e.g. cluster member restart
+	// mid-flight) cannot deadlock the caller forever. Without this, the gRPC
+	// handler goroutine that hits PublishAsyncComplete will block until the
+	// process is restarted, even though the client has already timed out.
+	select {
+	case <-w.js.PublishAsyncComplete():
+	case <-ctx.Done():
+		return appendUnresolvedAsFailed(failedMessages, futures, ctx.Err())
+	}
 
 	for _, future := range futures {
 		select {
@@ -106,6 +114,36 @@ func (w *BatchWriter) writeChunk(_ context.Context, messages []models.Message) [
 	}
 
 	return failedMessages
+}
+
+// appendUnresolvedAsFailed marks every future that has not yet resolved with the
+// given error so the caller's DLQ/retry path can handle them. Futures that did
+// resolve successfully before the deadline are dropped silently — the messages
+// they cover are already durable in JetStream.
+func appendUnresolvedAsFailed(failed []models.FailedMessage, futures []jetstream.PubAckFuture, cause error) []models.FailedMessage {
+	for _, future := range futures {
+		select {
+		case <-future.Ok():
+			continue
+		case err := <-future.Err():
+			failed = append(failed, models.FailedMessage{
+				Message: models.Message{
+					Type:            models.MessageTypeNatsMsg,
+					NatsMsgOriginal: future.Msg(),
+				},
+				Error: err,
+			})
+		default:
+			failed = append(failed, models.FailedMessage{
+				Message: models.Message{
+					Type:            models.MessageTypeNatsMsg,
+					NatsMsgOriginal: future.Msg(),
+				},
+				Error: cause,
+			})
+		}
+	}
+	return failed
 }
 
 // Close closes the batch writer

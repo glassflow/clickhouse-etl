@@ -63,6 +63,7 @@ type IngestorTestSuite struct {
 func NewIngestorTestSuite() *IngestorTestSuite {
 	return &IngestorTestSuite{
 		BaseTestSuite: BaseTestSuite{ //nolint:exhaustruct // optional config
+			suiteName:         "ingestor",
 			wg:                sync.WaitGroup{},
 			kafkaContainer:    nil,
 			natsContainer:     nil,

@@ -372,6 +372,7 @@ export function getSidebarStepsFromInstances(
         } else {
           if (
             prevStep === StepKeys.KAFKA_TYPE_VERIFICATION ||
+            prevStep === StepKeys.OTLP_SIGNAL_TYPE ||
             prevStep === StepKeys.TOPIC_SELECTION_1 ||
             prevStep === StepKeys.TOPIC_SELECTION_2 ||
             prevStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1 ||
@@ -475,8 +476,10 @@ export const getSidebarSteps = (journey: StepKeys[], topicCount?: number): Sideb
           }
         } else {
           // For single topic journey, type verification is a main step, so use it as parent
+          // OTLP_SIGNAL_TYPE serves the same role for OTLP journeys
           if (
             prevStep === StepKeys.KAFKA_TYPE_VERIFICATION ||
+            prevStep === StepKeys.OTLP_SIGNAL_TYPE ||
             prevStep === StepKeys.TOPIC_SELECTION_1 ||
             prevStep === StepKeys.TOPIC_SELECTION_2 ||
             prevStep === StepKeys.TOPIC_DEDUPLICATION_CONFIGURATOR_1 ||

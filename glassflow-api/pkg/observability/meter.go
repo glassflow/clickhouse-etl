@@ -255,13 +255,24 @@ func RecordKafkaRead(ctx context.Context, component string, count int64) {
 	))
 }
 
-func RecordDLQWrite(ctx context.Context, component string, count int64) {
+// DLQ reason constants — keep cardinality bounded, never pass free-form strings.
+const (
+	DLQReasonParseError     = "parse_error"
+	DLQReasonSchemaMismatch = "schema_mismatch"
+	DLQReasonSinkRejection  = "sink_rejection"
+	DLQReasonRetryExhausted = "retry_exhausted"
+	DLQReasonDedupOverflow  = "dedup_overflow"
+	DLQReasonUnrecoverable  = "unrecoverable"
+)
+
+func RecordDLQWrite(ctx context.Context, component, reason string, count int64) {
 	if DLQRecordsWritten == nil {
 		return
 	}
 	DLQRecordsWritten.Add(ctx, count, metric.WithAttributes(
 		attribute.String("component", component),
 		attribute.String("pipeline_id", pipelineID),
+		attribute.String("reason", reason),
 	))
 }
 
