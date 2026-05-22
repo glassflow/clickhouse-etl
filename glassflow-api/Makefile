@@ -8,7 +8,7 @@ endif
 
 .PHONY: run
 run:
-	go run cmd/glassflow/main.go
+	go run ./cmd/glassflow/
 
 .PHONY: build
 build:

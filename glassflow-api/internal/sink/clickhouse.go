@@ -256,8 +256,7 @@ func (ch *ClickHouseSink) handleShutdown(ctx context.Context) error {
 func (ch *ClickHouseSink) startWorkerPool() {
 	ch.log.Info("Starting worker pool", "worker_count", ch.workerPoolSize)
 	for range ch.workerPoolSize {
-		ch.workerWg.Add(1)
-		go ch.worker()
+		ch.workerWg.Go(ch.worker)
 	}
 }
 
@@ -279,8 +278,6 @@ func (ch *ClickHouseSink) stopWorkerPool() {
 
 // worker processes messages in parallel by calling PrepareValues
 func (ch *ClickHouseSink) worker() {
-	defer ch.workerWg.Done()
-
 	for {
 		select {
 		case <-ch.workerCtx.Done():

@@ -255,9 +255,7 @@ func (b *BaseTestSuite) deleteAllStreams() error {
 }
 
 func (b *BaseTestSuite) stopComponent(stopFn func(...component.StopOption), graceful bool, delayDuration ...time.Duration) {
-	b.wg.Add(1)
-	go func() {
-		defer b.wg.Done()
+	b.wg.Go(func() {
 
 		if len(delayDuration) > 0 && delayDuration[0] > 0 {
 			time.Sleep(delayDuration[0])
@@ -268,7 +266,7 @@ func (b *BaseTestSuite) stopComponent(stopFn func(...component.StopOption), grac
 		} else {
 			stopFn(component.WithNoWait(true))
 		}
-	}()
+	})
 
 	b.wg.Wait()
 }
