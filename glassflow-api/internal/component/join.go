@@ -9,6 +9,7 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/componentsignals"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/configs"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/join"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/kv"
@@ -41,6 +42,8 @@ func NewJoinComponent(
 	leftSourceName, rightSourceName, leftKey, rightKey string,
 	doneCh chan struct{},
 	log *slog.Logger,
+	pipelineID string,
+	signalPublisher *componentsignals.ComponentSignalPublisher,
 ) (Component, error) {
 	if cfg.Type != internal.TemporalJoinType {
 		return nil, fmt.Errorf("unsupported join type")
@@ -57,6 +60,8 @@ func NewJoinComponent(
 		leftKVStore, rightKVStore,
 		leftSourceName, rightSourceName, leftKey, rightKey,
 		log,
+		pipelineID,
+		signalPublisher,
 	)
 	return &JoinComponent{
 		leftStreamSubsriber:   stream.NewNATSSubscriber(leftStreamConsumer, log),

@@ -259,7 +259,7 @@ func (k *KafkaMsgProcessor) bpStart(ctx context.Context) {
 			Component:  internal.RoleIngestor,
 			PipelineID: k.pipelineID,
 			Reason:     "stream back-pressure",
-			Text:       "NATS stream is full — ingestor is retrying",
+			Text:       fmt.Sprintf("NATS stream is full — ingestor is retrying (topic: %s)", k.topic.Name),
 		}); sigErr != nil {
 			k.log.WarnContext(ctx, "failed to send backpressure signal", slog.Any("error", sigErr))
 		}

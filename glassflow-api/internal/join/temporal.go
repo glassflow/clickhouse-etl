@@ -13,11 +13,15 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/componentsignals"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/configs"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/kv"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	schemav2 "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema_v2"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
 )
+
+const backpressureSignalCooldown = 5 * time.Minute
 
 type TemporalJoinExecutor struct {
 	resultsPublisher stream.Publisher
@@ -31,6 +35,10 @@ type TemporalJoinExecutor struct {
 	leftKey          string
 	rightKey         string
 	log              *slog.Logger
+	pipelineID       string
+	signalPublisher  *componentsignals.ComponentSignalPublisher
+
+	lastBackpressureSignal time.Time
 }
 
 func NewTemporalJoinExecutor(
@@ -40,6 +48,8 @@ func NewTemporalJoinExecutor(
 	leftKVStore, rightKVStore kv.KeyValueStore,
 	leftSourceName, rightSourceName, leftKey, rightKey string,
 	log *slog.Logger,
+	pipelineID string,
+	signalPublisher *componentsignals.ComponentSignalPublisher,
 ) *TemporalJoinExecutor {
 	return &TemporalJoinExecutor{
 		resultsPublisher: resultsPublisher,
@@ -53,6 +63,8 @@ func NewTemporalJoinExecutor(
 		leftKey:          leftKey,
 		rightKey:         rightKey,
 		log:              log,
+		pipelineID:       pipelineID,
+		signalPublisher:  signalPublisher,
 	}
 }
 
@@ -80,6 +92,18 @@ func (t *TemporalJoinExecutor) publishJoinedMsg(ctx context.Context, inflight je
 			t.log.WarnContext(ctx, "failed to extend ack-wait while waiting on back-pressure", "error", ipErr)
 		}
 		t.log.WarnContext(ctx, "results stream back-pressure, retrying publish", "backoff", backoff)
+
+		if t.signalPublisher != nil && time.Since(t.lastBackpressureSignal) >= backpressureSignalCooldown {
+			t.lastBackpressureSignal = time.Now()
+			if sigErr := t.signalPublisher.SendSignal(ctx, models.ComponentSignal{
+				Component:  internal.RoleJoin,
+				PipelineID: t.pipelineID,
+				Reason:     "stream back-pressure",
+				Text:       fmt.Sprintf("NATS results stream is full — %s is retrying", internal.RoleJoin),
+			}); sigErr != nil {
+				t.log.WarnContext(ctx, "failed to send backpressure signal", slog.Any("error", sigErr))
+			}
+		}
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
