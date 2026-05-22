@@ -11,6 +11,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/batch"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 )
 
 // streamingState encapsulates all streaming-specific state
@@ -244,6 +245,8 @@ func (sc *StreamingComponent) writeFailedBatch(ctx context.Context, failedMessag
 	if len(failedDlqMessages) > 0 {
 		return fmt.Errorf("failed to write to DLQ: %w", failedDlqMessages[0].Error)
 	}
+
+	observability.RecordDLQWrite(ctx, sc.role, observability.DLQReasonUnrecoverable, int64(len(messages)))
 
 	return nil
 }
