@@ -400,7 +400,7 @@ func dedupEnabled(pc *PipelineConfig) bool {
 			return true
 		}
 	}
-	return false
+	return pc.OTLPSource.Deduplication.Enabled
 }
 
 func transformEnabled(pc *PipelineConfig) bool {
