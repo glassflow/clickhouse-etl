@@ -52,8 +52,9 @@ type KafkaMsgProcessor struct {
 
 	// Back-pressure episode state. Mutated only from the single-goroutine
 	// processor driver, so no synchronization is needed.
-	activeBackpressure  bool
-	backpressureStartTS time.Time
+	activeBackpressure     bool
+	backpressureStartTS    time.Time
+	lastBackpressureSignal time.Time
 }
 
 func NewKafkaMsgProcessor(
@@ -237,6 +238,8 @@ func (k *KafkaMsgProcessor) prepareMesssage(ctx context.Context, msg *kgo.Record
 	return nMsg, nil
 }
 
+const backpressureSignalCooldown = 5 * time.Minute
+
 // bpStart marks the beginning of a back-pressure episode. Idempotent — extra
 // calls inside an active episode are no-ops, so the histogram observes one
 // duration per episode regardless of how many BP errors happen along the way.
@@ -249,6 +252,18 @@ func (k *KafkaMsgProcessor) bpStart(ctx context.Context) {
 	observability.RecordIngestorBackpressureStart(ctx)
 	k.log.InfoContext(ctx, "ingestor backpressure: start",
 		slog.String("pipeline_id", k.pipelineID))
+
+	if k.signalPublisher != nil && time.Since(k.lastBackpressureSignal) >= backpressureSignalCooldown {
+		k.lastBackpressureSignal = time.Now()
+		if sigErr := k.signalPublisher.SendSignal(ctx, models.ComponentSignal{
+			Component:  internal.RoleIngestor,
+			PipelineID: k.pipelineID,
+			Reason:     "stream back-pressure",
+			Text:       fmt.Sprintf("NATS stream is full — ingestor is retrying (topic: %s)", k.topic.Name),
+		}); sigErr != nil {
+			k.log.WarnContext(ctx, "failed to send backpressure signal", slog.Any("error", sigErr))
+		}
+	}
 }
 
 // bpStop ends an active back-pressure episode and observes its duration.

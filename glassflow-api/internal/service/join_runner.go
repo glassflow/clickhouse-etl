@@ -10,6 +10,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/component"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/componentsignals"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/configs"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/kv"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
@@ -163,6 +164,12 @@ func (j *JoinRunner) Start(ctx context.Context) error {
 		TotalSubjectCount: outputSubjectCount,
 	})
 
+	signalPublisher, err := componentsignals.NewPublisher(j.nc)
+	if err != nil {
+		j.log.ErrorContext(ctx, "failed to create component signal publisher", "error", err)
+		return fmt.Errorf("create signal publisher: %w", err)
+	}
+
 	jComponent, err := component.NewJoinComponent(
 		j.joinCfg,
 		leftConsumer,
@@ -179,6 +186,8 @@ func (j *JoinRunner) Start(ctx context.Context) error {
 		rightSource.JoinKey,
 		j.doneCh,
 		j.log,
+		j.cfg.ID,
+		signalPublisher,
 	)
 	if err != nil {
 		j.log.ErrorContext(ctx, "failed to join: ", "error", err)
