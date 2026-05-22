@@ -214,6 +214,8 @@ func (p *Processor) emitBackpressureSignal(ctx context.Context, pipelineID strin
 	p.lastBackpressureSignal[pipelineID] = time.Now()
 	p.signalMu.Unlock()
 
+	observability.RecordBackpressureStart(ctx, internal.RoleOLTPReceiver)
+
 	_ = p.signalSender.SendSignal(ctx, models.ComponentSignal{
 		Component:  internal.RoleOLTPReceiver,
 		PipelineID: pipelineID,

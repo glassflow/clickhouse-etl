@@ -12,6 +12,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/componentsignals"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 )
 
 const backpressureSignalCooldown = 5 * time.Minute
@@ -37,7 +38,9 @@ type StreamingComponent struct {
 	pipelineID      string
 	signalPublisher *componentsignals.ComponentSignalPublisher
 
-	lastBackpressureSignal time.Time
+	lastBackpressureSignal  time.Time
+	activeBackpressure      bool
+	backpressureStartTS     time.Time
 
 	streaming streamingState
 }
@@ -202,7 +205,17 @@ func (sc *StreamingComponent) writeWithBackpressure(ctx context.Context, upstrea
 		}
 
 		if len(backpressure) == 0 {
+			if sc.activeBackpressure {
+				sc.activeBackpressure = false
+				observability.RecordBackpressureStop(ctx, sc.role, time.Since(sc.backpressureStartTS).Seconds())
+			}
 			return nil
+		}
+
+		if !sc.activeBackpressure {
+			sc.activeBackpressure = true
+			sc.backpressureStartTS = time.Now()
+			observability.RecordBackpressureStart(ctx, sc.role)
 		}
 
 		// Extend AckWait on upstream JetStream messages so the broker does not
