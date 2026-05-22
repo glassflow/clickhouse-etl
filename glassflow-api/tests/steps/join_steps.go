@@ -267,7 +267,7 @@ func (j *JoinTestSuite) iRunJoinComponent(leftTTL, rightTTL string) error {
 		rightSource.JoinKey,
 		make(chan struct{}),
 		logger,
-		"", // pipelineID not needed in tests
+		"",  // pipelineID not needed in tests
 		nil, // signalPublisher not needed in tests
 	)
 

@@ -52,9 +52,9 @@ type KafkaMsgProcessor struct {
 
 	// Back-pressure episode state. Mutated only from the single-goroutine
 	// processor driver, so no synchronization is needed.
-	activeBackpressure      bool
-	backpressureStartTS     time.Time
-	lastBackpressureSignal  time.Time
+	activeBackpressure     bool
+	backpressureStartTS    time.Time
+	lastBackpressureSignal time.Time
 }
 
 func NewKafkaMsgProcessor(
