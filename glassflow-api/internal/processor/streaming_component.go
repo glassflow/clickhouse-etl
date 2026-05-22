@@ -38,9 +38,9 @@ type StreamingComponent struct {
 	pipelineID      string
 	signalPublisher *componentsignals.ComponentSignalPublisher
 
-	lastBackpressureSignal  time.Time
-	activeBackpressure      bool
-	backpressureStartTS     time.Time
+	lastBackpressureSignal time.Time
+	activeBackpressure     bool
+	backpressureStartTS    time.Time
 
 	streaming streamingState
 }
