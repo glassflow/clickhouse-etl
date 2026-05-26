@@ -79,6 +79,15 @@ x-glassflow-pipeline-id: <your-pipeline-id>
 | Filter | Yes | [Filter](/transformations/filter) |
 | Stateless Transformation | Yes | [Stateless Transformation](/transformations/stateless-transformation) |
 
+## Telemetry collectors
+
+Any OTLP-capable client can talk to the GlassFlow OTLP receiver. The pages below cover the validated integrations for popular telemetry agents and forwarders — tested configs, field mappings, and per-tool caveats.
+
+- [Fluent Bit](/sources/fluent-bit) — direct OTLP HTTP forwarding for logs and host metrics (no Collector in between)
+- [Logstash](/sources/logstash) — Logstash → OpenTelemetry Collector → GlassFlow (Logstash itself has no maintained OTLP output)
+
+For OpenTelemetry SDKs and the OpenTelemetry Collector directly, see [Sending Data](/sources/otlp/sending-data).
+
 ## Pipeline Stop and Terminate Behaviour
 
 Because the OTLP receiver is a shared component that stays running across all pipelines, it is important to understand what happens to in-flight data when you stop or terminate an OTLP pipeline.
