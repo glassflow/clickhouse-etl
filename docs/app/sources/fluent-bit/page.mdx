@@ -1,22 +1,23 @@
 ---
 title: 'Fluent Bit'
-description: 'Forward logs and metrics from Fluent Bit into ClickHouse via the GlassFlow OTLP receiver'
+description: 'Use Fluent Bit to collect application logs and host metrics from your systems and ship them to ClickHouse via the GlassFlow OTLP receiver'
 ---
 import { Callout } from 'nextra/components'
 
 # Fluent Bit
 
-[Fluent Bit](https://fluentbit.io) is a lightweight, CNCF-graduated telemetry agent that collects logs from files and OS journals and scrapes host and process metrics. It is widely deployed as a DaemonSet on Kubernetes and as a host agent on VMs.
+[Fluent Bit](https://fluentbit.io) is a lightweight, CNCF-graduated telemetry agent. It tails **your application log files**, scrapes **your host's CPU/memory/network metrics** from `/proc` and `/sys`, and (optionally) receives OpenTelemetry traffic from your apps. It is widely deployed as a DaemonSet on Kubernetes and as a host agent on VMs.
 
 ## Direct Fluent Bit → GlassFlow is supported
 
 Unlike most other ecosystem collectors, Fluent Bit ships a maintained [`opentelemetry`](https://docs.fluentbit.io/manual/pipeline/outputs/opentelemetry) output plugin that can speak OTLP HTTP, set custom request headers, and emit signal-typed payloads — everything the GlassFlow OTLP receiver needs to route a request to the right pipeline. **You do not need an OpenTelemetry Collector in the middle for logs and metrics.**
 
 ```text
-your apps / files / hosts
-        │
-        ▼
-   Fluent Bit  ──[ OTLP HTTP · x-glassflow-pipeline-id ]──▶  GlassFlow OTLP receiver  ──▶  ClickHouse
+your apps' log files                    your hosts' /proc, /sys
+        │                                        │
+        └────────────────┬───────────────────────┘
+                         ▼
+                    Fluent Bit  ──[ OTLP HTTP · x-glassflow-pipeline-id ]──▶  GlassFlow OTLP receiver  ──▶  ClickHouse
 ```
 
 For traces, see the [traces caveat](#traces-use-an-opentelemetry-collector) at the bottom of this page.
