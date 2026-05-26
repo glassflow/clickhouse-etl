@@ -96,6 +96,12 @@ When the receiver cannot keep up with incoming data it signals back-pressure to 
 
 See [Back-Pressure](/sources/otlp/back-pressure) for how the two back-pressure gates work, how to tune them, and how to resolve sustained back-pressure.
 
+## Telemetry collectors and forwarders
+
+The OTLP receiver accepts data from any OpenTelemetry-compatible collector or forwarder. The following tools are validated and have specific integration guides:
+
+- [Logstash](/sources/logstash) -- via OpenTelemetry Collector relay (`tcplog` → `otlphttp`)
+
 ## Next Steps
 
 - [Examples](/sources/otlp/examples) -- ClickStack-compatible tables and full pipeline configs for logs, traces, and metrics

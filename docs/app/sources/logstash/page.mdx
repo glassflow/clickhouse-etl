@@ -8,14 +8,84 @@ import { Callout } from 'nextra/components'
 
 Logstash is a data processing pipeline that ingests, transforms, and forwards logs and events. It is commonly used in the Elastic ecosystem for centralized log management.
 
-## Using Logstash with GlassFlow
+## Why direct Logstash → GlassFlow isn't supported today
 
-GlassFlow can ingest telemetry forwarded by Logstash into ClickHouse with the same pipeline capabilities available to all GlassFlow sources — deduplication, filtering, and stateless transformations.
+GlassFlow's OTLP receiver requires the `x-glassflow-pipeline-id` HTTP header on every request. Logstash itself does not have a maintained output plugin that can satisfy this requirement:
 
-<Callout type="info">
-**Available on request.** Logstash connectors are natively supported in GlassFlow Enterprise Edition. To get started, [join our GlassFlow Slack community](https://glassflowhub.slack.com/join/shared_invite/zt-349m7lenp-IFeKSGfQwpJfIiQ7oyFFKg) to chat directly with our team, or [reach out](https://www.glassflow.dev/integrations#contact) to us with your use case, expected volumes, and timeline.
+- **No official Elastic OTLP output plugin** exists. Elastic's [own guidance](https://www.elastic.co/observability-labs/blog/logstash-to-otel) is to migrate Logstash pipelines to the OpenTelemetry Collector.
+- The community [`logstash-output-opentelemetry`](https://github.com/paulgrav/logstash-output-opentelemetry) gem hasn't shipped a release since January 2022 and does not support setting custom HTTP headers.
+- The bundled `logstash-output-http` plugin can set custom headers but cannot emit OTLP-protobuf bodies, it has no codec for OTLP encoding.
+
+## Recommended pattern: Logstash → OpenTelemetry Collector → GlassFlow
+
+Forward Logstash events to a local OpenTelemetry Collector and configure the Collector's OTLP exporter to send to GlassFlow with the required header. This pattern is validated end-to-end against the GlassFlow OTLP receiver, see the configs below.
+
+### OpenTelemetry Collector config
+
+```yaml
+# otel-collector.yaml
+receivers:
+  tcplog:
+    listen_address: 0.0.0.0:5044
+    # Or use filelog / udplog / fluentforward depending on how you
+    # ship from Logstash. See the Elastic migration guide linked above.
+
+processors:
+  batch:
+    timeout: 1s
+
+exporters:
+  otlphttp/glassflow:
+    endpoint: http://<glassflow-otlp-receiver>:4318
+    compression: none
+    headers:
+      x-glassflow-pipeline-id: <your-pipeline-id>
+
+service:
+  pipelines:
+    logs:
+      receivers: [tcplog]
+      processors: [batch]
+      exporters: [otlphttp/glassflow]
+```
+
+<Callout type="warning">
+**Disable gzip compression** on the `otlphttp` exporter (`compression: none`). The GlassFlow OTLP receiver does not decompress gzip-encoded payloads and will return `400 Bad Request` if you leave the exporter's default `gzip` compression enabled.
 </Callout>
+
+### Logstash output
+
+On the Logstash side, send to the Collector with a `tcp` output (or any other output the Collector receives - `udp`, `file`, `fluentforward`):
+
+```ruby
+# logstash.conf
+output {
+  tcp {
+    host => "otel-collector"
+    port => 5044
+    codec => line
+  }
+}
+```
+
+### Sink mapping
+
+When you create the GlassFlow pipeline, map **`observed_timestamp`** rather than `timestamp` in the sink mapping. The OTel Collector's `tcplog` receiver does not parse a timestamp from raw Logstash lines, so `LogRecord.Timestamp` is empty; `observed_timestamp` is set by the receiver when the event arrives and is the right value to write to ClickHouse.
+
+```json
+"mapping": [
+  {"name": "observed_timestamp", "column_name": "timestamp",     "column_type": "DateTime64(9)"},
+  {"name": "severity_text",      "column_name": "severity_text", "column_type": "String"},
+  {"name": "body",               "column_name": "body",          "column_type": "String"}
+]
+```
+
+If you want a structured `severity_text` or per-field columns, add an OTel Collector [transform processor](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/transformprocessor) between `tcplog` and `otlphttp` to extract fields from the raw Logstash payload. The full OTLP logs schema is documented at [OTLP Schema Reference](/sources/otlp/schema-reference#otlp-logs-fields).
+
+See [Sending data to GlassFlow OTLP](/sources/otlp/sending-data) for full OTel Collector configuration options — including gRPC, TLS, and back-pressure handling.
 
 ## Related
 
 - [Sources overview](/sources)
+- [OpenTelemetry (OTLP) source](/sources/otlp) — the receiver this pattern uses
+- [Sending data to GlassFlow OTLP](/sources/otlp/sending-data) — OTel Collector configuration reference
