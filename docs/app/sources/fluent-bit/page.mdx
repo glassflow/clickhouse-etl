@@ -1,6 +1,6 @@
 ---
 title: 'Fluent Bit'
-description: 'Use Fluent Bit to collect application logs and metrics from your systems and ship them to ClickHouse via the GlassFlow OTLP receiver'
+description: 'Use Fluent Bit to collect application logs and metrics from your systems and ship them to ClickHouse via the GlassFlow OTLP receiver.'
 ---
 import { Callout } from 'nextra/components'
 
@@ -130,7 +130,7 @@ Whatever metrics Fluent Bit collects, the `opentelemetry` output forwards them t
     Retry_Limit   3
 ```
 
-Counters, gauges, and histograms arrive in the pipeline's target table with their `metric_type` correctly identified. Any Prometheus labels are preserved as attributes — in the sample below only the counter carries labels; the gauge and histogram have none:
+Counters, gauges, and histograms arrive in the pipeline's target table with their `metric_type` correctly identified. Any Prometheus labels are preserved as attributes. In the sample below, only the counter carries labels; the gauge and histogram have none:
 
 | `metric_name` | `metric_type` | `attributes` |
 |---|---|---|
@@ -142,7 +142,7 @@ Metric descriptions and units are preserved alongside the values.
 
 ## Traces
 
-Fluent Bit can act as a trace forwarder — apps send OTLP traces to its `opentelemetry` input, and the `opentelemetry` output forwards them to GlassFlow. Two requirements apply:
+Fluent Bit can act as a trace forwarder. Applications send OTLP traces to its `opentelemetry` input, and the `opentelemetry` output forwards them to GlassFlow. Two requirements apply:
 
 1. **Fluent Bit 5.0 or newer** (validated on 5.0.6). Earlier versions (including 3.2.x) fail to parse incoming spans: the `opentelemetry` input rejects them and nothing is forwarded.
 2. **gRPC transport into Fluent Bit.** Point your OTel SDK (or upstream collector) at Fluent Bit's input over gRPC. The OTLP/**JSON** trace path is broken on every current version, including 5.0 — it fails with `invalid JSON trace: conversion error`. A stock OTel SDK gRPC exporter works as-is; no special payload shaping is needed.
@@ -188,7 +188,7 @@ Three places to look:
 
 ## Caveats
 
-- **Misconfigured pipeline IDs fail quietly.** Fluent Bit's `opentelemetry` output treats every non-2xx response as retryable, including 4xx. If the `Header x-glassflow-pipeline-id` value is wrong or the pipeline doesn't exist, Fluent Bit retries each batch up to `Retry_Limit` and then drops it — there's no fatal error to alert on. Watch Fluent Bit's `fluentbit_output_retries_total` for that output — a steadily-climbing counter with no successes is the canary.
+- **Misconfigured pipeline IDs fail quietly.** Fluent Bit's `opentelemetry` output treats every non-2xx response as retryable, including 4xx. If the `Header x-glassflow-pipeline-id` value is wrong or the pipeline doesn't exist, Fluent Bit retries each batch up to `Retry_Limit` and then drops it. There's no fatal error to alert on. Watch Fluent Bit's `fluentbit_output_retries_total` for that output. A steadily-climbing counter with no successes is the canary.
 - **`resource_attributes` is not populated from `record_modifier` fields.** See the field-mapping callout above.
 - **Trace forwarding requires Fluent Bit 5.0+ over gRPC.** The OTLP/JSON trace path is broken on all current versions. See [Traces](#traces).
 
