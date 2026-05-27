@@ -267,6 +267,8 @@ func (j *JoinTestSuite) iRunJoinComponent(leftTTL, rightTTL string) error {
 		rightSource.JoinKey,
 		make(chan struct{}),
 		logger,
+		"",  // pipelineID not needed in tests
+		nil, // signalPublisher not needed in tests
 	)
 
 	if err != nil {
@@ -277,11 +279,9 @@ func (j *JoinTestSuite) iRunJoinComponent(leftTTL, rightTTL string) error {
 
 	j.errCh = make(chan error, 1)
 
-	j.wg.Add(1)
-	go func() {
-		defer j.wg.Done()
+	j.wg.Go(func() {
 		joinComponent.Start(ctx, j.errCh)
-	}()
+	})
 
 	return nil
 }

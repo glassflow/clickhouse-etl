@@ -106,15 +106,15 @@ func (r *Receiver) Shutdown() {
 	r.grpcHealth.Shutdown()
 
 	var wg sync.WaitGroup
-	wg.Add(2)
 
-	go func() {
-		defer wg.Done()
-		_ = r.httpServer.Shutdown(ctx, 5*time.Second)
-	}()
+	wg.Go(func() {
+		err := r.httpServer.Shutdown(ctx, 5*time.Second)
+		if err != nil {
+			r.log.Error("failed to shutdown server", slog.Any("error", err))
+		}
+	})
 
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		grpcStopped := make(chan struct{})
 		go func() {
 			r.grpcServer.GracefulStop()
@@ -125,7 +125,7 @@ func (r *Receiver) Shutdown() {
 		case <-ctx.Done():
 			r.grpcServer.Stop()
 		}
-	}()
+	})
 
 	wg.Wait()
 }

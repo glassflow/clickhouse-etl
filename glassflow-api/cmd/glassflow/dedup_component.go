@@ -213,6 +213,8 @@ func NewDedupComponent(
 		dlqWriter,
 		log,
 		role,
+		pipelineConfig.ID,
+		componentSignalPublisher,
 		// execution depends on order in this slice
 		[]processor.Processor{
 			filterProcessor,

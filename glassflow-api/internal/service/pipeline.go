@@ -280,9 +280,13 @@ func (p *PipelineService) GetOTLPConfig(ctx context.Context, pid string) (models
 
 	var routing models.RoutingConfig
 	if dedup.Enabled {
+		subjectCount := 1
+		if pipeline.PipelineResources.Transform != nil && pipeline.PipelineResources.Transform.Replicas != nil {
+			subjectCount = int(*pipeline.PipelineResources.Transform.Replicas)
+		}
 		routing = models.RoutingConfig{
 			OutputSubject: outputSubject,
-			SubjectCount:  int(*pipeline.PipelineResources.Transform.Replicas),
+			SubjectCount:  subjectCount,
 			Type:          models.RoutingTypeField,
 			Field:         &models.RoutingConfigField{Name: dedup.ID},
 		}

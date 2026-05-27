@@ -110,6 +110,8 @@ func createStreamingComponent(
 		dlqWriter,
 		slog.Default(),
 		role,
+		"", // pipelineID not needed in tests
+		nil, // signalPublisher not needed in tests
 		[]processor.Processor{
 			filterProcessor,
 			dedupProcessor,

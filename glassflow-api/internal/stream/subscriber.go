@@ -48,10 +48,7 @@ func (s *NatsSubscriber) Subscribe(handler func(msg jetstream.Msg)) error {
 		return fmt.Errorf("consumer is nil")
 	}
 
-	s.wg.Add(1)
-
-	go func() {
-		defer s.wg.Done()
+	s.wg.Go(func() {
 		defer close(s.closedCh)
 		for {
 			msg, err := s.consumer.Next(jetstream.FetchMaxWait(internal.NatsDefaultFetchMaxWait))
@@ -82,7 +79,7 @@ func (s *NatsSubscriber) Subscribe(handler func(msg jetstream.Msg)) error {
 				return
 			}
 		}
-	}()
+	})
 
 	return nil
 }

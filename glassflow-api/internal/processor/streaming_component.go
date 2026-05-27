@@ -9,9 +9,13 @@ import (
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/batch"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/componentsignals"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 )
+
+const backpressureSignalCooldown = 5 * time.Minute
 
 // streamingState encapsulates all streaming-specific state
 type streamingState struct {
@@ -24,13 +28,19 @@ type streamingState struct {
 }
 
 type StreamingComponent struct {
-	reader     batch.BatchReader
-	writer     batch.BatchWriter
-	dlqWriter  batch.BatchWriter
-	log        *slog.Logger
-	processors []Processor
-	shutdown   shutdown
-	role       string
+	reader          batch.BatchReader
+	writer          batch.BatchWriter
+	dlqWriter       batch.BatchWriter
+	log             *slog.Logger
+	processors      []Processor
+	shutdown        shutdown
+	role            string
+	pipelineID      string
+	signalPublisher *componentsignals.ComponentSignalPublisher
+
+	lastBackpressureSignal time.Time
+	activeBackpressure     bool
+	backpressureStartTS    time.Time
 
 	streaming streamingState
 }
@@ -41,15 +51,19 @@ func NewStreamingComponent(
 	dlqWriter batch.BatchWriter,
 	log *slog.Logger,
 	role string,
+	pipelineID string,
+	signalPublisher *componentsignals.ComponentSignalPublisher,
 	processors []Processor,
 ) *StreamingComponent {
 	return &StreamingComponent{
-		reader:     reader,
-		writer:     writer,
-		dlqWriter:  dlqWriter,
-		log:        log,
-		processors: processors,
-		role:       role,
+		reader:          reader,
+		writer:          writer,
+		dlqWriter:       dlqWriter,
+		log:             log,
+		processors:      processors,
+		role:            role,
+		pipelineID:      pipelineID,
+		signalPublisher: signalPublisher,
 		shutdown: shutdown{
 			doneCh: make(chan struct{}),
 		},
@@ -73,9 +87,7 @@ func (sc *StreamingComponent) Start(ctx context.Context) error {
 	defer sc.streaming.bufferFlushTicker.Stop()
 
 	flushWg := sync.WaitGroup{}
-	flushWg.Add(1)
-	go func() {
-		defer flushWg.Done()
+	flushWg.Go(func() {
 		for {
 			select {
 			case <-ctx.Done():
@@ -84,7 +96,7 @@ func (sc *StreamingComponent) Start(ctx context.Context) error {
 				sc.flushBuffer(ctx)
 			}
 		}
-	}()
+	})
 
 	messageHandler := func(msg models.Message) {
 		sc.streaming.bufferMu.Lock()
@@ -193,7 +205,17 @@ func (sc *StreamingComponent) writeWithBackpressure(ctx context.Context, upstrea
 		}
 
 		if len(backpressure) == 0 {
+			if sc.activeBackpressure {
+				sc.activeBackpressure = false
+				observability.RecordBackpressureStop(ctx, sc.role, time.Since(sc.backpressureStartTS).Seconds())
+			}
 			return nil
+		}
+
+		if !sc.activeBackpressure {
+			sc.activeBackpressure = true
+			sc.backpressureStartTS = time.Now()
+			observability.RecordBackpressureStart(ctx, sc.role)
 		}
 
 		// Extend AckWait on upstream JetStream messages so the broker does not
@@ -208,6 +230,18 @@ func (sc *StreamingComponent) writeWithBackpressure(ctx context.Context, upstrea
 		}
 
 		sc.log.WarnContext(ctx, "output stream back-pressure, retrying", "backoff", backoff, "pending", len(backpressure))
+
+		if sc.signalPublisher != nil && time.Since(sc.lastBackpressureSignal) >= backpressureSignalCooldown {
+			sc.lastBackpressureSignal = time.Now()
+			if sigErr := sc.signalPublisher.SendSignal(ctx, models.ComponentSignal{
+				Component:  sc.role,
+				PipelineID: sc.pipelineID,
+				Reason:     "stream back-pressure",
+				Text:       fmt.Sprintf("NATS output stream is full — %s is retrying", sc.role),
+			}); sigErr != nil {
+				sc.log.WarnContext(ctx, "failed to send backpressure signal", slog.Any("error", sigErr))
+			}
+		}
 
 		select {
 		case <-ctx.Done():
@@ -246,6 +280,8 @@ func (sc *StreamingComponent) writeFailedBatch(ctx context.Context, failedMessag
 	if len(failedDlqMessages) > 0 {
 		return fmt.Errorf("failed to write to DLQ: %w", failedDlqMessages[0].Error)
 	}
+
+	observability.RecordDLQWrite(ctx, sc.role, observability.DLQReasonUnrecoverable, int64(len(messages)))
 
 	return nil
 }

@@ -50,8 +50,13 @@ var (
 	IngestorBackpressureActive   metric.Int64Gauge
 	IngestorBackpressureEvents   metric.Int64Counter
 	IngestorBackpressureDuration metric.Float64Histogram
-	StreamDepth                  metric.Int64Gauge
-	StreamDepthRatio             metric.Float64Gauge
+
+	ComponentBackpressureActive   metric.Int64Gauge
+	ComponentBackpressureEvents   metric.Int64Counter
+	ComponentBackpressureDuration metric.Float64Histogram
+
+	StreamDepth      metric.Int64Gauge
+	StreamDepthRatio metric.Float64Gauge
 )
 
 // pipelineID is set once at component startup (not used by the API which handles multiple pipelines).
@@ -160,6 +165,15 @@ func initMetricInstruments(m metric.Meter) {
 	IngestorBackpressureDuration = mustCreateBackpressureDurationHistogram(m,
 		GfMetricPrefix+"_"+"ingestor_backpressure_duration_seconds",
 		"Duration of each ingestor back-pressure episode in seconds")
+
+	ComponentBackpressureActive = mustCreateInt64Gauge(m, GfMetricPrefix+"_"+"component_backpressure_active",
+		"1 while the component is in back-pressure, 0 otherwise; labelled by component")
+	ComponentBackpressureEvents = mustCreateCounter(m, GfMetricPrefix+"_"+"component_backpressure_events_total",
+		"Total number of times a component entered back-pressure; labelled by component")
+	ComponentBackpressureDuration = mustCreateBackpressureDurationHistogram(m,
+		GfMetricPrefix+"_"+"component_backpressure_duration_seconds",
+		"Duration of each component back-pressure episode in seconds; labelled by component")
+
 	StreamDepth = mustCreateInt64Gauge(m, GfMetricPrefix+"_"+"stream_depth",
 		"Number of messages currently stored in a JetStream stream")
 	StreamDepthRatio = mustCreateGauge(m, GfMetricPrefix+"_"+"stream_depth_ratio",
@@ -370,6 +384,30 @@ func RecordReceiverRequest(ctx context.Context, component, transport, status, pi
 	}
 }
 
+func RecordBackpressureStart(ctx context.Context, component string) {
+	if ComponentBackpressureActive == nil {
+		return
+	}
+	attrs := metric.WithAttributes(
+		attribute.String("pipeline_id", pipelineID),
+		attribute.String("component", component),
+	)
+	ComponentBackpressureActive.Record(ctx, 1, attrs)
+	ComponentBackpressureEvents.Add(ctx, 1, attrs)
+}
+
+func RecordBackpressureStop(ctx context.Context, component string, duration float64) {
+	if ComponentBackpressureActive == nil {
+		return
+	}
+	attrs := metric.WithAttributes(
+		attribute.String("pipeline_id", pipelineID),
+		attribute.String("component", component),
+	)
+	ComponentBackpressureActive.Record(ctx, 0, attrs)
+	ComponentBackpressureDuration.Record(ctx, duration, attrs)
+}
+
 func RecordIngestorBackpressureStart(ctx context.Context) {
 	if IngestorBackpressureActive == nil {
 		return
@@ -377,6 +415,7 @@ func RecordIngestorBackpressureStart(ctx context.Context) {
 	attrs := metric.WithAttributes(attribute.String("pipeline_id", pipelineID))
 	IngestorBackpressureActive.Record(ctx, 1, attrs)
 	IngestorBackpressureEvents.Add(ctx, 1, attrs)
+	RecordBackpressureStart(ctx, "ingestor")
 }
 
 func RecordIngestorBackpressureStop(ctx context.Context, duration float64) {
@@ -386,6 +425,7 @@ func RecordIngestorBackpressureStop(ctx context.Context, duration float64) {
 	attrs := metric.WithAttributes(attribute.String("pipeline_id", pipelineID))
 	IngestorBackpressureActive.Record(ctx, 0, attrs)
 	IngestorBackpressureDuration.Record(ctx, duration, attrs)
+	RecordBackpressureStop(ctx, "ingestor", duration)
 }
 
 func RecordStreamDepth(ctx context.Context, streamName string, depth int64) {

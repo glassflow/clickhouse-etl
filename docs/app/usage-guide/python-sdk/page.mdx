@@ -12,10 +12,10 @@ The GlassFlow Python SDK provides a programmatic way to create and manage data p
 Install the GlassFlow Python SDK using pip:
 
 ```bash
-pip install glassflow>=3.6.0
+pip install glassflow>=4.0.0
 ```
 
-> **Pipeline version notice**: The default pipeline version is now `v3`. If you have existing `v2` configurations, see [Migrating from V2 to V3](#migrating-from-v2-to-v3) below. Pipeline version `v2` is deprecated and will be removed in a future release.
+> **Pipeline version notice**: The default and only supported pipeline version is `v3`. Pipeline version `v2` has been **removed** in `glassflow` 4.0.0. If you have existing `v2` configurations, use the `migrate_pipeline_v2_to_v3()` helper — see [Migrating from V2 to V3](#migrating-from-v2-to-v3) below.
 
 ## Basic Usage
 
@@ -162,6 +162,14 @@ or update the full pipeline config:
 pipeline.update(config_patch=<new pipeline config>)
 ```
 
+### Rename a Pipeline
+
+Rename a pipeline without stopping it — the new name is reflected in the UI and API immediately.
+
+```python
+pipeline.rename("My renamed pipeline")
+```
+
 ## Dead-Letter Queue (DLQ)
 
 ### Get DLQ State
@@ -171,21 +179,22 @@ dlq_state = pipeline.dlq.state()
 print(dlq_state)
 ```
 
-
-### Purge DLQ
-
-```python
-pipeline.dlq.purge()
-```
-
 Output:
 ```json
 {
-    "last_consumed_at": "2025-09-05T10:32:38.113427621Z",
-    "last_received_at": "2025-09-05T10:23:26.530466989Z",
+    "last_consumed_at": "2026-05-20T10:32:38.113427621Z",
+    "last_received_at": "2026-05-20T10:23:26.530466989Z",
     "total_messages": 2,
     "unconsumed_messages": 1
 }
+```
+
+### Purge DLQ
+
+Removes all messages from the DLQ. Returns `None`.
+
+```python
+pipeline.dlq.purge()
 ```
 
 ### Read Messages from DLQ
@@ -336,7 +345,20 @@ The following resource fields are **immutable** — they must be set at creation
 
 ## Migrating from V2 to V3
 
-Pipeline version `v2` is deprecated. See the [Pipeline Configuration Reference](/configuration/pipeline-config-reference#v2-reference-deprecated) for the full V2 → V3 migration table.
+Pipeline version `v2` has been **removed** in `glassflow` 4.0.0. Existing v2 configurations must be migrated to v3 before they can be deployed.
+
+The SDK ships a `migrate_pipeline_v2_to_v3()` helper that does the migration server-side and returns a validated v3 configuration. It calls the GlassFlow API's `POST /api/v1/pipeline/migrate-preview` endpoint — no pipeline is created and no state is touched, so it's safe to call repeatedly.
+
+```python
+from glassflow.etl import Client
+
+client = Client(host="http://localhost:30180")
+
+v3_config = client.migrate_pipeline_v2_to_v3(v2_config)
+pipeline = client.create_pipeline(v3_config)
+```
+
+If you prefer to migrate manually, see the [Pipeline Configuration Reference](/configuration/pipeline-config-reference#v2-reference-deprecated) for the full migration table.
 
 Key structural changes:
 

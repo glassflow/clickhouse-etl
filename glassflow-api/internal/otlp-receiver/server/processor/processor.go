@@ -25,18 +25,27 @@ type OTLPConfigFetcher interface {
 	GetOTLPConfig(ctx context.Context, pipelineID string) (models.OTLPConfig, error)
 }
 
+type backpressureSignalSender interface {
+	SendSignal(ctx context.Context, msg models.ComponentSignal) error
+}
+
+const backpressureSignalCooldown = 5 * time.Minute
+
 func NewProcessor(
 	otlpConfigFetcher OTLPConfigFetcher,
 	nc *client.NATSClient,
 	maxConcurrent int,
 	natsChunkSize int,
+	signalPublisher backpressureSignalSender,
 ) *Processor {
 	return &Processor{
-		otlpConfigFetcher: otlpConfigFetcher,
-		natsWriterCache:   make(map[string]writerConfig),
-		nc:                nc,
-		sem:               make(chan struct{}, maxConcurrent),
-		natsChunkSize:     natsChunkSize,
+		otlpConfigFetcher:      otlpConfigFetcher,
+		natsWriterCache:        make(map[string]writerConfig),
+		nc:                     nc,
+		sem:                    make(chan struct{}, maxConcurrent),
+		natsChunkSize:          natsChunkSize,
+		signalSender:           signalPublisher,
+		lastBackpressureSignal: make(map[string]time.Time),
 	}
 }
 
@@ -64,12 +73,15 @@ type writerConfig struct {
 }
 
 type Processor struct {
-	otlpConfigFetcher OTLPConfigFetcher
-	natsWriterCache   map[string]writerConfig
-	natsWriterMu      sync.RWMutex
-	nc                *client.NATSClient
-	sem               chan struct{}
-	natsChunkSize     int
+	otlpConfigFetcher      OTLPConfigFetcher
+	natsWriterCache        map[string]writerConfig
+	natsWriterMu           sync.RWMutex
+	nc                     *client.NATSClient
+	sem                    chan struct{}
+	natsChunkSize          int
+	signalSender           backpressureSignalSender
+	lastBackpressureSignal map[string]time.Time
+	signalMu               sync.Mutex
 }
 
 func (p *Processor) getWriterConfig(
@@ -170,6 +182,7 @@ func (p *Processor) sendBatch(
 	)
 	if err != nil {
 		if stream.IsBackpressureErr(errors.Unwrap(err)) || stream.IsBackpressureErr(err) {
+			p.emitBackpressureSignal(ctx, pipelineID)
 			return fmt.Errorf("%w: %w", models.ErrStreamBackpressure, err)
 		}
 		return err
@@ -183,6 +196,32 @@ func (p *Processor) sendBatch(
 	observability.RecordProcessorMessagesByPipelineID(ctx, component.String(), "out", pipelineID, int64(len(messages)))
 
 	return nil
+}
+
+// emitBackpressureSignal sends a ComponentSignal at most once per
+// backpressureSignalCooldown per pipeline to avoid notification spam.
+func (p *Processor) emitBackpressureSignal(ctx context.Context, pipelineID string) {
+	if p.signalSender == nil {
+		return
+	}
+
+	p.signalMu.Lock()
+	last, ok := p.lastBackpressureSignal[pipelineID]
+	if ok && time.Since(last) < backpressureSignalCooldown {
+		p.signalMu.Unlock()
+		return
+	}
+	p.lastBackpressureSignal[pipelineID] = time.Now()
+	p.signalMu.Unlock()
+
+	observability.RecordBackpressureStart(ctx, internal.RoleOLTPReceiver)
+
+	_ = p.signalSender.SendSignal(ctx, models.ComponentSignal{
+		Component:  internal.RoleOLTPReceiver,
+		PipelineID: pipelineID,
+		Reason:     "stream back-pressure",
+		Text:       "NATS stream is full — retries exhausted, data may be dropped",
+	})
 }
 
 func extractMessages(failed []models.FailedMessage) []models.Message {
