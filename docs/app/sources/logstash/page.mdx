@@ -12,9 +12,9 @@ Logstash is a data processing pipeline that ingests, transforms, and forwards lo
 
 GlassFlow's OTLP receiver requires the `x-glassflow-pipeline-id` HTTP header on every request. Logstash itself does not have a maintained output plugin that can satisfy this requirement:
 
-- **No official Elastic OTLP output plugin** exists. Elastic's [own guidance](https://www.elastic.co/observability-labs/blog/logstash-to-otel) is to migrate Logstash pipelines to the OpenTelemetry Collector.
+- **No official Elastic OTLP output plugin** exists. Elastic's [own guidance](https://www.elastic.co/observability-labs/blog/logstash-to-otel) suggests migrating Logstash pipelines to the OpenTelemetry Collector.
 - The community [`logstash-output-opentelemetry`](https://github.com/paulgrav/logstash-output-opentelemetry) gem hasn't shipped a release since January 2022 and does not support setting custom HTTP headers.
-- The bundled `logstash-output-http` plugin can set custom headers but cannot emit OTLP-protobuf bodies, it has no codec for OTLP encoding.
+- The bundled `logstash-output-http` plugin can set custom headers, but cannot emit OTLP-protobuf bodies, it has no codec for OTLP encoding.
 
 ## Recommended pattern: Logstash → OpenTelemetry Collector → GlassFlow
 
@@ -82,7 +82,7 @@ When you create the GlassFlow pipeline, map **`observed_timestamp`** rather than
 
 If you want a structured `severity_text` or per-field columns, add an OTel Collector [transform processor](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/transformprocessor) between `tcplog` and `otlphttp` to extract fields from the raw Logstash payload. The full OTLP logs schema is documented at [OTLP Schema Reference](/sources/otlp/schema-reference#otlp-logs-fields).
 
-See [Sending data to GlassFlow OTLP](/sources/otlp/sending-data) for full OTel Collector configuration options — including gRPC, TLS, and back-pressure handling.
+See [Sending data to GlassFlow OTLP](/sources/otlp/sending-data) for full OTel Collector configuration options, including gRPC, TLS, and back-pressure handling.
 
 ## Related
 
