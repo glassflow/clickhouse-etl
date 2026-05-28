@@ -1,21 +1,112 @@
 ---
 title: 'Grafana Alloy'
-description: 'Forward telemetry from Grafana Alloy into ClickHouse with GlassFlow'
+description: 'Use Grafana Alloy to collect logs, metrics, and traces from your applications and forward them to ClickHouse via the GlassFlow OTLP receiver.'
 ---
 import { Callout } from 'nextra/components'
 
 # Grafana Alloy
 
-Grafana Alloy is a telemetry collector built on OpenTelemetry that gathers and forwards logs, metrics, and traces. It integrates tightly with the Grafana ecosystem for observability pipelines.
+[Grafana Alloy](https://grafana.com/oss/alloy/) is Grafana Labs' OpenTelemetry-native collector distribution. It receives, processes, and forwards logs, metrics, and traces, and is widely deployed as a DaemonSet on Kubernetes or as a host agent on VMs.
 
-## Using Grafana Alloy with GlassFlow
+## Direct Alloy → GlassFlow is supported
 
-GlassFlow can ingest telemetry forwarded by Grafana Alloy into ClickHouse with the same pipeline capabilities available to all GlassFlow sources — deduplication, filtering, and stateless transformations.
+Alloy ships the upstream OpenTelemetry Collector's `otelcol.exporter.otlp` (gRPC) and `otelcol.exporter.otlphttp` (HTTP) exporters. Both let you set arbitrary request headers via a `headers { … }` block, which is everything the GlassFlow OTLP receiver needs to route a request to the right pipeline. Point Alloy at the receiver, route each signal to a per-signal exporter that carries its own `x-glassflow-pipeline-id`, and your telemetry lands in ClickHouse.
+
+## Prerequisites
+
+- **GlassFlow OTLP receiver enabled.** See the [OTLP Prerequisites](/sources/otlp#prerequisites).
+- **A GlassFlow pipeline per signal** with the matching `otlp.*` source type (`otlp.logs`, `otlp.metrics`, or `otlp.traces`). Note each pipeline ID, Alloy references it in the per-exporter `headers` block. See the [OTLP Examples](/sources/otlp/examples) to create one.
+- **Grafana Alloy 1.5+** (validated on the current `grafana/alloy:latest`).
+
+## Forwarding telemetry
+
+Alloy's exporters are single-signal, so the idiomatic pattern is one exporter per signal, each carrying the right `x-glassflow-pipeline-id`, wired up behind a single OTLP receiver and a batch processor:
+
+```alloy
+// config.alloy
+
+otelcol.receiver.otlp "in" {
+  grpc { endpoint = "0.0.0.0:4317" }
+  http { endpoint = "0.0.0.0:4318" }
+
+  output {
+    logs    = [otelcol.processor.batch.b.input]
+    metrics = [otelcol.processor.batch.b.input]
+    traces  = [otelcol.processor.batch.b.input]
+  }
+}
+
+otelcol.processor.batch "b" {
+  timeout = "1s"
+  output {
+    logs    = [otelcol.exporter.otlphttp.logs.input]
+    metrics = [otelcol.exporter.otlphttp.metrics.input]
+    traces  = [otelcol.exporter.otlphttp.traces.input]
+  }
+}
+
+otelcol.exporter.otlphttp "logs" {
+  client {
+    endpoint    = "http://<glassflow-otlp-receiver-host>:4318"
+    compression = "none"
+    tls { insecure = true }
+    headers = { "x-glassflow-pipeline-id" = "<your-logs-pipeline-id>" }
+  }
+}
+
+otelcol.exporter.otlphttp "metrics" {
+  client {
+    endpoint    = "http://<glassflow-otlp-receiver-host>:4318"
+    compression = "none"
+    tls { insecure = true }
+    headers = { "x-glassflow-pipeline-id" = "<your-metrics-pipeline-id>" }
+  }
+}
+
+otelcol.exporter.otlphttp "traces" {
+  client {
+    endpoint    = "http://<glassflow-otlp-receiver-host>:4318"
+    compression = "none"
+    tls { insecure = true }
+    headers = { "x-glassflow-pipeline-id" = "<your-traces-pipeline-id>" }
+  }
+}
+```
+
+This same shape works whether the upstream data comes from OTel SDKs, other Alloy instances, sidecar agents, or any other OTLP-compatible client. For host metrics, file tailing, Prometheus scraping, and so on, swap or add the appropriate Alloy components in front of the batch processor. See [Alloy components](https://grafana.com/docs/alloy/latest/reference/components/) for the catalog.
+
+<Callout type="warning">
+**Disable gzip compression** (`compression = "none"`). The GlassFlow OTLP receiver does not decompress gzip-encoded payloads and will return `400 Bad Request` if you leave the exporter's default `gzip` compression enabled.
+</Callout>
 
 <Callout type="info">
-**Available on request.** Grafana Alloy connectors are natively supported in GlassFlow Enterprise Edition. To get started, [join our GlassFlow Slack community](https://glassflowhub.slack.com/join/shared_invite/zt-349m7lenp-IFeKSGfQwpJfIiQ7oyFFKg) to chat directly with our team, or [reach out](https://www.glassflow.dev/integrations#contact) to us with your use case, expected volumes, and timeline.
+The output blocks above use `tls { insecure = true }` and port `4318` for clarity. In production, terminate TLS at the receiver (or an ingress in front of it) and replace the `tls` block with the appropriate `tls { ca_file = … cert_file = … key_file = … }` for your environment.
 </Callout>
+
+### gRPC instead of HTTP
+
+If you'd rather use the gRPC exporter, swap each `otelcol.exporter.otlphttp` for `otelcol.exporter.otlp` and point at port `4317`. The `headers` block works identically:
+
+```alloy
+otelcol.exporter.otlp "logs" {
+  client {
+    endpoint    = "<glassflow-otlp-receiver-host>:4317"
+    compression = "none"
+    tls { insecure = true }
+    headers = { "x-glassflow-pipeline-id" = "<your-logs-pipeline-id>" }
+  }
+}
+```
+
+## Caveats
+
+- **Misconfigured pipeline IDs fail loudly but quietly.** Alloy's otlphttp exporter treats 4xx responses as permanent and drops the batch with a `not retryable error: Permanent error` log line. There is no fatal error to alert on. Watch the `otelcol_exporter_send_failed_log_records` / `…_metric_points` / `…_spans` counters; a steadily-climbing value with no successes is the canary.
+- **`compression = "none"` is required** (see the warning callout above). Leaving the default `gzip` will produce a continuous stream of 400 responses on the receiver side.
 
 ## Related
 
-- [Sources overview](/sources)
+- [OpenTelemetry (OTLP) source](/sources/otlp). The receiver this integration uses.
+- [OTLP Sending Data](/sources/otlp/sending-data). Collector and SDK configuration reference.
+- [OTLP Examples](/sources/otlp/examples). Complete pipeline JSONs with ClickHouse target tables.
+- [OTLP Schema Reference](/sources/otlp/schema-reference). Field tables for logs, metrics, and traces.
+- [Pipeline Configuration Reference](/configuration/pipeline-config-reference). Full pipeline schema.
