@@ -83,8 +83,9 @@ x-glassflow-pipeline-id: <your-pipeline-id>
 
 Any OTLP-capable client can talk to the GlassFlow OTLP receiver. The pages below cover the validated integrations for popular telemetry agents and forwarders, including tested configs, field mappings, and per-tool caveats.
 
-- [Fluent Bit](/sources/fluent-bit) — direct OTLP HTTP forwarding for logs and host metrics (no Collector in between)
-- [Logstash](/sources/logstash) — Logstash → OpenTelemetry Collector → GlassFlow (Logstash itself has no maintained OTLP output)
+- [Fluent Bit](/sources/fluent-bit). Direct OTLP HTTP forwarding for logs and metrics, no Collector in between.
+- [Grafana Alloy](/sources/grafana-alloy). Direct OTLP forwarding for logs, metrics, and traces via Alloy's OpenTelemetry-native exporters.
+- [Logstash](/sources/logstash). Routed through an OpenTelemetry Collector relay (`tcplog` then `otlphttp`); Logstash itself has no maintained OTLP output.
 
 For OpenTelemetry SDKs and the OpenTelemetry Collector directly, see [Sending Data](/sources/otlp/sending-data).
 
@@ -104,12 +105,6 @@ Because the OTLP receiver is a shared component that stays running across all pi
 When the receiver cannot keep up with incoming data it signals backpressure to the upstream OTel Collector or SDK — returning `429 Too Many Requests` (HTTP) or `ResourceExhausted` (gRPC) — instead of silently dropping events. Standard OTel exporters retry these responses automatically.
 
 See [Backpressure](/sources/otlp/back-pressure) for how the two backpressure gates work, how to tune them, and how to resolve sustained backpressure.
-
-## Telemetry collectors and forwarders
-
-The OTLP receiver accepts data from any OpenTelemetry-compatible collector or forwarder. The following tools are validated and have specific integration guides:
-
-- [Logstash](/sources/logstash) -- via OpenTelemetry Collector relay (`tcplog` → `otlphttp`)
 
 ## Next Steps
 
