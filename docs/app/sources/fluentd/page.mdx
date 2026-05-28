@@ -8,7 +8,7 @@ import { Callout } from 'nextra/components'
 
 [Fluentd](https://www.fluentd.org/) is a CNCF-graduated open-source data collector that aggregates logs and events from many sources into a unified pipeline.
 
-## Why direct Fluentd to GlassFlow isn't supported today
+## Why isn't direct Fluentd to GlassFlow supported today?
 
 GlassFlow's OTLP receiver requires the `x-glassflow-pipeline-id` HTTP header on every request. Fluentd itself does not have a maintained output plugin that can satisfy this requirement:
 
