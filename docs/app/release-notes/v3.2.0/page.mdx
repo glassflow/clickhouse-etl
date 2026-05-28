@@ -1,0 +1,87 @@
+---
+title: Release Notes v3.2.0
+sidebarTitle: v3.2.0
+icon: FileIcon
+description: Release notes for the GlassFlow ClickHouse ETL v3.2.0. Sink NACK semantics for retryable ClickHouse errors, OTLP receiver hardening with explicit concurrency caps, concurrent operator reconciles, end-to-end backpressure observability, and a new Sources / Integrations directory.
+---
+
+# Release Notes v3.2.0
+
+### Released: May 22, 2026
+
+Version 3.2.0 makes the **ClickHouse sink more resilient** by NACK-ing retryable errors back to JetStream instead of routing them to the DLQ on first failure, hardens the **OTLP receiver** with explicit concurrency caps and chunked NATS publishing, allows the **operator to reconcile multiple pipelines in parallel**, and completes the backpressure-observability story started in v3.1.0 with **`ComponentSignal` notifications** from every stage. The docs site also gains a new **Sources / Integrations directory** covering 29 data sources. This product release is accompanied by [**Helm chart v0.5.21**](https://github.com/glassflow/charts/releases/tag/glassflow-etl-0.5.21); use chart `v0.5.21` when installing or upgrading to v3.2.0.
+
+## What's New
+
+### 🐘 ClickHouse sink retries via NACK instead of DLQ
+
+The sink now classifies ClickHouse errors as **retryable** or **permanent** and reacts accordingly, recovering from transient failures (timeouts, momentary unavailability) without losing data to the DLQ.
+
+- **Error classification.** Each ClickHouse error is mapped to a class on the way out of the sink ([#726](https://github.com/glassflow/clickhouse-etl/pull/726)).
+- **Retryable errors NACK to JetStream.** Instead of pushing the batch to the DLQ on first failure, the sink NACKs the message; JetStream redelivers per consumer policy and the sink retries against ClickHouse. Permanent errors continue to route to the DLQ ([#728](https://github.com/glassflow/clickhouse-etl/pull/728)).
+- **New metrics.** `gfm_sink_errors_by_classification_total` (counter by `classification` and `error_name`), `gfm_sink_nack_messages_total`, and `gfm_sink_retries_total` (by `outcome` ∈ `{exhausted, retry}`) make the new behaviour observable ([#730](https://github.com/glassflow/clickhouse-etl/pull/730)).
+- **Test coverage.** End-to-end scenarios cover both the retryable and the permanent failure modes ([#736](https://github.com/glassflow/clickhouse-etl/pull/736)).
+
+### 📡 OTLP receiver hardening
+
+The OTLP receiver now exposes explicit concurrency and memory bounds, and recovers correctly from transient NATS-cluster events.
+
+- **`maxConcurrentRequests: 50`.** Cap on in-flight OTLP batches. When breached, the receiver returns `503 Service Unavailable` (HTTP) or `ResourceExhausted` (gRPC), which standard OTel exporters retry. Configurable via Helm.
+- **`natsChunkSize: 1000`.** Maximum messages per NATS async-publish chunk. Bounds per-request memory regardless of upstream OTLP batch size.
+- **Recovery from NATS restarts.** Fixed a wedge where the OTLP receiver could become stuck after a NATS cluster member restart and never resume publishing.
+- **Backpressure signals.** When backpressure is sustained beyond the configured retry budget, the receiver emits a `ComponentSignal` to the operator so the condition is visible at the control plane, not just in metrics ([#749](https://github.com/glassflow/clickhouse-etl/pull/749)).
+
+### 🚦 Operator concurrent reconciles
+
+The operator can now reconcile up to **4 pipelines in parallel** (controlled by `controllerManager.manager.maxConcurrentReconciles`, default `4`). Previously, a long-running reconcile on one pipeline would block reconciles on every other pipeline; the new default removes that blocker for clusters with many pipelines.
+
+### 📚 Sources / Integrations directory
+
+The docs site now ships a dedicated **Sources / Integrations directory** at [`/sources`](/sources). The page lists every supported source, marks each as Open Source or Enterprise, and links to a per-source guide. Coverage includes 29 sources spanning streaming platforms, telemetry collectors, databases, object storage, and table formats.
+
+## Improvements
+
+### 📊 Observability
+
+End-to-end coverage for backpressure, sink behaviour, and DLQ telemetry.
+
+- **Backpressure `ComponentSignal`** emitted by every component (ingestor, dedup, join, OTLP receiver) when a backpressure episode starts, with a 5-minute cooldown per episode to prevent control-plane chatter ([#759](https://github.com/glassflow/clickhouse-etl/pull/759)).
+- **`gfm_component_backpressure_*`** metric family covering active state, episode count, and per-episode duration, labelled by `component`.
+- **Sink observability.** `gfm_processor_messages_total` (now emitted by the sink too), `gfm_sink_batch_size_records` and `gfm_sink_batch_size_bytes` histograms, and `gfm_sink_retries_total` ([#743](https://github.com/glassflow/clickhouse-etl/pull/743)).
+- **DLQ `reason` label.** `gfm_dlq_records_written_total` now carries a `reason` label (`parse_error`, `schema_mismatch`, `sink_rejection`, `retry_exhausted`, `dedup_overflow`, `unrecoverable`) so dashboards can break down DLQ traffic by cause ([#744](https://github.com/glassflow/clickhouse-etl/pull/744)).
+- **DLQ writes from streaming components.** Component and StreamingComponent DLQ writes now emit `gfm_dlq_records_written_total` consistently ([#756](https://github.com/glassflow/clickhouse-etl/pull/756)).
+
+### 🧰 JetStream consumer defaults
+
+Pipeline JetStream consumers now ship with **`MaxDeliver: 10`** and **`AckWait: 30s`** ([#724](https://github.com/glassflow/clickhouse-etl/pull/724)). Caps redelivery loops on poison-pill messages and gives downstream stages a clear processing window before JetStream redelivers.
+
+## 🐛 Bug Fixes
+
+- **OTLP receiver `pipeline_id` label.** Fixed an empty `pipeline_id` label on `gfm_bytes_processed_total` and `gfm_processor_messages_total` emitted from the OTLP receiver path ([#723](https://github.com/glassflow/clickhouse-etl/pull/723)).
+- **OTLP pipeline edit panel.** Filter and transform tabs were missing from the left panel for OTLP-type pipelines in the UI; both are now consistently present.
+- **Pipeline-type parsing.** The pipeline upload flow now accepts both representations of the pipeline-type field, eliminating a class of upload failures.
+- **GitHub auth app name.** Fixed the displayed app name on the GitHub OAuth handshake.
+- **Notifications badge.** Hidden from unauthenticated users on the home page.
+
+## Migration Notes
+
+There are **no breaking changes** in v3.2.0 if you are already on v3.1.0. The behaviour change in the sink is backward-compatible: existing pipelines simply see fewer DLQ entries from transient ClickHouse errors and lower data loss on flaky connections.
+
+- **Helm chart.** Use chart `v0.5.21` for product `v3.2.0`. The operator image inside the chart is pinned to `v3.2.1` (a chart-only patch that ships alongside `v3.2.0` for the rest of the workloads).
+- **Dashboards monitoring DLQ traffic.** Volume should drop after upgrade because retryable ClickHouse errors no longer route through the DLQ on first failure. If you alert on "DLQ traffic = 0", revisit the alert; consider moving to `gfm_sink_errors_by_classification_total{classification="permanent"}` instead.
+- **DLQ dashboards using `gfm_dlq_records_written_total`.** The metric now carries a `reason` label. Existing PromQL that sums or rate-aggregates the metric continues to work; queries that previously grouped by other labels can now be sliced by `reason` to see the underlying cause.
+- **Operator concurrency.** `controllerManager.manager.maxConcurrentReconciles` defaults to `4`. If your cluster has tight RBAC or rate limits on the Kubernetes API server, you can lower this in your Helm values.
+
+## Try It Out
+
+1. **Upgrade via Helm.** Deploy v3.2.0 using the [Kubernetes Helm charts](/installation/kubernetes) at chart version `v0.5.21`. Ensure your existing cluster is on v3.1.0 first.
+2. **Watch the sink resilience kick in.** During a transient ClickHouse outage, observe `gfm_sink_nack_messages_total` climbing while DLQ traffic stays flat. Permanent errors continue to route to DLQ with a populated `reason` label.
+3. **Tune the OTLP receiver.** Adjust `maxConcurrentRequests` and `natsChunkSize` on your Helm values if you need higher throughput or stricter memory bounds.
+4. **Explore the Sources directory.** Browse [`/sources`](/sources) for the full catalogue of supported integrations and per-source configuration guides.
+5. **Add the new metrics to dashboards.** Wire up `gfm_component_backpressure_active`, `gfm_sink_retries_total`, and the `reason` label on `gfm_dlq_records_written_total` so operators can spot the new failure modes at a glance.
+
+## Full Changelog
+
+For the complete list of changes in v3.2.0, see the [GitHub release v3.2.0](https://github.com/glassflow/clickhouse-etl/releases/tag/v3.2.0).
+
+*GlassFlow v3.2.0 turns the backpressure foundations from the previous release into an end-to-end observable behaviour and meaningfully reduces unnecessary DLQ traffic from transient sink failures.*

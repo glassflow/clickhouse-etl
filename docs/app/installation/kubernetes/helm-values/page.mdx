@@ -190,9 +190,16 @@ ui:
     issuerBaseUrl: ""
     clientId: ""
     clientSecret: ""
+    # Auth0 route paths
+    loginPath: "/api/auth/login"
+    callbackPath: "/api/auth/callback"
+    logoutPath: "/api/auth/logout"
+    # Auth0 social connection names as configured in the Auth0 tenant
+    githubConnection: "github"
+    googleConnection: "google-oauth2"
 ```
 
-Auth0 integration is disabled by default. Set `enabled: true` and configure the domain, client ID, client secret, and base URL to enable authentication.
+Auth0 integration is disabled by default. Set `enabled: true` and configure the domain, client ID, client secret, and base URL to enable authentication. The `loginPath`, `callbackPath`, and `logoutPath` values can be overridden when the defaults conflict with your application's routing; the `githubConnection` and `googleConnection` values must match the social-connection names configured in your Auth0 tenant.
 
 ### UI Configuration Options
 
@@ -219,6 +226,9 @@ glassflow-operator:
     manager:
       # Maximum duration a reconcile operation can run before timing out
       reconcileTimeout: 15m
+      # Maximum number of pipelines the operator can reconcile concurrently.
+      # With concurrency=1, a long-running operation blocks all other pipelines.
+      maxConcurrentReconciles: 4
       # Operator image configuration
       image:
         repository: glassflow-etl-k8s-operator
