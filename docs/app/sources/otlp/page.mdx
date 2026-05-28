@@ -83,7 +83,8 @@ x-glassflow-pipeline-id: <your-pipeline-id>
 
 Any OTLP-capable client can talk to the GlassFlow OTLP receiver. The pages below cover the validated integrations for popular telemetry agents and forwarders, including tested configs, field mappings, and per-tool caveats.
 
-- [Fluent Bit](/sources/fluent-bit). Direct OTLP HTTP forwarding for logs and metrics, no Collector in between.
+- [Fluent Bit](/sources/fluent-bit). Direct OTLP HTTP forwarding for logs and host metrics, no Collector in between.
+- [Fluentd](/sources/fluentd). Routed through an OpenTelemetry Collector relay (`fluent_forward` then `otlp_http`); Fluentd itself has no OTLP output that supports custom headers.
 - [Grafana Alloy](/sources/grafana-alloy). Direct OTLP forwarding for logs, metrics, and traces via Alloy's OpenTelemetry-native exporters.
 - [Logstash](/sources/logstash). Routed through an OpenTelemetry Collector relay (`tcplog` then `otlphttp`); Logstash itself has no maintained OTLP output.
 

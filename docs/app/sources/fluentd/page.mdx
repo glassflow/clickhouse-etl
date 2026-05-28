@@ -1,21 +1,88 @@
 ---
 title: 'Fluentd'
-description: 'Forward logs and events from Fluentd into ClickHouse with GlassFlow'
+description: 'Forward logs from Fluentd into ClickHouse through an OpenTelemetry Collector relay to the GlassFlow OTLP receiver.'
 ---
 import { Callout } from 'nextra/components'
 
 # Fluentd
 
-Fluentd is an open-source data collector that aggregates logs and events from multiple sources into a unified pipeline. It provides flexible routing, transformation, and integration with hundreds of data backends.
+[Fluentd](https://www.fluentd.org/) is a CNCF-graduated open-source data collector that aggregates logs and events from many sources into a unified pipeline.
 
-## Using Fluentd with GlassFlow
+## Why isn't direct Fluentd to GlassFlow supported today?
 
-GlassFlow can ingest telemetry forwarded by Fluentd into ClickHouse with the same pipeline capabilities available to all GlassFlow sources — deduplication, filtering, and stateless transformations.
+GlassFlow's OTLP receiver requires the `x-glassflow-pipeline-id` HTTP header on every request. Fluentd itself does not have a maintained output plugin that can satisfy this requirement:
 
-<Callout type="info">
-**Available on request.** Fluentd connectors are natively supported in GlassFlow Enterprise Edition. To get started, [join our GlassFlow Slack community](https://glassflowhub.slack.com/join/shared_invite/zt-349m7lenp-IFeKSGfQwpJfIiQ7oyFFKg) to chat directly with our team, or [reach out](https://www.glassflow.dev/integrations#contact) to us with your use case, expected volumes, and timeline.
+- The canonical OTel output for Fluentd is the community-maintained [`fluent-plugin-opentelemetry`](https://github.com/fluent-plugins-nursery/fluent-plugin-opentelemetry) gem. Its `<http>` config block accepts only `endpoint`, `proxy`, `error_response_as_unrecoverable`, `retryable_response_codes`, `compress`, and timeouts. The underlying [`http_output_handler.rb`](https://github.com/fluent-plugins-nursery/fluent-plugin-opentelemetry/blob/main/lib/fluent/plugin/opentelemetry/http_output_handler.rb) hardcodes the request headers and exposes no override hook. There is no `headers { }` block.
+- The bundled `out_http` plugin can set custom headers but cannot emit OTLP-protobuf bodies; it has no codec for OTLP encoding.
+
+## Recommended pattern: Fluentd to OpenTelemetry Collector to GlassFlow
+
+Forward Fluentd events to a local OpenTelemetry Collector via the Fluentd Forward protocol, and configure the Collector's OTLP exporter to send to GlassFlow with the required header. This pattern is validated end-to-end against the GlassFlow OTLP receiver.
+
+### OpenTelemetry Collector config
+
+```yaml
+# otel-collector.yaml
+receivers:
+  fluent_forward:
+    endpoint: 0.0.0.0:8006
+
+processors:
+  batch:
+    timeout: 1s
+
+exporters:
+  otlp_http/glassflow:
+    endpoint: http://<glassflow-otlp-receiver>:4318
+    compression: none
+    headers:
+      x-glassflow-pipeline-id: <your-pipeline-id>
+
+service:
+  pipelines:
+    logs:
+      receivers: [fluent_forward]
+      processors: [batch]
+      exporters: [otlp_http/glassflow]
+```
+
+<Callout type="warning">
+**Disable gzip compression** on the `otlp_http` exporter (`compression: none`). The GlassFlow OTLP receiver does not decompress gzip-encoded payloads and will return `400 Bad Request` if you leave the exporter's default `gzip` compression enabled.
 </Callout>
+
+### Fluentd output
+
+On the Fluentd side, send to the Collector with the `forward` output:
+
+```ruby
+# fluent.conf
+<match **>
+  @type forward
+  <server>
+    name otel-collector
+    host otel-collector
+    port 8006
+  </server>
+  <buffer>
+    flush_interval 1s
+  </buffer>
+</match>
+```
+
+Each Fluentd record's keys land as queryable OTel attributes on the corresponding `LogRecord`. For example, a Fluentd record `{"level": "INFO", "service": "checkout", "message": "order received"}` arrives in ClickHouse as:
+
+| Column | Value |
+|---|---|
+| `body` | `order received` |
+| `attributes` | `{'level': 'INFO', 'service': 'checkout', 'fluent.tag': '<your-fluentd-tag>'}` |
+
+The `fluent_forward` receiver uses the record's `message` field as the OTel `body` and promotes the remaining record fields into `attributes`, plus a `fluent.tag` attribute carrying the Fluentd tag the event was matched on.
+
+For the GlassFlow pipeline that writes these records to ClickHouse, see [OTLP Examples](/sources/otlp/examples) and the [OTLP Schema Reference](/sources/otlp/schema-reference#otlp-logs-fields). For full OTel Collector configuration options including gRPC, TLS, and back-pressure handling, see [Sending data to GlassFlow OTLP](/sources/otlp/sending-data).
 
 ## Related
 
-- [Sources overview](/sources)
+- [Sources overview](/sources).
+- [OpenTelemetry (OTLP) source](/sources/otlp). The receiver this pattern uses.
+- [OTLP Sending Data](/sources/otlp/sending-data). OTel Collector configuration reference.
+- [Logstash](/sources/logstash). Sibling pattern (Logstash to OTel Collector to GlassFlow) for log aggregators without a native OTLP output.
