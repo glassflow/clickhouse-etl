@@ -13,9 +13,9 @@ Version 3.1.0 introduces **first-class backpressure handling** across every stag
 
 ## What's New
 
-### 🔁 Backpressure across the data plane
+### Backpressure across the data plane
 
-Every stage that publishes to a JetStream stream now detects backpressure (the downstream stream hitting its `MaxMsgs` cap), retries with bounded backoff, and emits observability data so operators can see episodes as they happen.
+Every stage that publishes to a NATS JetStream stream now detects backpressure (the downstream stream hitting its `MaxMsgs` cap), retries with bounded backoff, and emits observability data so operators can see episodes as they happen.
 
 - **Kafka ingestor** processes batches with backpressure awareness and re-queues failing records into a carry slice for the next batch attempt ([#708](https://github.com/glassflow/clickhouse-etl/pull/708)).
 - **JetStream publisher** is now backpressure-aware on both the sync and async paths.
@@ -24,21 +24,21 @@ Every stage that publishes to a JetStream stream now detects backpressure (the d
 - **OTLP receiver** applies backpressure to incoming requests when the downstream stream cannot accept publishes ([#711](https://github.com/glassflow/clickhouse-etl/pull/711)).
 - **Observability** emits a `gfm_ingestor_backpressure_*` metric family covering active state, episode count, and per-episode duration.
 
-### 🎚️ Configurable NATS stream cap (`MaxMsgs`)
+### Configurable NATS stream cap (`MaxMsgs`)
 
 The inter-stage NATS streams now expose an explicit `MaxMsgs` cap on the pipeline definition, so operators can size the buffer to their throughput and latency requirements ([#701](https://github.com/glassflow/clickhouse-etl/pull/701)).
 
-- **Pipeline config.** `resources.nats.stream.maxMsgs` is the new knob. Defaults are computed automatically from the sink batch size, so most pipelines need no manual tuning.
+- **Pipeline config.** `resources.nats.stream.maxMsgs` is the new knob. Defaults are automatically computed from the sink batch size, so no manual tuning is necessary across most pipelines.
 - **Backpressure trigger.** When a stream reaches `MaxMsgs`, the producing component enters a backpressure episode (see above) rather than dropping events.
 
-### 🧱 NATS publisher chunking
+### NATS publisher chunking
 
 The NATS async batch writer now chunks payloads so per-request memory is bounded regardless of upstream batch size ([#712](https://github.com/glassflow/clickhouse-etl/pull/712)).
 
 - Each publish chunk is sized to a hard cap on memory rather than to the upstream batch.
 - Prevents OOM scenarios when a single Kafka or OTLP request would otherwise produce an outsized NATS write.
 
-### 🔄 Data migration container
+### Data migration container
 
 A one-shot Kubernetes Job container migrates any persisted v2-format pipeline configs in your Postgres database to the v3 format.
 
@@ -48,11 +48,11 @@ A one-shot Kubernetes Job container migrates any persisted v2-format pipeline co
 
 ## Improvements
 
-### 🔐 Security
+### Security
 
 - Patched **CVE-2026-33815** in a transitive dependency ([#703](https://github.com/glassflow/clickhouse-etl/pull/703)).
 
-## 🐛 Bug Fixes
+## Bug Fixes
 
 - **Backpressure regression revert.** A backpressure-related change introduced a regression and was reverted, then re-landed correctly later in the cycle ([#706](https://github.com/glassflow/clickhouse-etl/pull/706)).
 - **ClickHouse password encoding.** Removed unnecessary base64 encoding of the ClickHouse password in the UI's generated pipeline JSON.
@@ -69,7 +69,7 @@ There are **no breaking changes** in v3.1.0 if you are already on v3.0.0. The da
 ## Try It Out
 
 1. **Upgrade via Helm.** Deploy v3.1.0 using the [Kubernetes Helm charts](/installation/kubernetes) at chart version `v0.5.17`. Ensure your existing cluster is on v3.0.0 first.
-2. **Verify the data migration.** Watch for the one-shot `glassflow-etl-data-migration` Job to complete; check Postgres for any pipeline rows whose persisted config is still in the v2 shape.
+2. **Verify the data migration.** Watch for the one-shot `glassflow-etl-data-migration` Job to complete; check Postgres for any pipeline rows where persisted config is still in the v2 shape.
 3. **Size your inter-stage streams.** Review `resources.nats.stream.maxMsgs` on your pipelines. The new default is computed from sink `max_batch_size`; override it if you need a different cap.
 4. **Wire up backpressure alerting.** Add a Prometheus alert on `gfm_ingestor_backpressure_active == 1 for 5m` per pipeline so sustained episodes surface in your on-call channels.
 
