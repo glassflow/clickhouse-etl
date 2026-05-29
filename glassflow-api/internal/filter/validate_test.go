@@ -3,7 +3,7 @@ package filter
 import (
 	"testing"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/models"
 )
 
 func TestValidateFilter(t *testing.T) {

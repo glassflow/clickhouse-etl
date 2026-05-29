@@ -14,9 +14,9 @@ import (
 	metricsv1 "go.opentelemetry.io/proto/otlp/metrics/v1"
 	resourcev1 "go.opentelemetry.io/proto/otlp/resource/v1"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/otlp-receiver/server/processor"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/client"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/otlp-receiver/server/processor"
 )
 
 func TestProcessMetrics(t *testing.T) {

@@ -9,9 +9,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/status"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/status"
 )
 
 // MockOrchestrator is a mock implementation of Orchestrator

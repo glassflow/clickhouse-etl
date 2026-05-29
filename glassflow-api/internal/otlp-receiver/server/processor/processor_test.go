@@ -11,9 +11,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/stream"
 )
 
 func TestErrStreamBackpressure_WrapsBackpressureError(t *testing.T) {

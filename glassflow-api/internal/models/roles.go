@@ -1,6 +1,6 @@
 package models
 
-import "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
+import "github.com/glassflow/clickhouse-etl/glassflow-api/internal"
 
 type Role string
 

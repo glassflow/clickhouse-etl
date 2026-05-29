@@ -13,7 +13,7 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/stretchr/testify/require"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/otlp-receiver/server/natshealth"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/otlp-receiver/server/natshealth"
 )
 
 func setupNATS(t *testing.T) (*server.Server, *nats.Conn, jetstream.JetStream) {

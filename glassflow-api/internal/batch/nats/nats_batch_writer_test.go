@@ -10,9 +10,9 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/stretchr/testify/require"
 
-	natsBatch "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/batch/nats"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	subjectrouter "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/subject/router"
+	natsBatch "github.com/glassflow/clickhouse-etl/glassflow-api/internal/batch/nats"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/models"
+	subjectrouter "github.com/glassflow/clickhouse-etl/glassflow-api/internal/subject/router"
 )
 
 func setupNATSWriterServer(t *testing.T) (*server.Server, *nats.Conn, jetstream.JetStream) {

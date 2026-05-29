@@ -3,7 +3,7 @@ package api
 import (
 	"testing"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/models"
 )
 
 func baseResources() models.PipelineResources {

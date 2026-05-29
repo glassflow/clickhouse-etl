@@ -3,8 +3,8 @@ package status
 import (
 	"fmt"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/models"
 )
 
 // StatusTransition represents a valid transition from one status to another

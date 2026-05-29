@@ -13,16 +13,16 @@ import (
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/component"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/configs"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/mapper"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/storage"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/tests/testutils"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/component"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/configs"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/mapper"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/service"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/storage"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/stream"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/pkg/observability"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/tests/testutils"
 )
 
 type SinkTestSuite struct {

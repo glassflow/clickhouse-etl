@@ -14,12 +14,12 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/twmb/franz-go/pkg/kgo"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/pkg/observability"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/componentsignals"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/componentsignals"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/stream"
 )
 
 // SchemaValidator is the subset of schema_v2.Schema that the ingestor uses.

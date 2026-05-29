@@ -13,16 +13,16 @@ import (
 	"github.com/google/uuid"
 	"github.com/nats-io/nats.go/jetstream"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/component"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/componentsignals"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	schemav2 "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema_v2"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/storage"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/tests/testutils"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/client"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/component"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/componentsignals"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/models"
+	schemav2 "github.com/glassflow/clickhouse-etl/glassflow-api/internal/schema_v2"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/service"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/storage"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/stream"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/tests/testutils"
 )
 
 const (

@@ -8,7 +8,7 @@ import (
 
 	"github.com/dgraph-io/badger/v4"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/models"
 )
 
 type Deduplicator struct {

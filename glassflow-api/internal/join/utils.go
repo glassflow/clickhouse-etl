@@ -6,8 +6,8 @@ import (
 
 	"github.com/nats-io/nats.go"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/models"
 )
 
 // prepareData extracts fields from data according to join rules and maps them to output names.

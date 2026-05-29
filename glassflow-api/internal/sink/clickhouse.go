@@ -13,13 +13,13 @@ import (
 
 	"github.com/nats-io/nats.go/jetstream"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/batch/clickhouse"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	sinkerrors "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/sink/errors"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/batch/clickhouse"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/client"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/models"
+	sinkerrors "github.com/glassflow/clickhouse-etl/glassflow-api/internal/sink/errors"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/stream"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/pkg/observability"
 )
 
 // workerJob represents a chunk of messages to be processed by a worker

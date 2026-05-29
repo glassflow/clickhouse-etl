@@ -7,8 +7,8 @@ import (
 
 	"github.com/cucumber/godog"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/tests/steps"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/tests/testutils"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/tests/steps"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/tests/testutils"
 )
 
 type TestConfig struct {

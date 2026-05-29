@@ -12,8 +12,8 @@ import (
 	logsv1 "go.opentelemetry.io/proto/otlp/logs/v1"
 	resourcev1 "go.opentelemetry.io/proto/otlp/resource/v1"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/otlp-receiver/server/processor/flattener"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/otlp-receiver/server/processor/flattener"
 )
 
 func TestFlattenLogs(t *testing.T) {

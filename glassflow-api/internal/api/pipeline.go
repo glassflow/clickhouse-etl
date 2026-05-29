@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/models"
 )
 
 //go:generate mockgen -destination ./mocks/pipeline_service_mock.go -package mocks . PipelineService

@@ -6,8 +6,8 @@ import (
 
 	collogspb "go.opentelemetry.io/proto/otlp/collector/logs/v1"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/models"
 )
 
 func (h handler) exportLogs(w nethttp.ResponseWriter, r *nethttp.Request) {

@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/models"
 )
 
 func TestValidateTransformationAgainstSchema(t *testing.T) {

@@ -6,8 +6,8 @@ import (
 
 	colmetricspb "go.opentelemetry.io/proto/otlp/collector/metrics/v1"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/otlp-receiver/server/processor/flattener"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/otlp-receiver/server/processor/flattener"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/pkg/observability"
 )
 
 func (p *Processor) ProcessMetrics(

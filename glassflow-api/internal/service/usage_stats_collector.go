@@ -5,10 +5,10 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/dlq"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/usagestats"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/client"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/dlq"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/pkg/usagestats"
 )
 
 type UsageStatsCollector struct {

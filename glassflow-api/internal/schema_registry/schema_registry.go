@@ -8,8 +8,8 @@ import (
 	"github.com/tidwall/gjson"
 	"github.com/twmb/franz-go/pkg/sr"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/models"
 )
 
 type SchemaRegistryClient struct {

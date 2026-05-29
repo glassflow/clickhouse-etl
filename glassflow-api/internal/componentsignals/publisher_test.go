@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/client"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/models"
 )
 
 func TestComponentSignalPublisher_SendSignal(t *testing.T) {

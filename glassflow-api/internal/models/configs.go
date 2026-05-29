@@ -13,7 +13,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal"
 )
 
 // PipelineStatus represents the overall status of a pipeline

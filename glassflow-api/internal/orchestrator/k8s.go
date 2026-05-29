@@ -19,10 +19,10 @@ import (
 
 	operator "github.com/glassflow/glassflow-etl-k8s-operator/api/v1alpha1"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/status"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/service"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/status"
 )
 
 type K8sOrchestrator struct {

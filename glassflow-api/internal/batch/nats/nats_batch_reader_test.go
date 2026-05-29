@@ -13,8 +13,8 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/stretchr/testify/require"
 
-	natsBatch "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/batch/nats"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	natsBatch "github.com/glassflow/clickhouse-etl/glassflow-api/internal/batch/nats"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/models"
 )
 
 func setupNATSServer(t *testing.T) (*server.Server, *nats.Conn, jetstream.JetStream) {

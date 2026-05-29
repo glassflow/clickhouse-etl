@@ -6,12 +6,12 @@ import (
 	"log/slog"
 	"sync"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/componentsignals"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/ingestor"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	schemav2 "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema_v2"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/componentsignals"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/ingestor"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/models"
+	schemav2 "github.com/glassflow/clickhouse-etl/glassflow-api/internal/schema_v2"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/stream"
 )
 
 type Ingestor interface {

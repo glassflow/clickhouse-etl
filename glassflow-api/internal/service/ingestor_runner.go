@@ -6,13 +6,13 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/component"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/componentsignals"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	sr "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema_registry"
-	schemav2 "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema_v2"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/client"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/component"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/componentsignals"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/models"
+	sr "github.com/glassflow/clickhouse-etl/glassflow-api/internal/schema_registry"
+	schemav2 "github.com/glassflow/clickhouse-etl/glassflow-api/internal/schema_v2"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/stream"
 )
 
 type IngestorRunner struct {

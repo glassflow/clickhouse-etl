@@ -4,12 +4,12 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/componentsignals"
-	oltp_receiver "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/otlp-receiver/server"
-	configFetcher "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/otlp-receiver/server/config/fetcher"
-	otlp_processor "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/otlp-receiver/server/processor"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/client"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/componentsignals"
+	oltp_receiver "github.com/glassflow/clickhouse-etl/glassflow-api/internal/otlp-receiver/server"
+	configFetcher "github.com/glassflow/clickhouse-etl/glassflow-api/internal/otlp-receiver/server/config/fetcher"
+	otlp_processor "github.com/glassflow/clickhouse-etl/glassflow-api/internal/otlp-receiver/server/processor"
 )
 
 func mainOLTPReceiver(

@@ -8,8 +8,8 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/status"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/service"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/status"
 )
 
 func StopPipelineDocs() huma.Operation {

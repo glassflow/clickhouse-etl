@@ -12,8 +12,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
-	sinkerrors "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/sink/errors"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal"
+	sinkerrors "github.com/glassflow/clickhouse-etl/glassflow-api/internal/sink/errors"
 )
 
 func chProtoException(code int32) error {

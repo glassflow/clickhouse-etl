@@ -3,9 +3,9 @@ package processor
 import (
 	"context"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/batch"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/batch"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/pkg/observability"
 )
 
 // DLQMiddleware returns a middleware that wraps a processor and writes failed messages to DLQ.

@@ -6,11 +6,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/filter"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/mapper"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	jsonTransformer "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/transformer/json"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/filter"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/mapper"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/models"
+	jsonTransformer "github.com/glassflow/clickhouse-etl/glassflow-api/internal/transformer/json"
 )
 
 // toModel converts a v3 API config into the internal domain model.

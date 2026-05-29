@@ -8,10 +8,10 @@ import (
 
 	"github.com/nats-io/nats.go/jetstream"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/api"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/api"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/client"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/service"
 )
 
 // MigratePipelinesFromNATSKV migrates pipelines from NATS KV store to PostgreSQL

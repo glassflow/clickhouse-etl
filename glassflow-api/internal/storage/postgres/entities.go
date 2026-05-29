@@ -12,8 +12,8 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/encryption"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/encryption"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/models"
 )
 
 // getSource retrieves a source and its connection

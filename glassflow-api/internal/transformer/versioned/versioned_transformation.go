@@ -5,10 +5,10 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/models"
 
-	jsonTransformer "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/transformer/json"
+	jsonTransformer "github.com/glassflow/clickhouse-etl/glassflow-api/internal/transformer/json"
 )
 
 type storage interface {

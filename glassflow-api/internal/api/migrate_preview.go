@@ -11,7 +11,7 @@ import (
 	"github.com/expr-lang/expr/ast"
 	"github.com/expr-lang/expr/parser"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/models"
 )
 
 func MigratePreviewDocs() huma.Operation {

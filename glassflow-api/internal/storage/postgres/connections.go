@@ -10,8 +10,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/encryption"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/encryption"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/models"
 )
 
 // insertConnectionWithConfig inserts a connection with the given config

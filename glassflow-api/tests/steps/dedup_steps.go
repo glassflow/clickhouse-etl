@@ -9,8 +9,8 @@ import (
 	"github.com/dgraph-io/badger/v4"
 	"github.com/nats-io/nats-server/v2/server"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/tests/testutils"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/client"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/tests/testutils"
 )
 
 type DedupTestSuite struct {

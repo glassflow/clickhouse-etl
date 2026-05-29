@@ -6,10 +6,10 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	streampkg "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/client"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/models"
+	streampkg "github.com/glassflow/clickhouse-etl/glassflow-api/internal/stream"
 	"github.com/nats-io/nats.go/jetstream"
 )
 

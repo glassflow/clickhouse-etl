@@ -7,8 +7,8 @@ import (
 
 	"github.com/nats-io/nats.go/jetstream"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/pkg/observability"
 )
 
 // StreamSampler periodically reads JetStream StreamInfo for a single stream

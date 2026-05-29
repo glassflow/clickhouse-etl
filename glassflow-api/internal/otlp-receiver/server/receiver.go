@@ -12,13 +12,13 @@ import (
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
-	grpcQ "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/otlp-receiver/server/grpc"
-	httpQ "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/otlp-receiver/server/http"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/otlp-receiver/server/natshealth"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/otlp-receiver/server/processor"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/server"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/client"
+	grpcQ "github.com/glassflow/clickhouse-etl/glassflow-api/internal/otlp-receiver/server/grpc"
+	httpQ "github.com/glassflow/clickhouse-etl/glassflow-api/internal/otlp-receiver/server/http"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/otlp-receiver/server/natshealth"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/otlp-receiver/server/processor"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/server"
 )
 
 const (

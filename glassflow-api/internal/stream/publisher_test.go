@@ -12,7 +12,7 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/stretchr/testify/require"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/stream"
 )
 
 func runEmbeddedNATS(t *testing.T) (*server.Server, jetstream.JetStream, *nats.Conn) {

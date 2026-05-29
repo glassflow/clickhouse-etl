@@ -11,17 +11,17 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/stretchr/testify/require"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/batch"
-	batchNats "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/batch/nats"
-	dedupBadger "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/deduplication/badger"
-	filterJSON "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/filter/json"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/processor"
-	subjectrouter "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/subject/router"
-	jsonTransformer "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/transformer/json"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/tests/steps"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/batch"
+	batchNats "github.com/glassflow/clickhouse-etl/glassflow-api/internal/batch/nats"
+	dedupBadger "github.com/glassflow/clickhouse-etl/glassflow-api/internal/deduplication/badger"
+	filterJSON "github.com/glassflow/clickhouse-etl/glassflow-api/internal/filter/json"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/processor"
+	subjectrouter "github.com/glassflow/clickhouse-etl/glassflow-api/internal/subject/router"
+	jsonTransformer "github.com/glassflow/clickhouse-etl/glassflow-api/internal/transformer/json"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/pkg/observability"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/tests/steps"
 )
 
 func createStreamingComponent(

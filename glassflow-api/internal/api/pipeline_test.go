@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/api/mocks"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/api/mocks"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/service"
 )
 
 func TestEditPipeline_Success(t *testing.T) {

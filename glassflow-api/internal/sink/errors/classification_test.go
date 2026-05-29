@@ -11,7 +11,7 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 	"github.com/stretchr/testify/assert"
 
-	sinkerrors "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/sink/errors"
+	sinkerrors "github.com/glassflow/clickhouse-etl/glassflow-api/internal/sink/errors"
 )
 
 func chEx(code int32) error {

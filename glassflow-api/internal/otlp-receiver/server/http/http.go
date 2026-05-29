@@ -14,7 +14,7 @@ import (
 	colmetricspb "go.opentelemetry.io/proto/otlp/collector/metrics/v1"
 	coltracepb "go.opentelemetry.io/proto/otlp/collector/trace/v1"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/server"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/server"
 )
 
 type OTLPDataProcessor interface {

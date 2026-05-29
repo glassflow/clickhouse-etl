@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/models"
 )
 
 // PipelineGetter is a minimal interface for fetching pipeline configurations

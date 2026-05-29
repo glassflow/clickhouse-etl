@@ -5,8 +5,8 @@ import (
 
 	"github.com/expr-lang/expr"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/models"
 )
 
 // ValidateTransformationAgainstSchema validates that all transformation expressions against given schema fields

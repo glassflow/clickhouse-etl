@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/models"
 )
 
 // TestRoundTrip_JSONToModelToJSON parses a v3 JSON fixture, converts it to the

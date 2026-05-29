@@ -7,13 +7,13 @@ import (
 
 	"github.com/nats-io/nats.go/jetstream"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/component"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/configs"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/mapper"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/stream"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/client"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/component"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/configs"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/mapper"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/stream"
 )
 
 type SinkRunner struct {

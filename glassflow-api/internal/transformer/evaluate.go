@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/transformer/json"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/transformer/json"
 )
 
 // Evaluate evaluates transformation expressions against sample data

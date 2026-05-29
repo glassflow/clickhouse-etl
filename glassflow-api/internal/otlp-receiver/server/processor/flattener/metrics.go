@@ -7,7 +7,7 @@ import (
 	colmetricspb "go.opentelemetry.io/proto/otlp/collector/metrics/v1"
 	metricsv1 "go.opentelemetry.io/proto/otlp/metrics/v1"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/models"
 )
 
 func FlattenMetrics(req *colmetricspb.ExportMetricsServiceRequest) ([]models.Message, error) {

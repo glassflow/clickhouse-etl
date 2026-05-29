@@ -7,8 +7,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/schema_v2/mocks"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/schema_v2/mocks"
 	"github.com/stretchr/testify/assert"
 )
 

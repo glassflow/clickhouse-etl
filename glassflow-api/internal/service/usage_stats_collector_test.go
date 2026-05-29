@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/usagestats"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/pkg/usagestats"
 	"github.com/stretchr/testify/assert"
 )
 

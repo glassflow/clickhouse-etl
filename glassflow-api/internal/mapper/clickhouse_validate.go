@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal"
 )
 
 // IsSupportedClickHouseColumnType reports whether the given column type is supported

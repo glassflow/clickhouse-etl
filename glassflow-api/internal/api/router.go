@@ -12,7 +12,7 @@ import (
 	"github.com/danielgtaylor/huma/v2/adapters/humamux"
 	"github.com/gorilla/mux"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/usagestats"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/pkg/usagestats"
 )
 
 // trackedOperationIDs contains the set of operation IDs that should trigger usage stats tracking

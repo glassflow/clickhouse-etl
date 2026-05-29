@@ -9,7 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/models"
 )
 
 func (s *PostgresStorage) upsertSchemaVersion(ctx context.Context, tx pgx.Tx, pipelineID, sourceID, version string, fields []models.Field) (string, error) {

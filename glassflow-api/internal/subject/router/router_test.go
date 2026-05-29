@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/models"
 )
 
 func TestSubject_PodIndex(t *testing.T) {

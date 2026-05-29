@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
-	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/client"
+	"github.com/glassflow/clickhouse-etl/glassflow-api/internal/models"
 	natsServer "github.com/nats-io/nats-server/v2/server"
 	natsTest "github.com/nats-io/nats-server/v2/test"
 	"github.com/nats-io/nats.go/jetstream"
