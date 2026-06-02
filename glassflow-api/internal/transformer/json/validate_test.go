@@ -329,6 +329,133 @@ func TestValidateTransformationAgainstSchema(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "valid transformation with single-level dotted field",
+			schema: []models.Field{
+				{Name: "metadata.source", Type: internal.KafkaTypeString},
+			},
+			transformations: []models.Transform{
+				{
+					Expression: `metadata.source == "test"`,
+					OutputName: "is_test",
+					OutputType: "bool",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid transformation with two-level dotted field",
+			schema: []models.Field{
+				{Name: "a.b.c", Type: internal.KafkaTypeInt},
+			},
+			transformations: []models.Transform{
+				{
+					Expression: `a.b.c > 0`,
+					OutputName: "is_positive",
+					OutputType: "bool",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid transformation with sibling nested leaves",
+			schema: []models.Field{
+				{Name: "metadata.source", Type: internal.KafkaTypeString},
+				{Name: "metadata.campaign", Type: internal.KafkaTypeString},
+			},
+			transformations: []models.Transform{
+				{
+					Expression: `metadata.source + "_" + metadata.campaign`,
+					OutputName: "combined",
+					OutputType: "string",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid transformation with mixed flat and nested fields",
+			schema: []models.Field{
+				{Name: "user_id", Type: internal.KafkaTypeString},
+				{Name: "metadata.source", Type: internal.KafkaTypeString},
+			},
+			transformations: []models.Transform{
+				{
+					Expression: `user_id + ":" + metadata.source`,
+					OutputName: "tagged_user",
+					OutputType: "string",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid transformation with map parent declared before dotted leaf",
+			schema: []models.Field{
+				{Name: "metadata", Type: internal.KafkaTypeMap},
+				{Name: "metadata.source", Type: internal.KafkaTypeString},
+			},
+			transformations: []models.Transform{
+				{
+					Expression: `metadata.source == "x"`,
+					OutputName: "is_x",
+					OutputType: "bool",
+				},
+				{
+					Expression: `keys(metadata)`,
+					OutputName: "meta_keys",
+					OutputType: "[]string",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid transformation with dotted leaf declared before map parent",
+			schema: []models.Field{
+				{Name: "metadata.source", Type: internal.KafkaTypeString},
+				{Name: "metadata", Type: internal.KafkaTypeMap},
+			},
+			transformations: []models.Transform{
+				{
+					Expression: `metadata.source == "x"`,
+					OutputName: "is_x",
+					OutputType: "bool",
+				},
+				{
+					Expression: `keys(metadata)`,
+					OutputName: "meta_keys",
+					OutputType: "[]string",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid transformation with scalar parent overridden by dotted leaf",
+			schema: []models.Field{
+				{Name: "metadata", Type: internal.KafkaTypeString},
+				{Name: "metadata.source", Type: internal.KafkaTypeString},
+			},
+			transformations: []models.Transform{
+				{
+					Expression: `metadata.source == "x"`,
+					OutputName: "is_x",
+					OutputType: "bool",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid transformation with native nested map access",
+			schema: []models.Field{
+				{Name: "address.city", Type: internal.KafkaTypeString},
+			},
+			transformations: []models.Transform{
+				{
+					Expression: `upper(address.city)`,
+					OutputName: "city_upper",
+					OutputType: "string",
+				},
+			},
+			wantErr: false,
+		},
 	}
 
 	for _, tt := range tests {
