@@ -240,8 +240,9 @@ export default function HomePageClient() {
       const pipelineName = config.name || 'Imported Pipeline'
       setPipelineName(pipelineName)
 
-      // Generate a new pipeline ID for the imported configuration
-      const newPipelineId = generatePipelineId(pipelineName)
+      // Prefer the pipeline_id from the imported file — it was valid at creation time.
+      // Fall back to generating from name (capped at 63 chars) only when the file has none.
+      const newPipelineId = (config as any).pipeline_id || generatePipelineId(pipelineName)
       setPipelineId(newPipelineId)
 
       // Hydrate from imported config without pipeline_id so resources hydration does not

@@ -289,7 +289,6 @@ export class V2PipelineAdapter implements PipelineAdapter {
       })
 
       apiConfig.stateless_transformation = {
-        id: transformationId,
         type: 'expr_lang_transform',
         enabled: true,
         config: {
@@ -302,7 +301,6 @@ export class V2PipelineAdapter implements PipelineAdapter {
     } else if (transformation && !transformation.enabled) {
       // Transformation exists but is disabled
       apiConfig.stateless_transformation = {
-        id: 'transform',
         type: 'expr_lang_transform',
         enabled: false,
       }

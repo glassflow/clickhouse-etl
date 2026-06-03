@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { extractEventFields, compareEventSchemas } from './common.client'
+import { extractEventFields, compareEventSchemas, generatePipelineId } from './common.client'
 
 describe('common.client', () => {
   describe('extractEventFields', () => {
@@ -85,6 +85,27 @@ describe('common.client', () => {
       const a = { id: 1, _metadata: { ts: 1 } }
       const b = { id: 2, _metadata: { ts: 2 } }
       expect(compareEventSchemas(a, b)).toBe(true)
+    })
+  })
+
+  describe('generatePipelineId', () => {
+    it('generates a slug from pipeline name', () => {
+      expect(generatePipelineId('My Pipeline')).toBe('my-pipeline')
+    })
+
+    it('caps the generated id at 63 characters for very long names', () => {
+      const longName = 'this is a very long pipeline name that will definitely exceed the sixty three character limit imposed by kubernetes'
+      const id = generatePipelineId(longName)
+      expect(id.length).toBeLessThanOrEqual(63)
+    })
+
+    it('does not produce a trailing dash after truncation', () => {
+      // Construct a name where naive .slice(0, 63) would land on a dash
+      // "aaa...a-extra" where the base slug is exactly 63 chars ending in '-extra'
+      const name = 'a'.repeat(62) + ' extra words that push past the limit'
+      const id = generatePipelineId(name)
+      expect(id).not.toMatch(/-$/)
+      expect(id.length).toBeLessThanOrEqual(63)
     })
   })
 })

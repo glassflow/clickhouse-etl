@@ -51,8 +51,9 @@ export function hydrateTransformation(pipelineConfig: any) {
       const outputType = transform.output_type || 'string'
 
       // Try to parse expression to determine if passthrough or computed
-      // Simple heuristic: if expression is just a field name (no parentheses, no function calls), it's passthrough
-      const isPassthrough = /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(expression.trim())
+      // A passthrough is a bare field name or dotted path (e.g. "name", "metadata.source").
+      // Function calls, operators, and parentheses indicate a computed expression.
+      const isPassthrough = /^[a-zA-Z_][a-zA-Z0-9_.]*$/.test(expression.trim())
 
       if (isPassthrough) {
         // Passthrough field
