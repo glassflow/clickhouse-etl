@@ -216,5 +216,91 @@ describe('V2PipelineAdapter', () => {
       const transformAmount = transformFields.find((f: any) => f.name === 'transaction_amount')
       expect(transformAmount).toMatchObject({ column_name: 'amount', column_type: 'Int64' })
     })
+
+    it('does not include id field in stateless_transformation payload', () => {
+      const internalConfig: InternalPipelineConfig = {
+        pipeline_id: 'my-pipeline',
+        name: 'My Pipeline',
+        source: {
+          type: 'kafka',
+          provider: 'custom',
+          connection_params: { brokers: [], protocol: 'PLAINTEXT', mechanism: 'NO_AUTH' },
+          topics: [
+            {
+              name: 'orders',
+              id: 'orders',
+              schema: { type: 'json', fields: [] },
+              consumer_group_initial_offset: 'latest',
+              deduplication: { enabled: false, id_field: '', id_field_type: 'string', time_window: '1h' },
+            },
+          ],
+        },
+        join: { type: '', enabled: false, sources: [] },
+        sink: {
+          type: 'clickhouse',
+          host: '',
+          httpPort: '8123',
+          database: 'default',
+          table: 'orders',
+          secure: false,
+          table_mapping: [],
+          max_batch_size: 1000,
+          max_delay_time: '1m',
+          skip_certificate_verification: false,
+        },
+        transformation: {
+          enabled: true,
+          expression: '',
+          fields: [
+            { id: 'f1', type: 'passthrough', outputFieldName: 'order_id', outputFieldType: 'string', sourceField: 'order_id', sourceFieldType: 'string' },
+          ],
+        },
+      }
+
+      const result = adapter.generate(internalConfig)
+
+      expect(result.stateless_transformation).toBeDefined()
+      expect((result.stateless_transformation as any).id).toBeUndefined()
+    })
+
+    it('does not include id field in stateless_transformation when transformation is disabled', () => {
+      const internalConfig: InternalPipelineConfig = {
+        pipeline_id: 'my-pipeline',
+        name: 'My Pipeline',
+        source: {
+          type: 'kafka',
+          provider: 'custom',
+          connection_params: { brokers: [], protocol: 'PLAINTEXT', mechanism: 'NO_AUTH' },
+          topics: [
+            {
+              name: 'orders',
+              id: 'orders',
+              schema: { type: 'json', fields: [] },
+              consumer_group_initial_offset: 'latest',
+              deduplication: { enabled: false, id_field: '', id_field_type: 'string', time_window: '1h' },
+            },
+          ],
+        },
+        join: { type: '', enabled: false, sources: [] },
+        sink: {
+          type: 'clickhouse',
+          host: '',
+          httpPort: '8123',
+          database: 'default',
+          table: 'orders',
+          secure: false,
+          table_mapping: [],
+          max_batch_size: 1000,
+          max_delay_time: '1m',
+          skip_certificate_verification: false,
+        },
+        transformation: { enabled: false, expression: '', fields: [] },
+      }
+
+      const result = adapter.generate(internalConfig)
+
+      expect(result.stateless_transformation).toBeDefined()
+      expect((result.stateless_transformation as any).id).toBeUndefined()
+    })
   })
 })

@@ -390,14 +390,19 @@ export const getSchemaModifications = (
   }
 }
 
+const MAX_PIPELINE_ID_LENGTH = 63
+
 export const generatePipelineId = (pipelineName: string, existingIds: string[] = []): string => {
-  // Convert pipeline name to lowercase and replace spaces/special chars with dashes
+  // Convert pipeline name to lowercase and replace spaces/special chars with dashes,
+  // then cap at MAX_PIPELINE_ID_LENGTH to satisfy Kubernetes naming constraints.
   const baseId = pipelineName
     .toLowerCase()
     .trim()
     .replace(/[^a-z0-9\s-]/g, '') // Remove special characters
     .replace(/\s+/g, '-') // Replace spaces with dashes
     .replace(/-+/g, '-') // Replace multiple dashes with single dash
+    .slice(0, MAX_PIPELINE_ID_LENGTH)
+    .replace(/-+$/, '') // Remove trailing dashes left by truncation
 
   if (!existingIds.includes(baseId)) {
     return baseId
