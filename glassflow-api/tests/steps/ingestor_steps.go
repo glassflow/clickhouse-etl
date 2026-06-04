@@ -63,6 +63,7 @@ type IngestorTestSuite struct {
 func NewIngestorTestSuite() *IngestorTestSuite {
 	return &IngestorTestSuite{
 		BaseTestSuite: BaseTestSuite{ //nolint:exhaustruct // optional config
+			suiteName:         "ingestor",
 			wg:                sync.WaitGroup{},
 			kafkaContainer:    nil,
 			natsContainer:     nil,
@@ -365,12 +366,9 @@ func (s *IngestorTestSuite) iRunningIngestorComponent() error {
 
 	s.errCh = make(chan error, 1)
 
-	s.wg.Add(1)
-	go func() {
-		defer s.wg.Done()
-
+	s.wg.Go(func() {
 		ingestor.Start(context.Background(), s.errCh)
-	}()
+	})
 
 	return nil
 }

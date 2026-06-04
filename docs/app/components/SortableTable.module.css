@@ -1,0 +1,195 @@
+/* ============================================================
+ * SortableTable — GlassFlow docs
+ *
+ * Tokens declared on the wrapper so the table is self-contained
+ * and doesn't depend on the product UI's theme.css. Each variable
+ * has a light + dark value selected via html.dark on the docs site
+ * (next-themes adds `dark` class to <html>).
+ *
+ * Visual language mirrors ui/src/components/ui/table.tsx and
+ * the product PipelinesTable: light horizontal dividers, a
+ * faintly tinted header row, a low-opacity row hover, and a
+ * crisp focus ring using the brand orange.
+ * ============================================================ */
+
+.wrapper {
+  /* Brand */
+  --st-accent: #ff8b1f;            /* orange-500 — matches Nextra's hue=210 saturation; we override locally */
+  --st-accent-soft: rgba(255, 162, 75, 0.18);
+
+  /* Light theme defaults */
+  --st-fg: #111827;                /* primary text */
+  --st-fg-muted: #4b5563;          /* muted/header text */
+  --st-fg-subtle: #9ca3af;         /* inactive sort glyph */
+  --st-link: #c2410c;              /* orange-700 — readable on white */
+  --st-link-hover: #9a3412;
+  --st-divider: rgba(17, 24, 39, 0.08);
+  --st-divider-strong: rgba(17, 24, 39, 0.14);
+  --st-header-bg: rgba(17, 24, 39, 0.03);
+  --st-row-hover: rgba(17, 24, 39, 0.04);
+  --st-focus-ring: rgba(255, 139, 31, 0.35);
+
+  display: block;
+  position: relative;
+  width: 100%;
+  overflow-x: auto;
+  margin: 1.25rem 0 1.5rem;
+  border: 1px solid var(--st-divider-strong);
+  border-radius: 10px;
+  /* Clip the rounded corners so header bg + dividers don't poke out */
+  background: transparent;
+}
+
+:global(html.dark) .wrapper {
+  --st-fg: #e5e7eb;
+  --st-fg-muted: #a8adb8;           /* matches ui --color-gray-250 */
+  --st-fg-subtle: #6b7280;
+  --st-link: #ffa24b;               /* ui --color-orange-300 */
+  --st-link-hover: #feac5e;         /* ui --color-orange-200 */
+  --st-divider: rgba(255, 255, 255, 0.07);
+  --st-divider-strong: rgba(255, 255, 255, 0.10);
+  --st-header-bg: rgba(255, 255, 255, 0.025);
+  --st-row-hover: rgba(255, 255, 255, 0.035);
+  --st-focus-ring: rgba(255, 162, 75, 0.45);
+}
+
+/* ---------- Table ---------- */
+
+.table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-family: inherit;
+  font-size: 0.9375rem;             /* 15px — slightly tighter than body text so it's scannable */
+  line-height: 1.5;
+  color: var(--st-fg);
+  /* Override Nextra prose styles that add their own table treatment */
+  margin: 0;
+}
+
+/* ---------- Header ---------- */
+
+.headerRow {
+  background: var(--st-header-bg);
+}
+
+.headerCell {
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.8125rem;             /* 13px — caption-y for hierarchy */
+  letter-spacing: 0.01em;
+  color: var(--st-fg-muted);
+  padding: 0.625rem 0.875rem;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--st-divider-strong);
+  vertical-align: middle;
+}
+
+.headerButton {
+  all: unset;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  /* Inherit font/colour from the cell so changing one place restyles all */
+  font: inherit;
+  color: inherit;
+  /* Tighten click target a hair so focus ring hugs the label */
+  padding: 0.125rem 0.25rem;
+  margin: -0.125rem -0.25rem;
+  border-radius: 4px;
+  transition: color 120ms ease;
+}
+
+.headerButton:hover {
+  color: var(--st-fg);
+}
+
+.headerButton:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--st-focus-ring);
+  color: var(--st-fg);
+}
+
+.headerButtonActive {
+  color: var(--st-fg);
+}
+
+.sortIcon {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
+  color: var(--st-fg-subtle);
+  transition: color 120ms ease, transform 120ms ease;
+}
+
+.headerButton:hover .sortIcon {
+  color: var(--st-fg-muted);
+}
+
+.sortIconActive {
+  color: var(--st-accent);
+}
+
+/* ---------- Body ---------- */
+
+.row {
+  transition: background-color 120ms ease;
+}
+
+.row:hover {
+  background: var(--st-row-hover);
+}
+
+.cell {
+  padding: 0.6875rem 0.875rem;      /* ~11px / 14px — matches product table density */
+  border-bottom: 1px solid var(--st-divider);
+  vertical-align: middle;
+  color: var(--st-fg);
+}
+
+.row:last-child .cell {
+  border-bottom: none;
+}
+
+/* ---------- Link cell ---------- */
+
+.link {
+  color: var(--st-link);
+  text-decoration: none;
+  font-weight: 500;
+  border-radius: 3px;
+  transition: color 120ms ease;
+}
+
+.link:hover {
+  color: var(--st-link-hover);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.link:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--st-focus-ring);
+}
+
+/* ---------- Responsive niceties ---------- */
+
+@media (max-width: 640px) {
+  .table { font-size: 0.875rem; }
+  .headerCell { padding: 0.5rem 0.625rem; }
+  .cell { padding: 0.5625rem 0.625rem; }
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .row,
+  .headerButton,
+  .sortIcon,
+  .link {
+    transition: none;
+  }
+}

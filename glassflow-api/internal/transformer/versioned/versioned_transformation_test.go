@@ -21,7 +21,7 @@ import (
 
 func setupPostgres(t *testing.T) (*postgres.PostgresStorage, *pgxpool.Pool, *testutils.PostgresContainer, context.Context) {
 	ctx := context.Background()
-	container, err := testutils.StartPostgresContainer(ctx)
+	container, err := testutils.StartPostgresContainer(ctx, "versioned-transformer")
 	require.NoError(t, err)
 
 	storage, err := postgres.NewPostgres(ctx, container.GetDSN(), nil, nil, internal.RoleDeduplicator)
@@ -54,7 +54,7 @@ func cleanupPostgres(
 }
 
 func setupNATS(t *testing.T, ctx context.Context) (*client.NATSClient, *componentsignals.ComponentSignalPublisher, *testutils.NATSContainer) {
-	natsContainer, err := testutils.StartNATSContainer(ctx)
+	natsContainer, err := testutils.StartNATSContainer(ctx, "versioned-transformer")
 	require.NoError(t, err)
 
 	natsClient, err := client.NewNATSClient(ctx, natsContainer.GetURI())

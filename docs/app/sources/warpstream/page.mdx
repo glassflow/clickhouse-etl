@@ -1,0 +1,40 @@
+---
+title: 'WarpStream'
+description: 'Stream data from WarpStream into ClickHouse via the GlassFlow Kafka source'
+---
+import { Callout } from 'nextra/components'
+
+# WarpStream
+
+WarpStream is a Kafka®-compatible streaming system that decouples storage from compute using object storage (S3 or compatible). It reduces operational overhead while exposing the Kafka API, making it a drop-in alternative for Kafka clients.
+
+## Using WarpStream with GlassFlow
+
+WarpStream implements the Kafka wire protocol. Connect with the GlassFlow [Kafka source](/sources/kafka) using SASL credentials issued from the WarpStream console:
+
+```json
+{
+  "type": "kafka",
+  "source_id": "events",
+  "connection_params": {
+    "brokers": ["api.prod-x.us-east-1.warpstream.com:9092"],
+    "protocol": "SASL_SSL",
+    "mechanism": "PLAIN",
+    "username": "<WARPSTREAM_USERNAME>",
+    "password": "<WARPSTREAM_PASSWORD>"
+  },
+  "topic": "events",
+  "consumer_group_initial_offset": "earliest",
+  "schema_fields": [
+    {"name": "event_id", "type": "string"}
+  ]
+}
+```
+
+WarpStream also supports `SCRAM-SHA-256` and `SCRAM-SHA-512`. Generate credentials in the WarpStream console under your cluster's *Credentials* tab.
+
+## Related
+
+- [Sources overview](/sources)
+- [Kafka source documentation](/sources/kafka) -- full configuration reference
+- [Connection examples](/sources/kafka/connections) -- all supported protocols and auth methods

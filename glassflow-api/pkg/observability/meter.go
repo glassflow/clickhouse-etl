@@ -3,6 +3,7 @@ package observability
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	"go.opentelemetry.io/otel"
@@ -32,7 +33,6 @@ var (
 	KafkaRecordsRead         metric.Int64Counter
 	DLQRecordsWritten        metric.Int64Counter
 	ClickHouseRecordsWritten metric.Int64Counter
-	SinkRecordsPerSec        metric.Float64Gauge
 	ProcessorMessages        metric.Int64Counter
 	ProcessingDuration       metric.Float64Histogram
 	HTTPRequestCount         metric.Int64Counter
@@ -41,11 +41,22 @@ var (
 	ReceiverRequestCount     metric.Int64Counter
 	ReceiverRequestDuration  metric.Float64Histogram
 
+	SinkErrorsByClassification metric.Int64Counter
+	SinkNackMessagesTotal      metric.Int64Counter
+	SinkBatchSizeRecords       metric.Int64Histogram
+	SinkBatchSizeBytes         metric.Int64Histogram
+	SinkRetriesTotal           metric.Int64Counter
+
 	IngestorBackpressureActive   metric.Int64Gauge
 	IngestorBackpressureEvents   metric.Int64Counter
 	IngestorBackpressureDuration metric.Float64Histogram
-	StreamDepth                  metric.Int64Gauge
-	StreamDepthRatio             metric.Float64Gauge
+
+	ComponentBackpressureActive   metric.Int64Gauge
+	ComponentBackpressureEvents   metric.Int64Counter
+	ComponentBackpressureDuration metric.Float64Histogram
+
+	StreamDepth      metric.Int64Gauge
+	StreamDepthRatio metric.Float64Gauge
 )
 
 // pipelineID is set once at component startup (not used by the API which handles multiple pipelines).
@@ -91,19 +102,32 @@ func InitMetrics(cfg *Config) error {
 	)
 	otel.SetMeterProvider(meterProvider)
 
-	m := otel.Meter("glassflow-etl")
+	initMetricInstruments(otel.Meter("glassflow-etl"))
 
+	return nil
+}
+
+// InitMetricsForTesting sets up a ManualReader-backed meter provider and
+// initialises all instrument vars. Returns the reader so tests can call
+// Collect() to inspect recorded values.
+func InitMetricsForTesting() *sdkmetric.ManualReader {
+	reader := sdkmetric.NewManualReader()
+	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	otel.SetMeterProvider(mp)
+	initMetricInstruments(mp.Meter("glassflow-etl"))
+	return reader
+}
+
+func initMetricInstruments(m metric.Meter) {
 	KafkaRecordsRead = mustCreateCounter(m, GfMetricPrefix+"_"+"kafka_records_read_total",
 		"Total number of records read from Kafka")
 	DLQRecordsWritten = mustCreateCounter(m, GfMetricPrefix+"_"+"dlq_records_written_total",
 		"Total number of records written to dead letter queue")
 	ClickHouseRecordsWritten = mustCreateCounter(m, GfMetricPrefix+"_"+"clickhouse_records_written_total",
 		"Total number of records written to ClickHouse")
-	SinkRecordsPerSec = mustCreateGauge(m, GfMetricPrefix+"_"+"clickhouse_records_written_per_second",
-		"Number of records written to ClickHouse per second")
 	ProcessingDuration = mustCreateHistogram(m, GfMetricPrefix+"_"+"processing_duration_seconds",
 		"Processing duration in seconds")
-	HTTPRequestCount = mustCreateCounter(m, GfMetricPrefix+"_"+"http_server_request_count",
+	HTTPRequestCount = mustCreateCounter(m, GfMetricPrefix+"_"+"http_server_request_count_total",
 		"Total number of HTTP requests")
 	HTTPRequestDuration = mustCreateHistogram(m, GfMetricPrefix+"_"+"http_server_request_duration_seconds",
 		"Duration of HTTP requests")
@@ -111,10 +135,28 @@ func InitMetrics(cfg *Config) error {
 		"Total number of messages processed by processor")
 	BytesProcessed = mustCreateCounter(m, GfMetricPrefix+"_"+"bytes_processed_total",
 		"Total bytes processed by component and direction")
-	ReceiverRequestCount = mustCreateCounter(m, GfMetricPrefix+"_"+"receiver_request_count",
+	ReceiverRequestCount = mustCreateCounter(m, GfMetricPrefix+"_"+"receiver_request_count_total",
 		"Total number of requests received by the receiver")
 	ReceiverRequestDuration = mustCreateHistogram(m, GfMetricPrefix+"_"+"receiver_request_duration_seconds",
 		"Duration of receiver requests in seconds")
+
+	SinkErrorsByClassification = mustCreateCounter(m,
+		GfMetricPrefix+"_"+"sink_errors_by_classification_total",
+		"Sink batch errors labelled by classification and CH error name")
+	SinkNackMessagesTotal = mustCreateCounter(m,
+		GfMetricPrefix+"_"+"sink_nack_messages_total",
+		"Messages NACKed by the sink due to retryable ClickHouse errors")
+	SinkBatchSizeRecords = mustCreateInt64Histogram(m,
+		GfMetricPrefix+"_"+"sink_batch_size_records",
+		"Distribution of records per sink batch", "1",
+		1, 10, 100, 1_000, 10_000, 100_000)
+	SinkBatchSizeBytes = mustCreateInt64Histogram(m,
+		GfMetricPrefix+"_"+"sink_batch_size_bytes",
+		"Distribution of bytes per sink batch", "By",
+		1_024, 10_240, 102_400, 1_048_576, 10_485_760, 104_857_600)
+	SinkRetriesTotal = mustCreateCounter(m,
+		GfMetricPrefix+"_"+"sink_retries_total",
+		"Sink batch retry attempts labelled by outcome (exhausted|retry)")
 
 	IngestorBackpressureActive = mustCreateInt64Gauge(m, GfMetricPrefix+"_"+"ingestor_backpressure_active",
 		"1 while the ingestor is in back-pressure, 0 otherwise")
@@ -123,12 +165,19 @@ func InitMetrics(cfg *Config) error {
 	IngestorBackpressureDuration = mustCreateBackpressureDurationHistogram(m,
 		GfMetricPrefix+"_"+"ingestor_backpressure_duration_seconds",
 		"Duration of each ingestor back-pressure episode in seconds")
+
+	ComponentBackpressureActive = mustCreateInt64Gauge(m, GfMetricPrefix+"_"+"component_backpressure_active",
+		"1 while the component is in back-pressure, 0 otherwise; labelled by component")
+	ComponentBackpressureEvents = mustCreateCounter(m, GfMetricPrefix+"_"+"component_backpressure_events_total",
+		"Total number of times a component entered back-pressure; labelled by component")
+	ComponentBackpressureDuration = mustCreateBackpressureDurationHistogram(m,
+		GfMetricPrefix+"_"+"component_backpressure_duration_seconds",
+		"Duration of each component back-pressure episode in seconds; labelled by component")
+
 	StreamDepth = mustCreateInt64Gauge(m, GfMetricPrefix+"_"+"stream_depth",
 		"Number of messages currently stored in a JetStream stream")
 	StreamDepthRatio = mustCreateGauge(m, GfMetricPrefix+"_"+"stream_depth_ratio",
 		"Stream depth divided by max_messages, 0.0-1.0")
-
-	return nil
 }
 
 func mustCreateCounter(m metric.Meter, name, description string) metric.Int64Counter {
@@ -172,6 +221,17 @@ func mustCreateBackpressureDurationHistogram(m metric.Meter, name, description s
 	return histogram
 }
 
+func mustCreateInt64Histogram(m metric.Meter, name, description, unit string, buckets ...float64) metric.Int64Histogram {
+	h, err := m.Int64Histogram(name,
+		metric.WithDescription(description),
+		metric.WithUnit(unit),
+		metric.WithExplicitBucketBoundaries(buckets...))
+	if err != nil {
+		panic(fmt.Sprintf("failed to create histogram %s: %v", name, err))
+	}
+	return h
+}
+
 func mustCreateHistogram(m metric.Meter, name, description string) metric.Float64Histogram {
 	histogram, err := m.Float64Histogram(name,
 		metric.WithDescription(description),
@@ -189,6 +249,9 @@ func mustCreateHistogram(m metric.Meter, name, description string) metric.Float6
 			2.5,   // 2.5s
 			5.0,   // 5s
 			10.0,  // 10s
+			30.0,  // 30s
+			60.0,  // 1m
+			120.0, // 2m
 		))
 	if err != nil {
 		panic(fmt.Sprintf("failed to create histogram %s: %v", name, err))
@@ -206,13 +269,24 @@ func RecordKafkaRead(ctx context.Context, component string, count int64) {
 	))
 }
 
-func RecordDLQWrite(ctx context.Context, component string, count int64) {
+// DLQ reason constants — keep cardinality bounded, never pass free-form strings.
+const (
+	DLQReasonParseError     = "parse_error"
+	DLQReasonSchemaMismatch = "schema_mismatch"
+	DLQReasonSinkRejection  = "sink_rejection"
+	DLQReasonRetryExhausted = "retry_exhausted"
+	DLQReasonDedupOverflow  = "dedup_overflow"
+	DLQReasonUnrecoverable  = "unrecoverable"
+)
+
+func RecordDLQWrite(ctx context.Context, component, reason string, count int64) {
 	if DLQRecordsWritten == nil {
 		return
 	}
 	DLQRecordsWritten.Add(ctx, count, metric.WithAttributes(
 		attribute.String("component", component),
 		attribute.String("pipeline_id", pipelineID),
+		attribute.String("reason", reason),
 	))
 }
 
@@ -221,26 +295,6 @@ func RecordClickHouseWrite(ctx context.Context, component string, count int64) {
 		return
 	}
 	ClickHouseRecordsWritten.Add(ctx, count, metric.WithAttributes(
-		attribute.String("component", component),
-		attribute.String("pipeline_id", pipelineID),
-	))
-}
-
-func RecordSinkRate(ctx context.Context, component string, rate float64) {
-	if SinkRecordsPerSec == nil {
-		return
-	}
-	SinkRecordsPerSec.Record(ctx, rate, metric.WithAttributes(
-		attribute.String("component", component),
-		attribute.String("pipeline_id", pipelineID),
-	))
-}
-
-func RecordProcessingDuration(ctx context.Context, component string, duration float64) {
-	if ProcessingDuration == nil {
-		return
-	}
-	ProcessingDuration.Record(ctx, duration, metric.WithAttributes(
 		attribute.String("component", component),
 		attribute.String("pipeline_id", pipelineID),
 	))
@@ -305,7 +359,7 @@ func RecordHTTPRequest(ctx context.Context, method, route string, status int, du
 	attrs := []attribute.KeyValue{
 		attribute.String("method", method),
 		attribute.String("path", route),
-		attribute.Int("status", status),
+		attribute.String("status", strconv.Itoa(status)),
 	}
 	if HTTPRequestCount != nil {
 		HTTPRequestCount.Add(ctx, 1, metric.WithAttributes(attrs...))
@@ -330,6 +384,30 @@ func RecordReceiverRequest(ctx context.Context, component, transport, status, pi
 	}
 }
 
+func RecordBackpressureStart(ctx context.Context, component string) {
+	if ComponentBackpressureActive == nil {
+		return
+	}
+	attrs := metric.WithAttributes(
+		attribute.String("pipeline_id", pipelineID),
+		attribute.String("component", component),
+	)
+	ComponentBackpressureActive.Record(ctx, 1, attrs)
+	ComponentBackpressureEvents.Add(ctx, 1, attrs)
+}
+
+func RecordBackpressureStop(ctx context.Context, component string, duration float64) {
+	if ComponentBackpressureActive == nil {
+		return
+	}
+	attrs := metric.WithAttributes(
+		attribute.String("pipeline_id", pipelineID),
+		attribute.String("component", component),
+	)
+	ComponentBackpressureActive.Record(ctx, 0, attrs)
+	ComponentBackpressureDuration.Record(ctx, duration, attrs)
+}
+
 func RecordIngestorBackpressureStart(ctx context.Context) {
 	if IngestorBackpressureActive == nil {
 		return
@@ -337,6 +415,7 @@ func RecordIngestorBackpressureStart(ctx context.Context) {
 	attrs := metric.WithAttributes(attribute.String("pipeline_id", pipelineID))
 	IngestorBackpressureActive.Record(ctx, 1, attrs)
 	IngestorBackpressureEvents.Add(ctx, 1, attrs)
+	RecordBackpressureStart(ctx, "ingestor")
 }
 
 func RecordIngestorBackpressureStop(ctx context.Context, duration float64) {
@@ -346,6 +425,7 @@ func RecordIngestorBackpressureStop(ctx context.Context, duration float64) {
 	attrs := metric.WithAttributes(attribute.String("pipeline_id", pipelineID))
 	IngestorBackpressureActive.Record(ctx, 0, attrs)
 	IngestorBackpressureDuration.Record(ctx, duration, attrs)
+	RecordBackpressureStop(ctx, "ingestor", duration)
 }
 
 func RecordStreamDepth(ctx context.Context, streamName string, depth int64) {
@@ -358,6 +438,26 @@ func RecordStreamDepth(ctx context.Context, streamName string, depth int64) {
 	))
 }
 
+func RecordSinkErrorClassification(ctx context.Context, classification, errorName string) {
+	if SinkErrorsByClassification == nil {
+		return
+	}
+	SinkErrorsByClassification.Add(ctx, 1, metric.WithAttributes(
+		attribute.String("pipeline_id", pipelineID),
+		attribute.String("classification", classification),
+		attribute.String("error_name", errorName),
+	))
+}
+
+func RecordSinkNackMessages(ctx context.Context, count int64) {
+	if SinkNackMessagesTotal == nil {
+		return
+	}
+	SinkNackMessagesTotal.Add(ctx, count, metric.WithAttributes(
+		attribute.String("pipeline_id", pipelineID),
+	))
+}
+
 func RecordStreamDepthRatio(ctx context.Context, streamName string, ratio float64) {
 	if StreamDepthRatio == nil {
 		return
@@ -365,5 +465,25 @@ func RecordStreamDepthRatio(ctx context.Context, streamName string, ratio float6
 	StreamDepthRatio.Record(ctx, ratio, metric.WithAttributes(
 		attribute.String("pipeline_id", pipelineID),
 		attribute.String("stream", streamName),
+	))
+}
+
+func RecordSinkBatchSize(ctx context.Context, records, bytes int64) {
+	attrs := metric.WithAttributes(attribute.String("pipeline_id", pipelineID))
+	if SinkBatchSizeRecords != nil {
+		SinkBatchSizeRecords.Record(ctx, records, attrs)
+	}
+	if SinkBatchSizeBytes != nil {
+		SinkBatchSizeBytes.Record(ctx, bytes, attrs)
+	}
+}
+
+func RecordSinkRetry(ctx context.Context, outcome string, count int64) {
+	if SinkRetriesTotal == nil {
+		return
+	}
+	SinkRetriesTotal.Add(ctx, count, metric.WithAttributes(
+		attribute.String("pipeline_id", pipelineID),
+		attribute.String("outcome", outcome),
 	))
 }

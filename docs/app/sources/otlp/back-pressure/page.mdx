@@ -1,16 +1,16 @@
 ---
-title: 'Back-Pressure'
-description: 'How the GlassFlow OTLP receiver signals back-pressure to upstream collectors and how to tune or resolve it'
+title: 'Backpressure'
+description: 'How the GlassFlow OTLP receiver signals backpressure to upstream collectors and how to tune or resolve it'
 ---
 import { Callout } from 'nextra/components'
 
-# OTLP Receiver Back-Pressure
+# OTLP Receiver Backpressure
 
-When the GlassFlow OTLP receiver cannot keep up with incoming data it signals back-pressure to the upstream OTel Collector or SDK instead of silently dropping events or consuming unbounded memory.
+When the GlassFlow OTLP receiver cannot keep up with incoming data it signals backpressure to the upstream OTel Collector or SDK instead of silently dropping events or consuming unbounded memory.
 
-## How Back-Pressure Works
+## How Backpressure Works
 
-The receiver has two independent back-pressure gates:
+The receiver has two independent backpressure gates:
 
 ### Concurrency Limit
 
@@ -29,14 +29,14 @@ Each pipeline's internal NATS stream has a configurable capacity. When the strea
 - **gRPC** — `ResourceExhausted`
 
 <Callout type="info">
-  Both back-pressure conditions surface as the same protocol-level response (`429` / `ResourceExhausted`) so upstream exporters handle them identically. The distinction matters only for tuning — see [Configuration](#configuration) below.
+  Both backpressure conditions surface as the same protocol-level response (`429` / `ResourceExhausted`) so upstream exporters handle them identically. The distinction matters only for tuning — see [Configuration](#configuration) below.
 </Callout>
 
 ## What the Collector Sees
 
-Standard OTel Collector exporters (`otlphttp`, `otlp`) retry on both `429` and `ResourceExhausted` by default. You do not need to change your Collector config to handle back-pressure — the Collector will queue and retry the failed batch automatically.
+Standard OTel Collector exporters (`otlphttp`, `otlp`) retry on both `429` and `ResourceExhausted` by default. You do not need to change your Collector config to handle backpressure — the Collector will queue and retry the failed batch automatically.
 
-If your Collector's retry queue is exhausted (e.g. the back-pressure is sustained for longer than the Collector's configured `retry_on_failure.max_elapsed_time`), the Collector will drop the batch and log an error. Monitor your Collector's `otelcol_exporter_send_failed_spans` / `_logs` / `_metric_points` metrics to detect sustained back-pressure.
+If your Collector's retry queue is exhausted (e.g. the backpressure is sustained for longer than the Collector's configured `retry_on_failure.max_elapsed_time`), the Collector will drop the batch and log an error. Monitor your Collector's `otelcol_exporter_send_failed_spans` / `_logs` / `_metric_points` metrics to detect sustained backpressure.
 
 ## Configuration
 
@@ -78,7 +78,7 @@ sources:
 
 ### Pipeline stream capacity
 
-The pipeline's internal NATS stream buffer controls how much data can be queued between the receiver and the sink before back-pressure is triggered. Configure this on the pipeline resource:
+The pipeline's internal NATS stream buffer controls how much data can be queued between the receiver and the sink before backpressure is triggered. Configure this on the pipeline resource:
 
 ```json
 "resources": {
@@ -87,11 +87,11 @@ The pipeline's internal NATS stream buffer controls how much data can be queued 
 }
 ```
 
-A larger stream absorbs more burst traffic before back-pressure kicks in. See the [Pipeline Configuration Reference](/configuration/pipeline-config-reference) for full details.
+A larger stream absorbs more burst traffic before backpressure kicks in. See the [Pipeline Configuration Reference](/configuration/pipeline-config-reference) for full details.
 
-## Resolving Sustained Back-Pressure
+## Resolving Sustained Backpressure
 
-Back-pressure is a signal that your **sink is slower than your ingest rate**. To resolve it:
+Backpressure is a signal that your **sink is slower than your ingest rate**. To resolve it:
 
 ### Scale up the sink
 
@@ -113,7 +113,7 @@ If the sink replicas are already at a reasonable count but ClickHouse insert lat
 
 ### Scale out receiver pods
 
-If back-pressure is hitting the **concurrency limit** (not the stream), add more receiver pods to distribute the ingest load:
+If backpressure is hitting the **concurrency limit** (not the stream), add more receiver pods to distribute the ingest load:
 
 ```yaml
 # values.yaml
@@ -123,22 +123,22 @@ sources:
 ```
 
 <Callout type="warning">
-  Scaling out receiver pods increases total ingest throughput but does **not** help if the bottleneck is a full NATS stream — all pods share the same stream and will all hit back-pressure at the same point. Fix the downstream sink first.
+  Scaling out receiver pods increases total ingest throughput but does **not** help if the bottleneck is a full NATS stream — all pods share the same stream and will all hit backpressure at the same point. Fix the downstream sink first.
 </Callout>
 
-## Monitoring Back-Pressure
+## Monitoring Backpressure
 
-The following metrics help identify which gate is triggering back-pressure. All are emitted by the **OTLP receiver** pod.
+The following metrics help identify which gate is triggering backpressure. All are emitted by the **OTLP receiver** pod.
 
 | Metric | Description |
 |---|---|
 | `gfm_receiver_request_count{status="error"}` | Requests that failed — includes both concurrency-limit and stream-full rejections |
-| `gfm_receiver_request_duration_seconds` | Request latency; rising p99 often precedes sustained back-pressure |
+| `gfm_receiver_request_duration_seconds` | Request latency; rising p99 often precedes sustained backpressure |
 
 <Callout type="info">
 The `gfm_ingestor_backpressure_*` and `gfm_stream_depth*` metrics are emitted by the **Kafka ingestor** component, which is not present in OTLP source pipelines. They do not apply here.
 </Callout>
 
-To distinguish concurrency-limit back-pressure from stream-full back-pressure, check the receiver pod logs — each rejection is logged with a `reason` field (`overloaded` or `stream_backpressure`).
+To distinguish concurrency-limit backpressure from stream-full backpressure, check the receiver pod logs — each rejection is logged with a `reason` field (`overloaded` or `stream_backpressure`).
 
 See the [Metrics Reference](/configuration/metrics) for the full list of available metrics and how to access them.

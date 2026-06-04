@@ -2,6 +2,7 @@ package json
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/expr-lang/expr"
 
@@ -21,22 +22,12 @@ func ValidateTransformationAgainstSchema(
 
 	env := make(map[string]any)
 	for _, field := range fields {
-		normalized := internal.NormalizeToBasicKafkaType(field.Type)
-		switch normalized {
-		case internal.KafkaTypeString:
-			env[field.Name] = ""
-		case internal.KafkaTypeInt, internal.KafkaTypeUint:
-			env[field.Name] = 0
-		case internal.KafkaTypeFloat:
-			env[field.Name] = 0.0
-		case internal.KafkaTypeBool:
-			env[field.Name] = false
-		case internal.KafkaTypeArray:
-			env[field.Name] = []any{}
-		case internal.KafkaTypeMap:
-			env[field.Name] = map[string]any{}
-		default:
-			return fmt.Errorf("unsupported field type %q for field %q", field.Type, field.Name)
+		zero, err := zeroValueForKafkaType(field.Type)
+		if err != nil {
+			return fmt.Errorf("field %q: %w", field.Name, err)
+		}
+		if err := setNestedField(env, strings.Split(field.Name, "."), zero); err != nil {
+			return fmt.Errorf("field %q: %w", field.Name, err)
 		}
 	}
 
@@ -61,4 +52,50 @@ func ValidateTransformationAgainstSchema(
 	}
 
 	return nil
+}
+
+func zeroValueForKafkaType(kafkaType string) (any, error) {
+	switch internal.NormalizeToBasicKafkaType(kafkaType) {
+	case internal.KafkaTypeString:
+		return "", nil
+	case internal.KafkaTypeInt, internal.KafkaTypeUint:
+		return 0, nil
+	case internal.KafkaTypeFloat:
+		return 0.0, nil
+	case internal.KafkaTypeBool:
+		return false, nil
+	case internal.KafkaTypeArray:
+		return []any{}, nil
+	case internal.KafkaTypeMap:
+		return map[string]any{}, nil
+	default:
+		return nil, fmt.Errorf("unsupported field type %q", kafkaType)
+	}
+}
+
+// setNestedField walks env along path, creating intermediate map[string]any nodes,
+// and assigns value at the leaf. Leaf declarations win over conflicting parent
+// declarations so that declaration order in the schema does not matter.
+func setNestedField(env map[string]any, path []string, value any) error {
+	if len(path) == 0 {
+		return fmt.Errorf("empty field path")
+	}
+	if len(path) == 1 {
+		env[path[0]] = value
+		return nil
+	}
+
+	head, rest := path[0], path[1:]
+	existing, ok := env[head]
+	if !ok {
+		next := make(map[string]any)
+		env[head] = next
+		return setNestedField(next, rest, value)
+	}
+	next, ok := existing.(map[string]any)
+	if !ok {
+		next = make(map[string]any)
+		env[head] = next
+	}
+	return setNestedField(next, rest, value)
 }

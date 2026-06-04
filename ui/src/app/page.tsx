@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
 import { getSessionSafely } from '@/src/lib/auth0'
-import { isAuthEnabled } from '@/src/utils/auth-config.server'
+import { isAuthEnabled, getAuthPaths } from '@/src/utils/auth-config.server'
 import LoginButton from '@/src/components/auth/LoginButton'
 import { MarketingLandingPage } from '@/src/components/marketing/MarketingLandingPage'
 import axios from 'axios'
@@ -55,6 +55,8 @@ export default async function Home() {
     return <MarketingLandingPage />
   }
 
+  const { login: loginPath } = getAuthPaths()
+
   // Default landing page for all other unauthenticated visitors
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-8 max-w-2xl mx-auto text-center">
@@ -64,7 +66,7 @@ export default async function Home() {
         processing.
       </p>
       <div className="flex gap-4 mt-4">
-        <LoginButton />
+        <LoginButton loginPath={loginPath} />
       </div>
     </div>
   )

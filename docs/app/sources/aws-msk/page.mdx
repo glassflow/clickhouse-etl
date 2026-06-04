@@ -1,0 +1,53 @@
+---
+title: 'AWS MSK'
+description: 'Stream data from Amazon MSK into ClickHouse via the GlassFlow Kafka source'
+---
+import { Callout } from 'nextra/components'
+
+# AWS MSK
+
+Amazon Managed Streaming for Apache Kafka® (MSK) is a fully managed Kafka service on AWS. It simplifies deployment, scaling, and maintenance of Kafka clusters while keeping the standard Kafka API.
+
+## Using AWS MSK with GlassFlow
+
+MSK is a standard Kafka cluster, so the GlassFlow [Kafka source](/sources/kafka) connects to it natively. MSK clusters typically use TLS, so configure `SASL_SSL` with the auth mechanism your cluster is provisioned with.
+
+### SASL/SCRAM authentication
+
+```json
+{
+  "type": "kafka",
+  "source_id": "events",
+  "connection_params": {
+    "brokers": [
+      "b-1.cluster.xxx.kafka.region.amazonaws.com:9096",
+      "b-2.cluster.xxx.kafka.region.amazonaws.com:9096"
+    ],
+    "protocol": "SASL_SSL",
+    "mechanism": "SCRAM-SHA-512",
+    "username": "<MSK_SCRAM_USERNAME>",
+    "password": "<MSK_SCRAM_PASSWORD>"
+  },
+  "topic": "events",
+  "consumer_group_initial_offset": "earliest",
+  "schema_fields": [
+    {"name": "event_id", "type": "string"}
+  ]
+}
+```
+
+MSK SCRAM credentials are stored in AWS Secrets Manager and associated with the cluster — see the AWS MSK documentation for setup.
+
+<Callout type="info">
+**AWS IAM authentication is not currently supported** by the GlassFlow Kafka source. If your MSK cluster is configured for IAM auth, you can either enable SASL/SCRAM on the cluster as an alternative, or [contact us](/support) so we can prioritize IAM auth support.
+</Callout>
+
+### Networking
+
+MSK brokers typically live inside a VPC. Run GlassFlow inside the same VPC (or with VPC peering / PrivateLink to it) so the broker hostnames resolve and reach the cluster.
+
+## Related
+
+- [Sources overview](/sources)
+- [Kafka source documentation](/sources/kafka) -- full configuration reference
+- [Connection examples](/sources/kafka/connections) -- all supported protocols and auth methods

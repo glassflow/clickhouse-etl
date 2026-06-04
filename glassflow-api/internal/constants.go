@@ -146,6 +146,14 @@ const (
 	NatsDefaultFetchMaxWait = 1 * time.Second
 	NatsDefaultAckWait      = 60 * time.Second
 
+	// OTLP receiver NATS health probe: a background goroutine calls
+	// js.AccountInfo every OTLPReceiverNATSHealthInterval to verify NATS is
+	// responsive. /healthz returns 503 if no sample has succeeded within
+	// OTLPReceiverNATSHealthStaleAfter, so kubelet restarts wedged pods.
+	OTLPReceiverNATSHealthInterval   = 5 * time.Second
+	OTLPReceiverNATSHealthTimeout    = 2 * time.Second
+	OTLPReceiverNATSHealthStaleAfter = 15 * time.Second
+
 	// Pipeline consumer retry config — applied to sink, join, and dedup consumers.
 	// MaxDeliver caps total delivery attempts; AckWait is the per-attempt timeout before
 	// NATS considers the message un-acked and redelivers it.

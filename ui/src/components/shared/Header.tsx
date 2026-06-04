@@ -20,6 +20,7 @@ import CloseIcon from '../../images/close.svg'
 import BurgerIcon from '../../images/menu-burger-horizontal.svg'
 import { PlatformBadge } from './PlatformBadge'
 import { NotificationBadge } from './NotificationBadge'
+import { AuthGatedNotificationBadge } from './AuthGatedNotificationBadge'
 import { getRuntimeEnv } from '@/src/utils/common.client'
 import { UserSection } from './UserSection'
 
@@ -366,7 +367,7 @@ export function Header() {
           <div className="flex items-center gap-3">
             <PlatformBadge />
             {isAuthEnabled && <UserSection />}
-            <NotificationBadge />
+            {isAuthEnabled ? <AuthGatedNotificationBadge /> : <NotificationBadge />}
             <HelpMenu isOpen={isHelpMenuOpen} setIsOpen={setIsHelpMenuOpen} />
           </div>
         </div>

@@ -1,11 +1,15 @@
 ---
-title: 'OTLP'
+title: 'OpenTelemetry (OTLP)'
 asIndexPage: true
 description: 'Ingest OpenTelemetry logs, traces, and metrics into ClickHouse via the native OTLP receiver — no Kafka cluster required'
 ---
 import { Callout } from 'nextra/components'
 
-# OTLP Source
+# OpenTelemetry (OTLP)
+
+OpenTelemetry is an open standard for collecting traces, metrics, and logs from distributed systems. It provides a unified way to instrument applications and export telemetry data to observability backends.
+
+## Using OpenTelemetry with GlassFlow
 
 OTLP source pipelines let GlassFlow ingest OpenTelemetry data directly via the OTLP protocol. GlassFlow runs its own OTLP receiver that accepts data on the standard OTLP ports, so you do not need a Kafka cluster to get observability data into ClickHouse.
 
@@ -75,6 +79,17 @@ x-glassflow-pipeline-id: <your-pipeline-id>
 | Filter | Yes | [Filter](/transformations/filter) |
 | Stateless Transformation | Yes | [Stateless Transformation](/transformations/stateless-transformation) |
 
+## Telemetry collectors
+
+Any OTLP-capable client can talk to the GlassFlow OTLP receiver. The pages below cover the validated integrations for popular telemetry agents and forwarders, including tested configs, field mappings, and per-tool caveats.
+
+- [Fluent Bit](/sources/fluent-bit). Direct OTLP HTTP forwarding for logs and host metrics, no Collector in between.
+- [Fluentd](/sources/fluentd). Routed through an OpenTelemetry Collector relay (`fluent_forward` then `otlp_http`); Fluentd itself has no OTLP output that supports custom headers.
+- [Grafana Alloy](/sources/grafana-alloy). Direct OTLP forwarding for logs, metrics, and traces via Alloy's OpenTelemetry-native exporters.
+- [Logstash](/sources/logstash). Routed through an OpenTelemetry Collector relay (`tcplog` then `otlphttp`); Logstash itself has no maintained OTLP output.
+
+For OpenTelemetry SDKs and the OpenTelemetry Collector directly, see [Sending Data](/sources/otlp/sending-data).
+
 ## Pipeline Stop and Terminate Behaviour
 
 Because the OTLP receiver is a shared component that stays running across all pipelines, it is important to understand what happens to in-flight data when you stop or terminate an OTLP pipeline.
@@ -86,16 +101,16 @@ Because the OTLP receiver is a shared component that stays running across all pi
   While a pipeline is stopped or terminated, the OTLP receiver keeps buffering incoming data into NATS JetStream. If the pipeline stays in this state for an extended period, monitor the stream size against your `max_bytes` and `max_age` limits to avoid data eviction (see [Scaling Guide](/installation/kubernetes/scaling)).
 </Callout>
 
-## Back-Pressure
+## Backpressure
 
-When the receiver cannot keep up with incoming data it signals back-pressure to the upstream OTel Collector or SDK — returning `429 Too Many Requests` (HTTP) or `ResourceExhausted` (gRPC) — instead of silently dropping events. Standard OTel exporters retry these responses automatically.
+When the receiver cannot keep up with incoming data it signals backpressure to the upstream OTel Collector or SDK — returning `429 Too Many Requests` (HTTP) or `ResourceExhausted` (gRPC) — instead of silently dropping events. Standard OTel exporters retry these responses automatically.
 
-See [Back-Pressure](/sources/otlp/back-pressure) for how the two back-pressure gates work, how to tune them, and how to resolve sustained back-pressure.
+See [Backpressure](/sources/otlp/back-pressure) for how the two backpressure gates work, how to tune them, and how to resolve sustained backpressure.
 
 ## Next Steps
 
 - [Examples](/sources/otlp/examples) -- ClickStack-compatible tables and full pipeline configs for logs, traces, and metrics
 - [Sending Data](/sources/otlp/sending-data) -- OTel Collector configs, SDK instrumentation
 - [Schema Reference](/sources/otlp/schema-reference) -- field tables for logs, traces, and metrics
-- [Back-Pressure](/sources/otlp/back-pressure) -- concurrency limits, NATS stream capacity, tuning and scaling
+- [Backpressure](/sources/otlp/back-pressure) -- concurrency limits, NATS stream capacity, tuning and scaling
 - [Pipeline Configuration Reference](/configuration/pipeline-config-reference) -- full configuration reference

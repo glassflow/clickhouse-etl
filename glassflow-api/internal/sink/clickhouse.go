@@ -256,8 +256,7 @@ func (ch *ClickHouseSink) handleShutdown(ctx context.Context) error {
 func (ch *ClickHouseSink) startWorkerPool() {
 	ch.log.Info("Starting worker pool", "worker_count", ch.workerPoolSize)
 	for range ch.workerPoolSize {
-		ch.workerWg.Add(1)
-		go ch.worker()
+		ch.workerWg.Go(ch.worker)
 	}
 }
 
@@ -279,8 +278,6 @@ func (ch *ClickHouseSink) stopWorkerPool() {
 
 // worker processes messages in parallel by calling PrepareValues
 func (ch *ClickHouseSink) worker() {
-	defer ch.workerWg.Done()
-
 	for {
 		select {
 		case <-ch.workerCtx.Done():
@@ -391,8 +388,9 @@ func (ch *ClickHouseSink) flushFailedBatch(
 	messages []jetstream.Msg,
 	batchErr error,
 ) error {
+	reason := observability.DLQReasonSinkRejection + "_" + sinkerrors.ErrorName(batchErr)
 	for _, msg := range messages {
-		err := ch.pushMsgToDLQ(ctx, msg.Data(), batchErr)
+		err := ch.pushMsgToDLQ(ctx, msg.Data(), batchErr, reason)
 		if err != nil {
 			return fmt.Errorf("push message to DLQ: %w", err)
 		}
@@ -423,9 +421,19 @@ func (ch *ClickHouseSink) sendBatch(ctx context.Context, messages []jetstream.Ms
 	}
 
 	observability.RecordBytesProcessed(ctx, "sink", "in", totalBytes)
+	observability.RecordSinkBatchSize(ctx, int64(len(messages)), totalBytes)
 
 	batchesBySchema, err := ch.createCHBatches(ctx, messages)
 	if err != nil {
+		classification := sinkerrors.Classify(err)
+		errorName := sinkerrors.ErrorName(err)
+		observability.RecordSinkErrorClassification(ctx, classification.String(), errorName)
+		if classification == sinkerrors.Retryable {
+			ch.log.WarnContext(ctx, "retryable error creating CH batches, NACKing batch", "error", err)
+			ch.nakMessages(ctx, messages)
+			observability.RecordSinkNackMessages(ctx, int64(len(messages)))
+			return nil
+		}
 		return fmt.Errorf("create CH batches: %w", err)
 	}
 
@@ -438,16 +446,21 @@ func (ch *ClickHouseSink) sendBatch(ctx context.Context, messages []jetstream.Ms
 			continue
 		}
 
-		start := time.Now()
 		err = schemaData.batch.Send(ctx)
 		if err != nil {
 			classification := sinkerrors.Classify(err)
+			errorName := sinkerrors.ErrorName(err)
+			observability.RecordSinkErrorClassification(ctx, classification.String(), errorName)
+
 			if classification == sinkerrors.Retryable {
 				ch.log.WarnContext(ctx, "retryable ClickHouse error, NACKing batch",
 					"schema_version_id", schemaVersionID,
 					"error", err,
 					"batch_size", len(schemaData.messages))
 				ch.nakMessages(ctx, schemaData.messages)
+				observability.RecordSinkNackMessages(ctx, int64(len(schemaData.messages)))
+				observability.RecordProcessorMessages(ctx, "sink", "retry", int64(size))
+				observability.RecordSinkRetry(ctx, "retry", int64(size))
 				continue
 			}
 
@@ -456,6 +469,9 @@ func (ch *ClickHouseSink) sendBatch(ctx context.Context, messages []jetstream.Ms
 				"error", err,
 				"classification", classification.String(),
 				"batch_size", len(schemaData.messages))
+
+			observability.RecordProcessorMessages(ctx, "sink", "error", int64(size))
+			observability.RecordSinkRetry(ctx, "exhausted", int64(size))
 
 			flushErr := ch.flushFailedBatch(ctx, schemaData.messages, err)
 			if flushErr != nil {
@@ -475,12 +491,7 @@ func (ch *ClickHouseSink) sendBatch(ctx context.Context, messages []jetstream.Ms
 			"message_count", size)
 
 		observability.RecordClickHouseWrite(ctx, "sink", int64(size))
-
-		duration := time.Since(start).Seconds()
-		if duration > 0 {
-			rate := float64(size) / duration
-			observability.RecordSinkRate(ctx, "sink", rate)
-		}
+		observability.RecordProcessorMessages(ctx, "sink", "success", int64(size))
 
 		observability.RecordBytesProcessed(ctx, "sink", "out", totalBytes)
 	}
@@ -598,7 +609,7 @@ func (ch *ClickHouseSink) createCHBatches(
 		for _, procMsg := range result.processed {
 			// If there was an error during processing, push to DLQ and skip
 			if procMsg.err != nil {
-				dlqErr := ch.pushMsgToDLQ(ctx, procMsg.msg.Data(), procMsg.err)
+				dlqErr := ch.pushMsgToDLQ(ctx, procMsg.msg.Data(), procMsg.err, observability.DLQReasonSchemaMismatch)
 				if dlqErr != nil {
 					return nil, fmt.Errorf("failed to push bad message to DLQ: %w", dlqErr)
 				}
@@ -629,7 +640,7 @@ func (ch *ClickHouseSink) createCHBatches(
 					ch.log.Warn("Failed to append message to batch, pushing to DLQ",
 						slog.Any("error", err))
 
-					dlqErr := ch.pushMsgToDLQ(ctx, procMsg.msg.Data(), err)
+					dlqErr := ch.pushMsgToDLQ(ctx, procMsg.msg.Data(), err, observability.DLQReasonSinkRejection+"_"+sinkerrors.ErrorName(err))
 					if dlqErr != nil {
 						return nil, fmt.Errorf("failed to push bad message to DLQ: %w", dlqErr)
 					}
@@ -724,7 +735,7 @@ func (ch *ClickHouseSink) Stop(noWait bool) {
 	})
 }
 
-func (ch *ClickHouseSink) pushMsgToDLQ(ctx context.Context, orgMsg []byte, err error) error {
+func (ch *ClickHouseSink) pushMsgToDLQ(ctx context.Context, orgMsg []byte, err error, reason string) error {
 	data, err := models.NewDLQMessage(internal.RoleSink, err.Error(), orgMsg).ToJSON()
 	if err != nil {
 		return fmt.Errorf("convert DLQ message to JSON: %w", err)
@@ -735,8 +746,7 @@ func (ch *ClickHouseSink) pushMsgToDLQ(ctx context.Context, orgMsg []byte, err e
 		return fmt.Errorf("publish to DLQ: %w", err)
 	}
 
-	// Record DLQ write metric
-	observability.RecordDLQWrite(ctx, "sink", 1)
+	observability.RecordDLQWrite(ctx, "sink", reason, 1)
 
 	return nil
 }

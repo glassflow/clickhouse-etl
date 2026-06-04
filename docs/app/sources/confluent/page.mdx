@@ -1,0 +1,45 @@
+---
+title: 'Confluent Cloud'
+description: 'Stream data from Confluent Cloud into ClickHouse via the GlassFlow Kafka source'
+---
+import { Callout } from 'nextra/components'
+
+# Confluent Cloud
+
+Confluent Cloud is a managed Kafka platform that simplifies operating and scaling streaming data infrastructure. It adds enterprise features like governance, schema registry, connectors, and cloud-native deployment on top of Apache Kafka®.
+
+## Using Confluent Cloud with GlassFlow
+
+Confluent Cloud is Kafka API-compatible. Connect with the GlassFlow [Kafka source](/sources/kafka) using `SASL_SSL` + `PLAIN` and a Confluent API key/secret as the credentials:
+
+```json
+{
+  "type": "kafka",
+  "source_id": "events",
+  "connection_params": {
+    "brokers": ["pkc-xxxxx.region.aws.confluent.cloud:9092"],
+    "protocol": "SASL_SSL",
+    "mechanism": "PLAIN",
+    "username": "<CONFLUENT_API_KEY>",
+    "password": "<CONFLUENT_API_SECRET>"
+  },
+  "topic": "events",
+  "consumer_group_initial_offset": "earliest",
+  "schema_fields": [
+    {"name": "event_id", "type": "string"},
+    {"name": "timestamp", "type": "datetime"}
+  ]
+}
+```
+
+The API key and secret are created in the Confluent Cloud console under *Cluster → API Keys*. Confluent Cloud requires TLS, so always use `SASL_SSL` rather than `SASL_PLAINTEXT`.
+
+## Schema Registry
+
+GlassFlow does not currently read schemas from Confluent Schema Registry. Define your fields explicitly in `schema_fields` on the source.
+
+## Related
+
+- [Sources overview](/sources)
+- [Kafka source documentation](/sources/kafka) -- full configuration reference
+- [Connection examples](/sources/kafka/connections) -- all supported protocols and auth methods

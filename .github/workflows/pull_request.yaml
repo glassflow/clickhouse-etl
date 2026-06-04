@@ -20,8 +20,6 @@ jobs:
   build-binary:
     uses: ./.github/workflows/build_binary.yaml
   test:
-    needs:
-      - build-binary
     if: >-
       !contains(github.event.pull_request.labels.*.name || '', 'build-only')
     uses: ./.github/workflows/test.yaml

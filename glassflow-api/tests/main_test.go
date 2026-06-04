@@ -145,13 +145,68 @@ func testAPIFeatures(t *testing.T) {
 	runSingleSuite(t, "api", apiSuite, config)
 }
 
-// TestFeatures runs all feature tests but in separate contexts
+func testBackpressureFeatures(t *testing.T) {
+	bpSuite := steps.NewBackpressureTestSuite()
+
+	config := TestConfig{
+		FeaturePaths: []string{filepath.Join("features", "backpressure")},
+		Tags:         "@backpressure",
+		Format:       "pretty",
+	}
+
+	runSingleSuite(t, "backpressure", bpSuite, config)
+}
+
+func testRetryableFeatures(t *testing.T) {
+	sinkSuite := steps.NewSinkTestSuite()
+
+	config := TestConfig{
+		FeaturePaths: []string{filepath.Join("features", "sink", "retryable.feature")},
+		Tags:         "@retryable",
+		Format:       "pretty",
+	}
+
+	runSingleSuite(t, "retryable", sinkSuite, config)
+}
+
+// TestFeatures runs all feature tests in parallel, each in its own container namespace.
 func TestFeatures(t *testing.T) {
-	// Run tests in subtests to isolate them
-	t.Run("SinkFeatures", testSinkFeatures)
-	t.Run("JoinComponentFeatures", testJoinFeatures)
-	t.Run("PipelineFeatures", testPipelineFeatures)
-	t.Run("IngestorFeatures", testIngetorFeatures)
-	t.Run("PlatformFeatures", testPlatformFeatures)
-	t.Run("APIFeatures", testAPIFeatures)
+	t.Run("SinkFeatures", func(t *testing.T) {
+		t.Parallel()
+		testSinkFeatures(t)
+	})
+	t.Run("JoinComponentFeatures", func(t *testing.T) {
+		t.Parallel()
+		testJoinFeatures(t)
+	})
+	t.Run("PipelineFeatures", func(t *testing.T) {
+		t.Parallel()
+		testPipelineFeatures(t)
+	})
+	t.Run("IngestorFeatures", func(t *testing.T) {
+		t.Parallel()
+		testIngetorFeatures(t)
+	})
+	t.Run("PlatformFeatures", func(t *testing.T) {
+		t.Parallel()
+		testPlatformFeatures(t)
+	})
+	t.Run("APIFeatures", func(t *testing.T) {
+		t.Parallel()
+		testAPIFeatures(t)
+	})
+	t.Run("BackpressureFeatures", func(t *testing.T) {
+		t.Parallel()
+		testBackpressureFeatures(t)
+	})
+}
+
+// TestRetryableFeatures runs only the sink retry-classification scenarios.
+func TestRetryableFeatures(t *testing.T) {
+	testRetryableFeatures(t)
+}
+
+// TestBackpressureFeatures runs the back-pressure propagation scenarios
+func TestBackpressureFeatures(t *testing.T) {
+	testBackpressureFeatures(t)
 }

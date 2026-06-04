@@ -19,6 +19,7 @@ type APISteps struct {
 func NewAPISteps() *APISteps {
 	return &APISteps{
 		BaseTestSuite: BaseTestSuite{
+			suiteName:      "api",
 			kafkaContainer: nil,
 		},
 		log: testutils.NewTestLogger(),

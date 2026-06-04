@@ -25,6 +25,8 @@ import (
 
 // BaseTestSuite provides common functionality for test suites
 type BaseTestSuite struct {
+	suiteName string
+
 	natsContainer     *testutils.NATSContainer
 	chContainer       *testutils.ClickHouseContainer
 	kafkaContainer    *testutils.KafkaContainer
@@ -42,7 +44,7 @@ type BaseTestSuite struct {
 
 func (b *BaseTestSuite) setupNATS() error {
 	if b.natsContainer == nil {
-		natsContainer, err := testutils.StartNATSContainer(context.Background())
+		natsContainer, err := testutils.StartNATSContainer(context.Background(), b.suiteName)
 		if err != nil {
 			return fmt.Errorf("start nats container: %w", err)
 		}
@@ -85,7 +87,7 @@ func (b *BaseTestSuite) cleanupNATS() error {
 }
 
 func (b *BaseTestSuite) setupCH() error {
-	chContainer, err := testutils.StartClickHouseContainer(context.Background())
+	chContainer, err := testutils.StartClickHouseContainer(context.Background(), b.suiteName)
 	if err != nil {
 		return fmt.Errorf("start clickhouse container: %w", err)
 	}
@@ -107,7 +109,7 @@ func (b *BaseTestSuite) cleanupCH() error {
 }
 
 func (b *BaseTestSuite) setupPostgres() error {
-	pgContainer, err := testutils.StartPostgresContainer(context.Background())
+	pgContainer, err := testutils.StartPostgresContainer(context.Background(), b.suiteName)
 	if err != nil {
 		return fmt.Errorf("start postgres container: %w", err)
 	}
@@ -129,7 +131,7 @@ func (b *BaseTestSuite) cleanupPostgres() error {
 }
 
 func (b *BaseTestSuite) setupKafka() error {
-	kContainer, err := testutils.StartKafkaContainer(context.Background())
+	kContainer, err := testutils.StartKafkaContainer(context.Background(), b.suiteName)
 	if err != nil {
 		return fmt.Errorf("start kafka container: %w", err)
 	}
@@ -253,9 +255,7 @@ func (b *BaseTestSuite) deleteAllStreams() error {
 }
 
 func (b *BaseTestSuite) stopComponent(stopFn func(...component.StopOption), graceful bool, delayDuration ...time.Duration) {
-	b.wg.Add(1)
-	go func() {
-		defer b.wg.Done()
+	b.wg.Go(func() {
 
 		if len(delayDuration) > 0 && delayDuration[0] > 0 {
 			time.Sleep(delayDuration[0])
@@ -266,7 +266,7 @@ func (b *BaseTestSuite) stopComponent(stopFn func(...component.StopOption), grac
 		} else {
 			stopFn(component.WithNoWait(true))
 		}
-	}()
+	})
 
 	b.wg.Wait()
 }

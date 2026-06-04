@@ -3,14 +3,70 @@ title: 'Sources'
 asIndexPage: true
 description: 'Choose and configure the data source for your GlassFlow pipelines'
 ---
+import { Callout } from 'nextra/components'
+import { SortableTable } from '../components/SortableTable'
 
 # Sources
 
-GlassFlow supports two types of data sources. Each source type defines how data enters the pipeline before it is processed and written to ClickHouse.
+GlassFlow connects to a growing list of data sources and streams them into ClickHouse with deduplication, joins, filtering, and stateless transformations.
 
-| Source | Description | Best for |
-|--------|-------------|----------|
-| [Kafka](/sources/kafka) | Consume from one or more Kafka topics with support for deduplication, joins, filtering, and transforms | Event streams, CDC, and any workload already backed by Kafka |
-| [OTLP](/sources/otlp) | Receive OpenTelemetry logs, traces, and metrics directly via the OTLP protocol -- no Kafka required | Observability data from OTel-instrumented services |
+Sources marked 'Enterprise' are delivered as part of GlassFlow's Enterprise Edition. To get access to our managed connectors or request a new connector, get in touch with our team [here](https://www.glassflow.dev/integrations#contact)
 
-Both source types write to ClickHouse through the same sink configuration and support the same [transformations](/transformations) (filter, stateless transformation, deduplication). Joins are only available with Kafka sources.
+export const sources = [
+  // Open Source — alphabetical by Source
+  { name: 'Apache Kafka®',           slug: 'kafka',             category: 'Streaming',                         version: 'Open Source' },
+  { name: 'AWS MSK',                 slug: 'aws-msk',           category: 'Streaming (Kafka-compatible)',      version: 'Open Source' },
+  { name: 'Confluent Cloud',         slug: 'confluent',         category: 'Streaming (Kafka-compatible)',      version: 'Open Source' },
+  { name: 'Fluent Bit',              slug: 'fluent-bit',        category: 'Telemetry collector',               version: 'Open Source' },
+  { name: 'Fluentd',                 slug: 'fluentd',           category: 'Telemetry collector',               version: 'Open Source' },
+  { name: 'Grafana Alloy',           slug: 'grafana-alloy',     category: 'Telemetry collector',               version: 'Open Source' },
+  { name: 'Logstash',                slug: 'logstash',          category: 'Telemetry collector',               version: 'Open Source' },
+  { name: 'OpenTelemetry (OTLP)',    slug: 'otlp',              category: 'Telemetry',                         version: 'Open Source' },
+  { name: 'Redpanda',                slug: 'redpanda',          category: 'Streaming (Kafka-compatible)',      version: 'Open Source' },
+  { name: 'WarpStream',              slug: 'warpstream',        category: 'Streaming (Kafka-compatible)',      version: 'Open Source' },
+  // Enterprise — alphabetical by Source
+  { name: 'Airbyte',                 slug: 'airbyte',           category: 'Data integration',                  version: 'Enterprise' },
+  { name: 'Amazon S3',               slug: 's3',                category: 'Object storage',                    version: 'Enterprise' },
+  { name: 'Apache Cassandra®',       slug: 'cassandra',         category: 'Database',                          version: 'Enterprise' },
+  { name: 'Apache Iceberg®',         slug: 'iceberg',           category: 'Table format',                      version: 'Enterprise' },
+  { name: 'AWS CloudWatch',          slug: 'cloudwatch',        category: 'Telemetry',                         version: 'Enterprise' },
+  { name: 'AWS Kinesis',             slug: 'kinesis',           category: 'Streaming',                         version: 'Enterprise' },
+  { name: 'Azure Event Hubs',        slug: 'azure-event-hubs',  category: 'Streaming',                         version: 'Enterprise' },
+  { name: 'Delta Lake',              slug: 'delta-lake',        category: 'Table format',                      version: 'Enterprise' },
+  { name: 'DynamoDB',                slug: 'dynamodb',          category: 'Database',                          version: 'Enterprise' },
+  { name: 'Google Cloud Storage',    slug: 'gcs',               category: 'Object storage',                    version: 'Enterprise' },
+  { name: 'Google Pub/Sub',          slug: 'pubsub',            category: 'Streaming',                         version: 'Enterprise' },
+  { name: 'Kinesis Firehose',        slug: 'kinesis-firehose',  category: 'Streaming',                         version: 'Enterprise' },
+  { name: 'MariaDB',                 slug: 'mariadb',           category: 'Database',                          version: 'Enterprise' },
+  { name: 'MongoDB',                 slug: 'mongodb',           category: 'Database',                          version: 'Enterprise' },
+  { name: 'MySQL',                   slug: 'mysql',             category: 'Database',                          version: 'Enterprise' },
+  { name: 'Neon',                    slug: 'neon',              category: 'Database',                          version: 'Enterprise' },
+  { name: 'PostgreSQL',              slug: 'postgresql',        category: 'Database',                          version: 'Enterprise' },
+  { name: 'PostHog',                 slug: 'posthog',           category: 'Product analytics',                 version: 'Enterprise' },
+  { name: 'Segment',                 slug: 'segment',           category: 'Customer data platform',            version: 'Enterprise' },
+  { name: 'Supabase',                slug: 'supabase',          category: 'Database',                          version: 'Enterprise' },
+  { name: 'Webhook (HTTP)',          slug: 'webhook',           category: 'HTTP',                              version: 'Enterprise' },
+]
+
+export const sourceColumns = [
+  { key: 'name',     label: 'Source',   type: 'link', hrefField: 'slug', hrefPrefix: '/sources/' },
+  { key: 'category', label: 'Category' },
+  { key: 'version',  label: 'Version' },
+]
+
+<SortableTable columns={sourceColumns} rows={sources} />
+
+<Callout type="info">
+**Missing an integration?** Let us know which source you need and we'll deliver it within a few weeks. [Contact us](https://www.glassflow.dev/integrations#contact) with your use case, expected volumes, and timeline—or [join our GlassFlow Slack community](https://glassflowhub.slack.com/join/shared_invite/zt-349m7lenp-IFeKSGfQwpJfIiQ7oyFFKg) to chat with us directly!
+</Callout>
+
+## How sources work
+
+All source types feed into the same pipeline runtime. Once data is ingested, every source supports:
+
+- **Deduplication** — drop duplicate records based on a key and time window
+- **Filtering** — keep only records matching an expression
+- **Stateless transformations** — map fields, derive values, reshape records
+- **Joins** — combine related streams (Kafka sources only)
+
+Output is always written to ClickHouse via the same [sink configuration](/configuration/sink).

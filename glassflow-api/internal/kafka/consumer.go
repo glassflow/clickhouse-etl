@@ -304,9 +304,18 @@ func (c *Consumer) processBatch(ctx context.Context) error {
 	if err != nil {
 		c.log.Error("Batch processing failed", slog.Any("error", err), slog.Int("batchSize", size))
 
-		// Commit offset for successfully processed records
+		// Commit offset for successfully processed records. If the failure was
+		// caused by ctx cancellation, the same ctx will reject CommitRecords
+		// immediately — use a fresh, bounded ctx so the partial offset can
+		// actually reach the broker during shutdown.
 		if lastProcessed != nil {
-			if commitErr := c.client.CommitRecords(ctx, lastProcessed); commitErr != nil {
+			commitCtx := ctx
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				var cancel context.CancelFunc
+				commitCtx, cancel = context.WithTimeout(context.Background(), internal.DefaultComponentShutdownTimeout)
+				defer cancel()
+			}
+			if commitErr := c.client.CommitRecords(commitCtx, lastProcessed); commitErr != nil {
 				c.log.Error("Failed to commit partial offset", slog.Any("error", commitErr))
 			} else {
 				c.log.Info("Committed partial offset", slog.Int64("offset", lastProcessed.Offset))
@@ -334,7 +343,7 @@ func (c *Consumer) processBatch(ctx context.Context) error {
 	// Record Kafka read metric
 	observability.RecordKafkaRead(ctx, "ingestor", int64(size))
 	duration := time.Since(start).Seconds()
-	observability.RecordProcessingDuration(ctx, "ingestor", duration/float64(size))
+	observability.RecordProcessingDurationWithStage(ctx, "ingestor", "batch", duration/float64(size))
 	observability.RecordBytesProcessed(ctx, "ingestor", "in", totalBytes)
 
 	return nil

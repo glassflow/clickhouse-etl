@@ -1,302 +1,62 @@
 ---
 title: 'Web UI'
-description: 'Learn how to use the GlassFlow web interface to create and manage data pipelines'
+asIndexPage: true
+description: 'Create and manage data pipelines visually with the GlassFlow web interface'
 ---
-import { Callout, Steps } from 'nextra/components'
+import { Callout } from 'nextra/components'
 
 # Web UI
 
-The GlassFlow web interface provides an intuitive, visual way to create and manage data pipelines without writing code. This guide will walk you through the complete process of setting up different types of pipelines using the web interface.
+The GlassFlow web interface provides an intuitive, visual way to create and manage data pipelines without writing code. This guide walks through the complete process of setting up pipelines, monitoring their state, and managing their lifecycle.
 
-## Getting Started
+## Accessing the Web UI
 
-### Access the Web Interface
-
-When using the GlassFlow CLI, the web interface is available at `http://localhost:30080` after running `glassflow up`. For production deployments, use your configured GlassFlow URL.
-
-### Pipeline Types
-
-The web interface supports four main pipeline types:
-
-1. **Deduplicate** - Remove duplicate records based on specified keys
-2. **Join** - Combine data from multiple Kafka sources
-3. **Deduplicate and Join** - Both deduplication and joining in a single pipeline
-4. **Single Source** - Ingest, filter, transform, and deduplicate data from a single source
-
-![Pipeline Types](/assets/ui_home.png)
-
+When running locally via the CLI, the web interface is available at `http://localhost:30080` after `glassflow up`. For Kubernetes deployments, use the URL exposed by your ingress or service.
 
 ## Creating a Pipeline
 
-### Creating a Single Source Pipeline
+Click **Create** in the top navigation. The first step is to choose your data source:
 
-This section walks through creating a pipeline that ingests, filters, transforms, and deduplicates records from a single source. The example below uses a Kafka source.
-<Steps>
-#### Setup Kafka Connection
+- **Apache Kafka** — consume messages from one or more Kafka topics, with support for deduplication, joins, filtering, and stateless transformations.
+- **OpenTelemetry (OTLP)** — receive OpenTelemetry logs, traces, or metrics directly via the OTLP protocol — no Kafka required.
 
+![Create Pipeline](/assets/ui_home.png)
 
-Configure the connection to your Kafka cluster:
+Each source has its own guided wizard. Pick the source you want and follow the matching guide:
 
-**Connection Parameters**
+- [Create a Kafka pipeline](/usage-guide/web-ui/kafka)
+- [Create an OTLP pipeline](/usage-guide/web-ui/otlp)
 
-- **Brokers**: Enter your Kafka broker addresses (e.g., `localhost:9092` or `kafka:9093`)
-- **Protocol**: Select the connection protocol
-  - `PLAINTEXT` - For unsecured local development
-  - `SASL_SSL` - For production with authentication
-  - `SSL` - For SSL-secured connections
-- **Authentication**: Configure if required
-  - **Username**: Your Kafka username
-  - **Password**: Your Kafka password
-  - **Mechanism**: Authentication mechanism (e.g., `SCRAM-SHA-256`)
-  - **Root CA**: SSL certificate
-- **Skip Authentication**: Enable for unsecured connections
-
-**Kafka Connection**
-
-![Setup Kafka Connection](/assets/ui_kafka_connection.png)
-
-#### Select Topic
-
-Choose the Kafka topic and define its schema:
-
-**Topic Selection**
-
-- **Topic Name**: Select the Kafka topic you want to process
-- **Consumer Group Initial Offset**: Choose where to start reading
-  - `earliest` - Start from the beginning of the topic
-  - `latest` - Start from the most recent messages
-
-![Select Topic](/assets/ui_kafka_topic.png)
-
-
-**Schema Definition**
-The UI automatically detects the schema of the topic.
-
-#### Configure Deduplicate
-
-This step is optional. Skip it if you do not need to deduplicate records before they reach ClickHouse.
-
-Configure deduplication settings to remove duplicate records:
-
-**Deduplication Configuration**
-
-- **Deduplication Key**: Select the field to use for identifying duplicates
-  - Choose a field that uniquely identifies each record
-  - Common choices: `user_id`, `event_id`, `transaction_id`
-- **Time Window**: Set the deduplication time window
-  - `30s` - 30 seconds
-  - `1m` - 1 minute
-  - `1h` - 1 hour
-  - `12h` - 12 hours
-  - `24h` - 24 hours
-
-![Deduplication Configuration](/assets/ui_dedup_selection.png)
-
-
-**Deduplication Logic**
-
-The system will:
-1. Track the specified ID field within the time window
-2. Keep only the first occurrence of each unique ID
-3. Discard subsequent duplicates within the time window
-4. Reset tracking after the time window expires
-
-#### Configure Filter
-
-This step is optional. Skip it if you do not need to filter records before they reach ClickHouse.
-
-Toggle the filter on to define a condition that identifies records to keep. Records that match the expression pass through the pipeline; records that do not match are dropped.
-
-**Filter Configuration**
-
-- **Filter Expression**: Enter a JSON-based condition that describes the records you want to keep
-  - Example: `{"status": "active"}` keeps every record where `status` equals `"active"`
-  - Conditions can reference any field present in the topic schema
-  - Only records that match the expression pass through; all others are dropped
-
-![Filter Configuration](/assets/ui_filter_config.png)
-
-#### Configure Stateless Transformation
-
-This step is optional. Skip it if you do not need to modify records before they are written to ClickHouse. When both filter and transformation are enabled, the transformation is applied after filtering.
-
-Toggle the transformation on to define an expression or script that reshapes each record passing through the pipeline.
-
-**Transformation Configuration**
-
-- **Transformation Expression**: Write the expression or script to apply to each record
-  - **Field renaming**: Map an existing field to a new name
-  - **Adding fields**: Compute and attach new fields to the record
-  - **Removing fields**: Drop fields that are not needed downstream
-  - **Type casting**: Convert a field value to a different data type
-
-![Stateless Transformation Configuration](/assets/ui_transform_config.png)
-
-#### Setup ClickHouse Connection
-
-Configure the connection to your ClickHouse database:
-
-**Connection Parameters**
-
-- **Host**: Enter your ClickHouse server address
-- **Port**: Specify the ClickHouse port (default: `8123` for HTTP, `8443` for HTTPS)
-- **Username**: Your ClickHouse username
-- **Password**: Your ClickHouse password
-- **Database**: Select the target database
-- **Secure Connection**: Enable for TLS/SSL connections
-- **Skip Certificate Verification**: Enable for self-signed certificates
-
-**Clickhouse Connection**
-
-![Clickhouse Connection](/assets/ui_clickhouse_connection.png)
-
-#### Select Destination
-
-Configure the destination table and field mappings:
-
-**Table Configuration**
-
-- **Table**: Select an existing table or create a new one
-- **Table Name**: Enter the name for your destination table
-
-**Batch Configuration**
-
-- **Max Batch Size**: Maximum number of records per batch (default: 1000)
-- **Max Delay Time**: Maximum time to wait before flushing batch (default: 60s)
-
-**Field Mapping**
-
-Map source fields to ClickHouse columns:
-
-- **Source Field**: The field from your data source
-- **Data Type**: The incoming data type extracted from previous configuration
-- **Destination Column**: The corresponding ClickHouse column name and type loaded from the database
-
-![Clickhouse Table Mapping](/assets/ui_clickhouse_table_mapping.png)
-
-#### Configure Pipeline Resources
-
-Set the replica counts and CPU/memory limits for each pipeline component. The defaults are sufficient for most workloads up to ~80k rps. Increase them when targeting higher throughput.
-
-**Component Resources**
-
-For each component — **Ingestor**, **Transform**, and **Sink** — you can configure:
-
-- **Replicas**: Number of parallel instances. More replicas increase throughput for that stage.
-  - For Kafka sources, ingestor replicas must not exceed the topic's partition count
-  - Transform replicas cannot be changed after pipeline creation when deduplication is enabled
-- **CPU Request / Limit**: CPU allocated to each replica (millicores)
-- **Memory Request / Limit**: RAM allocated to each replica
-
-**NATS Stream Settings**
-
-- **Max Bytes**: Maximum size of the internal NATS buffer (e.g., `25GB`)
-- **Max Age**: Maximum retention time for buffered messages (e.g., `24h`)
-
-<Callout type="info">
-  For guidance on replica counts and resource values for specific throughput targets, see the [Scaling Guide](/installation/kubernetes/scaling).
-</Callout>
-
-![Pipeline Resources Configuration](/assets/ui_pipeline_resources.png)
-
-</Steps>
-
-### Creating a Multi-Source Pipeline
-
-This section covers creating pipelines that combine data from multiple Kafka sources.
-<Steps>
-
-#### Setup Multiple Kafka Connections
-
-Follow the same steps as the deduplication pipeline, but configure connections for multiple Kafka topics:
-
-1. **Setup First Kafka Connection** (Left Topic)
-2. **Select First Topic** and define schema
-3. **Setup Second Kafka Connection** (Right Topic)
-4. **Select Second Topic** and define schema
-
-#### Configure Join Settings
-
-**Join Configuration**
-
-- **Join Type**: Select `temporal` for time-based joins
-- **Join Key**: Specify the field used to match records between topics
-- **Time Window**: Set the join time window for matching records
-
-**Join Logic**
-
-The system will:
-1. Match records based on the join key
-2. Consider records within the specified time window
-3. Combine matching records according to the join orientation
-4. Output the joined results
-
-#### Setup ClickHouse and Destination
-
-Follow the same steps as the deduplication pipeline for the destination configuration.
-
-</Steps>
-
-## Deploying the Pipeline
-
-### Review Configuration
-
-
-Before deploying:
-1. Review all connection settings
-2. Verify field mappings
-3. Check transformation configurations
-4. Ensure all required fields are properly configured
-
-### Deploy
-
-1. Click the "Deploy" button
-2. The system will:
-   - Validate your configuration
-   - Generate the pipeline configuration
-   - Send the configuration to the GlassFlow API
-   - Start the pipeline processing
-
-### Deployment Status
-
-Monitor your pipeline:
-- **Status**: Shows if the pipeline is running, stopped, or in error
-- **Metrics**: View processing statistics
+You can also import a pre-built pipeline configuration JSON via the **Import Configuration** card on the same page.
 
 ## Pipeline Management
 
-![Pipeline Page](/assets/ui_pipeline_page.png)
+After deployment, every pipeline appears in the **Pipelines** list. From there you can monitor activity, stop, resume, edit, or delete a pipeline.
 
-### Stopping Pipelines
+![Pipelines list](/assets/ui_pipelines_list.png)
 
-When a pipeline is stopped, it will stop ingesting new messages and once all messages in the queue are processed, the pipeline will stop (i.e. scale down resources to 0).
+Open a pipeline to see its live monitoring view — DLQ metrics, ClickHouse insert rate, and a visual representation of the source-to-sink topology.
 
-### Terminating Pipelines
+![Deployed pipeline page](/assets/ui_pipeline_page.png)
 
-When a pipeline is terminated, it will stop ingesting new messages and immediately terminate the pipeline (i.e. scale down resources to 0).
+### Lifecycle actions
 
-### Resuming Pipelines
-
-When a pipeline is resumed, it will resume ingesting new messages and scale up resources to the original size.
-
-### Editing Pipelines
-
-All pipeline configurations can be edited. Only stopped (or terminated) pipelines can be edited.
-
-### Deleting Pipelines
-
-Only stopped (or terminated) pipelines can be deleted. Deleting a pipeline will remove all pipeline resources and configuration.
+| Action | Description |
+|--------|-------------|
+| **Stop** | Stops ingesting new messages; drains the in-flight queue, then scales components down to zero replicas. |
+| **Terminate** | Stops ingesting and scales components to zero immediately, without draining. |
+| **Resume** | Brings a stopped or terminated pipeline back to `Running` by scaling components back up. |
+| **Edit** | Available only for pipelines in `Stopped` or `Terminated` state. All pipeline configuration can be edited. |
+| **Delete** | Available only for pipelines in `Stopped` or `Terminated` state. Permanently removes the pipeline and its NATS JetStream streams. |
 
 ## Pipeline States
 
 Every pipeline moves through a defined set of states. Understanding these states helps you interpret the dashboard, respond to failures, and avoid invalid operations.
 
-### State Reference
-
 | State | Type | Description |
 |-------|------|-------------|
 | `Created` | Stable | The pipeline configuration has been saved but the pipeline has never been started. No Kubernetes workloads are running. |
-| `Running` | Stable | The pipeline is actively consuming from its source, processing data, and writing to ClickHouse. |
+| `Running` (shown as **Active**) | Stable | The pipeline is actively consuming from its source, processing data, and writing to ClickHouse. |
 | `Stopping` | Transitional | A stop has been requested. The pipeline is draining in-flight messages from the queue before scaling down to zero replicas. |
 | `Stopped` | Stable | The pipeline has scaled down to zero replicas. No data is being processed. Configuration is preserved and the pipeline can be resumed or deleted. |
 | `Resuming` | Transitional | A resume has been requested. Kubernetes workloads are scaling back up. The pipeline transitions to `Running` once all components are healthy. |
@@ -307,56 +67,49 @@ Every pipeline moves through a defined set of states. Understanding these states
 
 ## Best Practices
 
-**1. Connection Security**
+**1. Connection security**
 
-- Use secure connections (SASL_SSL/SSL) for production
-- Store credentials securely
-- Test connections before deploying
+- Use `SASL_SSL` or `SSL` for production Kafka clusters; reserve `PLAINTEXT` for local development.
+- Use the `Use SSL` toggle on the ClickHouse step when connecting to managed ClickHouse offerings (ClickHouse Cloud, Aiven, etc.).
+- Test connections before deploying — the wizard validates them at each step.
 
-**2. Schema Design**
+**2. Schema design**
 
-- Define clear, consistent field names
-- Use appropriate data types
-- Consider future data structure changes
+- Use clear, consistent field names. The schema you define in the wizard maps directly to ClickHouse column names.
+- Use appropriate ClickHouse data types in the Mapping step (e.g. `Float32` for amounts, `DateTime64` for timestamps).
 
-**3. Performance Tuning**
+**3. Performance tuning**
 
-- Adjust batch sizes based on your data volume
-- Set appropriate time windows for deduplication
-- Monitor pipeline performance metrics
-
-**4. Error Handling**
-
-- Review pipeline logs regularly
-- Set up monitoring for pipeline failures
-- Have fallback strategies for data processing
+- Adjust **Max Batch Size** and **Max Delay Time** in the Mapping step based on your write rate. Defaults (1000 records / 1 minute) suit most pipelines up to ~10K rps.
+- For higher throughput, increase ingestor/sink **Replicas** in the Pipeline Resources step. Kafka ingestor replicas are capped at the topic's partition count.
+- See the [Scaling Guide](/installation/kubernetes/scaling) for replica and resource recommendations against specific throughput targets.
 
 ## Troubleshooting
 
-### Common Issues
+### Connection failures
 
-1. **Connection Failures**
-   - Verify network connectivity
-   - Check authentication credentials
-   - Ensure proper SSL certificates
+- Verify network connectivity (`kubectl exec` into the GlassFlow API pod and check DNS resolution).
+- Check authentication credentials match exactly what the broker / database expects.
+- For TLS connections, ensure the broker's CA is reachable or toggle **Skip Certificate Verification** for development clusters.
 
-2. **Schema Mismatches**
-   - Verify field names match exactly
-   - Check data type compatibility
-   - Review JSON structure
+### Schema mismatches
 
-3. **Performance Issues**
-   - Adjust batch sizes
-   - Review time window settings
-   - Monitor resource usage
+- The wizard infers field types from a sample event. If your topic has heterogeneous events, pick one as the canonical shape and define the schema manually in **Verify Field Types**.
+- ClickHouse column types must be compatible with the inferred type. The Mapping step shows the inferred type next to the destination column type — adjust the inferred type if needed.
 
-### Getting Help
+### Pipeline failures
 
-- Check the pipeline logs for detailed error messages
-- Review the [Pipeline Configuration Reference](/configuration/pipeline-config-reference) documentation
-- Consult the [FAQ](/faq) for common solutions
+- Open the pipeline's detail page to view DLQ metrics. A growing DLQ usually points to a schema mismatch or a permanent ClickHouse error (e.g. a constraint violation).
+- For deeper diagnosis, check pipeline logs via `kubectl logs` and review the [Pipeline Configuration Reference](/configuration/pipeline-config-reference).
+
+### Getting help
+
+- Consult the [FAQ](/faq) for common solutions.
+- Read the [Pipeline Configuration Reference](/configuration/pipeline-config-reference) for the underlying JSON schema each wizard step produces.
 
 ## Next Steps
 
-- Explore the [Pipeline Configuration Reference](/configuration/pipeline-config-reference) documentation for detailed configuration options
-- Learn about [monitoring and observability](/usage-guide#verifying-data-flow) for your pipelines
+- [Create a Kafka pipeline](/usage-guide/web-ui/kafka) — step-by-step wizard walkthrough for Kafka sources
+- [Create an OTLP pipeline](/usage-guide/web-ui/otlp) — step-by-step wizard walkthrough for OTLP sources
+- [Pipeline Configuration Reference](/configuration/pipeline-config-reference) — full JSON configuration documentation
+- [Monitoring and observability](/usage-guide#verifying-data-flow) — verify data is flowing end-to-end

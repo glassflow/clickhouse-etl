@@ -12,8 +12,11 @@ import (
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/client"
 	grpcQ "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/otlp-receiver/server/grpc"
 	httpQ "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/otlp-receiver/server/http"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/otlp-receiver/server/natshealth"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/otlp-receiver/server/processor"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/server"
 )
@@ -31,10 +34,12 @@ type Receiver struct {
 	grpcLis    net.Listener
 	log        *slog.Logger
 	done       chan struct{}
+	natsProbe  *natshealth.Probe
 }
 
 func New(
 	log *slog.Logger,
+	nc *client.NATSClient,
 	otlpDataProcessor *processor.Processor,
 ) (*Receiver, error) {
 	grpcServer, grpcHealth, grpcLis, err := grpcQ.NewGRPCServer(grpcAddr, log, otlpDataProcessor)
@@ -42,21 +47,32 @@ func New(
 		return nil, err
 	}
 
+	probe := natshealth.NewProbe(
+		nc.JetStream(),
+		internal.OTLPReceiverNATSHealthInterval,
+		internal.OTLPReceiverNATSHealthTimeout,
+		internal.OTLPReceiverNATSHealthStaleAfter,
+		log,
+	)
+
 	r := &Receiver{
 		log:        log,
 		grpcServer: grpcServer,
 		grpcHealth: grpcHealth,
 		grpcLis:    grpcLis,
 		done:       make(chan struct{}),
+		natsProbe:  probe,
 	}
 
-	r.httpServer = httpQ.NewHTTPServer(httpAddr, &r.ready, log, otlpDataProcessor)
+	r.httpServer = httpQ.NewHTTPServer(httpAddr, &r.ready, log, otlpDataProcessor, probe)
 
 	return r, nil
 }
 
 func (r *Receiver) Start(ctx context.Context) error {
 	defer close(r.done)
+
+	r.natsProbe.Start(ctx)
 
 	grpcErrCh := make(chan error, 1)
 	go func() {
@@ -90,15 +106,15 @@ func (r *Receiver) Shutdown() {
 	r.grpcHealth.Shutdown()
 
 	var wg sync.WaitGroup
-	wg.Add(2)
 
-	go func() {
-		defer wg.Done()
-		_ = r.httpServer.Shutdown(ctx, 5*time.Second)
-	}()
+	wg.Go(func() {
+		err := r.httpServer.Shutdown(ctx, 5*time.Second)
+		if err != nil {
+			r.log.Error("failed to shutdown server", slog.Any("error", err))
+		}
+	})
 
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		grpcStopped := make(chan struct{})
 		go func() {
 			r.grpcServer.GracefulStop()
@@ -109,7 +125,7 @@ func (r *Receiver) Shutdown() {
 		case <-ctx.Done():
 			r.grpcServer.Stop()
 		}
-	}()
+	})
 
 	wg.Wait()
 }

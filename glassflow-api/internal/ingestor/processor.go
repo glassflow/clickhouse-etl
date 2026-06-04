@@ -52,8 +52,9 @@ type KafkaMsgProcessor struct {
 
 	// Back-pressure episode state. Mutated only from the single-goroutine
 	// processor driver, so no synchronization is needed.
-	activeBackpressure  bool
-	backpressureStartTS time.Time
+	activeBackpressure     bool
+	backpressureStartTS    time.Time
+	lastBackpressureSignal time.Time
 }
 
 func NewKafkaMsgProcessor(
@@ -108,7 +109,7 @@ func NewKafkaMsgProcessor(
 	}, nil
 }
 
-func (k *KafkaMsgProcessor) pushMsgToDLQ(ctx context.Context, orgMsg []byte, err error) error {
+func (k *KafkaMsgProcessor) pushMsgToDLQ(ctx context.Context, orgMsg []byte, err error, reason string) error {
 	k.log.Error("Pushing message to DLQ", slog.Any("error", err), slog.String("topic", k.topic.Name))
 
 	data, err := models.NewDLQMessage(internal.RoleIngestor, err.Error(), orgMsg).ToJSON()
@@ -123,7 +124,7 @@ func (k *KafkaMsgProcessor) pushMsgToDLQ(ctx context.Context, orgMsg []byte, err
 		return fmt.Errorf("failed to publish to DLQ: %w", err)
 	}
 
-	observability.RecordDLQWrite(ctx, internal.RoleIngestor, 1)
+	observability.RecordDLQWrite(ctx, internal.RoleIngestor, reason, 1)
 
 	return nil
 }
@@ -209,7 +210,7 @@ func (k *KafkaMsgProcessor) prepareMesssage(ctx context.Context, msg *kgo.Record
 			validationErr = err
 		}
 
-		if dlqErr := k.pushMsgToDLQ(ctx, msg.Value, validationErr); dlqErr != nil {
+		if dlqErr := k.pushMsgToDLQ(ctx, msg.Value, validationErr, observability.DLQReasonParseError); dlqErr != nil {
 			return nil, fmt.Errorf("failed to push to DLQ: %w", dlqErr)
 		}
 		return nil, nil
@@ -221,7 +222,7 @@ func (k *KafkaMsgProcessor) prepareMesssage(ctx context.Context, msg *kgo.Record
 	}
 	subject, dedupKeyStr, err := k.getSubjectAndDedupKey(ctx, version, msgData)
 	if err != nil {
-		if dlqErr := k.pushMsgToDLQ(ctx, msg.Value, fmt.Errorf("%w: %w", models.ErrDeduplicateData, err)); dlqErr != nil {
+		if dlqErr := k.pushMsgToDLQ(ctx, msg.Value, fmt.Errorf("%w: %w", models.ErrDeduplicateData, err), observability.DLQReasonParseError); dlqErr != nil {
 			return nil, fmt.Errorf("failed to push to DLQ: %w", dlqErr)
 		}
 		return nil, nil
@@ -237,6 +238,8 @@ func (k *KafkaMsgProcessor) prepareMesssage(ctx context.Context, msg *kgo.Record
 	return nMsg, nil
 }
 
+const backpressureSignalCooldown = 5 * time.Minute
+
 // bpStart marks the beginning of a back-pressure episode. Idempotent — extra
 // calls inside an active episode are no-ops, so the histogram observes one
 // duration per episode regardless of how many BP errors happen along the way.
@@ -249,6 +252,18 @@ func (k *KafkaMsgProcessor) bpStart(ctx context.Context) {
 	observability.RecordIngestorBackpressureStart(ctx)
 	k.log.InfoContext(ctx, "ingestor backpressure: start",
 		slog.String("pipeline_id", k.pipelineID))
+
+	if k.signalPublisher != nil && time.Since(k.lastBackpressureSignal) >= backpressureSignalCooldown {
+		k.lastBackpressureSignal = time.Now()
+		if sigErr := k.signalPublisher.SendSignal(ctx, models.ComponentSignal{
+			Component:  internal.RoleIngestor,
+			PipelineID: k.pipelineID,
+			Reason:     "stream back-pressure",
+			Text:       fmt.Sprintf("NATS stream is full — ingestor is retrying (topic: %s)", k.topic.Name),
+		}); sigErr != nil {
+			k.log.WarnContext(ctx, "failed to send backpressure signal", slog.Any("error", sigErr))
+		}
+	}
 }
 
 // bpStop ends an active back-pressure episode and observes its duration.
@@ -315,7 +330,7 @@ func (k *KafkaMsgProcessor) processBatchSync(ctx context.Context, batch []*kgo.R
 				slog.String("topic", msg.Topic),
 				slog.Int("partition", int(msg.Partition)))
 
-			if dlqErr := k.pushMsgToDLQ(ctx, msg.Value, err); dlqErr != nil {
+			if dlqErr := k.pushMsgToDLQ(ctx, msg.Value, err, observability.DLQReasonUnrecoverable); dlqErr != nil {
 				k.log.Error("Failed to push failed message to DLQ",
 					slog.Any("error", dlqErr),
 					slog.String("topic", msg.Topic),
@@ -545,49 +560,45 @@ func (k *KafkaMsgProcessor) advanceLastAckedIdx(s *asyncBatchState) {
 	}
 }
 
-// cleanupAndReturn DLQs every still-pending record (backpressure carry + the
-// fatal-but-DLQable set) so lastProcessed can advance through them and the
-// consumer commits a clean Kafka offset. Records past a backpressured one
-// that already PubAck'd to NATS would otherwise be re-delivered on restart
-// and republished — DLQ'ing the blocker avoids those duplicates.
-//
-// On a DLQ-push failure we stop advancing through the pending set: returning
-// partial progress is better than silently losing track of which records were
-// actually DLQ'd.
-func (k *KafkaMsgProcessor) cleanupAndReturn(ctx context.Context, s *asyncBatchState, cause error) (*kgo.Record, error) {
-	// Flush any active back-pressure episode so the duration histogram still
-	// gets observed when we exit on a fatal error or ctx cancellation.
-	k.bpStop(ctx)
+// isCtxErr reports whether err is a context cancellation or deadline.
+func isCtxErr(err error) bool {
+	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
+}
 
-	// When the cleanup is triggered by ctx cancellation, the same ctx will
-	// fail on every DLQ push. Use a fresh, bounded ctx so we can still drain.
-	dlqCtx := ctx
-	if errors.Is(cause, context.Canceled) || errors.Is(cause, context.DeadlineExceeded) {
+// cleanupAndReturn finalizes the batch after a fatal error or ctx cancellation.
+//
+// Which records get DLQ'd depends on the cause:
+//   - fatal error: dlqOnExit AND the backpressure carry. Records past the
+//     blocker that already PubAck'd would be re-delivered and republished on
+//     restart; DLQ'ing the blocker keeps the rest committable.
+//   - ctx cancellation: only dlqOnExit. The carry was merely throttled — it
+//     stays in Kafka and is re-consumed on restart, with downstream dedup
+//     handling the at-least-once duplicates from records that PubAck'd past
+//     the gap.
+//
+// On ctx cancellation the parent ctx rejects every downstream call, so all
+// cleanup-time I/O (bpStop metric, DLQ pushes, bytes counter) runs on a fresh
+// bounded ctx. On a DLQ-push failure we stop draining: returning partial
+// progress beats silently losing track of which records were DLQ'd.
+func (k *KafkaMsgProcessor) cleanupAndReturn(ctx context.Context, s *asyncBatchState, cause error) (*kgo.Record, error) {
+	cleanupCtx := ctx
+	if isCtxErr(cause) {
 		var cancel context.CancelFunc
-		dlqCtx, cancel = context.WithTimeout(context.Background(), internal.DefaultComponentShutdownTimeout)
+		cleanupCtx, cancel = context.WithTimeout(context.Background(), internal.DefaultComponentShutdownTimeout)
 		defer cancel()
 	}
 
-	pending := make([]int, 0, len(s.backpressure)+len(s.dlqOnExit))
-	pending = append(pending, s.backpressure...)
-	pending = append(pending, s.dlqOnExit...)
+	k.bpStop(cleanupCtx)
 
-	var dlqErr error
-	for _, idx := range pending {
-		if s.completed[idx] {
-			continue
-		}
-		err := k.pushMsgToDLQ(dlqCtx, s.batch[idx].Value, fmt.Errorf("ingestor cleanup: %w", cause))
-		if err != nil {
-			dlqErr = err
-			break
-		}
-		s.completed[idx] = true
+	dlqIdxs := s.dlqOnExit
+	if !isCtxErr(cause) {
+		dlqIdxs = append(dlqIdxs, s.backpressure...)
 	}
 
+	dlqErr := k.drainToDLQ(cleanupCtx, s, dlqIdxs, cause)
 	k.advanceLastAckedIdx(s)
 
-	observability.RecordBytesProcessed(ctx, "ingestor", "out", s.outBytes)
+	observability.RecordBytesProcessed(cleanupCtx, "ingestor", "out", s.outBytes)
 
 	var lastProcessed *kgo.Record
 	if s.lastAckedIdx >= 0 {
@@ -597,5 +608,23 @@ func (k *KafkaMsgProcessor) cleanupAndReturn(ctx context.Context, s *asyncBatchS
 	if dlqErr != nil {
 		return lastProcessed, errors.Join(cause, dlqErr)
 	}
+
 	return lastProcessed, cause
+}
+
+// drainToDLQ pushes each not-yet-completed record at the given indices to the
+// DLQ and marks it completed. Returns the first DLQ-push error encountered;
+// remaining indices are left for the next cleanup attempt or restart.
+func (k *KafkaMsgProcessor) drainToDLQ(ctx context.Context, s *asyncBatchState, idxs []int, cause error) error {
+	for _, idx := range idxs {
+		if s.completed[idx] {
+			continue
+		}
+		err := k.pushMsgToDLQ(ctx, s.batch[idx].Value, fmt.Errorf("ingestor cleanup: %w", cause), observability.DLQReasonUnrecoverable)
+		if err != nil {
+			return err
+		}
+		s.completed[idx] = true
+	}
+	return nil
 }

@@ -20,6 +20,7 @@ import (
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/processor"
 	subjectrouter "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/subject/router"
 	jsonTransformer "github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/transformer/json"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/pkg/observability"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/tests/steps"
 )
 
@@ -82,7 +83,7 @@ func createStreamingComponent(
 		require.NoError(t, err)
 		statelessTransformerProcessorBase := processor.NewStatelessTransformerProcessor(transformer)
 		statelessTransformerProcessor = processor.ChainProcessors(
-			processor.ChainMiddlewares(processor.DLQMiddleware(dlqWriter, role)),
+			processor.ChainMiddlewares(processor.DLQMiddleware(dlqWriter, role, observability.DLQReasonDedupOverflow)),
 			statelessTransformerProcessorBase,
 		)
 	} else {
@@ -96,7 +97,7 @@ func createStreamingComponent(
 		require.NoError(t, err)
 		filterProcessorBase := processor.NewFilterProcessor(filterJson)
 		filterProcessor = processor.ChainProcessors(
-			processor.ChainMiddlewares(processor.DLQMiddleware(dlqWriter, role)),
+			processor.ChainMiddlewares(processor.DLQMiddleware(dlqWriter, role, observability.DLQReasonDedupOverflow)),
 			filterProcessorBase,
 		)
 	} else {
@@ -109,6 +110,8 @@ func createStreamingComponent(
 		dlqWriter,
 		slog.Default(),
 		role,
+		"", // pipelineID not needed in tests
+		nil, // signalPublisher not needed in tests
 		[]processor.Processor{
 			filterProcessor,
 			dedupProcessor,

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
+	dockerclient "github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
@@ -64,9 +65,9 @@ type NATSContainer struct {
 	uri       string
 }
 
-func StartNATSContainer(ctx context.Context) (*NATSContainer, error) {
+func StartNATSContainer(ctx context.Context, name string) (*NATSContainer, error) {
 	req := testcontainers.ContainerRequest{ //nolint:exhaustruct // optional config
-		Name:         "testcontainers-nats",
+		Name:         "testcontainers-nats-" + name,
 		Image:        NATSContainerImage,
 		ExposedPorts: []string{NATSPort},
 		Cmd:          []string{"-js"},
@@ -134,7 +135,7 @@ type ClickHouseContainer struct {
 }
 
 // StartClickHouseContainer starts a ClickHouse container
-func StartClickHouseContainer(ctx context.Context) (*ClickHouseContainer, error) {
+func StartClickHouseContainer(ctx context.Context, name string) (*ClickHouseContainer, error) {
 	container, err := chContainer.Run(
 		ctx,
 		ClickHouseContainerImage,
@@ -142,7 +143,7 @@ func StartClickHouseContainer(ctx context.Context) (*ClickHouseContainer, error)
 			wait.ForHTTP("/").
 				WithPort("8123/tcp").
 				WithStartupTimeout(60*time.Second)),
-		testcontainers.WithReuseByName("testcontainers-clickhouse"),
+		testcontainers.WithReuseByName("testcontainers-clickhouse-"+name),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to start ClickHouse container %w", err)
@@ -204,16 +205,102 @@ func (c *ClickHouseContainer) Stop(ctx context.Context) error {
 	return nil
 }
 
+// Pause suspends all processes in the container via cgroups (docker pause).
+// The container state — including in-memory tables — is preserved.
+func (c *ClickHouseContainer) Pause(ctx context.Context) error {
+	cli, err := dockerclient.NewClientWithOpts(dockerclient.FromEnv, dockerclient.WithAPIVersionNegotiation())
+	if err != nil {
+		return fmt.Errorf("create docker client: %w", err)
+	}
+	defer cli.Close()
+
+	if err := cli.ContainerPause(ctx, c.container.GetContainerID()); err != nil {
+		return fmt.Errorf("pause clickhouse container: %w", err)
+	}
+	return nil
+}
+
+// Unpause resumes a previously paused container.
+func (c *ClickHouseContainer) Unpause(ctx context.Context) error {
+	cli, err := dockerclient.NewClientWithOpts(dockerclient.FromEnv, dockerclient.WithAPIVersionNegotiation())
+	if err != nil {
+		return fmt.Errorf("create docker client: %w", err)
+	}
+	defer cli.Close()
+
+	if err := cli.ContainerUnpause(ctx, c.container.GetContainerID()); err != nil {
+		return fmt.Errorf("unpause clickhouse container: %w", err)
+	}
+	return nil
+}
+
+// execRaw runs an arbitrary command inside the ClickHouse container.
+func (c *ClickHouseContainer) execRaw(ctx context.Context, cmd []string) (int, error) {
+	exitCode, _, err := c.container.Exec(ctx, cmd)
+	if err != nil {
+		return exitCode, fmt.Errorf("container exec: %w", err)
+	}
+	return exitCode, nil
+}
+
+// execSQL runs a SQL query inside the container using clickhouse-client.
+// Connects as the admin user configured for the container.
+func (c *ClickHouseContainer) execSQL(ctx context.Context, query string) error {
+	exitCode, err := c.execRaw(ctx, []string{
+		"clickhouse-client",
+		"--user", c.container.User,
+		"--password", c.container.Password,
+		"--query", query,
+	})
+	if err != nil {
+		return err
+	}
+	if exitCode != 0 {
+		return fmt.Errorf("clickhouse-client exit %d running: %s", exitCode, query)
+	}
+	return nil
+}
+
+const testAccessConfig = `/etc/clickhouse-server/users.d/test_access_management.xml`
+
+// enableAccessManagement grants the container's default user access-management
+// rights by writing a config fragment and reloading CH users. This is idempotent.
+func (c *ClickHouseContainer) enableAccessManagement(ctx context.Context) error {
+	xml := `<clickhouse><users><` + c.container.User + `><access_management>1</access_management></` + c.container.User + `></users></clickhouse>`
+	writeCmd := []string{"sh", "-c", `echo '` + xml + `' > ` + testAccessConfig}
+	if exitCode, err := c.execRaw(ctx, writeCmd); err != nil || exitCode != 0 {
+		return fmt.Errorf("write access config (exit %d): %w", exitCode, err)
+	}
+	return c.execSQL(ctx, "SYSTEM RELOAD USERS")
+}
+
+// DisruptWrites makes ClickHouse reject all insert queries from the default user
+// by applying a zero-query quota. This produces an immediate QUOTA_EXPIRED error
+// (code 201), which is classified as retryable. Use RestoreWrites to remove the quota.
+func (c *ClickHouseContainer) DisruptWrites(ctx context.Context) error {
+	if err := c.enableAccessManagement(ctx); err != nil {
+		return fmt.Errorf("enable access management: %w", err)
+	}
+	return c.execSQL(ctx, `CREATE QUOTA OR REPLACE gf_test_disrupt FOR INTERVAL 1 HOUR MAX queries = 0 TO `+c.container.User)
+}
+
+// RestoreWrites removes the quota created by DisruptWrites, allowing queries again.
+func (c *ClickHouseContainer) RestoreWrites(ctx context.Context) error {
+	// Best-effort: ignore error if quota doesn't exist or access management isn't enabled.
+	_ = c.execSQL(ctx, `DROP QUOTA IF EXISTS gf_test_disrupt`)
+	return nil
+}
+
 type KafkaContainer struct {
 	container testcontainers.Container
 	uri       string
 }
 
-func StartKafkaContainer(ctx context.Context) (*KafkaContainer, error) {
+func StartKafkaContainer(ctx context.Context, name string) (*KafkaContainer, error) {
 	clusterID := "test-cluster"
 
 	req := testcontainers.ContainerRequest{ //nolint:exhaustruct // necessary fields only
-		Name:         "testcontainers-kafka",
+		Name:         "testcontainers-kafka-" + name,
 		Image:        KafkaContainerImage,
 		ExposedPorts: []string{string(KafkaPort)},
 		Env: map[string]string{
@@ -329,9 +416,9 @@ type PostgresContainer struct {
 }
 
 // StartPostgresContainer starts a Postgres container
-func StartPostgresContainer(ctx context.Context) (*PostgresContainer, error) {
+func StartPostgresContainer(ctx context.Context, name string) (*PostgresContainer, error) {
 	req := testcontainers.ContainerRequest{ //nolint:exhaustruct // optional config
-		Name:         "testcontainers-postgres",
+		Name:         "testcontainers-postgres-" + name,
 		Image:        PostgresContainerImage,
 		ExposedPorts: []string{PostgresPort},
 		Env: map[string]string{
@@ -339,10 +426,11 @@ func StartPostgresContainer(ctx context.Context) (*PostgresContainer, error) {
 			"POSTGRES_USER":     "testuser",
 			"POSTGRES_PASSWORD": "testpass",
 		},
-		WaitingFor: wait.ForAll(
-			wait.ForListeningPort(PostgresPort).WithStartupTimeout(30*time.Second),
-			wait.ForLog("database system is ready to accept connections").WithStartupTimeout(30*time.Second),
-		),
+		// ForSQL polls SELECT 1 until postgres accepts queries, avoiding the race
+		// where ForListeningPort+ForLog fires before postgres is fully initialized.
+		WaitingFor: wait.ForSQL(PostgresPort, "postgres", func(host string, port nat.Port) string {
+			return fmt.Sprintf("postgres://testuser:testpass@%s:%s/glassflow_test?sslmode=disable", host, port.Port())
+		}).WithStartupTimeout(30 * time.Second),
 	}
 
 	container, err := testcontainers.GenericContainer(ctx,

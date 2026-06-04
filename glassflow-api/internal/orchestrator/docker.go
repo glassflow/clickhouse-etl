@@ -857,11 +857,9 @@ func (d *LocalOrchestrator) startRunnerWatcher(ctx context.Context) {
 	watcherCtx, cancel := context.WithCancel(ctx)
 	d.watcherCancel = cancel
 
-	d.watcherWG.Add(1)
-	go func() {
-		defer d.watcherWG.Done()
+	d.watcherWG.Go(func() {
 		d.watchRunners(watcherCtx)
-	}()
+	})
 }
 
 // watchRunners monitors all runners and restarts them if they fail

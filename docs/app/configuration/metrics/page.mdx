@@ -49,6 +49,12 @@ UI metrics use the prefix `gfm_ui_` and are exported via OTLP.
 The namespace prefix is automatically added based on your deployment configuration. If you deploy GlassFlow in a different namespace, the prefix will change accordingly.
 </Callout>
 
+<Callout type="important">
+**Counter metrics gain a `_total` suffix at scrape time.** The OpenTelemetry-to-Prometheus exporter appends `_total` to every counter when it exposes the `/metrics` endpoint. The base names shown in this document are the names used in GlassFlow source code; the names you query in Prometheus include the suffix.
+
+For example, the source-side name `gfm_receiver_request_count` is scraped as `glassflow_gfm_receiver_request_count_total`. The histogram metrics (`_seconds`) are unaffected. When in doubt, query the Prometheus `/metrics` endpoint and use the names you see there.
+</Callout>
+
 ## Core Metrics
 
 ### Data Ingestion Metrics
@@ -117,23 +123,36 @@ In this example, `glassflow` is the namespace prefix. If you deploy in a differe
 - **Type**: Counter
 - **Description**: Total number of messages processed by a processor, by status
 - **Unit**: Messages
-- **Components**: Ingestor, Sink, Transform, Filter, Dedup
+- **Components**: `filter`, `transform`, `dedup`, `otlp.logs`, `otlp.metrics`, `otlp.traces`
 - **Labels**:
   - `component`: Component type - *Added by GlassFlow*
   - `pipeline_id`: Unique pipeline identifier - *Added by GlassFlow*
-  - `status`: Outcome - *Added by GlassFlow* — Values: `success`, `error`, `filtered`, `duplicate`, `out`
+  - `status`: Outcome - *Added by GlassFlow*. The valid `status` values depend on the emitting component (see table below).
   - `instance`: Instance identifier - *Added by Prometheus*
   - `job`: Job identifier - *Added by Prometheus*
 
+**Status values by component**:
+
+| Component | Statuses |
+| -- | -- |
+| `filter` | `success`, `filtered`, `error` |
+| `transform` | `success`, `error` |
+| `dedup` | `success`, `duplicate` |
+| `otlp.logs` / `otlp.metrics` / `otlp.traces` | `out` |
+
+<Callout type="warning">
+The Kafka ingestor and ClickHouse sink **do not** emit this metric — queries like `processor_messages_total{component="ingestor"}` or `component="sink"` will return no series. For ingestor counts use `gfm_kafka_records_read_total`; for sink counts use `gfm_clickhouse_records_written_total`.
+</Callout>
+
 <Callout type="info">
-There is no separate `gfm_records_filtered_total` metric. To track filtered records, query `gfm_processor_messages_total` with `status="filtered"`.
+There is no separate `gfm_records_filtered_total` metric. To track filtered records, query `gfm_processor_messages_total` with `component="filter"` and `status="filtered"`.
 </Callout>
 
 #### `{namespace}_gfm_bytes_processed_total`
 - **Type**: Counter
 - **Description**: Total bytes processed
 - **Unit**: Bytes
-- **Components**: Ingestor, Sink, Transform, Filter, Dedup
+- **Components**: `ingestor`, `sink`, `transform`, `filter`, `dedup`, `otlp.logs`, `otlp.metrics`, `otlp.traces`
 - **Labels**:
   - `component`: Component type - *Added by GlassFlow*
   - `pipeline_id`: Unique pipeline identifier - *Added by GlassFlow*
@@ -163,41 +182,81 @@ glassflow_gfm_clickhouse_records_written_total{component="sink",instance="sink-7
 In this example, `glassflow` is the namespace prefix. If you deploy in a different namespace, the prefix will change accordingly.
 </Callout>
 
-#### `{namespace}_gfm_clickhouse_records_written_per_second`
-- **Type**: Gauge
-- **Description**: Number of records written to ClickHouse per second
-- **Unit**: Records per second
+#### `{namespace}_gfm_sink_errors_by_classification_total`
+- **Type**: Counter
+- **Description**: Sink-side ClickHouse errors broken down by retryability and error name. Counts increment whether the error is NACK'd back to JetStream for retry or routed to the DLQ.
+- **Unit**: Errors
 - **Components**: Sink
 - **Labels**:
-  - `component`: Component type (e.g., "sink") - *Added by GlassFlow*
+  - `pipeline_id`: Unique pipeline identifier - *Added by GlassFlow*
+  - `classification`: Error class (`retryable` or `permanent`) - *Added by GlassFlow*
+  - `error_name`: Error identifier from the ClickHouse client - *Added by GlassFlow*
+  - `instance`: Instance identifier - *Added by Prometheus*
+  - `job`: Job identifier - *Added by Prometheus*
+
+#### `{namespace}_gfm_sink_nack_messages_total`
+- **Type**: Counter
+- **Description**: Number of sink messages NACK'd back to JetStream for redelivery (retryable ClickHouse errors). A steady stream of NACKs indicates transient ClickHouse instability.
+- **Unit**: Messages
+- **Components**: Sink
+- **Labels**:
   - `pipeline_id`: Unique pipeline identifier - *Added by GlassFlow*
   - `instance`: Instance identifier - *Added by Prometheus*
   - `job`: Job identifier - *Added by Prometheus*
 
-**Example**:
-```
-glassflow_gfm_clickhouse_records_written_per_second{component="sink",instance="sink-7c87594fd9-jmdw2",job="pipeline-load-pipeline-1-05b7/sink",pipeline_id="load-pipeline-1-05b7"} 430120.2485745206
-```
+#### `{namespace}_gfm_sink_retries_total`
+- **Type**: Counter
+- **Description**: Sink batch retry attempts.
+- **Unit**: Retries
+- **Components**: Sink
+- **Labels**:
+  - `pipeline_id`: Unique pipeline identifier - *Added by GlassFlow*
+  - `outcome`: `retry` for retries still in progress, `exhausted` for batches that hit the retry budget - *Added by GlassFlow*
+  - `instance`: Instance identifier - *Added by Prometheus*
+  - `job`: Job identifier - *Added by Prometheus*
 
-<Callout type="info">
-In this example, `glassflow` is the namespace prefix. If you deploy in a different namespace, the prefix will change accordingly.
-</Callout>
+#### `{namespace}_gfm_sink_batch_size_records`
+- **Type**: Histogram (Int64)
+- **Description**: Distribution of records per sink batch flushed to ClickHouse.
+- **Unit**: Records per batch
+- **Components**: Sink
+- **Labels**:
+  - `pipeline_id`: Unique pipeline identifier - *Added by GlassFlow*
+  - `instance`: Instance identifier - *Added by Prometheus*
+  - `job`: Job identifier - *Added by Prometheus*
+  - `le`: Histogram bucket boundary - *Added by Prometheus*
+
+**Histogram Buckets**: 1, 10, 100, 1000, 10000, 100000 records.
+
+#### `{namespace}_gfm_sink_batch_size_bytes`
+- **Type**: Histogram (Int64)
+- **Description**: Distribution of bytes per sink batch flushed to ClickHouse.
+- **Unit**: Bytes per batch
+- **Components**: Sink
+- **Labels**:
+  - `pipeline_id`: Unique pipeline identifier - *Added by GlassFlow*
+  - `instance`: Instance identifier - *Added by Prometheus*
+  - `job`: Job identifier - *Added by Prometheus*
+  - `le`: Histogram bucket boundary - *Added by Prometheus*
+
+**Histogram Buckets**: 1KiB, 10KiB, 100KiB, 1MiB, 10MiB, 100MiB.
 
 ### Error Handling Metrics
 
 #### `{namespace}_gfm_dlq_records_written_total`
 - **Type**: Counter
-- **Description**: Total number of records written to dead letter queue
+- **Description**: Total number of records written to the dead letter queue.
 - **Unit**: Records
-- **Components**: Ingestor, Sink
+- **Components**: Ingestor, Dedup, Transform, Filter, Sink (any stage that can route a record to the DLQ).
 - **Labels**:
   - `component`: Component type - *Added by GlassFlow*
   - `pipeline_id`: Unique pipeline identifier - *Added by GlassFlow*
+  - `reason`: Why the record was DLQ'd. One of `parse_error`, `schema_mismatch`, `sink_rejection`, `retry_exhausted`, `dedup_overflow`, `unrecoverable` - *Added by GlassFlow*
   - `instance`: Instance identifier - *Added by Prometheus*
   - `job`: Job identifier - *Added by Prometheus*
 
 <Callout type="info">
-This metric is defined in the code but may not appear in the sample metrics if no records have been written to the DLQ during the observation period.
+This metric is defined in the code but may not appear in the sample metrics if no records have been written to the DLQ during the observation period. Slice by `reason` to break down DLQ traffic by cause; the new `reason` label was introduced in v3.2.0.
 </Callout>
 
 ### HTTP Server Metrics
@@ -264,9 +323,9 @@ HTTP server metrics do not include `component` or `pipeline_id` labels. They are
 
 **Histogram Buckets**: Same as `processing_duration_seconds` (0.001 to 10.0).
 
-### Back-Pressure Metrics
+### Backpressure Metrics
 
-These metrics are emitted by the ingestor component and the NATS stream sampler. They help identify whether back-pressure is active and how long episodes last.
+These metrics are emitted by the ingestor component and the NATS stream sampler. They help identify whether backpressure is active and how long episodes last.
 
 #### `{namespace}_gfm_ingestor_backpressure_active`
 - **Type**: Gauge (Int64)
@@ -280,7 +339,7 @@ These metrics are emitted by the ingestor component and the NATS stream sampler.
 
 #### `{namespace}_gfm_ingestor_backpressure_events_total`
 - **Type**: Counter
-- **Description**: Total number of times the ingestor entered a back-pressure episode
+- **Description**: Total number of times the ingestor entered a backpressure episode
 - **Unit**: Events
 - **Components**: Ingestor
 - **Labels**:
@@ -290,7 +349,7 @@ These metrics are emitted by the ingestor component and the NATS stream sampler.
 
 #### `{namespace}_gfm_ingestor_backpressure_duration_seconds`
 - **Type**: Histogram
-- **Description**: Duration of each ingestor back-pressure episode in seconds
+- **Description**: Duration of each ingestor backpressure episode in seconds
 - **Unit**: Seconds
 - **Components**: Ingestor
 - **Labels**:
@@ -300,6 +359,42 @@ These metrics are emitted by the ingestor component and the NATS stream sampler.
   - `le`: Histogram bucket boundary - *Added by Prometheus*
 
 **Histogram Buckets**: 0.1, 0.5, 1, 2.5, 5, 10, 30, 60, 120, 300, 600, 1800 seconds (second-to-minute scale, unlike the millisecond-scale default buckets used by request/processing histograms).
+
+#### `{namespace}_gfm_component_backpressure_active`
+- **Type**: Gauge (Int64)
+- **Description**: Set to `1` while a component is in a backpressure episode; `0` otherwise. Per-component variant of `gfm_ingestor_backpressure_active`, covering dedup, transform, filter, join, and the OTLP receiver.
+- **Unit**: —
+- **Components**: Dedup, Transform, Filter, Join, OTLP Receiver
+- **Labels**:
+  - `pipeline_id`: Unique pipeline identifier - *Added by GlassFlow*
+  - `component`: Component name (`dedup`, `transform`, `filter`, `join`, `otlp-receiver`) - *Added by GlassFlow*
+  - `instance`: Instance identifier - *Added by Prometheus*
+  - `job`: Job identifier - *Added by Prometheus*
+
+#### `{namespace}_gfm_component_backpressure_events_total`
+- **Type**: Counter
+- **Description**: Total number of times a component entered a backpressure episode.
+- **Unit**: Events
+- **Components**: Dedup, Transform, Filter, Join, OTLP Receiver
+- **Labels**:
+  - `pipeline_id`: Unique pipeline identifier - *Added by GlassFlow*
+  - `component`: Component name - *Added by GlassFlow*
+  - `instance`: Instance identifier - *Added by Prometheus*
+  - `job`: Job identifier - *Added by Prometheus*
+
+#### `{namespace}_gfm_component_backpressure_duration_seconds`
+- **Type**: Histogram
+- **Description**: Duration of each component backpressure episode in seconds.
+- **Unit**: Seconds
+- **Components**: Dedup, Transform, Filter, Join, OTLP Receiver
+- **Labels**:
+  - `pipeline_id`: Unique pipeline identifier - *Added by GlassFlow*
+  - `component`: Component name - *Added by GlassFlow*
+  - `instance`: Instance identifier - *Added by Prometheus*
+  - `job`: Job identifier - *Added by Prometheus*
+  - `le`: Histogram bucket boundary - *Added by Prometheus*
+
+**Histogram Buckets**: same second-to-minute scale as `gfm_ingestor_backpressure_duration_seconds`.
 
 #### `{namespace}_gfm_stream_depth`
 - **Type**: Gauge (Int64)
@@ -314,7 +409,7 @@ These metrics are emitted by the ingestor component and the NATS stream sampler.
 
 #### `{namespace}_gfm_stream_depth_ratio`
 - **Type**: Gauge (Float64)
-- **Description**: Stream depth divided by `max_messages`; ranges from `0.0` to `1.0`. Sustained values near `1.0` indicate the stream is near capacity and back-pressure is likely
+- **Description**: Stream depth divided by `max_messages`; ranges from `0.0` to `1.0`. Sustained values near `1.0` indicate the stream is near capacity and backpressure is likely
 - **Unit**: Ratio (0.0–1.0)
 - **Components**: Ingestor
 - **Labels**:
@@ -389,23 +484,24 @@ UI metrics are exported via OTLP (not Prometheus scraping). All UI metrics use t
 The Ingestor component primarily exports:
 - `{namespace}_gfm_kafka_records_read_total` - Records consumed from Kafka
 - `{namespace}_gfm_processing_duration_seconds` - Processing time for ingested records
-- `{namespace}_gfm_processor_messages_total` - Message counts by status
 - `{namespace}_gfm_bytes_processed_total` - Bytes processed (in/out)
 - `{namespace}_gfm_dlq_records_written_total` - Records sent to DLQ on processing errors
-- `{namespace}_gfm_ingestor_backpressure_active` - 1 while blocked on NATS back-pressure
-- `{namespace}_gfm_ingestor_backpressure_events_total` - Count of back-pressure episodes
-- `{namespace}_gfm_ingestor_backpressure_duration_seconds` - Duration of each back-pressure episode
+- `{namespace}_gfm_ingestor_backpressure_active` - 1 while blocked on NATS backpressure
+- `{namespace}_gfm_ingestor_backpressure_events_total` - Count of backpressure episodes
+- `{namespace}_gfm_ingestor_backpressure_duration_seconds` - Duration of each backpressure episode
 - `{namespace}_gfm_stream_depth` - Current message count in the JetStream stream
 - `{namespace}_gfm_stream_depth_ratio` - Stream fill ratio (0.0–1.0)
 
 ### Sink Component
 The Sink component primarily exports:
 - `{namespace}_gfm_clickhouse_records_written_total` - Records written to ClickHouse
-- `{namespace}_gfm_clickhouse_records_written_per_second` - Write rate to ClickHouse
-- `{namespace}_gfm_processing_duration_seconds` - Processing time for sink operations (with optional `stage`: `dedup_filter`, `dedup_write`, `schema_mapping`, `total_preparation`, `per_message`)
-- `{namespace}_gfm_processor_messages_total` - Message counts by status
+- `{namespace}_gfm_processing_duration_seconds` - Processing time for sink operations (with optional `stage`: `schema_mapping`, `total_preparation`, `per_message`)
 - `{namespace}_gfm_bytes_processed_total` - Bytes processed (in/out)
-- `{namespace}_gfm_dlq_records_written_total` - Records sent to DLQ on write errors
+- `{namespace}_gfm_sink_batch_size_records`, `{namespace}_gfm_sink_batch_size_bytes` - Distribution of records and bytes per flushed batch
+- `{namespace}_gfm_sink_retries_total` - Sink batch retry attempts (`outcome`: `retry` or `exhausted`)
+- `{namespace}_gfm_sink_errors_by_classification_total` - ClickHouse errors by class (`retryable`, `permanent`)
+- `{namespace}_gfm_sink_nack_messages_total` - Messages NACK'd back to JetStream for retryable errors
+- `{namespace}_gfm_dlq_records_written_total` - Records sent to DLQ (carries a `reason` label)
 
 ### Transform Component
 The Transform component primarily exports:
@@ -434,6 +530,7 @@ The API server exports HTTP metrics when metrics are enabled:
 The OTLP receiver components (otlp.logs, otlp.metrics, otlp.traces) export:
 - `{namespace}_gfm_receiver_request_count` - Receiver request count by transport (`http`/`grpc`) and status (`ok`/`error`)
 - `{namespace}_gfm_receiver_request_duration_seconds` - Receiver request duration by transport and status
+- `{namespace}_gfm_processor_messages_total` - Records emitted to downstream (`status="out"`)
 - `{namespace}_gfm_bytes_processed_total` - Bytes processed (in/out)
 
 <Callout type="info">
@@ -544,7 +641,7 @@ The `job` label in your metrics comes from the `job_name` field in your Promethe
 
 1. **Throughput Metrics**:
    - `rate({namespace}_gfm_kafka_records_read_total[5m])` - Kafka consumption rate
-   - `{namespace}_gfm_clickhouse_records_written_per_second` - ClickHouse write rate
+   - `rate({namespace}_gfm_clickhouse_records_written_total[5m])` - ClickHouse write rate
    - `rate({namespace}_gfm_bytes_processed_total{direction="in"}[5m])` - Bytes ingestion rate
    - `rate({namespace}_gfm_bytes_processed_total{direction="out"}[5m])` - Bytes output rate
 
@@ -564,9 +661,9 @@ The `job` label in your metrics comes from the `job_name` field in your Promethe
    - `rate({namespace}_gfm_receiver_request_count{status="error"}[5m])` - OTLP receiver error rate
    - `histogram_quantile(0.95, rate({namespace}_gfm_receiver_request_duration_seconds_bucket[5m]))` - 95th percentile receiver latency
 
-5. **Back-Pressure Metrics** (Kafka ingestor pipelines only):
-   - `{namespace}_gfm_ingestor_backpressure_active` - Currently in back-pressure (`1`) or not (`0`)
-   - `rate({namespace}_gfm_ingestor_backpressure_events_total[5m])` - Rate of new back-pressure episodes
+5. **Backpressure Metrics** (Kafka ingestor pipelines only):
+   - `{namespace}_gfm_ingestor_backpressure_active` - Currently in backpressure (`1`) or not (`0`)
+   - `rate({namespace}_gfm_ingestor_backpressure_events_total[5m])` - Rate of new backpressure episodes
    - `histogram_quantile(0.95, rate({namespace}_gfm_ingestor_backpressure_duration_seconds_bucket[5m]))` - 95th percentile episode duration
    - `{namespace}_gfm_stream_depth_ratio` - Stream fill ratio; alert when sustained near `1.0`
    - `{namespace}_gfm_stream_depth` - Absolute message backlog in stream

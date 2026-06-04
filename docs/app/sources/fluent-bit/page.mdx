@@ -1,0 +1,201 @@
+---
+title: 'Fluent Bit'
+description: 'Use Fluent Bit to collect application logs and metrics from your systems and ship them to ClickHouse via the GlassFlow OTLP receiver.'
+---
+import { Callout } from 'nextra/components'
+
+# Fluent Bit
+
+[Fluent Bit](https://fluentbit.io) is a lightweight, CNCF-graduated telemetry agent. It tails **your application log files**, collects **metrics from your applications and hosts**, and (optionally) receives OpenTelemetry traffic from your apps. It is widely deployed as a DaemonSet on Kubernetes and as a host agent on VMs.
+
+## Direct Fluent Bit → GlassFlow is supported
+
+Unlike most other ecosystem collectors, Fluent Bit ships a maintained [`opentelemetry`](https://docs.fluentbit.io/manual/pipeline/outputs/opentelemetry) output plugin that can speak OTLP HTTP, set custom request headers, and emit signal-typed payloads — everything the GlassFlow OTLP receiver needs to route a request to the right pipeline. Point it at the receiver and your telemetry lands in ClickHouse. **You do not need an OpenTelemetry Collector in the middle for logs and metrics.**
+
+Traces need Fluent Bit 5.0+ and gRPC transport — see [Traces](#traces) below.
+
+## Prerequisites
+
+- **GlassFlow OTLP receiver enabled.** See [OTLP — Prerequisites](/sources/otlp#prerequisites).
+- **A GlassFlow pipeline per signal** with the matching `otlp.*` source type (`otlp.logs`, `otlp.metrics`, or `otlp.traces`). Note each pipeline ID — Fluent Bit references it in the `Header` directive. See [OTLP — Examples](/sources/otlp/examples) to create one.
+- **Fluent Bit version:** 3.2+ for logs and metrics — the field-mapping knobs that make structured logs queryable (`Logs_Body_Key`, `Logs_*_Message_Key`) were stabilized in 3.2. **Trace forwarding requires 5.0+ over gRPC** (validated on 5.0.6) — see [Traces](#traces).
+
+<Callout type="warning">
+  The output blocks below use `Tls off` and port `4318` for clarity. In production, terminate TLS at the receiver (or an ingress in front of it) and set `Tls on` with the appropriate port and certificate options on each `[OUTPUT]`.
+</Callout>
+
+## Logs
+
+The most common Fluent Bit deployment tails structured log files (container stdout via the kubelet, application access logs, journald) and forwards them.
+
+A naive `[OUTPUT] Name opentelemetry` block does send records to GlassFlow, but with no field mapping it dumps the entire Fluent Bit record into the OTel `body` as a serialized key-value list — **not queryable by field** in ClickHouse. Use the plugin's field-mapping knobs to produce a proper OTel `LogRecord`:
+
+```ini
+# fluent-bit.conf
+[SERVICE]
+    Flush          1
+    Log_Level      info
+    Parsers_File   parsers.conf
+
+[INPUT]
+    Name              tail
+    Tag               app.access
+    Path              /var/log/app/access.log
+    Parser            json
+    Refresh_Interval  1
+    Read_from_Head    true
+
+[FILTER]
+    Name    record_modifier
+    Match   app.*
+    Record  hostname  ${HOSTNAME}
+    Record  env       staging
+
+[OUTPUT]
+    Name          opentelemetry
+    Match         app.*
+    Host          <glassflow-otlp-receiver-host>
+    Port          4318
+    Logs_uri      /v1/logs
+    Tls           off
+    Header        x-glassflow-pipeline-id <your-logs-pipeline-id>
+
+    # Map record fields into the OTel LogRecord shape
+    Logs_Body_Key                    $message
+    Logs_Severity_Text_Message_Key   $level
+    Logs_Trace_Id_Message_Key        $trace_id
+    Logs_Body_Key_Attributes         true
+
+    Retry_Limit   3
+```
+
+Given an access-log line like:
+
+```json
+{"time":"2026-05-26T14:51:17.000Z","level":"INFO","method":"GET","path":"/api/orders/1","status":200,"latency_ms":42,"user_id":"u1","trace_id":"5b8aa5a2d2c872e8321cf37308d69df1","message":"GET /api/orders/1"}
+```
+
+The resulting ClickHouse row looks like:
+
+| Column | Value |
+|---|---|
+| `timestamp` | `2026-05-26 14:51:17.000000000` |
+| `severity_text` | `INFO` |
+| `trace_id` | `5b8aa5a2d2c872e8321cf37308d69df1` |
+| `body` | `GET /api/orders/1` |
+| `attributes` | `{'method':'GET','path':'/api/orders/1','status':'200','latency_ms':'42','user_id':'u1','hostname':'...','env':'staging'}` |
+
+Each field lands in its own OTel slot, so the records are queryable by attribute in ClickHouse rather than buried in an opaque body blob.
+
+### Field-mapping reference
+
+These directives are documented in Fluent Bit's [`opentelemetry` output reference](https://docs.fluentbit.io/manual/pipeline/outputs/opentelemetry):
+
+| Fluent Bit directive | OTel LogRecord field | Notes |
+|---|---|---|
+| `Logs_Body_Key` | `body` | Source key for the log message (e.g. `$message`) |
+| `Logs_Severity_Text_Message_Key` | `severity_text` | Source key for severity (e.g. `$level`) |
+| `Logs_Severity_Number_Message_Key` | `severity_number` | Numeric severity per OTel spec |
+| `Logs_Trace_Id_Message_Key` | `trace_id` | Enables log↔trace correlation |
+| `Logs_Span_Id_Message_Key` | `span_id` | Enables log↔span correlation |
+| `Logs_Body_Key_Attributes` | every remaining record field → `attributes` | Set to `true` to promote unmapped fields into queryable OTel attributes |
+
+<Callout type="info">
+  Fields added by Fluent Bit's `record_modifier` filter land in OTel `attributes`, not `resource_attributes`. To populate `resource_attributes` (the right home for `service.name`, `host.name`, etc.), use a Fluent Bit `processor` block that promotes specific keys into record metadata before the OTLP output.
+</Callout>
+
+The GlassFlow pipeline that writes these records to ClickHouse uses an `otlp.logs` source. For the sink `mapping` (OTel field → ClickHouse column) and the full set of mappable fields, see [OTLP — Examples](/sources/otlp/examples) and the [OTLP Schema Reference](/sources/otlp/schema-reference#otlp-logs-fields).
+
+## Metrics
+
+Whatever metrics Fluent Bit collects, the `opentelemetry` output forwards them to GlassFlow the same way. The example below scrapes an application's Prometheus endpoint, but the output config is identical regardless of which metric input you use:
+
+```ini
+[INPUT]
+    Name             prometheus_scrape
+    Tag              app.metrics
+    Host             my-app
+    Port             9111
+    Metrics_path     /metrics
+    Scrape_interval  10s
+
+[OUTPUT]
+    Name          opentelemetry
+    Match         app.metrics
+    Host          <glassflow-otlp-receiver-host>
+    Port          4318
+    Metrics_uri   /v1/metrics
+    Tls           off
+    Header        x-glassflow-pipeline-id <your-metrics-pipeline-id>
+    Retry_Limit   3
+```
+
+Counters, gauges, and histograms arrive in the pipeline's target table with their `metric_type` correctly identified. Any Prometheus labels are preserved as attributes. In the sample below, only the counter carries labels; the gauge and histogram have none:
+
+| `metric_name` | `metric_type` | `attributes` |
+|---|---|---|
+| `myapp_http_requests_total` | `sum` | `{'method':'GET','route':'/api/orders','status':'200'}` |
+| `myapp_inflight_requests` | `gauge` | `{}` |
+| `myapp_request_duration_seconds` | `histogram` | `{}` |
+
+Metric descriptions and units are preserved alongside the values.
+
+## Traces
+
+Fluent Bit can act as a trace forwarder. Applications send OTLP traces to its `opentelemetry` input, and the `opentelemetry` output forwards them to GlassFlow. Two requirements apply:
+
+1. **Fluent Bit 5.0 or newer** (validated on 5.0.6). Earlier versions (including 3.2.x) fail to parse incoming spans: the `opentelemetry` input rejects them and nothing is forwarded.
+2. **gRPC transport into Fluent Bit.** Point your OTel SDK (or upstream collector) at Fluent Bit's input over gRPC. The OTLP/**JSON** trace path is broken on every current version, including 5.0 — it fails with `invalid JSON trace: conversion error`. A stock OTel SDK gRPC exporter works as-is; no special payload shaping is needed.
+
+```ini
+# Fluent Bit 5.0+ as a trace forwarder
+[INPUT]
+    Name     opentelemetry
+    Tag      otlp.traces
+    listen   0.0.0.0
+    port     4319
+
+[OUTPUT]
+    Name        opentelemetry
+    Match       otlp.traces
+    Host        <glassflow-otlp-receiver-host>
+    Port        4318
+    Traces_uri  /v1/traces
+    Tls         off
+    Header      x-glassflow-pipeline-id <your-traces-pipeline-id>
+    Retry_Limit 3
+```
+
+Configure your application's OTel SDK to export over gRPC to Fluent Bit:
+
+```python
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+
+exporter = OTLPSpanExporter(endpoint="fluent-bit:4319", insecure=True)
+```
+
+Spans arrive in the pipeline's target table with their parent/child structure, attributes, and 16-byte trace IDs intact.
+
+If your applications can only emit OTLP/HTTP traces, or you are pinned to Fluent Bit < 5.0, forward traces with a dedicated OpenTelemetry Collector instead — see [OTLP — Sending Data](/sources/otlp/sending-data).
+
+## Verifying data flow
+
+Three places to look:
+
+1. **Fluent Bit's own logs.** A healthy output looks like `[output:opentelemetry:opentelemetry.0] <host>:4318, HTTP status=200`. Any non-2xx response is logged at `[error]` and the chunk is queued for retry.
+2. **The GlassFlow OTLP receiver's metrics.** `glassflow_gfm_bytes_processed_total{component="otlp.logs", direction="in", pipeline_id="<your-pipeline-id>"}` increments on every accepted batch. If `direction="in"` rises but `direction="out"` stays flat, the receiver accepted the records but couldn't publish them to NATS — check the pipeline's `/api/v1/pipeline/<id>/health` endpoint.
+3. **ClickHouse.** Recent rows appear in the table configured in your pipeline's sink; filter by an attribute your data carries to confirm records are arriving.
+
+## Caveats
+
+- **Misconfigured pipeline IDs fail quietly.** Fluent Bit's `opentelemetry` output treats every non-2xx response as retryable, including 4xx. If the `Header x-glassflow-pipeline-id` value is wrong or the pipeline doesn't exist, Fluent Bit retries each batch up to `Retry_Limit` and then drops it. There's no fatal error to alert on. Watch Fluent Bit's `fluentbit_output_retries_total` for that output. A steadily-climbing counter with no successes is the canary.
+- **`resource_attributes` is not populated from `record_modifier` fields.** See the field-mapping callout above.
+- **Trace forwarding requires Fluent Bit 5.0+ over gRPC.** The OTLP/JSON trace path is broken on all current versions. See [Traces](#traces).
+
+## Related
+
+- [OpenTelemetry (OTLP) source](/sources/otlp) — the receiver this integration uses
+- [OTLP — Sending Data](/sources/otlp/sending-data) — Collector and SDK configuration reference (use this for the trace signal)
+- [OTLP — Examples](/sources/otlp/examples) — complete pipeline JSONs with ClickHouse target tables
+- [OTLP — Schema Reference](/sources/otlp/schema-reference) — field tables for logs, metrics, and traces
+- [Pipeline Configuration Reference](/configuration/pipeline-config-reference) — full pipeline schema

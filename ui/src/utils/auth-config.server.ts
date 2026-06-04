@@ -17,3 +17,18 @@ export function isAuthEnabled(): boolean {
   const publicAuth = process.env.NEXT_PUBLIC_AUTH0_ENABLED
   return publicAuth === 'true'
 }
+
+export function getAuthPaths() {
+  return {
+    login: process.env.AUTH0_LOGIN_PATH ?? '/api/auth/login',
+    callback: process.env.AUTH0_CALLBACK_PATH ?? '/api/auth/callback',
+    logout: process.env.AUTH0_LOGOUT_PATH ?? '/api/auth/logout',
+  }
+}
+
+export function getAuthConnections() {
+  return {
+    github: process.env.AUTH0_GITHUB_CONNECTION ?? 'github',
+    google: process.env.AUTH0_GOOGLE_CONNECTION ?? 'google-oauth2',
+  }
+}
