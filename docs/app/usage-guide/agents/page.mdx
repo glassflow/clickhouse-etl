@@ -1,0 +1,142 @@
+---
+title: 'Agents'
+description: 'Drive GlassFlow ETL from your AI coding assistant through curated agent skills.'
+---
+import { Callout, Tabs } from 'nextra/components'
+
+# Agents
+
+[GlassFlow Agent Skills](https://github.com/glassflow/agent-skills) let you create and operate GlassFlow pipelines from any AI coding assistant that reads SKILL.md files, including Claude Code, Cursor, and OpenAI Codex. Each skill is an instruction set the assistant loads when you describe a matching task. Skills are scoped to common GlassFlow workflows like creating a pipeline, sending test messages, or diagnosing a failing stage.
+
+The repository is open source and lives at [`glassflow/agent-skills`](https://github.com/glassflow/agent-skills).
+
+## Prerequisites
+
+- An AI coding assistant with skill or rule support. Install instructions for Claude Code, Cursor, OpenAI Codex, and other tools are in the [Installation](#installation) section below.
+- A reachable GlassFlow API. Local installs default to `http://localhost:8081`; remote installs point at whatever endpoint your team exposes.
+- Source and sink credentials handy. Skills will ask for them; they do not assume defaults.
+
+## Installation
+
+Pick your AI coding tool.
+
+<Tabs items={['Claude Code', 'Cursor', 'OpenAI Codex', 'Other tools']} storageKey="agent_tool">
+  <Tabs.Tab>
+
+Inside Claude Code:
+
+```
+/plugin marketplace add glassflow/agent-skills
+/plugin install glassflow-agent-skills@glassflow-agent-skills
+```
+
+Claude Code fetches the skills and loads their descriptions. Skills do not run automatically; Claude only invokes a skill when your prompt matches its description.
+
+To update later:
+
+```
+/plugin marketplace update glassflow-agent-skills
+```
+
+  </Tabs.Tab>
+  <Tabs.Tab>
+
+From your project root:
+
+```bash
+git clone https://github.com/glassflow/agent-skills.git /tmp/glassflow-agent-skills
+mkdir -p .cursor/skills
+cp -r /tmp/glassflow-agent-skills/skills/* .cursor/skills/
+```
+
+Reload Cursor (Cmd/Ctrl+Shift+P, "Developer: Reload Window") so it picks up the new files. Cursor reads SKILL.md frontmatter natively; no format conversion needed.
+
+To update later, pull and re-copy:
+
+```bash
+cd /tmp/glassflow-agent-skills && git pull
+cp -r /tmp/glassflow-agent-skills/skills/* .cursor/skills/
+```
+
+  </Tabs.Tab>
+  <Tabs.Tab>
+
+From your project root:
+
+```bash
+git clone https://github.com/glassflow/agent-skills.git /tmp/glassflow-agent-skills
+mkdir -p .codex/skills
+cp -r /tmp/glassflow-agent-skills/skills/* .codex/skills/
+```
+
+For global availability across all your projects, copy into `~/.codex/skills/` instead.
+
+  </Tabs.Tab>
+  <Tabs.Tab>
+
+The skills are plain SKILL.md files; any tool that reads markdown-with-frontmatter from a known directory can use them. Clone the repo and copy `skills/*` into the path your tool expects:
+
+| Tool | Path |
+|---|---|
+| Claude Code (manual, no plugin) | `.claude/skills/` |
+| Cursor | `.cursor/skills/` |
+| OpenAI Codex | `.codex/skills/` (or `~/.codex/skills/` for global) |
+| OpenCode | `.opencode/skills/` |
+| GitHub Copilot / VS Code | `.github/skills/` |
+
+```bash
+git clone https://github.com/glassflow/agent-skills.git /tmp/glassflow-agent-skills
+mkdir -p <tool-skill-path>
+cp -r /tmp/glassflow-agent-skills/skills/* <tool-skill-path>/
+```
+
+A community CLI also automates this across tools:
+
+```bash
+npx skills add glassflow/agent-skills
+```
+
+  </Tabs.Tab>
+</Tabs>
+
+## Available skills
+
+| Skill | Description |
+|---|---|
+| `create-pipeline` | Create a GlassFlow pipeline end to end. Walks through source configuration (Kafka or OTLP), optional dedup/filter/transform stages, ClickHouse sink mapping, then submits the v3 config to the GlassFlow API and waits for the pipeline to reach `Running`. |
+
+More skills are added as we surface common workflows. The canonical list lives in the repository.
+
+## Walkthrough: create your first pipeline
+
+Once installed, describe what you want and the assistant picks the right skill.
+
+> "Create a GlassFlow pipeline named `orders-prod` that reads from the `orders` Kafka topic on `kafka.local:9092` (SASL_PLAINTEXT, user `glassflow`, password in `KAFKA_PASSWORD`), deduplicates on `order_id` with a 1-hour window, and writes to the `analytics.orders` table on `clickhouse.local`."
+
+The `create-pipeline` skill activates and walks you through:
+
+1. Confirming the inputs it parsed and asking for anything missing (schema fields, ClickHouse credentials).
+2. Building a [v3 pipeline config](/configuration/pipeline-config-reference) and showing it back to you before submitting.
+3. Posting to `POST /api/v1/pipeline`.
+4. Polling `GET /api/v1/pipeline/<id>/health` until `overall_status` reaches `Running`.
+5. Suggesting a test-message recipe and a ClickHouse verification query.
+
+Skills always confirm before they touch your environment. Nothing is submitted without an explicit yes.
+
+## Example prompts
+
+Use these as starting points; the assistant infers the rest from your project state and recent context.
+
+- "Create an OTLP logs pipeline writing to `observability.app_logs` on the staging ClickHouse."
+- "Set up a Kafka pipeline for the `events` topic with deduplication on `event_id` over 30 seconds."
+- "Build a pipeline that filters events where `metadata.source == 'prod'` before writing to `analytics.prod_events`."
+
+## Contributing
+
+The `glassflow/agent-skills` repository carries skills that are useful to GlassFlow users in general. If you have a workflow you would like distilled into a skill, open an issue describing the user-visible task, the inputs the skill needs, and the steps the agent should take. Or open a PR with a draft `SKILL.md` under `skills/<skill-name>/` matching the structure of existing skills.
+
+## Related
+
+- [`glassflow/agent-skills` repository](https://github.com/glassflow/agent-skills). Source for every skill, license, and the install entry point.
+- [Pipeline configuration reference](/configuration/pipeline-config-reference). The v3 config shape skills emit.
+- [Claude Code plugin marketplaces](https://docs.claude.com/en/docs/claude-code/plugins). The underlying mechanism for distributing skills.
