@@ -134,29 +134,6 @@ Numeric metric values land in different schema fields depending on the receiver'
 
 For full OTLP source field reference, see [OTLP Schema Reference](/sources/otlp/schema-reference). For the GlassFlow pipeline shape that writes these records to ClickHouse, see [OTLP Examples](/sources/otlp/examples).
 
-## Latency
-
-`awscloudwatchreceiver` is pull-based. Three timings stack:
-
-- **CloudWatch ingestion lag.** AWS itself takes anywhere between 1 and 10 minutes to make a published log event or metric datapoint queryable. The receiver's default `delay: 10m` on metrics accounts for this; reduce it only after confirming CloudWatch's own lag for your region and metric source is consistently lower.
-- **Logs `poll_interval`.** Default `1m`. Each poll fetches new events since the last poll.
-- **Metrics `collection_interval`.** Default `5m`, lowered to `1m` in the example above for the smallest reasonable batch size.
-
-End-to-end first-event latency is typically 2 to 12 minutes, depending on the AWS source and the receiver settings. If you need sub-minute latency, see the push alternative below.
-
-## Push alternative: Kinesis Data Firehose
-
-For sub-minute latency on metrics and logs, AWS supports two push paths that can avoid the receiver's poll lag:
-
-- **Metrics:** [CloudWatch Metric Streams](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Metric-Streams.html) to Firehose's HTTP endpoint, fronted by the [`awsfirehosereceiver`](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/awsfirehosereceiver) in alpha.
-- **Logs:** CloudWatch Logs subscription filter to Firehose with the same `awsfirehosereceiver` extension.
-
-This trades the simple pull config for an HTTPS endpoint, IAM for Firehose, and the Firehose record envelope. The advanced path is out of scope for this page; reach out via Slack or [get in touch](https://www.glassflow.dev/contact) with our team if you want to validate it end-to-end.
-
-<Callout type="info">
-**Migration note.** The legacy `awscloudwatchmetricsreceiver` was removed from `opentelemetry-collector-contrib` in v0.134.0 ([deprecation tracking](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/38912)). Metrics now live inside `awscloudwatchreceiver` under the `metrics:` config key. If you have a pre-v0.134.0 Collector config, the new key shape is `metrics.queries[]` (or `metrics.discovery`), not the old top-level `metrics_named[]`.
-</Callout>
-
 ## Related
 
 - [Sources overview](/sources).
