@@ -1,21 +1,143 @@
 ---
 title: 'AWS CloudWatch'
-description: 'Ingest logs and metrics from AWS CloudWatch into ClickHouse with GlassFlow'
+description: 'Ingest logs and metrics from AWS CloudWatch into ClickHouse through an OpenTelemetry Collector relay to the GlassFlow OTLP receiver.'
 ---
 import { Callout } from 'nextra/components'
 
 # AWS CloudWatch
 
-CloudWatch is AWS's monitoring and observability service that collects logs, metrics, and events from cloud resources. It provides alerting, dashboards, and insights into system performance and health.
+[AWS CloudWatch](https://aws.amazon.com/cloudwatch/) is AWS's native monitoring service. Every managed AWS service emits its logs and metrics to CloudWatch by default, which makes it the canonical source of telemetry for AWS workloads.
 
-## Using AWS CloudWatch with GlassFlow
+## Why isn't direct CloudWatch to GlassFlow supported today?
 
-GlassFlow can ingest logs and metrics from AWS CloudWatch into ClickHouse with the same pipeline capabilities available to all GlassFlow sources — deduplication, filtering, and stateless transformations.
+CloudWatch has no first-party way to push data to a third-party OTLP endpoint with a custom HTTP header. AWS Marketplace integrations cover a fixed set of partner vendors, and the CloudWatch Logs subscription path through Kinesis Data Firehose's HTTP endpoint cannot inject per-record headers without a Lambda transform. Either route is strictly more work than running the standard OpenTelemetry Collector's pull-based receiver, so GlassFlow's recommended path is the Collector relay below.
 
-<Callout type="info">
-**Available on request.** AWS CloudWatch connectors are natively supported in GlassFlow Enterprise Edition. To get started, [join our GlassFlow Slack community](https://glassflowhub.slack.com/join/shared_invite/zt-349m7lenp-IFeKSGfQwpJfIiQ7oyFFKg) to chat directly with our team, or [reach out](https://www.glassflow.dev/integrations#contact) to us with your use case, expected volumes, and timeline.
+## Recommended pattern: AWS CloudWatch to OpenTelemetry Collector to GlassFlow
+
+Run an [OpenTelemetry Collector](https://opentelemetry.io/docs/collector/) with the [`awscloudwatchreceiver`](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/awscloudwatchreceiver) (alpha; covers both logs and metrics) and forward to the GlassFlow OTLP receiver via `otlp_http`. The Collector polls CloudWatch over standard AWS APIs using the SDK credential chain (env vars, shared credentials file, or EC2 IMDS).
+
+### OpenTelemetry Collector config
+
+```yaml
+# otel-collector.yaml
+receivers:
+  awscloudwatch/logs:
+    region: <aws-region>
+    logs:
+      poll_interval: 1m
+      groups:
+        named:
+          /your/log-group-name:
+            names: [your-log-stream]
+
+  awscloudwatch/metrics:
+    region: <aws-region>
+    metrics:
+      collection_interval: 1m
+      period: 60s
+      delay: 10m
+      queries:
+        - namespace: AWS/EC2
+          metric_name: CPUUtilization
+          dimensions:
+            InstanceId: i-0123456789abcdef0
+
+processors:
+  batch:
+    timeout: 1s
+
+exporters:
+  otlp_http/glassflow_logs:
+    endpoint: http://<glassflow-otlp-receiver>:4318
+    compression: none
+    headers:
+      x-glassflow-pipeline-id: <your-logs-pipeline-id>
+
+  otlp_http/glassflow_metrics:
+    endpoint: http://<glassflow-otlp-receiver>:4318
+    compression: none
+    headers:
+      x-glassflow-pipeline-id: <your-metrics-pipeline-id>
+
+service:
+  pipelines:
+    logs:
+      receivers: [awscloudwatch/logs]
+      processors: [batch]
+      exporters: [otlp_http/glassflow_logs]
+    metrics:
+      receivers: [awscloudwatch/metrics]
+      processors: [batch]
+      exporters: [otlp_http/glassflow_metrics]
+```
+
+<Callout type="warning">
+**Disable gzip compression** on the `otlp_http` exporter (`compression: none`). The GlassFlow OTLP receiver does not decompress gzip-encoded payloads and will return `400 Bad Request` if you leave the exporter's default `gzip` compression enabled.
 </Callout>
+
+One OpenTelemetry Collector instance can drive both signals in parallel. Logs and metrics need their own GlassFlow pipelines (`otlp.logs` source and `otlp.metrics` source respectively), so route each signal to its own exporter with the matching `x-glassflow-pipeline-id`.
+
+### Minimum IAM permissions
+
+The credentials used by the Collector require read-only access to the specific CloudWatch APIs called by the receiver. While a wildcard is fine for initial validation, you should restrict the 'Resource' scope to specific log group ARNs and metric namespaces in production.
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "logs:DescribeLogGroups",
+        "logs:DescribeLogStreams",
+        "logs:FilterLogEvents",
+        "logs:GetLogEvents"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "cloudwatch:ListMetrics",
+        "cloudwatch:GetMetricData"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+### What lands in ClickHouse
+
+A CloudWatch log event `{"event_id":"a1","level":"info","message":"hello"}` on log group `/your/log-group-name`, stream `your-log-stream`, in region `eu-central-1` arrives as:
+
+| Column | Value |
+|---|---|
+| `body` | `{"event_id":"a1","level":"info","message":"hello"}` |
+| `resource_attributes` | `{'aws.region': 'eu-central-1', 'cloudwatch.log.group.name': '/your/log-group-name', 'cloudwatch.log.stream': 'your-log-stream'}` |
+| `attributes` | `{'id': '<cloudwatch-event-id>'}` |
+
+A CloudWatch metric in namespace `AWS/EC2`, name `CPUUtilization`, with dimension `InstanceId=i-...` arrives as:
+
+| Column | Value |
+|---|---|
+| `metric_name` | `amazonaws.com/AWS/EC2/CPUUtilization` |
+| `resource_attributes` | `{'cloud.provider': 'aws', 'cloud.region': 'eu-central-1'}` |
+| `attributes` | `{'Namespace': 'AWS/EC2', 'MetricName': 'CPUUtilization', 'Dimensions': '{...}'}` |
+
+The receiver prepends `amazonaws.com/<Namespace>/` to the metric name per the [CloudWatch Metric Streams OpenTelemetry 1.0 format](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-metric-streams-formats-opentelemetry-100.html).
+
+Numeric metric values land in different schema fields depending on the receiver's `stats` configuration:
+
+- **No `stats` (default).** Each datapoint is an OTel Summary built from `Sum`, `SampleCount`, `Minimum`, `Maximum`. Map the GlassFlow OTLP fields `sum`, `count`, `min`, `max` in your sink to capture the full statistical picture.
+- **Explicit `stats: [Average]` (or any single stat).** Each datapoint is a Gauge with one value. Map the GlassFlow OTLP field `value_double` in your sink.
+
+For full OTLP source field reference, see [OTLP Schema Reference](/sources/otlp/schema-reference). For the GlassFlow pipeline shape that writes these records to ClickHouse, see [OTLP Examples](/sources/otlp/examples).
 
 ## Related
 
-- [Sources overview](/sources)
+- [Sources overview](/sources).
+- [OpenTelemetry (OTLP) source](/sources/otlp). The receiver this pattern uses.
+- [OTLP Schema Reference](/sources/otlp/schema-reference). All available OTLP source fields for sink mapping.
+- [OTLP Sending Data](/sources/otlp/sending-data). OpenTelemetry Collector configuration reference.
+- [Grafana Alloy](/sources/grafana-alloy). Sibling pattern; Alloy ships `otelcol.receiver.awscloudwatch` as a first-class wrapper.
