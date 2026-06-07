@@ -1,0 +1,25 @@
+# ClickStack chart — ClickHouse only (HyperDX UI disabled; use Grafana instead)
+global:
+  storageClassName: standard
+
+clickhouse:
+  enabled: true
+  resources:
+    limits:
+      cpu: "800m"
+      memory: "2Gi"
+    requests:
+      cpu: "200m"
+      memory: "512Mi"
+  auth:
+    otelUserPassword: otelcollectorpass
+    appUserPassword: hyperdx
+
+hyperdx:
+  enabled: false
+
+mongodb:
+  enabled: false
+
+otel:
+  enabled: false

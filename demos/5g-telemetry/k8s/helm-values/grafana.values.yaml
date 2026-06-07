@@ -1,0 +1,64 @@
+adminUser: admin
+adminPassword: admin
+
+# The pod runs as uid/gid 472 with fsGroup 472, so volume permissions are handled
+# by Kubernetes. The chown init container is disabled because it fails with EPERM on
+# Kind's local-path volumes once Grafana has written subdirectories.
+initChownData:
+  enabled: false
+
+persistence:
+  enabled: true
+  size: 5Gi
+  storageClass: standard
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+env:
+  GF_INSTALL_PLUGINS: grafana-clickhouse-datasource
+
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: ClickHouse
+        uid: clickhouse
+        type: grafana-clickhouse-datasource
+        access: proxy
+        url: http://clickstack-clickhouse.clickhouse.svc.cluster.local:8123
+        jsonData:
+          defaultDatabase: default
+          protocol: http
+          port: 8123
+          server: clickstack-clickhouse.clickhouse.svc.cluster.local
+          username: otelcollector
+          tlsSkipVerify: true
+        secureJsonData:
+          password: otelcollectorpass
+        isDefault: true
+
+dashboardProviders:
+  dashboardproviders.yaml:
+    apiVersion: 1
+    providers:
+      - name: 5g-telemetry
+        orgId: 1
+        folder: 5G Telemetry
+        type: file
+        disableDeletion: false
+        editable: true
+        options:
+          path: /var/lib/grafana/dashboards/5g-telemetry
+
+dashboardsConfigMaps:
+  5g-telemetry: 5g-grafana-dashboard
+
+service:
+  type: ClusterIP
+  port: 80
