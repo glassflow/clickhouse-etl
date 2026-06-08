@@ -104,6 +104,8 @@ npx skills add glassflow/agent-skills
 | Skill | Description |
 |---|---|
 | `create-pipeline` | Create a GlassFlow pipeline end to end. Walks through source configuration (Kafka or OTLP), optional dedup/filter/transform stages, ClickHouse sink mapping, then submits the v3 config to the GlassFlow API and waits for the pipeline to reach `Running`. |
+| `debug-pipeline` | Localize a pipeline failure or missing-events problem. Starts with component logs (via kubectl or the OTel Collector's log backend) and cross-checks with metrics for silent failures, backpressure, and DLQ rate. |
+| `tune-pipeline` | Resolve sustained backpressure or sink-lag by reading GlassFlow's emitted metrics to confirm the bottleneck, proposing targeted changes to replicas, batch sizes, stream limits, or dedup storage, applying them via the appropriate API endpoint, and verifying by re-reading the same metrics. |
 
 More skills are added as we surface common workflows. The canonical list lives in the repository.
 
