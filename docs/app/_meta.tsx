@@ -1,9 +1,9 @@
 export default {
     'getting-started': '',
+    'usage-guide': '',
     'installation': '',
     'sources': '',
     'transformations': '',
-    'usage-guide': '',
     'configuration': '',
     'architecture': '',
     'release-notes': '',

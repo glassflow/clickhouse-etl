@@ -1,4 +1,5 @@
 export default {
     'web-ui': '',
-    'python-sdk': ''
+    'python-sdk': '',
+    'agents': ''
 }
