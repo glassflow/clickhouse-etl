@@ -18,7 +18,7 @@ Before creating your pipeline, ensure you have:
 
 ## Creating a Pipeline
 
-GlassFlow provides two ways to create a pipeline, each suited for different use cases and preferences:
+GlassFlow provides three ways to create a pipeline, each suited for different use cases and preferences:
 
 ### 1. Web UI (Recommended for Beginners)
 
@@ -53,7 +53,23 @@ The SDK provides:
 
 [Learn how to use the Python SDK →](/usage-guide/python-sdk)
 
-Both approaches create the same underlying pipeline configuration and can be used interchangeably based on your workflow preferences.
+### 3. AI Agents (Recommended for natural-language workflows)
+
+The **AI Agents** approach lets you create and operate pipelines from any AI coding assistant (Claude Code, Cursor, OpenAI Codex) via curated skills published in [`glassflow/agent-skills`](https://github.com/glassflow/agent-skills). This method is ideal for:
+
+- Teams already using AI coding assistants in their development workflow
+- Quick interactive pipeline creation through natural conversation
+- Operational tasks like diagnosing failures and tuning throughput
+
+The skills cover the full pipeline lifecycle:
+
+- `create-pipeline` walks you through source and sink configuration and submits the v3 config to the GlassFlow API
+- `debug-pipeline` localizes failures from logs, DLQ contents, and metrics
+- `tune-pipeline` proposes and applies targeted resource or config changes based on emitted metrics, then verifies the result
+
+[Learn how to use AI Agents →](/usage-guide/agents)
+
+All three approaches create the same underlying pipeline configuration and can be used interchangeably based on your workflow preferences.
 
 ## Scaling Pipelines
 
