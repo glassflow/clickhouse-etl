@@ -14,6 +14,8 @@ GlassFlow comes with ready-to-run demos that showcase different pipeline capabil
 
 - [**Fraud Detection**](/getting-started/demo/fraud-detection) — Detect brute-force login attacks by combining **Filter** and **Deduplication** in a single pipeline. Uses synthetic login events and SQL-based fraud queries on clean data in ClickHouse.
 
+- [**Observability**](/getting-started/demo/observability) — Ingest OpenTelemetry traces into ClickHouse with deduplication and PII masking. Uses the **OTLP source**, **Deduplication** on a composite `trace_id` + `span_id` key, and a **stateless transformation** for PII redaction, then visualizes traces in HyperDX.
+
 ## Prerequisites
 
 All demos require:
