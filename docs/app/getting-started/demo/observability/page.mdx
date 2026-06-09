@@ -1,0 +1,144 @@
+---
+title: 'OpenTelemetry Traces'
+description: 'Ingest OpenTelemetry traces into ClickHouse with deduplication and PII masking using GlassFlow and HyperDX'
+---
+import { Steps } from 'nextra/components'
+import { Callout } from 'nextra/components'
+
+# OpenTelemetry Traces Demo
+
+Ingest OpenTelemetry traces into ClickHouse with deduplication and PII masking using GlassFlow. Synthetic spans flow through the OpenTelemetry Collector (tail-sampled), then through GlassFlow over OTLP (deduplication on `trace_id` + `span_id`, plus stateless PII masking), into ClickHouse, viewable in HyperDX.
+
+```text
+TelemetryGen → OTel Collector → GlassFlow (OTLP) → ClickHouse → HyperDX
+```
+
+There is no Kafka in this demo. GlassFlow's OTLP receiver accepts gRPC from the collector; routing uses the `x-glassflow-pipeline-id: otlp-traces` header. The demo uses the [**OTLP source**](/sources/otlp), [**Deduplication**](/transformations/deduplication), and [**Stateless transformation**](/transformations/stateless-transformation) features together in a single pipeline.
+
+## What this demo shows
+
+| Problem | Where it is handled | What to verify |
+|---|---|---|
+| Retry / duplicate spans | GlassFlow dedupe on `trace_id` + `span_id` with a 1h window | ClickHouse: no duplicate `(TraceId, SpanId)` pair within the window |
+| Compliance / PII | GlassFlow stateless transformation | `user_email` and `demo_ssn` in `SpanAttributes` are redacted before ClickHouse |
+| Cost / noise | OTel `tail_sampling`: keep all errors, sample ~10% of OK spans | Ratio of `StatusCode` in `otel_traces` reflects the policy, not the source rate |
+
+## Prerequisites
+
+- `kubectl` configured for a Kubernetes cluster
+- `helm` (v3.x)
+- `kind` to create a local cluster, or any existing Kubernetes cluster
+- `clickhouse-client`
+
+Cluster sizing for the local kind path:
+
+| Resource | Minimum |
+|---|---|
+| CPU | 6 cores |
+| RAM | 8 GB |
+| Disk | 10 GB |
+
+## Run the demo
+
+<Steps>
+
+### Create a local cluster
+
+Skip this step if you already have a Kubernetes cluster to use.
+
+```bash
+cd demos/observability-v2
+make cluster
+```
+
+### Install the stack with Helm
+
+```bash
+make repos     # add the Helm repositories
+make install   # deploy OTel Collector, GlassFlow, HyperDX + ClickHouse
+```
+
+GlassFlow is installed from the published `glassflow/glassflow-etl` chart. The OTLP receiver is enabled via [`k8s/helm-values/glassflow.values.yaml`](https://github.com/glassflow/clickhouse-etl/tree/main/demos/observability-v2/k8s/helm-values/glassflow.values.yaml), matching the [OTLP source docs](/sources/otlp).
+
+### Create the ClickHouse table
+
+In a separate terminal, port-forward ClickHouse and create the `otel_traces` table:
+
+```bash
+kubectl port-forward -n hyperdx svc/hyperdx-clickstack-clickhouse 9000:9000
+# back in your main terminal:
+make create-clickhouse-tables
+```
+
+### Create the GlassFlow pipeline
+
+In another terminal, port-forward the GlassFlow API, then deploy the pipeline definition:
+
+```bash
+make pf-glassflow-api          # forwards localhost:8080 -> API :8081
+make deploy-pipelines          # POSTs the otlp-traces pipeline config
+```
+
+<Callout type="info">
+If port 8080 is busy, forward the API to a different local port and override `GLASSFLOW_API_URL`:
+```bash
+kubectl port-forward -n glassflow svc/glassflow-api 18080:8081
+GLASSFLOW_API_URL=http://localhost:18080 make deploy-pipelines
+```
+</Callout>
+
+### Start synthetic traces
+
+```bash
+make telemetry
+```
+
+TelemetryGen produces ~45 spans/sec with `Ok` status and ~5 spans/sec with `Error` status, both carrying demo PII attributes (`user_email`, `demo_ssn`) on their resource and span attributes.
+
+### Open the UIs
+
+```bash
+make pf-glassflow              # GlassFlow UI -> http://localhost:8081
+make pf-hyperdx                # HyperDX     -> http://localhost:8090
+```
+
+Use HyperDX to browse traces and inspect attributes. Confirm that `user_email` and `demo_ssn` appear as `[REDACTED]` and that no duplicate `(TraceId, SpanId)` rows exist for the same logical span.
+
+You can also query ClickHouse directly to verify:
+
+```sql
+-- Should return 0 (no duplicates within the dedup window):
+SELECT count(*) FROM otel_traces
+GROUP BY (TraceId, SpanId)
+HAVING count() > 1;
+
+-- Should return 0 (no raw PII in stored attributes):
+SELECT count(*) FROM otel_traces
+WHERE SpanAttributes['user_email'] LIKE '%@%';
+```
+
+### Tear down
+
+```bash
+make telemetry-remove
+make uninstall
+make ns-remove
+make cluster-delete            # if you created a kind cluster in step 1
+```
+
+</Steps>
+
+## How it works
+
+The pipeline `otlp-traces` is defined in [`glassflow-pipelines/traces-pipeline.json`](https://github.com/glassflow/clickhouse-etl/tree/main/demos/observability-v2/glassflow-pipelines/traces-pipeline.json) and applies two transformations in order:
+
+1. [**Deduplication**](/transformations/deduplication) on a composite `trace_id` + `span_id` key with a 1-hour window. The OTel Collector or upstream exporters may retry on transient errors, producing duplicate spans for the same logical operation. GlassFlow collapses them to a single row before ClickHouse.
+2. [**Stateless transformation**](/transformations/stateless-transformation) that rewrites `ResourceAttributes` and `SpanAttributes`, replacing the demo `user_email` and `demo_ssn` values with `[REDACTED]`. ClickHouse never stores the raw PII.
+
+Tail sampling is handled upstream by the OTel Collector (not by GlassFlow): `status_code` policy keeps all `Error` spans, plus a probabilistic 10% of the remainder. GlassFlow dedupes whatever survives sampling.
+
+The ClickHouse schema (`otel_traces`) uses ClickStack-compatible column names (`TraceId`, `SpanId`, `ServiceName`, `SpanAttributes`, etc.) so HyperDX can read it without remapping. `ServiceName` is derived from `ResourceAttributes['service.name']`; `Events` and `Links` use `Array(Map(String, String))`.
+
+## Source code
+
+The full demo source is available at [`demos/observability-v2`](https://github.com/glassflow/clickhouse-etl/tree/main/demos/observability-v2) in the GlassFlow repository. See the demo's [GUIDE.md](https://github.com/glassflow/clickhouse-etl/tree/main/demos/observability-v2/GUIDE.md) for an in-depth walkthrough, `helm show values` alignment notes, and additional verification SQL.
