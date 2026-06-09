@@ -1,11 +1,11 @@
 ---
-title: 'Observability'
+title: 'OpenTelemetry Traces'
 description: 'Ingest OpenTelemetry traces into ClickHouse with deduplication and PII masking using GlassFlow and HyperDX'
 ---
 import { Steps } from 'nextra/components'
 import { Callout } from 'nextra/components'
 
-# Observability Demo
+# OpenTelemetry Traces Demo
 
 Ingest OpenTelemetry traces into ClickHouse with deduplication and PII masking using GlassFlow. Synthetic spans flow through the OpenTelemetry Collector (tail-sampled), then through GlassFlow over OTLP (deduplication on `trace_id` + `span_id`, plus stateless PII masking), into ClickHouse, viewable in HyperDX.
 
