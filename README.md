@@ -1,5 +1,5 @@
 <p align="center">
-  <img width="1520" height="870" alt="Image" src="https://github.com/user-attachments/assets/ef2705db-fbd4-4583-927d-631295ed5816"/>
+  <img width="1520" height="870" alt="Image" src="docs/public/assets/Readme Banner.png"/>
 </p>
 <p align="center">
       <a href="https://docs.glassflow.dev"><strong>Docs</strong></a> ·     
