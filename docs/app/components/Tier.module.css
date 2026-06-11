@@ -1,0 +1,66 @@
+/* ============================================================
+ * Tier — GlassFlow docs edition badge
+ *
+ * A small pill flagging whether a page or section is Open Source,
+ * Enterprise, or both. Tokens are declared per-variant so the badge
+ * is self-contained and does not depend on the product UI theme.
+ * Light values are the defaults; html.dark overrides (next-themes
+ * adds the `dark` class to <html>). Brand orange matches the
+ * SortableTable accent so the two read as one design system.
+ * ============================================================ */
+
+.tier {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  padding: 0.34em 0.62em;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  vertical-align: middle;
+  white-space: nowrap;
+  text-transform: none;
+}
+
+/* Block: sits on its own line just beneath the page H1. Use block-level flex
+ * (width hugs the content) so vertical margins apply and it never overlaps the
+ * H1, which an inline-level box would. */
+.block {
+  display: flex;
+  width: max-content;
+  max-width: 100%;
+  margin: 0.6rem 0 1.4rem;
+}
+
+/* Inline: rides next to an H2 / H3 heading. */
+.inline {
+  margin-left: 0.5rem;
+  font-size: 0.66rem;
+  padding: 0.28em 0.52em;
+}
+
+/* ---------- Enterprise (brand orange) ---------- */
+.enterprise {
+  color: #9a3412;
+  background: rgba(255, 139, 31, 0.14);
+  border-color: rgba(255, 139, 31, 0.35);
+}
+:global(html.dark) .enterprise {
+  color: #ffa24b;
+  background: rgba(255, 139, 31, 0.16);
+  border-color: rgba(255, 162, 75, 0.40);
+}
+
+/* ---------- Both (muted neutral) ---------- */
+.both {
+  color: #374151;
+  background: rgba(17, 24, 39, 0.05);
+  border-color: rgba(17, 24, 39, 0.14);
+}
+:global(html.dark) .both {
+  color: #d1d5db;
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.14);
+}

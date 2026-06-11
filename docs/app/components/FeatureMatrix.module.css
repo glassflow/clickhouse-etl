@@ -1,0 +1,125 @@
+/* ============================================================
+ * FeatureMatrix — GlassFlow docs
+ *
+ * Open Source vs Enterprise availability table. Self-contained
+ * tokens, light defaults with html.dark overrides (next-themes).
+ * Visual language mirrors SortableTable: tinted header, light
+ * dividers, brand orange accent on the Enterprise column.
+ * ============================================================ */
+
+.wrapper {
+  --fm-fg: #111827;
+  --fm-muted: #6b7280;
+  --fm-border: rgba(17, 24, 39, 0.08);
+  --fm-border-strong: rgba(17, 24, 39, 0.14);
+  --fm-header-bg: rgba(17, 24, 39, 0.03);
+  --fm-group-bg: rgba(17, 24, 39, 0.045);
+  --fm-link: #c2410c;
+  --fm-yes: #16a34a;        /* OSS check: calm green */
+  --fm-ee: #c2410c;         /* Enterprise check: brand orange */
+  --fm-ee-tint: rgba(255, 139, 31, 0.06);
+  --fm-dash: #9ca3af;
+
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+  margin: 1.25rem 0 1.5rem;
+  border: 1px solid var(--fm-border-strong);
+  border-radius: 10px;
+}
+
+:global(html.dark) .wrapper {
+  --fm-fg: #e5e7eb;
+  --fm-muted: #9ca3af;
+  --fm-border: rgba(255, 255, 255, 0.07);
+  --fm-border-strong: rgba(255, 255, 255, 0.10);
+  --fm-header-bg: rgba(255, 255, 255, 0.025);
+  --fm-group-bg: rgba(255, 255, 255, 0.04);
+  --fm-link: #ffa24b;
+  --fm-yes: #4ade80;
+  --fm-ee: #ffa24b;
+  --fm-ee-tint: rgba(255, 139, 31, 0.08);
+  --fm-dash: #6b7280;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  color: var(--fm-fg);
+}
+
+.headerCell {
+  text-align: left;
+  font-weight: 600;
+  color: var(--fm-muted);
+  background: var(--fm-header-bg);
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid var(--fm-border-strong);
+}
+
+.editionCol {
+  text-align: center;
+  width: 9rem;
+}
+
+.eeCol {
+  background: var(--fm-ee-tint);
+}
+
+.groupCell {
+  text-align: left;
+  font-weight: 700;
+  font-size: 0.76rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--fm-muted);
+  background: var(--fm-group-bg);
+  padding: 0.5rem 1rem;
+  border-top: 1px solid var(--fm-border);
+  border-bottom: 1px solid var(--fm-border);
+}
+
+.featureCell {
+  text-align: left;
+  font-weight: 400;
+  padding: 0.62rem 1rem;
+  border-bottom: 1px solid var(--fm-border);
+}
+
+.markCell {
+  text-align: center;
+  padding: 0.62rem 1rem;
+  border-bottom: 1px solid var(--fm-border);
+  vertical-align: middle;
+}
+
+.check,
+.dash {
+  display: inline-block;
+}
+
+.check {
+  width: 1.05rem;
+  height: 1.05rem;
+  color: var(--fm-yes);
+  vertical-align: middle;
+}
+
+.eeCol .check {
+  color: var(--fm-ee);
+}
+
+.dash {
+  color: var(--fm-dash);
+  font-weight: 600;
+}
+
+.link {
+  color: var(--fm-link);
+  text-decoration: none;
+}
+
+.link:hover {
+  text-decoration: underline;
+}
