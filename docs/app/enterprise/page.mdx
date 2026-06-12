@@ -1,5 +1,5 @@
 ---
-title: 'Enterprise Edition'
+title: 'GlassFlow Enterprise Edition'
 description: 'What the GlassFlow Enterprise Edition adds on top of Open Source, who it is for, and how to get access.'
 tier: 'enterprise'
 ---
@@ -7,7 +7,7 @@ import { FeatureMatrix } from '../components/FeatureMatrix'
 
 # Enterprise Edition
 
-GlassFlow is open source at its core: the streaming ETL engine, Kafka and OTLP sources, the ClickHouse sink, deduplication, joins, filtering, and stateless transformations are all free to self-host. The Enterprise Edition builds on that same engine and adds the connectors, data formats, and operational controls that larger teams need to run GlassFlow as shared infrastructure.
+GlassFlow is open source at its core: the streaming processing engine, Kafka and OTLP sources, the ClickHouse sink, deduplication, joins, filtering, and stateless transformations are all free to self-host. The Enterprise Edition builds on that same engine and adds the connectors, data formats, and operational controls that larger teams need to run GlassFlow as shared infrastructure.
 
 Enterprise features are documented alongside the Open Source ones throughout these docs. Pages and sections that require the Enterprise Edition carry an<Tier badge="enterprise" inline /> badge so you always know which edition a capability belongs to.
 
@@ -15,14 +15,14 @@ Enterprise features are documented alongside the Open Source ones throughout the
 
 The Enterprise Edition is aimed at teams that need one or more of the following:
 
-- Sources beyond Kafka and OTLP, such as cloud streaming services, databases, and object storage.
+- Sources beyond Kafka and OTLP, such as cloud streaming services, databases, and object storage, including but not limited to: PostgreSQL, MySQL, MongoDB, Airbyte, Amazon CloudWatch and more.
 - Non-JSON wire formats such as Avro and Protobuf.
 - Built-in observability, including dashboards and real-time logs in the web UI.
 - Operational guarantees such as high-availability deployment, dead-letter queue reprocessing, and SLA-backed support.
 
 ## Open Source vs Enterprise
 
-Both editions run the same streaming ETL engine. The Enterprise Edition extends it with more connectors, more data formats, and the security and operational controls teams need at scale. Each Enterprise capability below links to the page where its badge confirms the same fact.
+Both editions run the same stream processing engine. The Enterprise Edition extends it with more connectors, more data formats, and the security and operational controls teams need at scale. Each Enterprise capability below links to the page where its badge confirms the same fact.
 
 <FeatureMatrix
   groups={[
