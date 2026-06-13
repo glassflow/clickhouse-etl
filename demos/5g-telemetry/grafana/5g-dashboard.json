@@ -201,7 +201,7 @@
           },
           "format": 1,
           "queryType": "sql",
-          "rawSql": "SELECT\n  count() AS breached_cells\nFROM (\n  SELECT\n    CellID,\n    avg(Value) AS avg_rsrp\n  FROM ran_metrics\n  WHERE MetricName = 'ran.rsrp'\n    AND $__timeFilter(TimeUnix)\n  GROUP BY CellID\n  HAVING avg_rsrp < -110\n)",
+          "rawSql": "SELECT\n  count() AS breached_cells\nFROM (\n  SELECT CellID\n  FROM (\n    SELECT\n      CellID,\n      toStartOfMinute(TimeUnix) AS minute,\n      avg(Value) AS avg_rsrp\n    FROM ran_metrics\n    WHERE MetricName = 'ran.rsrp'\n      AND $__timeFilter(TimeUnix)\n    GROUP BY CellID, minute\n    HAVING avg_rsrp < -110\n  )\n  GROUP BY CellID\n)",
           "refId": "A"
         }
       ],
@@ -279,8 +279,8 @@
     "list": []
   },
   "time": {
-    "from": "2019-12-01T00:00:00.000Z",
-    "to": "2019-12-04T00:00:00.000Z"
+    "from": "2019-11-29T00:00:00.000Z",
+    "to": "2019-12-17T00:00:00.000Z"
   },
   "timepicker": {},
   "timezone": "utc",

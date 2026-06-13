@@ -7,7 +7,7 @@
 
 _DEMO_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 
-GLASSFLOW_API_URL       ?= http://localhost:8080
+GLASSFLOW_API_URL       ?= http://localhost:8081
 CLICKHOUSE_HOST         ?= localhost
 CLICKHOUSE_PORT         ?= 9000
 CLICKHOUSE_HTTP_PORT    ?= 8123
@@ -224,8 +224,8 @@ emitter-remove:
 deploy-stack: repos install create-clickhouse-tables deploy-pipeline emitter
 	@echo ""
 	@echo "Stack deployed."
-	@echo "  GlassFlow API: make pf-glassflow-api  (http://localhost:8080)"
-	@echo "  GlassFlow UI:  make pf-glassflow      (http://localhost:8081)"
+	@echo "  GlassFlow API: make pf-glassflow-api  (http://localhost:8081)"
+	@echo "  GlassFlow UI:  make pf-glassflow      (http://localhost:8080)"
 	@echo "  Grafana:       make pf-grafana        (http://localhost:3000, admin/admin)"
 	@echo "  ClickHouse:    make pf-clickhouse"
 
@@ -234,11 +234,13 @@ teardown: emitter-remove uninstall ns-remove
 # ---------------------------------------------------------------------------
 # Port-forwarding
 # ---------------------------------------------------------------------------
+# Local ports match the service ports (no crossing): the UI service listens on
+# 8080 and the API service on 8081, so they map to the same local ports.
 pf-glassflow:
-	kubectl port-forward -n glassflow svc/glassflow-ui 8081:8080
+	kubectl port-forward -n glassflow svc/glassflow-ui 8080:8080
 
 pf-glassflow-api:
-	kubectl port-forward -n glassflow svc/glassflow-api 8080:8081
+	kubectl port-forward -n glassflow svc/glassflow-api 8081:8081
 
 pf-grafana:
 	kubectl port-forward -n grafana svc/grafana 3000:80

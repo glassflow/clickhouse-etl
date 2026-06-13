@@ -17,14 +17,6 @@
       }
     },
     {
-      "type": "dedup",
-      "source_id": "ran_metrics",
-      "config": {
-        "key": "attributes.emission_id",
-        "time_window": "30s"
-      }
-    },
-    {
       "type": "stateless",
       "source_id": "ran_metrics",
       "config": {

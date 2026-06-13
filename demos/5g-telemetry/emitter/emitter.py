@@ -34,6 +34,24 @@ METRICS = [
 
 MISSING = "-"
 
+# Curated, fixed selection of real 5Gdataset traces replayed by default.
+#
+# These three driving traces are chosen so the verification queries return
+# rich, deterministic results every run:
+#   * Signal degradation: multiple cells whose 1-minute RSRP average drops
+#     below -110 dBm (with dozens of samples per bucket, not just one).
+#   * Throughput SLA: a wide spread of p95 DL bitrate across cells
+#     (from a few Mbps up to ~160 Mbps).
+#   * Dedup inflation: enough cells/rows to make the ~2x inflation obvious.
+# Paths are relative to the extracted dataset root and matched as suffixes,
+# so the emitter replays the exact same rows in the exact same order on every
+# run. Override with the REPLAY_FILES env var (newline- or comma-separated).
+DEFAULT_REPLAY_FILES = [
+    "Amazon_Prime/Driving/animated-AdventureTime/B_2019.11.29_09.37.23.csv",
+    "Download/Driving/B_2019.12.14_10.16.30.csv",
+    "Download/Driving/B_2019.12.16_12.27.05.csv",
+]
+
 
 def env(name: str, default: str) -> str:
     return os.environ.get(name, default)
@@ -98,11 +116,54 @@ def ensure_dataset(dataset_dir: Path) -> Path:
     return dataset_dir
 
 
-def iter_rows(dataset_dir: Path, max_rows: int | None) -> Iterator[dict[str, str]]:
-    count = 0
-    for csv_path in sorted(dataset_dir.rglob("*.csv")):
-        if "__MACOSX" in str(csv_path) or csv_path.name.startswith("."):
+def all_csv_files(dataset_dir: Path) -> list[Path]:
+    """Every usable CSV under the dataset root, in stable sorted order."""
+    return [
+        path
+        for path in sorted(dataset_dir.rglob("*.csv"))
+        if "__MACOSX" not in str(path) and not path.name.startswith(".")
+    ]
+
+
+def resolve_replay_files(dataset_dir: Path, rel_paths: list[str]) -> list[Path]:
+    """Map curated relative paths to concrete files under the dataset root.
+
+    Each entry is matched as a path suffix so it resolves regardless of how the
+    archive nests the files (e.g. under a ``5G-production-dataset`` directory).
+    Order is preserved exactly, which keeps replay — and therefore the resulting
+    ClickHouse rows and query outputs — deterministic across runs. Missing files
+    raise immediately so a broken selection fails loudly instead of silently
+    changing the result set.
+    """
+    available = all_csv_files(dataset_dir)
+    resolved: list[Path] = []
+    for rel in rel_paths:
+        wanted = rel.strip().replace("\\", "/")
+        if not wanted:
             continue
+        match = next(
+            (p for p in available if str(p).replace("\\", "/").endswith(wanted)),
+            None,
+        )
+        if match is None:
+            raise RuntimeError(
+                f"Curated replay file not found in dataset: {wanted}. "
+                f"Adjust REPLAY_FILES or the dataset contents."
+            )
+        resolved.append(match)
+    return resolved
+
+
+def iter_rows(
+    csv_paths: list[Path], max_rows: int | None
+) -> Iterator[dict[str, str]]:
+    """Yield CSV rows from an explicit, ordered list of files.
+
+    The file list and the row order within each file are fixed, so the same
+    rows are replayed in the same order on every run.
+    """
+    count = 0
+    for csv_path in csv_paths:
         with csv_path.open(newline="", encoding="utf-8") as handle:
             reader = csv.DictReader(handle)
             for row in reader:
@@ -128,18 +189,6 @@ def measurement_id(cell_id: str, metric_name: str, base_ts_ns: int) -> str:
     """
     digest = hashlib.md5(f"{cell_id}|{metric_name}|{base_ts_ns}".encode()).hexdigest()
     return digest[:16]
-
-
-def emission_id(cell_id: str, metric_name: str, base_ts_ns: int, vendor: str) -> str:
-    """Unique identity for a single physical emission (per collector).
-
-    Differs between collectors A and B for the same observation. The comparison
-    ("no-dedup") pipeline keys deduplication on attributes.emission_id, which is
-    always unique, so no records are ever removed and the redundant collector copy
-    survives. This lets the demo contrast a clean stream against an inflated one
-    while keeping a valid GlassFlow processing component in both pipelines.
-    """
-    return f"{measurement_id(cell_id, metric_name, base_ts_ns)}_{vendor}"
 
 
 def build_payload(
@@ -190,7 +239,6 @@ def build_payload(
                             "asDouble": value,
                             "attributes": [
                                 attr("measurement_id", measurement_id(cell_id, metric_name, base_ts_ns)),
-                                attr("emission_id", emission_id(cell_id, metric_name, base_ts_ns, vendor)),
                                 attr("workload", row.get("State", "unknown")),
                                 attr("mobility", "driving" if float(row.get("Speed", "0") or 0) > 0 else "static"),
                             ],
@@ -258,34 +306,60 @@ def main() -> int:
     healthcheck_ratio = float(env("HEALTHCHECK_RATIO", "0.05"))
     max_rows_env = env("MAX_ROWS", "")
     max_rows = int(max_rows_env) if max_rows_env else None
-    jitter_max_ms = int(env("JITTER_MAX_MS", "500"))
+    # Jitter defaults to 0 so both collectors stamp an observation with the
+    # identical TimeUnix. A single shared jitter per row (below) keeps the two
+    # collector copies byte-identical, which makes the stored TimeUnix — and
+    # therefore the query results — deterministic no matter which copy GlassFlow
+    # keeps after deduplication.
+    jitter_max_ms = int(env("JITTER_MAX_MS", "0"))
     request_timeout = float(env("REQUEST_TIMEOUT", "30"))
+    # Seed the RNG so healthcheck sampling and jitter are reproducible run to run.
+    seed = int(env("RANDOM_SEED", "42"))
+    random.seed(seed)
+
+    replay_files_env = env("REPLAY_FILES", "")
+    if replay_files_env.strip():
+        rel_paths = [
+            part
+            for chunk in replay_files_env.splitlines()
+            for part in chunk.split(",")
+            if part.strip()
+        ]
+    else:
+        rel_paths = DEFAULT_REPLAY_FILES
 
     log("5G telemetry emitter starting")
     log(f"  dataset_dir={dataset_dir}")
     log(f"  endpoint_a={endpoint_a}")
     log(f"  endpoint_b={endpoint_b}")
+    log(f"  random_seed={seed} jitter_max_ms={jitter_max_ms}")
 
     ensure_dataset(dataset_dir)
 
+    csv_paths = resolve_replay_files(dataset_dir, rel_paths)
+    log(f"  replay files ({len(csv_paths)}):")
+    for path in csv_paths:
+        log(f"    - {path}")
+
     sent = 0
-    for row in iter_rows(dataset_dir, max_rows):
+    for row in iter_rows(csv_paths, max_rows):
         base_ts = parse_timestamp(row["Timestamp"])
-        jitter_a = random.randint(0, jitter_max_ms) * 1_000_000
-        jitter_b = random.randint(0, jitter_max_ms) * 1_000_000
+        # One shared jitter per row keeps collectors A and B identical, so the
+        # deduplicated row that lands in ClickHouse is deterministic.
+        jitter = random.randint(0, jitter_max_ms) * 1_000_000
         include_healthcheck = random.random() < healthcheck_ratio
 
         payload_a = build_payload(
             row,
             vendor="a",
-            timestamp_ns=base_ts + jitter_a,
+            timestamp_ns=base_ts + jitter,
             base_ts_ns=base_ts,
             include_healthcheck=include_healthcheck,
         )
         payload_b = build_payload(
             row,
             vendor="b",
-            timestamp_ns=base_ts + jitter_b,
+            timestamp_ns=base_ts + jitter,
             base_ts_ns=base_ts,
             include_healthcheck=include_healthcheck,
         )

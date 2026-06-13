@@ -31,10 +31,17 @@ spec:
               value: "50"
             - name: HEALTHCHECK_RATIO
               value: "0.05"
+            # Deterministic replay: a fixed RNG seed plus zero jitter means both
+            # collectors emit identical timestamps, so the deduplicated rows in
+            # ClickHouse — and the verification query results — are the same on
+            # every run.
+            - name: RANDOM_SEED
+              value: "42"
             - name: JITTER_MAX_MS
-              value: "500"
+              value: "0"
+            # MAX_ROWS empty -> replay every row of the curated REPLAY_FILES set.
             - name: MAX_ROWS
-              value: "10000"
+              value: ""
           resources:
             requests:
               cpu: 100m

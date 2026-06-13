@@ -97,8 +97,11 @@ make create-clickhouse-tables
 
 Verify:
 
-```sql
-SHOW CREATE TABLE ran_metrics;
+```bash
+kubectl exec -it -n clickhouse \
+    "$(kubectl get pod -n clickhouse -l app=clickhouse -o jsonpath='{.items[0].metadata.name}')" \
+    -- clickhouse-client --host clickstack-clickhouse --user otelcollector --password otelcollectorpass \
+    --query "SHOW CREATE TABLE ran_metrics"
 ```
 
 ## Step 4 — Deploy the GlassFlow pipeline
@@ -115,7 +118,7 @@ Deploy the dedup-enabled pipeline:
 make deploy-pipeline
 ```
 
-Confirm in the GlassFlow UI (`make pf-glassflow` → http://localhost:8081) that pipeline `ran-5g-telemetry` is active.
+Confirm in the GlassFlow UI (`make pf-glassflow` → http://localhost:8080) that pipeline `ran-5g-telemetry` is active.
 
 ### Transform execution order
 
@@ -137,15 +140,35 @@ Watch progress:
 kubectl logs -n otel -l app=5g-emitter -f
 ```
 
-The default Job replays **10,000 rows** (`MAX_ROWS` env var). To replay the full dataset, edit the Job manifest and remove or increase `MAX_ROWS`.
+### Deterministic replay
+
+The Job replays a **fixed, curated set of real dataset traces** (`REPLAY_FILES`) with a
+fixed RNG seed (`RANDOM_SEED=42`) and zero timestamp jitter (`JITTER_MAX_MS=0`). This
+guarantees the same rows are emitted in the same order on every run, both collectors stamp
+each observation with an identical `TimeUnix`, and the deduplicated rows that land in
+ClickHouse — and therefore every verification query result — are byte-for-byte identical
+run to run. The default selection is chosen to produce meaningful results: multiple cells
+with 1-minute RSRP averages below -110 dBm, a wide spread of p95 downlink throughput, and a
+clear ~2× dedup inflation factor.
+
+To replay different or additional traces, set `REPLAY_FILES` (newline- or comma-separated
+paths relative to the dataset root) in the Job manifest. Leave `MAX_ROWS` empty to replay
+every row of the selected files, or set it to cap the count.
 
 ## Step 6 — Verify in ClickHouse
 
-Connect via port-forward or in-cluster client:
+Connect to the in-cluster ClickHouse client:
 
 ```bash
-clickhouse-client --host localhost --port 9000 --user otelcollector --password otelcollectorpass
+kubectl exec -it -n clickhouse \
+    "$(kubectl get pod -n clickhouse -l app=clickhouse -o jsonpath='{.items[0].metadata.name}')" \
+    -- clickhouse-client --host clickstack-clickhouse --user otelcollector --password otelcollectorpass
 ```
+
+> **Note:** The example outputs below are from one run. Your numbers may differ slightly:
+> while the emitter replays a fixed set of rows, the end-to-end system is not fully
+> deterministic — dedup window timing, batching, and how many rows the collectors flush
+> before the Job finishes can vary between runs.
 
 ### Row counts by metric
 
@@ -156,7 +179,18 @@ GROUP BY MetricName
 ORDER BY rows DESC;
 ```
 
-Health-check metrics should be absent (`ran.healthcheck` filtered upstream).
+Health-check metrics should be absent (`ran.healthcheck` filtered upstream). Example output:
+
+```text
+   ┌─MetricName─────┬─rows─┐
+1. │ ran.ul_bitrate │ 2652 │
+2. │ ran.dl_bitrate │ 2652 │
+3. │ ran.rsrp       │ 2652 │
+4. │ ran.rsrq       │ 2649 │
+5. │ ran.cqi        │ 1807 │
+6. │ ran.snr        │ 1807 │
+   └────────────────┴──────┘
+```
 
 ### Signal degradation (RSRP below -110 dBm)
 
@@ -173,6 +207,23 @@ ORDER BY minute DESC, avg_rsrp ASC
 LIMIT 50;
 ```
 
+Example output:
+
+```text
+    ┌─CellID─┬──────────────minute─┬────────────avg_rsrp─┐
+ 1. │ 41     │ 2019-12-16 12:33:00 │                -114 │
+ 2. │ 3      │ 2019-12-16 12:33:00 │                -111 │
+ 3. │ 3      │ 2019-12-14 10:27:00 │ -110.14285714285714 │
+ 4. │ 3      │ 2019-12-14 10:26:00 │ -111.06451612903226 │
+ 5. │ 3      │ 2019-12-14 10:25:00 │                -200 │
+ 6. │ 12     │ 2019-11-29 10:17:00 │ -113.81818181818181 │
+ 7. │ 1      │ 2019-11-29 09:57:00 │ -112.63636363636364 │
+ 8. │ 1      │ 2019-11-29 09:56:00 │ -111.79069767441861 │
+ 9. │ 1      │ 2019-11-29 09:55:00 │                -111 │
+10. │ 1      │ 2019-11-29 09:46:00 │                -112 │
+    └────────┴─────────────────────┴─────────────────────┘
+```
+
 ### Throughput SLA (p95 DL bitrate per cell)
 
 ```sql
@@ -184,6 +235,33 @@ WHERE MetricName = 'ran.dl_bitrate'
 GROUP BY CellID
 ORDER BY p95_dl_kbps DESC
 LIMIT 20;
+```
+
+Example output:
+
+```text
+    ┌─CellID─┬────────p95_dl_kbps─┐
+ 1. │ 11     │ 156207.79999999996 │
+ 2. │ 12     │  50498.99999999996 │
+ 3. │ 13     │           22450.25 │
+ 4. │ 2      │              13869 │
+ 5. │ 41001  │ 11309.499999999998 │
+ 6. │ 52106  │            8713.25 │
+ 7. │ 3      │  6615.449999999997 │
+ 8. │ 20504  │               4286 │
+ 9. │ 40504  │ 3533.5999999999876 │
+10. │ 8643   │ 3188.8999999999996 │
+11. │ 10692  │             2733.7 │
+12. │ 40506  │            1580.25 │
+13. │ 30504  │             1562.5 │
+14. │ 1      │ 1403.8999999999996 │
+15. │ 57034  │              398.6 │
+16. │ 52103  │ 340.79999999999995 │
+17. │ 57031  │              136.7 │
+18. │ 57185  │              37.75 │
+19. │ 52089  │  15.59999999999999 │
+20. │ 52083  │  4.249999999999998 │
+    └────────┴────────────────────┘
 ```
 
 ## Step 7 — Grafana dashboard
@@ -232,13 +310,11 @@ make switch-collectors-no-dedup
 make emitter
 ```
 
-> **How "no dedup" is modeled.** GlassFlow only runs the filter/stateless processing
-> component when a `dedup` transform is present, so the comparison pipeline still has a
-> `dedup` stage — but it keys on `attributes.emission_id` instead of
-> `attributes.measurement_id`. Each physical emission carries a **unique** `emission_id`
-> (the measurement identity plus the collector name), so no records are ever removed and
-> both collector copies survive. The real pipeline keys on the **shared**
-> `measurement_id`, so the redundant copy collapses.
+> **How "no dedup" is modeled.** The comparison pipeline simply omits the `dedup`
+> transform — it keeps only the `filter` and `stateless` stages. With no deduplication,
+> both HA collector copies of every observation land in ClickHouse, so counts roughly
+> double. The real pipeline adds the `dedup` transform (keyed on the shared
+> `measurement_id`), which collapses the redundant copy.
 
 ### C. Compare inflation factor
 
@@ -280,7 +356,7 @@ Run `make pf-glassflow-api` in a separate terminal before `make deploy-pipeline`
 ### Grafana shows no data
 
 1. Confirm rows exist: `SELECT count() FROM ran_metrics`
-2. Adjust the dashboard time range — dataset timestamps are from **2019-12-16** (Grafana dashboard defaults to that window)
+2. Adjust the dashboard time range — the curated traces span **2019-11-29 to 2019-12-16** (the Grafana dashboard defaults to that window)
 
 ## File reference
 

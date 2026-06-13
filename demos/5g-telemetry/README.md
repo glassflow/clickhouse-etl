@@ -48,22 +48,22 @@ cd demos/5g-telemetry
 make cluster
 
 # 2. Deploy the stack (ClickHouse, dual OTel collectors, GlassFlow, Grafana)
-make test-glassflow-chart   # optional smoke test
-make test-clickstack-chart  # optional smoke test
 make repos
+make test-glassflow-chart   # optional smoke test (requires make repos)
+make test-clickstack-chart  # optional smoke test (requires make repos)
 make install
 
 # 3. Create ClickHouse table and deploy the GlassFlow pipeline
 make pf-clickhouse          # terminal 1 — localhost:9000 / :8123
 make create-clickhouse-tables
-make pf-glassflow-api       # terminal 2 — http://localhost:8080
+make pf-glassflow-api       # terminal 2 — http://localhost:8081
 make deploy-pipeline
 
 # 4. Build and run the 5G dataset replay emitter
 make emitter                # downloads dataset inside the Job, replays to both collectors
 
 # 5. Open UIs
-make pf-glassflow           # terminal 3 — GlassFlow UI → http://localhost:8081
+make pf-glassflow           # terminal 3 — GlassFlow UI → http://localhost:8080
 make pf-grafana             # terminal 4 — Grafana → http://localhost:3000 (admin/admin)
 
 # 6. Status and teardown
@@ -93,7 +93,7 @@ Pipeline **`ran-5g-telemetry`** is defined in [`glassflow-pipelines/5g-metrics-p
 3. **Stateless** — normalize to `canonical_cell_id`, extract lat/lon and network mode
 4. **ClickHouse sink** — typed mapping to `ran_metrics` table
 
-A companion pipeline used for the dedup ON/OFF comparison is in [`glassflow-pipelines/5g-metrics-pipeline-no-dedup.json`](./glassflow-pipelines/5g-metrics-pipeline-no-dedup.json); it keys dedup on the always-unique `emission_id`, so no duplicates are removed.
+A companion pipeline used for the dedup ON/OFF comparison is in [`glassflow-pipelines/5g-metrics-pipeline-no-dedup.json`](./glassflow-pipelines/5g-metrics-pipeline-no-dedup.json); it omits the `dedup` transform entirely (keeping only `filter` and `stateless`), so both collector copies survive and counts roughly double.
 
 ## Documentation
 
