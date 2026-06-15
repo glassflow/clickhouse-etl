@@ -9,7 +9,7 @@ import { Callout, Tabs } from 'nextra/components'
 
 <Tier badge="both" />
 
-When a pipeline component fails to process a message, that message lands in the pipeline's dead-letter queue (DLQ) instead of being dropped. Each entry records the source the message came from, the component that failed, the error, the original payload, and a stable `message_id`.
+When a pipeline component fails to process a message, that message lands in the pipeline's dead-letter queue (DLQ) instead of being dropped. Each entry records the component that failed, the error, and the original payload. The Enterprise `list` endpoint also assigns each message a stable `message_id`.
 
 Open Source GlassFlow lets you inspect the DLQ and purge it. The Enterprise Edition adds a non-destructive paginated read, **reprocessing** (replaying failed messages through the pipeline), and **selective discard**.
 
@@ -91,42 +91,56 @@ Response:
 ```
 
 <Callout type="info">
-`consume` remains available in Open Source. In the Enterprise Edition it is superseded by `list` (below), which is non-destructive and returns stable message IDs, so prefer `list` when available.
+`consume` remains a supported endpoint in Open Source. In the Enterprise Edition it is deprecated in favour of `list` (below), which is non-destructive and returns stable message IDs. The Python SDK's `consume()` is likewise deprecated on the Enterprise client and forwards to `list()`.
 </Callout>
 
 ### List
 
 <Tier badge="enterprise" />
 
-`list` is a non-destructive paginated read. It leaves messages in place and returns a stable `message_id` for each, plus the `source` and `received_at` fields. These `message_id` values are what you pass to reprocess and discard.
+`list` is a non-destructive, paginated read. It leaves messages in place and assigns each a stable `message_id` (the value you pass to reprocess and discard), alongside `component`, `error`, `original_message`, and `received_at`.
+
+The response is a page object: `messages` plus `has_more`, and a `next_cursor` when more pages remain. Pass `next_cursor` back as the `cursor` parameter to fetch the next page. Filter to a single component with the `component` parameter, one of `ingestor`, `join`, `sink`, `dedup`, `oltp-receiver`.
 
 <Tabs items={['Python SDK', 'API']} storageKey="dlq_interface">
   <Tabs.Tab>
     ```python
-    messages = pipeline.dlq.list(batch_size=50)
-    for message in messages:
+    # One page, optionally filtered by component
+    page = pipeline.dlq.list(batch_size=50, component="sink")
+    for message in page["messages"]:
         print(message["message_id"], message["component"], message["error"])
+
+    # Or iterate every message, paging through the cursor for you
+    for message in pipeline.dlq.list_iter(component="sink"):
+        print(message["message_id"], message["error"])
     ```
   </Tabs.Tab>
   <Tabs.Tab>
     ```bash
-    curl "http://localhost:30180/api/v1/pipeline/my-pipeline/dlq/list?batch_size=50"
+    # First page (component filter is optional)
+    curl "http://localhost:30180/api/v1/pipeline/my-pipeline/dlq/list?batch_size=50&component=sink"
+
+    # Next page: pass the previous response's next_cursor as cursor
+    curl "http://localhost:30180/api/v1/pipeline/my-pipeline/dlq/list?batch_size=50&cursor=101"
     ```
   </Tabs.Tab>
 </Tabs>
 
 Response:
 ```json
-[
-  {
-    "message_id": "seq_101",
-    "source": "orders",
-    "component": "sink",
-    "error": "connection refused",
-    "original_message": "{...}",
-    "received_at": "2026-05-29T14:00:00Z"
-  }
-]
+{
+  "messages": [
+    {
+      "message_id": "101",
+      "component": "sink",
+      "error": "connection refused",
+      "original_message": "{...}",
+      "received_at": "2026-05-29T14:00:00Z"
+    }
+  ],
+  "next_cursor": "101",
+  "has_more": true
+}
 ```
 
 ## Reprocessing
@@ -146,7 +160,7 @@ Reprocess moves messages from the DLQ back to the start of the pipeline (the sou
     pipeline.dlq.reprocess_all()
 
     # Reprocess specific messages by message_id
-    pipeline.dlq.reprocess(["seq_101", "seq_102"])
+    pipeline.dlq.reprocess(["101", "102"])
     ```
   </Tabs.Tab>
   <Tabs.Tab>
@@ -159,7 +173,7 @@ Reprocess moves messages from the DLQ back to the start of the pipeline (the sou
     # Reprocess specific messages by message_id
     curl -X POST "http://localhost:30180/api/v1/pipeline/my-pipeline/dlq/reprocess" \
       -H 'Content-Type: application/json' \
-      -d '{"mode": "selected", "message_ids": ["seq_101", "seq_102"]}'
+      -d '{"mode": "selected", "message_ids": ["101", "102"]}'
     ```
   </Tabs.Tab>
 </Tabs>
@@ -167,10 +181,12 @@ Reprocess moves messages from the DLQ back to the start of the pipeline (the sou
 Response:
 ```json
 {
-  "request_id": "rep_1a2b3c",
+  "request_id": "dlq-reprocess-a1b2c3d4-5e6f-7890-abcd-ef0123456789",
   "status": "accepted"
 }
 ```
+
+`status` is `accepted` when every source component acknowledges the request, or `partial` when only some do.
 
 ## Discarding
 
@@ -182,7 +198,7 @@ Discard permanently removes messages without reprocessing them. Use it for genui
   <Tabs.Tab>
     ```python
     # Discard specific messages
-    pipeline.dlq.discard(["seq_200"])
+    pipeline.dlq.discard(["200"])
 
     # Discard everything currently in the queue
     pipeline.dlq.discard_all()
@@ -193,7 +209,7 @@ Discard permanently removes messages without reprocessing them. Use it for genui
     # Discard specific messages
     curl -X POST "http://localhost:30180/api/v1/pipeline/my-pipeline/dlq/discard" \
       -H 'Content-Type: application/json' \
-      -d '{"mode": "selected", "message_ids": ["seq_200"]}'
+      -d '{"mode": "selected", "message_ids": ["200"]}'
 
     # Discard everything currently in the queue
     curl -X POST "http://localhost:30180/api/v1/pipeline/my-pipeline/dlq/discard" \
@@ -206,7 +222,7 @@ Discard permanently removes messages without reprocessing them. Use it for genui
 Response:
 ```json
 {
-  "request_id": "dis_9z8y7x",
+  "request_id": "dlq-discard-b2c3d4e5-6f70-8901-bcde-f01234567890",
   "discarded_count": 1
 }
 ```
