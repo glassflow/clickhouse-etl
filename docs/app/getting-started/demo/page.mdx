@@ -16,7 +16,7 @@ GlassFlow comes with ready-to-run demos that showcase different pipeline capabil
 
 - [**OpenTelemetry Traces**](/getting-started/demo/observability) — Ingest OpenTelemetry traces into ClickHouse with deduplication and PII masking. Uses the **OTLP source**, **Deduplication** on a composite `trace_id` + `span_id` key, and a **stateless transformation** for PII redaction, then visualizes traces in HyperDX.
 
-- [**5G Telemetry**](/getting-started/demo/5g-telemetry): Replay real 5G RAN signal traces as OpenTelemetry metrics from a redundant collector pair. Uses the **OTLP source**, **Filter**, **Deduplication**, and a **stateless transformation** to remove duplicates and normalize cell IDs before ClickHouse, visualized in Grafana.
+- [**5G Telemetry**](/getting-started/demo/5g-telemetry): Replay real 5G RAN signal traces as OpenTelemetry metrics from a redundant collector pair. Uses the **OTLP source**, **Filter**, **Deduplication**, and a **Stateless Transformation** to remove duplicates and normalize cell IDs before being ingested to ClickHouse, and visualized in Grafana.
 
 ## Prerequisites
 
