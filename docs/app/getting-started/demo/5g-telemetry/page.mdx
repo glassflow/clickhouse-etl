@@ -1,0 +1,41 @@
+---
+title: '5G Telemetry'
+description: 'Replay real 5G RAN signal traces as OpenTelemetry metrics and clean them with GlassFlow filtering, deduplication, and normalization before ClickHouse and Grafana'
+---
+
+# 5G Telemetry Demo
+
+Replay real 5G UE-side traces from the public [5Gdataset](https://github.com/uccmisl/5Gdataset) as OpenTelemetry gauge metrics. Two redundant OTel Collectors simulate an HA pair and forward duplicate metrics to GlassFlow over OTLP. GlassFlow filters health-check noise, deduplicates the overlapping collector emissions, normalizes vendor-specific cell ID attributes, and writes clean metrics to ClickHouse for Grafana dashboards.
+
+```text
+5G Emitter → OTel Collector A ─┐
+                                ├→ GlassFlow (OTLP) → ClickHouse → Grafana
+5G Emitter → OTel Collector B ─┘
+```
+
+There is no Kafka in this demo. GlassFlow's OTLP receiver accepts HTTP/JSON on port 4318; routing uses the `x-glassflow-pipeline-id: ran-5g-telemetry` header. The demo combines the [**OTLP source**](/sources/otlp), [**Filter**](/transformations/filter), [**Deduplication**](/transformations/deduplication), and [**Stateless transformation**](/transformations/stateless-transformation) in a single pipeline.
+
+## What this demo shows
+
+| Problem | Where it is handled | What to verify |
+|---|---|---|
+| Duplicate metrics from HA collector pairs | GlassFlow dedup on a stable `measurement_id` with a 30s window | ClickHouse row counts roughly 2x lower than the dedup-off pipeline |
+| Vendor attribute naming drift (`cell.id` vs `ran.cell.id`) | GlassFlow stateless normalization to `canonical_cell_id` | A single `CellID` column regardless of which collector emitted the metric |
+| Health-check noise | GlassFlow filter (`event_kind != healthcheck`) | No `ran.healthcheck` rows in ClickHouse |
+| SLA-ready signal analytics | ClickHouse and Grafana | RSRP timeline, throughput heatmap, and SLA breach indicator |
+
+## How it works
+
+The `ran-5g-telemetry` pipeline applies three transformations in order before the [ClickHouse sink](/configuration/clickhouse-sink) writes to the `ran_metrics` table:
+
+1. [**Filter**](/transformations/filter) drops `ran.healthcheck` metrics so collector liveness probes never reach ClickHouse.
+2. [**Deduplication**](/transformations/deduplication) keys on a stable `measurement_id` attribute with a 30 second window. The emitter stamps each observation with a `measurement_id` that is identical across both HA collectors, so the redundant copy is removed.
+3. [**Stateless transformation**](/transformations/stateless-transformation) normalizes the vendor-specific `cell.id` and `ran.cell.id` attributes into one `canonical_cell_id`, and extracts latitude, longitude, and network mode.
+
+A companion no-dedup pipeline keeps only the filter and stateless stages, so both collector copies survive and row counts roughly double. Running the two side by side is the clearest way to see deduplication working.
+
+## Run the demo
+
+The demo runs on a local [kind](https://kind.sigs.k8s.io/) cluster (or any Kubernetes cluster) and needs roughly 6 CPU cores, 8 GB RAM, and 15 GB disk, plus `kubectl`, `helm`, `kind`, and `docker`. The 5Gdataset is downloaded automatically at runtime, so there is nothing to prepare in advance.
+
+Follow the step-by-step [GUIDE.md](https://github.com/glassflow/clickhouse-etl/tree/main/demos/5g-telemetry/GUIDE.md) in the [`demos/5g-telemetry`](https://github.com/glassflow/clickhouse-etl/tree/main/demos/5g-telemetry) directory. It walks through creating the cluster, deploying the stack, creating the pipeline, replaying the dataset, opening Grafana, the dedup on/off comparison, and verification SQL.
