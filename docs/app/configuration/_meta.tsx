@@ -3,4 +3,5 @@ export default {
     'data-format': '',
     'metrics': '',
     'clickhouse-sink': '',
+    'dlq': '',
 }

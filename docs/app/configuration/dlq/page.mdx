@@ -1,0 +1,249 @@
+---
+title: 'Dead-Letter Queue (DLQ)'
+description: 'Inspect, purge, reprocess, and discard failed messages in the GlassFlow dead-letter queue, from the API or the Python SDK.'
+tier: 'both'
+---
+import { Callout, Tabs } from 'nextra/components'
+
+# Dead-Letter Queue (DLQ)
+
+<Tier badge="both" />
+
+When a pipeline component fails to process a message, that message lands in the pipeline's dead-letter queue (DLQ) instead of being dropped. Each entry records the source the message came from, the component that failed, the error, the original payload, and a stable `message_id`.
+
+Open Source GlassFlow lets you inspect the DLQ and purge it. The Enterprise Edition adds a non-destructive paginated read, **reprocessing** (replaying failed messages through the pipeline), and **selective discard**.
+
+<Callout type="info">
+**Editions.** Inspecting and purging the DLQ are available in Open Source. Listing with stable message IDs, reprocessing, and selective discard are part of the Enterprise Edition and are marked with an Enterprise badge below. To get access, [reach out to our team](https://www.glassflow.dev/integrations#contact).
+</Callout>
+
+Examples are shown for the Python SDK and the REST API. A Web UI for DLQ management is on the way; once it ships, the examples below will gain a **Web UI** tab with step-by-step screenshots.
+
+All endpoints live under `/api/v1/pipeline/{pipeline_id}/dlq`. The examples use `http://localhost:30180` as the host, the default for a local [CLI](/installation/cli) install, and the [Python SDK](/usage-guide/python-sdk) client:
+
+```python
+# Open Source client
+from glassflow.etl import Client
+# Enterprise client (adds list, reprocess, discard)
+from glassflow.ee import Client
+
+client = Client(host="http://localhost:30180")
+pipeline = client.get_pipeline(pipeline_id="my-pipeline")
+```
+
+## DLQ state
+
+Get a summary of the queue: totals and the last received and consumed timestamps.
+
+<Tabs items={['Python SDK', 'API']} storageKey="dlq_interface">
+  <Tabs.Tab>
+    ```python
+    print(pipeline.dlq.state())
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    curl "http://localhost:30180/api/v1/pipeline/my-pipeline/dlq/state"
+    ```
+  </Tabs.Tab>
+</Tabs>
+
+Response:
+```json
+{
+  "last_consumed_at": "2026-05-20T10:32:38.113427621Z",
+  "last_received_at": "2026-05-20T10:23:26.530466989Z",
+  "total_messages": 2,
+  "unconsumed_messages": 1
+}
+```
+
+## Reading messages
+
+GlassFlow provides two endpoints for reading the DLQ: `consume` in Open Source, and `list` in the Enterprise Edition, which is non-destructive and returns stable message IDs.
+
+### Consume
+
+`consume` reads a batch of messages from the DLQ. It is available in Open Source.
+
+<Tabs items={['Python SDK', 'API']} storageKey="dlq_interface">
+  <Tabs.Tab>
+    ```python
+    messages = pipeline.dlq.consume(batch_size=50)
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    curl "http://localhost:30180/api/v1/pipeline/my-pipeline/dlq/consume?batch_size=50"
+    ```
+  </Tabs.Tab>
+</Tabs>
+
+Response:
+```json
+[
+  {
+    "component": "ingestor",
+    "error": "failed to validate data",
+    "original_message": "<original message>"
+  }
+]
+```
+
+<Callout type="info">
+`consume` remains available in Open Source. In the Enterprise Edition it is superseded by `list` (below), which is non-destructive and returns stable message IDs, so prefer `list` when available.
+</Callout>
+
+### List
+
+<Tier badge="enterprise" />
+
+`list` is a non-destructive paginated read. It leaves messages in place and returns a stable `message_id` for each, plus the `source` and `received_at` fields. These `message_id` values are what you pass to reprocess and discard.
+
+<Tabs items={['Python SDK', 'API']} storageKey="dlq_interface">
+  <Tabs.Tab>
+    ```python
+    messages = pipeline.dlq.list(batch_size=50)
+    for message in messages:
+        print(message["message_id"], message["component"], message["error"])
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    curl "http://localhost:30180/api/v1/pipeline/my-pipeline/dlq/list?batch_size=50"
+    ```
+  </Tabs.Tab>
+</Tabs>
+
+Response:
+```json
+[
+  {
+    "message_id": "seq_101",
+    "source": "orders",
+    "component": "sink",
+    "error": "connection refused",
+    "original_message": "{...}",
+    "received_at": "2026-05-29T14:00:00Z"
+  }
+]
+```
+
+## Reprocessing
+
+<Tier badge="enterprise" />
+
+Reprocess moves messages from the DLQ back to the start of the pipeline (the source input), so they flow through the whole pipeline again. Use it after fixing a transient failure, for example a ClickHouse outage, or after fixing a transform bug. It returns `202 Accepted`; the replay happens asynchronously.
+
+<Callout type="warning">
+**Reprocessing requires a running pipeline.** Reprocess replays messages through the running pipeline, so the pipeline must be in the `Running` state. Discard, by contrast, works in any state because it acts on the queue directly.
+</Callout>
+
+<Tabs items={['Python SDK', 'API']} storageKey="dlq_interface">
+  <Tabs.Tab>
+    ```python
+    # Reprocess everything currently in the queue
+    pipeline.dlq.reprocess_all()
+
+    # Reprocess specific messages by message_id
+    pipeline.dlq.reprocess(["seq_101", "seq_102"])
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    # Reprocess everything currently in the queue
+    curl -X POST "http://localhost:30180/api/v1/pipeline/my-pipeline/dlq/reprocess" \
+      -H 'Content-Type: application/json' \
+      -d '{"mode": "all"}'
+
+    # Reprocess specific messages by message_id
+    curl -X POST "http://localhost:30180/api/v1/pipeline/my-pipeline/dlq/reprocess" \
+      -H 'Content-Type: application/json' \
+      -d '{"mode": "selected", "message_ids": ["seq_101", "seq_102"]}'
+    ```
+  </Tabs.Tab>
+</Tabs>
+
+Response:
+```json
+{
+  "request_id": "rep_1a2b3c",
+  "status": "accepted"
+}
+```
+
+## Discarding
+
+<Tier badge="enterprise" />
+
+Discard permanently removes messages without reprocessing them. Use it for genuinely malformed events you do not want to retry.
+
+<Tabs items={['Python SDK', 'API']} storageKey="dlq_interface">
+  <Tabs.Tab>
+    ```python
+    # Discard specific messages
+    pipeline.dlq.discard(["seq_200"])
+
+    # Discard everything currently in the queue
+    pipeline.dlq.discard_all()
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    # Discard specific messages
+    curl -X POST "http://localhost:30180/api/v1/pipeline/my-pipeline/dlq/discard" \
+      -H 'Content-Type: application/json' \
+      -d '{"mode": "selected", "message_ids": ["seq_200"]}'
+
+    # Discard everything currently in the queue
+    curl -X POST "http://localhost:30180/api/v1/pipeline/my-pipeline/dlq/discard" \
+      -H 'Content-Type: application/json' \
+      -d '{"mode": "all"}'
+    ```
+  </Tabs.Tab>
+</Tabs>
+
+Response:
+```json
+{
+  "request_id": "dis_9z8y7x",
+  "discarded_count": 1
+}
+```
+
+## Purging
+
+`purge` removes every message from the DLQ. It is available in Open Source and returns no body. In the Enterprise Edition it is superseded by `discard_all` (discard with `mode: all`), which reports how many messages were removed.
+
+<Tabs items={['Python SDK', 'API']} storageKey="dlq_interface">
+  <Tabs.Tab>
+    ```python
+    pipeline.dlq.purge()
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    curl -X POST "http://localhost:30180/api/v1/pipeline/my-pipeline/dlq/purge"
+    ```
+  </Tabs.Tab>
+</Tabs>
+
+## Modes, limits, and behavior
+
+<Tier badge="enterprise" />
+
+Reprocess and discard both support two modes:
+
+- `all` acts on every message currently in the DLQ, up to the queue head at the time of the request. Messages that arrive after the request are left for the next call.
+- `selected` acts only on the `message_id` values you pass.
+
+- A `selected` request accepts at most 1000 `message_id` values.
+- `mode: all` processes up to 10,000 messages per request with a 60 second timeout. For larger queues, page through the messages and use `selected` requests.
+- Reprocessing a `message_id` that no longer exists is not an error. The missing ID is reported back and the remaining IDs are still processed.
+- `mode: all` on an empty DLQ returns a count of zero rather than an error.
+
+## Related
+
+- [Enterprise Edition](/enterprise)
+- [Python SDK](/usage-guide/python-sdk)
+- [Metrics and monitoring](/configuration/metrics)
