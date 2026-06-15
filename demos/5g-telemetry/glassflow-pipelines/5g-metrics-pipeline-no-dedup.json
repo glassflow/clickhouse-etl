@@ -1,0 +1,174 @@
+{
+  "version": "v3",
+  "pipeline_id": "ran-5g-telemetry-no-dedup",
+  "name": "5G RAN Signal Quality Pipeline (No Dedup)",
+  "sources": [
+    {
+      "type": "otlp.metrics",
+      "source_id": "ran_metrics"
+    }
+  ],
+  "transforms": [
+    {
+      "type": "filter",
+      "source_id": "ran_metrics",
+      "config": {
+        "expression": "metric_name != 'ran.healthcheck'"
+      }
+    },
+    {
+      "type": "stateless",
+      "source_id": "ran_metrics",
+      "config": {
+        "transforms": [
+          {
+            "expression": "resource_attributes['cell.id'] ?? resource_attributes['ran.cell.id'] ?? resource_attributes['network.element.id']",
+            "output_name": "canonical_cell_id",
+            "output_type": "string"
+          },
+          {
+            "expression": "resource_attributes['network.mode'] ?? ''",
+            "output_name": "network_mode",
+            "output_type": "string"
+          },
+          {
+            "expression": "toFloat(resource_attributes['location.latitude'] ?? '0')",
+            "output_name": "latitude",
+            "output_type": "float"
+          },
+          {
+            "expression": "toFloat(resource_attributes['location.longitude'] ?? '0')",
+            "output_name": "longitude",
+            "output_type": "float"
+          },
+          {
+            "expression": "metric_name",
+            "output_name": "metric_name",
+            "output_type": "string"
+          },
+          {
+            "expression": "value_double",
+            "output_name": "value_double",
+            "output_type": "float"
+          },
+          {
+            "expression": "timestamp",
+            "output_name": "timestamp",
+            "output_type": "string"
+          },
+          {
+            "expression": "resource_attributes",
+            "output_name": "resource_attributes",
+            "output_type": "map"
+          },
+          {
+            "expression": "attributes",
+            "output_name": "attributes",
+            "output_type": "map"
+          }
+        ]
+      }
+    }
+  ],
+  "sink": {
+    "type": "clickhouse",
+    "connection_params": {
+      "host": "clickstack-clickhouse.clickhouse.svc.cluster.local",
+      "port": "9000",
+      "http_port": "8123",
+      "database": "default",
+      "username": "otelcollector",
+      "password": "otelcollectorpass",
+      "secure": false,
+      "skip_certificate_verification": true
+    },
+    "table": "ran_metrics",
+    "max_batch_size": 1000,
+    "max_delay_time": "1s",
+    "mapping": [
+      {
+        "name": "canonical_cell_id",
+        "column_name": "CellID",
+        "column_type": "LowCardinality(String)"
+      },
+      {
+        "name": "metric_name",
+        "column_name": "MetricName",
+        "column_type": "LowCardinality(String)"
+      },
+      {
+        "name": "value_double",
+        "column_name": "Value",
+        "column_type": "Float64"
+      },
+      {
+        "name": "timestamp",
+        "column_name": "TimeUnix",
+        "column_type": "DateTime64(9)"
+      },
+      {
+        "name": "network_mode",
+        "column_name": "NetworkMode",
+        "column_type": "LowCardinality(String)"
+      },
+      {
+        "name": "latitude",
+        "column_name": "Latitude",
+        "column_type": "Float64"
+      },
+      {
+        "name": "longitude",
+        "column_name": "Longitude",
+        "column_type": "Float64"
+      },
+      {
+        "name": "resource_attributes",
+        "column_name": "ResourceAttributes",
+        "column_type": "Map(LowCardinality(String), String)"
+      },
+      {
+        "name": "attributes",
+        "column_name": "Attributes",
+        "column_type": "Map(LowCardinality(String), String)"
+      }
+    ]
+  },
+  "resources": {
+    "transform": [
+      {
+        "source_id": "ran_metrics",
+        "replicas": 1,
+        "storage": {
+          "size": "5Gi"
+        },
+        "requests": {
+          "cpu": "250m",
+          "memory": "256Mi"
+        },
+        "limits": {
+          "cpu": "500m",
+          "memory": "512Mi"
+        }
+      }
+    ],
+    "sink": {
+      "replicas": 1,
+      "requests": {
+        "cpu": "250m",
+        "memory": "256Mi"
+      },
+      "limits": {
+        "cpu": "500m",
+        "memory": "512Mi"
+      }
+    }
+  },
+  "metadata": {
+    "tags": [
+      "5g",
+      "otlp",
+      "ran",
+      "no-dedup"
+    ]
+  }
+}
