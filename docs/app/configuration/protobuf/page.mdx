@@ -36,7 +36,7 @@ The message-index array selects the root message within the `FileDescriptor`. A 
 
 ## Inline schema
 
-Provide the `.proto` source text directly under `schema.proto`. GlassFlow compiles it at pipeline-creation time and stores the resulting `FileDescriptorProto`.
+Provide the `.proto` source text as a string under `schema.file`. GlassFlow compiles it at pipeline-creation time and stores the resulting `FileDescriptorProto`.
 
 **Limitations for inline schemas:**
 - The compiled `FileDescriptorProto` must be ≤ 256 KB.
@@ -65,8 +65,8 @@ Provide the `.proto` source text directly under `schema.proto`. GlassFlow compil
           "topic": "proto_events",
           "format": "protobuf",
           "schema": {
-            "proto": "syntax = \"proto3\";\npackage example;\nmessage Event {\n  string id = 1;\n  string user_id = 2;\n  string action = 3;\n  int64 ts_ms = 4;\n}",
-            "name": "Event"
+            "file": "syntax = \"proto3\";\npackage example;\nmessage Event {\n  string id = 1;\n  string user_id = 2;\n  string action = 3;\n  int64 ts_ms = 4;\n}",
+            "message_type": "Event"
           },
           "consumer_group_initial_offset": "earliest"
         }
@@ -119,8 +119,8 @@ Provide the `.proto` source text directly under `schema.proto`. GlassFlow compil
           "topic": "proto_events",
           "format": "protobuf",
           "schema": {
-            "proto": "syntax = \"proto3\";\npackage example;\nmessage Event {\n  string id = 1;\n  string user_id = 2;\n  string action = 3;\n  int64 ts_ms = 4;\n}",
-            "name": "Event"
+            "file": "syntax = \"proto3\";\npackage example;\nmessage Event {\n  string id = 1;\n  string user_id = 2;\n  string action = 3;\n  int64 ts_ms = 4;\n}",
+            "message_type": "Event"
           },
           "consumer_group_initial_offset": "earliest"
         }
@@ -203,8 +203,8 @@ Add a `schema_registry` object to the source alongside a `schema` seed. The seed
           },
           "format": "protobuf",
           "schema": {
-            "proto": "syntax = \"proto3\";\npackage example;\nmessage Event {\n  string id = 1;\n  string user_id = 2;\n  string action = 3;\n  int64 ts_ms = 4;\n}",
-            "name": "Event"
+            "file": "syntax = \"proto3\";\npackage example;\nmessage Event {\n  string id = 1;\n  string user_id = 2;\n  string action = 3;\n  int64 ts_ms = 4;\n}",
+            "message_type": "Event"
           },
           "consumer_group_initial_offset": "earliest"
         }
@@ -250,8 +250,8 @@ Sets the message decoding format. Omit or set to `"json"` for plain JSON sources
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `proto` | string | Yes | Full `.proto` IDL source text. All referenced types must be defined in the same file — `import` is not supported. Required in both inline and Schema Registry modes. |
-| `name` | string | No | Root message name. If omitted, the first message declared in the file is used. |
+| `file` | string | Yes | Full `.proto` IDL source text. All referenced types must be defined in the same file — `import` is not supported. Required in both inline and Schema Registry modes. |
+| `message_type` | string | No | Root message name. If omitted, the first message declared in the file is used. |
 
 ### `schema_registry`
 
@@ -294,7 +294,7 @@ The compiled `FileDescriptorProto` exceeds the 256 KB inline limit. This is rare
 
 ### `message "X" not found in proto schema`
 
-The `schema.name` field does not match any message declared in the `.proto` source. Check capitalisation — Protobuf message names are case-sensitive.
+The `schema.message_type` field does not match any message declared in the `.proto` source. Check capitalisation — Protobuf message names are case-sensitive.
 
 ### `invalid Confluent magic byte: 0xNN`
 

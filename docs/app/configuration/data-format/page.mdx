@@ -150,7 +150,7 @@ Set `"format": "avro"` on the Kafka source and provide the schema via one of the
 
 ### Avro — Inline schema
 
-Embed the full `.avsc` JSON object directly as the `schema` field (not a string — the object itself):
+Provide the `.avsc` schema as a JSON-escaped string under `schema.file`:
 
 ```json
 {
@@ -160,15 +160,7 @@ Embed the full `.avsc` JSON object directly as the `schema` field (not a string 
   "topic": "avro_events",
   "format": "avro",
   "schema": {
-    "type": "record",
-    "name": "Event",
-    "namespace": "com.example",
-    "fields": [
-      { "name": "id",      "type": "string" },
-      { "name": "user_id", "type": "string" },
-      { "name": "action",  "type": "string" },
-      { "name": "ts_ms",   "type": "long"   }
-    ]
+    "file": "{\"type\":\"record\",\"name\":\"Event\",\"namespace\":\"com.example\",\"fields\":[{\"name\":\"id\",\"type\":\"string\"},{\"name\":\"user_id\",\"type\":\"string\"},{\"name\":\"action\",\"type\":\"string\"},{\"name\":\"ts_ms\",\"type\":\"long\"}]}"
   }
 }
 ```
@@ -232,15 +224,7 @@ Add a `schema_registry` object alongside a `schema` seed. The seed is **required
     "api_secret": "<sr-api-secret>"
   },
   "schema": {
-    "type": "record",
-    "name": "Event",
-    "namespace": "com.example",
-    "fields": [
-      { "name": "id",      "type": "string" },
-      { "name": "user_id", "type": "string" },
-      { "name": "action",  "type": "string" },
-      { "name": "ts_ms",   "type": "long"   }
-    ]
+    "file": "{\"type\":\"record\",\"name\":\"Event\",\"namespace\":\"com.example\",\"fields\":[{\"name\":\"id\",\"type\":\"string\"},{\"name\":\"user_id\",\"type\":\"string\"},{\"name\":\"action\",\"type\":\"string\"},{\"name\":\"ts_ms\",\"type\":\"long\"}]}"
   }
 }
 ```
@@ -253,7 +237,7 @@ Set `"format": "protobuf"` on the Kafka source and provide the schema via one of
 
 ### Protobuf — Inline schema
 
-Embed the `.proto` IDL source as a string under `schema.proto`. Use `schema.name` to select the root message (defaults to the first declared message):
+Embed the `.proto` IDL source as a string under `schema.file`. Use `schema.message_type` to select the root message (defaults to the first declared message):
 
 ```json
 {
@@ -263,8 +247,8 @@ Embed the `.proto` IDL source as a string under `schema.proto`. Use `schema.name
   "topic": "proto_events",
   "format": "protobuf",
   "schema": {
-    "proto": "syntax = \"proto3\";\npackage example;\nmessage Event {\n  string id = 1;\n  string user_id = 2;\n  string action = 3;\n  int64 ts_ms = 4;\n}",
-    "name": "Event"
+    "file": "syntax = \"proto3\";\npackage example;\nmessage Event {\n  string id = 1;\n  string user_id = 2;\n  string action = 3;\n  int64 ts_ms = 4;\n}",
+    "message_type": "Event"
   }
 }
 ```
@@ -288,8 +272,8 @@ Add a `schema_registry` object alongside a `schema` seed. The seed is **required
     "api_secret": "<sr-api-secret>"
   },
   "schema": {
-    "proto": "syntax = \"proto3\";\npackage example;\nmessage Event {\n  string id = 1;\n  string user_id = 2;\n  string action = 3;\n  int64 ts_ms = 4;\n}",
-    "name": "Event"
+    "file": "syntax = \"proto3\";\npackage example;\nmessage Event {\n  string id = 1;\n  string user_id = 2;\n  string action = 3;\n  int64 ts_ms = 4;\n}",
+    "message_type": "Event"
   }
 }
 ```

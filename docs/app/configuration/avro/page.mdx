@@ -34,7 +34,7 @@ In both modes every Kafka message must use the **Confluent wire format**:
 
 ## Inline schema
 
-Provide the full `.avsc` JSON object directly as the `schema` field. GlassFlow parses and validates it at pipeline-creation time.
+Provide the `.avsc` schema as a JSON-escaped string under `schema.file`. GlassFlow parses and validates it at pipeline-creation time.
 
 **Constraints for inline schemas:**
 - Schema text must be ≤ 64 KB.
@@ -63,15 +63,7 @@ Provide the full `.avsc` JSON object directly as the `schema` field. GlassFlow p
           "topic": "avro_events",
           "format": "avro",
           "schema": {
-            "type": "record",
-            "name": "Event",
-            "namespace": "com.example",
-            "fields": [
-              { "name": "id",      "type": "string" },
-              { "name": "user_id", "type": "string" },
-              { "name": "action",  "type": "string" },
-              { "name": "ts_ms",   "type": "long"   }
-            ]
+            "file": "{\"type\":\"record\",\"name\":\"Event\",\"namespace\":\"com.example\",\"fields\":[{\"name\":\"id\",\"type\":\"string\"},{\"name\":\"user_id\",\"type\":\"string\"},{\"name\":\"action\",\"type\":\"string\"},{\"name\":\"ts_ms\",\"type\":\"long\"}]}"
           },
           "consumer_group_initial_offset": "earliest"
         }
@@ -124,15 +116,7 @@ Provide the full `.avsc` JSON object directly as the `schema` field. GlassFlow p
           "topic": "avro_events",
           "format": "avro",
           "schema": {
-            "type": "record",
-            "name": "Event",
-            "namespace": "com.example",
-            "fields": [
-              { "name": "id",      "type": "string" },
-              { "name": "user_id", "type": "string" },
-              { "name": "action",  "type": "string" },
-              { "name": "ts_ms",   "type": "long"   }
-            ]
+            "file": "{\"type\":\"record\",\"name\":\"Event\",\"namespace\":\"com.example\",\"fields\":[{\"name\":\"id\",\"type\":\"string\"},{\"name\":\"user_id\",\"type\":\"string\"},{\"name\":\"action\",\"type\":\"string\"},{\"name\":\"ts_ms\",\"type\":\"long\"}]}"
           },
           "consumer_group_initial_offset": "earliest"
         }
@@ -213,15 +197,7 @@ Add a `schema_registry` object alongside a `schema` seed. The seed is **required
           },
           "format": "avro",
           "schema": {
-            "type": "record",
-            "name": "Event",
-            "namespace": "com.example",
-            "fields": [
-              { "name": "id",      "type": "string" },
-              { "name": "user_id", "type": "string" },
-              { "name": "action",  "type": "string" },
-              { "name": "ts_ms",   "type": "long"   }
-            ]
+            "file": "{\"type\":\"record\",\"name\":\"Event\",\"namespace\":\"com.example\",\"fields\":[{\"name\":\"id\",\"type\":\"string\"},{\"name\":\"user_id\",\"type\":\"string\"},{\"name\":\"action\",\"type\":\"string\"},{\"name\":\"ts_ms\",\"type\":\"long\"}]}"
           },
           "consumer_group_initial_offset": "earliest"
         }
@@ -365,8 +341,14 @@ Sink mapping:
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `format` | string | Yes | Must be `"avro"`. |
-| `schema` | object | Yes | The `.avsc` schema object (not a string — the JSON object itself). Required for both inline and Schema Registry modes. |
+| `schema` | object | Yes | Schema definition. For inline mode, set `schema.file` to the `.avsc` text (JSON-escaped string). Required for both inline and Schema Registry modes. |
 | `schema_registry` | object | No | Confluent Schema Registry connection. When present, enables registry mode. |
+
+### `schema` fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `file` | string | Yes | The `.avsc` schema text as a JSON-escaped string. Required for both inline and Schema Registry modes. |
 
 ### `schema_registry` fields
 
@@ -380,19 +362,19 @@ Sink mapping:
 
 ### `avro schema parse error`
 
-The inline `schema` object is not valid Avro. Common causes: missing `type` field, unknown named type, or a field referencing a record not defined in the same schema. Check the error message from hamba/avro for the specific location.
+The `schema.file` string is not valid Avro JSON. Common causes: missing `type` field, unknown named type, or a field referencing a record not defined in the same schema. Check the error message from hamba/avro for the specific location.
 
 ### `avro schema root must be a record`
 
-The root `type` of the `schema` object is not `"record"`. Avro schemas for GlassFlow must have a record at the root.
+The root `type` in `schema.file` is not `"record"`. Avro schemas for GlassFlow must have a record at the root.
 
 ### `avro schema is N bytes, exceeds 65536 byte limit`
 
 The inline `.avsc` JSON exceeds the 64 KB limit. Use a Schema Registry instead.
 
-### `schema is required for inline avro`
+### `schema.file is required for inline avro`
 
-The `format` is `"avro"`, no `schema_registry` is present, and no `schema` was provided. Add the `.avsc` object.
+The `format` is `"avro"`, no `schema_registry` is present, and `schema.file` was not provided. Add the `.avsc` text as a JSON-escaped string under `schema.file`.
 
 ### `avro unmarshal: ...`
 
