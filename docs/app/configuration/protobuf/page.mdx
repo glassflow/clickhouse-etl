@@ -41,7 +41,6 @@ Provide the `.proto` source text directly under `schema.proto`. GlassFlow compil
 **Limitations for inline schemas:**
 - The compiled `FileDescriptorProto` must be ≤ 256 KB.
 - `import` statements are not resolved — all message types used must be defined in the same file.
-- Nested messages are mapped to ClickHouse `String` columns (JSON-serialized) unless you map their scalar sub-fields individually using dot notation.
 
 ### Minimal example (ingest-only)
 
@@ -280,7 +279,7 @@ GlassFlow maps Protobuf scalar types to the same intermediate type system used b
 | `bool` | `bool` |
 | `bytes` | `bytes` |
 | `enum` | `int32` (numeric value) |
-| Nested `message` | `object` (JSON-serialized) |
+| Nested `message` | `object` |
 | `repeated` scalar | `array` |
 
 For the full list of supported ClickHouse target types, see [Supported Data Formats](/configuration/data-format).
