@@ -21,6 +21,7 @@ import (
 
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/models"
+	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/pipelinegraph"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/service"
 	"github.com/glassflow/clickhouse-etl-internal/glassflow-api/internal/status"
 )
@@ -502,8 +503,38 @@ func (k *K8sOrchestrator) EditPipeline(ctx context.Context, pipelineID string, n
 	return nil
 }
 
-// buildPipelineSpec creates a complete PipelineSpec from a PipelineConfig
-func (k *K8sOrchestrator) buildPipelineSpec(ctx context.Context, cfg *models.PipelineConfig) (map[string]any, error) {
+// GetStreamNames returns the JetStream stream names for a K8s-deployed pipeline.
+// Stream names are deterministic from (pipelineID, topicIndex, join.Enabled) so
+// we compute them directly instead of building a full operator spec.
+func (k *K8sOrchestrator) GetStreamNames(_ context.Context, cfg models.PipelineConfig) (models.PipelineStreamNames, error) {
+	names := models.PipelineStreamNames{
+		DLQStream: models.GetDLQStreamName(cfg.ID),
+	}
+
+	if !cfg.SourceType.IsOTLP() {
+		hasJoin := cfg.Join.Enabled
+		for i, topic := range cfg.Ingestor.KafkaTopics {
+			nodeID := pipelinegraph.IngestorNodeIDForIndex(i, hasJoin)
+			names.IngestorStreams = append(names.IngestorStreams, pipelinegraph.StreamName(cfg.ID, nodeID))
+
+			if topic.Deduplication.Enabled {
+				dNodeID := pipelinegraph.DedupNodeIDForIndex(i, hasJoin)
+				names.DedupStreams = append(names.DedupStreams, models.DedupStreamName{
+					TopicIndex: i,
+					StreamName: pipelinegraph.StreamName(cfg.ID, dNodeID),
+				})
+			}
+		}
+	}
+
+	if cfg.Join.Enabled {
+		names.JoinStream = pipelinegraph.StreamName(cfg.ID, pipelinegraph.JoinNodeID())
+	}
+
+	return names, nil
+}
+
+func (k *K8sOrchestrator) buildOperatorSpec(cfg *models.PipelineConfig) (operator.PipelineSpec, error) {
 	var src []operator.SourceStream
 	var sourceType string
 	var isDedupEnabled bool
@@ -531,7 +562,7 @@ func (k *K8sOrchestrator) buildPipelineSpec(ctx context.Context, cfg *models.Pip
 
 	operatorResources, err := toOperatorResources(cfg.PipelineResources)
 	if err != nil {
-		return nil, fmt.Errorf("build operator resources: %w", err)
+		return operator.PipelineSpec{}, fmt.Errorf("build operator resources: %w", err)
 	}
 
 	spec := operator.PipelineSpec{
@@ -556,6 +587,25 @@ func (k *K8sOrchestrator) buildPipelineSpec(ctx context.Context, cfg *models.Pip
 		},
 		Resources: operatorResources,
 		// Config field is intentionally omitted - stored in secret instead
+	}
+
+	// ETL-1064: populate spec.Resolved with the API-computed allocation
+	// (stream names, subjects, per-node bindings). The operator reads this
+	// directly instead of running its own pipelinegraph resolver. See ETL-1063
+	// for the CRD shape and ETL-1065 for the operator-side consumer.
+	resolved, err := pipelinegraph.Resolve(spec)
+	if err != nil {
+		return operator.PipelineSpec{}, fmt.Errorf("resolve pipeline graph: %w", err)
+	}
+	spec.Resolved = &resolved
+
+	return spec, nil
+}
+
+func (k *K8sOrchestrator) buildPipelineSpec(ctx context.Context, cfg *models.PipelineConfig) (map[string]any, error) {
+	spec, err := k.buildOperatorSpec(cfg)
+	if err != nil {
+		return nil, err
 	}
 
 	// Convert spec to map[string]interface{}

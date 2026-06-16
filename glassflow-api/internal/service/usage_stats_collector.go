@@ -16,6 +16,7 @@ type UsageStatsCollector struct {
 	nc               *client.NATSClient
 	dlqClient        *dlq.Client
 	usageStatsClient *usagestats.Client
+	orch             Orchestrator
 	log              *slog.Logger
 	interval         time.Duration
 	eventChan        <-chan usagestats.PipelineEvent
@@ -26,6 +27,7 @@ func NewUsageStatsCollector(
 	nc *client.NATSClient,
 	dlqClient *dlq.Client,
 	usageStatsClient *usagestats.Client,
+	orch Orchestrator,
 	log *slog.Logger,
 ) *UsageStatsCollector {
 	var eventChan <-chan usagestats.PipelineEvent
@@ -37,6 +39,7 @@ func NewUsageStatsCollector(
 		nc:               nc,
 		dlqClient:        dlqClient,
 		usageStatsClient: usageStatsClient,
+		orch:             orch,
 		log:              log,
 		interval:         10 * time.Minute,
 		eventChan:        eventChan,
@@ -112,13 +115,20 @@ func (m *UsageStatsCollector) sendPipelineMetrics(ctx context.Context, pipeline 
 		return metrics
 	}
 
+	// Resolve stream names through the orchestrator so the collector sees what
+	// the runtime actually deployed. T13 S-10 / ETL-1066: previously this used
+	// the local-mode helpers in models/ unconditionally, which produced the
+	// wrong names in K8s production and the collector silently returned zeros.
+	streamNames, err := m.orch.GetStreamNames(ctx, pipeline)
+	if err != nil {
+		m.log.Debug("failed to resolve pipeline stream names for usage stats",
+			"pipeline_id", pipelineID, "error", err)
+		return
+	}
+
 	// Collect ingestor stream metrics
 	ingestorMetrics := []map[string]interface{}{}
-	for i, topic := range pipeline.Ingestor.KafkaTopics {
-		streamName := ""
-		if topic.Name != "" {
-			streamName = models.GetIngestorStreamName(pipelineID, topic.Name)
-		}
+	for i, streamName := range streamNames.IngestorStreams {
 		if streamName == "" {
 			// If stream name cannot be determined, send null.
 			ingestorMetrics = append(ingestorMetrics, map[string]interface{}{
@@ -138,41 +148,32 @@ func (m *UsageStatsCollector) sendPipelineMetrics(ctx context.Context, pipeline 
 
 	// Collect dedup stream metrics
 	dedupMetrics := []map[string]interface{}{}
-	for i, topic := range pipeline.Ingestor.KafkaTopics {
-		if !topic.Deduplication.Enabled {
-			continue
-		}
-
-		streamName := models.GetDedupOutputStreamName(pipelineID, topic.Name)
-		if streamName == "" {
-			// If stream name cannot be generated, send null
+	for _, dedup := range streamNames.DedupStreams {
+		if dedup.StreamName == "" {
 			dedupMetrics = append(dedupMetrics, map[string]interface{}{
 				"component":     "dedup",
-				"topic_index":   i + 1,
+				"topic_index":   dedup.TopicIndex + 1,
 				"message_count": nil,
 				"size":          nil,
 				"last_received": nil,
 			})
 		} else {
-			metrics := getStreamMetrics(streamName)
+			metrics := getStreamMetrics(dedup.StreamName)
 			metrics["component"] = "dedup"
-			metrics["topic_index"] = i + 1
+			metrics["topic_index"] = dedup.TopicIndex + 1
 			dedupMetrics = append(dedupMetrics, metrics)
 		}
 	}
 
 	// Collect join stream metrics (only if join is enabled)
 	var joinMetrics map[string]interface{}
-	if pipeline.Join.Enabled {
-		joinedStreamName := models.GetJoinedStreamName(pipelineID)
-		joinMetrics = getStreamMetrics(joinedStreamName)
+	if streamNames.JoinStream != "" {
+		joinMetrics = getStreamMetrics(streamNames.JoinStream)
 		joinMetrics["component"] = "join"
-	} else {
-		joinMetrics = nil
 	}
 
 	// Collect DLQ stream metrics
-	dlqStreamName := models.GetDLQStreamName(pipelineID)
+	dlqStreamName := streamNames.DLQStream
 	dlqMetrics := map[string]interface{}{
 		"component":     "dlq",
 		"message_count": 0,

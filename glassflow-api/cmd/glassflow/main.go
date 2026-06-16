@@ -307,7 +307,7 @@ func mainEtl(
 	go func() {
 		time.Sleep(2 * time.Second) // small delay to wait for server to start
 		usageStatsClient.SendEvent("ready", "api", nil)
-		usageStatsCollector := service.NewUsageStatsCollector(db, nc, dlq, usageStatsClient, log)
+		usageStatsCollector := service.NewUsageStatsCollector(db, nc, dlq, usageStatsClient, orch, log)
 		usageStatsCollector.Start(ctx)
 	}()
 
