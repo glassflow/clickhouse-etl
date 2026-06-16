@@ -17,7 +17,7 @@ Each Kafka source in the `sources` array defines a single topic to consume from.
 | `topic` | string | Yes | Kafka topic name |
 | `consumer_group_initial_offset` | string | No | Where to start reading: `earliest` or `latest` (default: `latest`) |
 | `format` | string | No | Message format: `"json"` (default, Open Source and Enterprise), `"avro"` or `"protobuf"` (Enterprise only). See [Supported Data Formats](/configuration/data-format). |
-| `schema` | object | Conditional | Schema definition for Avro (`.avsc` JSON) or Protobuf (`proto` text + `name`). Required for inline Avro/Protobuf; optional seed for Schema Registry mode. Not used for JSON. |
+| `schema` | object | Conditional | Schema definition for Avro (`.avsc` JSON) or Protobuf (`proto` text + `name`). Required for both inline and Schema Registry modes. Not used for JSON. |
 | `schema_registry` | object | No | Confluent Schema Registry connection (`url`, `api_key`, `api_secret`). When present, GlassFlow fetches the schema from the registry using the ID in each message envelope. Enterprise only. |
 | `schema_fields` | array | Conditional | Field definitions for this source. Required for JSON sources. Inferred from the schema for Avro and Protobuf. |
 

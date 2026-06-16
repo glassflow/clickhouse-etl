@@ -217,7 +217,7 @@ Sink mapping using dot notation:
 
 ### Avro — Confluent Schema Registry
 
-Add a `schema_registry` object. GlassFlow fetches the schema by the ID in each message envelope. The `schema` field is optional — provide it as a seed if you want transforms and sink mapping validated at pipeline-creation time:
+Add a `schema_registry` object alongside a `schema` seed. The seed is **required**: GlassFlow stores it as the base schema version on pipeline creation. When a message arrives with a different schema ID, GlassFlow fetches the new version from the registry and validates it is backward-compatible with the seed. Without the seed there is no base version to compare against and the pipeline will fail on its first message.
 
 ```json
 {
@@ -273,7 +273,7 @@ Compiled descriptor limit: 256 KB. `import` statements are not resolved — all 
 
 ### Protobuf — Confluent Schema Registry
 
-Add a `schema_registry` object. GlassFlow fetches the `FileDescriptorProto` by the schema ID in each message envelope. Schema evolution is supported automatically. The `schema` field is optional as a seed:
+Add a `schema_registry` object alongside a `schema` seed. The seed is **required** for the same reason as Avro: it is stored as the base schema version at pipeline-creation time. GlassFlow uses it as the anchor when a new schema ID appears in an envelope — fetching the new descriptor from the registry and checking backward compatibility before accepting it.
 
 ```json
 {

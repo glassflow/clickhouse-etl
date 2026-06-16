@@ -169,15 +169,13 @@ Provide the `.proto` source text directly under `schema.proto`. GlassFlow compil
 
 ## Confluent Schema Registry
 
-Add a `schema_registry` object to the source. GlassFlow reads the schema ID from the Confluent wire-format envelope of each message, fetches the corresponding `FileDescriptorProto` from the registry, and decodes the payload.
-
-You may optionally include a `schema` object with a seed `.proto`. GlassFlow compiles the seed at pipeline-creation time so the sink mapping and any transforms can be validated before the first message arrives. The seed is overridden at runtime by whatever schema ID the producer embeds.
+Add a `schema_registry` object to the source alongside a `schema` seed. The seed is **required**: GlassFlow compiles it and stores the resulting descriptor as the base schema version at pipeline-creation time. When a message arrives with a different schema ID, GlassFlow fetches the new `FileDescriptorProto` from the registry and validates backward compatibility against the stored base. Without a seed there is no base version and the pipeline will fail on its first message.
 
 <Callout type="info">
 **Schema evolution.** When a producer registers a new schema version the ID in the envelope changes. GlassFlow fetches and caches the new descriptor automatically — no pipeline restart needed, as long as the evolution is backward-compatible (i.e. existing field numbers are not reused with a different type).
 </Callout>
 
-### Registry example (with seed schema)
+### Registry example
 
 <Tabs items={['JSON']} storageKey="config_format">
   <Tabs.Tab>
@@ -248,11 +246,11 @@ The `format`, `schema`, and `schema_registry` fields are added to the standard K
 
 Sets the message decoding format. Omit or set to `"json"` for plain JSON sources (Open Source and Enterprise). `"avro"` is also supported in the Enterprise Edition.
 
-### `schema` (inline mode)
+### `schema`
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `proto` | string | Yes (inline) | Full `.proto` IDL source text. All referenced types must be defined in the same file — `import` is not supported. |
+| `proto` | string | Yes | Full `.proto` IDL source text. All referenced types must be defined in the same file — `import` is not supported. Required in both inline and Schema Registry modes. |
 | `name` | string | No | Root message name. If omitted, the first message declared in the file is used. |
 
 ### `schema_registry`
