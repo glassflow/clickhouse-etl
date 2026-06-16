@@ -146,7 +146,7 @@ GlassFlow supports comprehensive data type mappings from Kafka to ClickHouse. Th
 
 Avro is available in the Enterprise Edition. GlassFlow decodes messages using the **Confluent wire format** (`0x00` magic byte + 4-byte schema ID + Avro payload).
 
-Set `"format": "avro"` on the Kafka source and provide the schema via one of the two modes below.
+Set `"format": "avro"` on the Kafka source and provide the schema via one of the two modes below. For full pipeline examples, field type mappings, and troubleshooting, see the [Avro Pipeline Usage](/configuration/avro) guide.
 
 ### Avro — Inline schema
 
