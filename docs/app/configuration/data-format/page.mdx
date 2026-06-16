@@ -185,7 +185,7 @@ Avro nullable fields use a union of `["null", T]`. GlassFlow maps the non-null b
 
 #### Nested record fields
 
-Avro nested records (fields whose type is itself a `record`) are decoded into the field map as `map[string]any` at runtime. GlassFlow registers them as type `object` at the top level. **Dot-notation sub-field access is not supported for Avro nested records** — map the entire nested record to a ClickHouse `String` column (it will be stored as JSON):
+Avro nested records (fields whose type is itself a `record`) are supported. You can map sub-fields using dot notation (e.g. `metadata.source`) or map the entire nested record to a ClickHouse `String` column:
 
 ```json
 {
@@ -208,13 +208,12 @@ Avro nested records (fields whose type is itself a `record`) are decoded into th
 }
 ```
 
-Sink mapping for the nested field:
+Sink mapping using dot notation:
 
 ```json
-{ "name": "metadata", "column_name": "metadata", "column_type": "String" }
+{ "name": "metadata.source",  "column_name": "metadata_source",  "column_type": "String" },
+{ "name": "metadata.version", "column_name": "metadata_version", "column_type": "Int32"  }
 ```
-
-The `metadata` column will contain `{"source":"...", "version":...}` as a JSON string.
 
 ### Avro — Confluent Schema Registry
 
