@@ -1,31 +1,15 @@
 ---
 title: 'Supported Data Formats'
-description: 'Learn about supported data formats — JSON (Open Source and Enterprise), Avro and Protobuf (Enterprise) — and nested JSON handling in GlassFlow'
-tier: 'both'
+description: 'Learn about supported data formats and nested JSON handling in GlassFlow'
 ---
-import { Callout } from 'nextra/components'
 
 # Supported Data Formats
 
-<Tier badge="both" />
-
-GlassFlow supports three data formats for Kafka sources:
-
-| Format | Edition | Notes |
-|--------|---------|-------|
-| **JSON** | Open Source and Enterprise | Default format. |
-| **Avro** | Enterprise only | Confluent wire format; inline `.avsc` or Schema Registry. |
-| **Protobuf** | Enterprise only | Confluent wire format; inline `.proto` or Schema Registry. |
-
-<Callout type="info">
-Avro and Protobuf format support require the Enterprise Edition. [Get in touch](https://www.glassflow.dev/integrations#contact) to request access.
-</Callout>
+GlassFlow currently supports **JSON** as the primary data format for all sources.
 
 ## JSON Format
 
-<Tier badge="oss" inline />
-
-JSON is the default format and is available in both Open Source and Enterprise. All messages consumed from Kafka sources must be valid JSON objects. For OTLP sources, the OTLP protobuf payload is automatically flattened to JSON by GlassFlow.
+GlassFlow exclusively supports JSON data format. All messages consumed from sources must be valid JSON objects. For Kafka sources, messages in topics must be JSON. For OTLP sources, the OTLP protobuf payload is automatically flattened to JSON by GlassFlow.
 
 **Example JSON Message:**
 ```json
@@ -160,20 +144,155 @@ GlassFlow supports comprehensive data type mappings from Kafka to ClickHouse. Th
 
 ## Avro Format <Tier badge="enterprise" inline />
 
-Avro is available in the Enterprise Edition. GlassFlow decodes messages using the **Confluent wire format** (`0x00` magic byte + 4-byte schema ID + Avro payload). Two schema sources are supported:
+Avro is available in the Enterprise Edition. GlassFlow decodes messages using the **Confluent wire format** (`0x00` magic byte + 4-byte schema ID + Avro payload).
 
-- **Inline** — embed the Avro schema (`.avsc` JSON) directly in the pipeline config under `schema`.
-- **Confluent Schema Registry** — add a `schema_registry` object; GlassFlow fetches the schema by the ID in each message envelope.
+Set `"format": "avro"` on the Kafka source and provide the schema via one of the two modes below.
 
-Set `"format": "avro"` on the Kafka source. The rest of the pipeline (transforms, sink mapping) works identically to JSON sources.
+### Avro — Inline schema
+
+Embed the full `.avsc` JSON object directly as the `schema` field (not a string — the object itself):
+
+```json
+{
+  "type": "kafka",
+  "source_id": "events",
+  "connection_params": { "..." },
+  "topic": "avro_events",
+  "format": "avro",
+  "schema": {
+    "type": "record",
+    "name": "Event",
+    "namespace": "com.example",
+    "fields": [
+      { "name": "id",      "type": "string" },
+      { "name": "user_id", "type": "string" },
+      { "name": "action",  "type": "string" },
+      { "name": "ts_ms",   "type": "long"   }
+    ]
+  }
+}
+```
+
+The inline schema is compiled at pipeline-creation time (limit: 64 KB). GlassFlow derives the field list automatically — `schema_fields` is not required.
+
+#### Nullable fields (union types)
+
+Avro nullable fields use a union of `["null", T]`. GlassFlow maps the non-null branch to the field type:
+
+```json
+{ "name": "country", "type": ["null", "string"], "default": null }
+```
+
+#### Nested record fields
+
+Avro nested records (fields whose type is itself a `record`) are decoded into the field map as `map[string]any` at runtime. GlassFlow registers them as type `object` at the top level. **Dot-notation sub-field access is not supported for Avro nested records** — map the entire nested record to a ClickHouse `String` column (it will be stored as JSON):
+
+```json
+{
+  "type": "record",
+  "name": "Event",
+  "fields": [
+    { "name": "id", "type": "string" },
+    {
+      "name": "metadata",
+      "type": {
+        "type": "record",
+        "name": "Metadata",
+        "fields": [
+          { "name": "source", "type": "string" },
+          { "name": "version", "type": "int" }
+        ]
+      }
+    }
+  ]
+}
+```
+
+Sink mapping for the nested field:
+
+```json
+{ "name": "metadata", "column_name": "metadata", "column_type": "String" }
+```
+
+The `metadata` column will contain `{"source":"...", "version":...}` as a JSON string.
+
+### Avro — Confluent Schema Registry
+
+Add a `schema_registry` object. GlassFlow fetches the schema by the ID in each message envelope. The `schema` field is optional — provide it as a seed if you want transforms and sink mapping validated at pipeline-creation time:
+
+```json
+{
+  "type": "kafka",
+  "source_id": "events",
+  "connection_params": { "..." },
+  "topic": "avro_events",
+  "format": "avro",
+  "schema_registry": {
+    "url": "https://<sr-host>",
+    "api_key": "<sr-api-key>",
+    "api_secret": "<sr-api-secret>"
+  },
+  "schema": {
+    "type": "record",
+    "name": "Event",
+    "namespace": "com.example",
+    "fields": [
+      { "name": "id",      "type": "string" },
+      { "name": "user_id", "type": "string" },
+      { "name": "action",  "type": "string" },
+      { "name": "ts_ms",   "type": "long"   }
+    ]
+  }
+}
+```
 
 ## Protobuf Format <Tier badge="enterprise" inline />
 
-Protobuf is available in the Enterprise Edition. GlassFlow decodes messages using the **Confluent wire format** (`0x00` magic byte + 4-byte schema ID + varint message-index array + serialized payload). Two schema sources are supported:
+Protobuf is available in the Enterprise Edition. GlassFlow decodes messages using the **Confluent wire format** (`0x00` magic byte + 4-byte schema ID + varint message-index array + serialized payload).
 
-- **Inline** — embed the `.proto` IDL text directly in the pipeline config under `schema.proto`. The compiled descriptor must be ≤ 256 KB; `import` is not supported (all types must be in a single file).
-- **Confluent Schema Registry** — add a `schema_registry` object; GlassFlow fetches the `FileDescriptorProto` by the ID in each message envelope, with optional schema evolution support.
+Set `"format": "protobuf"` on the Kafka source and provide the schema via one of the two modes below. Nested messages map to `object` (JSON-serialized in ClickHouse).
 
-Set `"format": "protobuf"` on the Kafka source. Protobuf scalar types are mapped to the same intermediate type system as JSON fields. Nested messages map to `object` (JSON-serialized).
+### Protobuf — Inline schema
+
+Embed the `.proto` IDL source as a string under `schema.proto`. Use `schema.name` to select the root message (defaults to the first declared message):
+
+```json
+{
+  "type": "kafka",
+  "source_id": "events",
+  "connection_params": { "..." },
+  "topic": "proto_events",
+  "format": "protobuf",
+  "schema": {
+    "proto": "syntax = \"proto3\";\npackage example;\nmessage Event {\n  string id = 1;\n  string user_id = 2;\n  string action = 3;\n  int64 ts_ms = 4;\n}",
+    "name": "Event"
+  }
+}
+```
+
+Compiled descriptor limit: 256 KB. `import` statements are not resolved — all types must be defined in a single `.proto` string.
+
+### Protobuf — Confluent Schema Registry
+
+Add a `schema_registry` object. GlassFlow fetches the `FileDescriptorProto` by the schema ID in each message envelope. Schema evolution is supported automatically. The `schema` field is optional as a seed:
+
+```json
+{
+  "type": "kafka",
+  "source_id": "events",
+  "connection_params": { "..." },
+  "topic": "proto_events",
+  "format": "protobuf",
+  "schema_registry": {
+    "url": "https://<sr-host>",
+    "api_key": "<sr-api-key>",
+    "api_secret": "<sr-api-secret>"
+  },
+  "schema": {
+    "proto": "syntax = \"proto3\";\npackage example;\nmessage Event {\n  string id = 1;\n  string user_id = 2;\n  string action = 3;\n  int64 ts_ms = 4;\n}",
+    "name": "Event"
+  }
+}
+```
 
 For full pipeline examples, field type mappings, and troubleshooting, see the [Protobuf Pipeline Usage](/configuration/protobuf) guide.
