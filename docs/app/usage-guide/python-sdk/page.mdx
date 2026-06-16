@@ -172,48 +172,17 @@ pipeline.rename("My renamed pipeline")
 
 ## Dead-Letter Queue (DLQ)
 
-### Get DLQ State
+`pipeline.dlq` manages the pipeline's dead-letter queue. In Open Source you can inspect and purge it:
 
 ```python
-dlq_state = pipeline.dlq.state()
-print(dlq_state)
+pipeline.dlq.state()                  # queue summary
+pipeline.dlq.consume(batch_size=50)   # read a batch of messages
+pipeline.dlq.purge()                  # remove every message
 ```
 
-Output:
-```json
-{
-    "last_consumed_at": "2026-05-20T10:32:38.113427621Z",
-    "last_received_at": "2026-05-20T10:23:26.530466989Z",
-    "total_messages": 2,
-    "unconsumed_messages": 1
-}
-```
+With the Enterprise client (`from glassflow.ee import Client`), `pipeline.dlq` also exposes a non-destructive `list()`, plus `reprocess()` / `reprocess_all()` and `discard()` / `discard_all()`.
 
-### Purge DLQ
-
-Removes all messages from the DLQ. Returns `None`.
-
-```python
-pipeline.dlq.purge()
-```
-
-### Read Messages from DLQ
-
-```python
-messages = pipeline.dlq.consume(batch_size=1)
-print(messages)
-```
-
-Output:
-```json
-[
-    {
-        "component": "ingestor",
-        "error": "failed to validate data",
-        "original_message": "<original kafka message>"
-    }
-]
-```
+For the full reference, including request and response shapes and the matching REST endpoints, see [Dead-Letter Queue (DLQ)](/configuration/dlq).
 
 ## Import / Export Pipeline Configurations
 
