@@ -1,15 +1,31 @@
 ---
 title: 'Supported Data Formats'
-description: 'Learn about supported data formats and nested JSON handling in GlassFlow'
+description: 'Learn about supported data formats — JSON (Open Source and Enterprise), Avro and Protobuf (Enterprise) — and nested JSON handling in GlassFlow'
+tier: 'both'
 ---
+import { Callout } from 'nextra/components'
 
 # Supported Data Formats
 
-GlassFlow currently supports **JSON** as the primary data format for all sources.
+<Tier badge="both" />
+
+GlassFlow supports three data formats for Kafka sources:
+
+| Format | Edition | Notes |
+|--------|---------|-------|
+| **JSON** | Open Source and Enterprise | Default format. |
+| **Avro** | Enterprise only | Confluent wire format; inline `.avsc` or Schema Registry. |
+| **Protobuf** | Enterprise only | Confluent wire format; inline `.proto` or Schema Registry. |
+
+<Callout type="info">
+Avro and Protobuf format support require the Enterprise Edition. [Get in touch](https://www.glassflow.dev/integrations#contact) to request access.
+</Callout>
 
 ## JSON Format
 
-GlassFlow exclusively supports JSON data format. All messages consumed from sources must be valid JSON objects. For Kafka sources, messages in topics must be JSON. For OTLP sources, the OTLP protobuf payload is automatically flattened to JSON by GlassFlow.
+<Tier badge="oss" inline />
+
+JSON is the default format and is available in both Open Source and Enterprise. All messages consumed from Kafka sources must be valid JSON objects. For OTLP sources, the OTLP protobuf payload is automatically flattened to JSON by GlassFlow.
 
 **Example JSON Message:**
 ```json
@@ -141,3 +157,23 @@ GlassFlow supports comprehensive data type mappings from Kafka to ClickHouse. Th
 - `string` - ISO 8601 format timestamps
 - `int64` - Unix timestamps
 - `float64` - Unix timestamps with fractional seconds
+
+## Avro Format <Tier badge="enterprise" inline />
+
+Avro is available in the Enterprise Edition. GlassFlow decodes messages using the **Confluent wire format** (`0x00` magic byte + 4-byte schema ID + Avro payload). Two schema sources are supported:
+
+- **Inline** — embed the Avro schema (`.avsc` JSON) directly in the pipeline config under `schema`.
+- **Confluent Schema Registry** — add a `schema_registry` object; GlassFlow fetches the schema by the ID in each message envelope.
+
+Set `"format": "avro"` on the Kafka source. The rest of the pipeline (transforms, sink mapping) works identically to JSON sources.
+
+## Protobuf Format <Tier badge="enterprise" inline />
+
+Protobuf is available in the Enterprise Edition. GlassFlow decodes messages using the **Confluent wire format** (`0x00` magic byte + 4-byte schema ID + varint message-index array + serialized payload). Two schema sources are supported:
+
+- **Inline** — embed the `.proto` IDL text directly in the pipeline config under `schema.proto`. The compiled descriptor must be ≤ 256 KB; `import` is not supported (all types must be in a single file).
+- **Confluent Schema Registry** — add a `schema_registry` object; GlassFlow fetches the `FileDescriptorProto` by the ID in each message envelope, with optional schema evolution support.
+
+Set `"format": "protobuf"` on the Kafka source. Protobuf scalar types are mapped to the same intermediate type system as JSON fields. Nested messages map to `object` (JSON-serialized).
+
+For full pipeline examples, field type mappings, and troubleshooting, see the [Protobuf Pipeline Usage](/configuration/protobuf) guide.

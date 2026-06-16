@@ -1,0 +1,312 @@
+---
+title: 'Protobuf Pipeline Usage'
+description: 'Configure a Kafka → GlassFlow → ClickHouse pipeline to consume Protobuf-encoded messages — inline schema or Confluent Schema Registry.'
+tier: 'enterprise'
+---
+import { Callout, Tabs } from 'nextra/components'
+
+# Protobuf Pipeline Usage
+
+<Tier badge="enterprise" />
+
+GlassFlow supports [Protocol Buffers](https://protobuf.dev/) as a Kafka source format. Messages are decoded before entering the processing pipeline, so deduplication, filtering, stateless transformations, and the ClickHouse sink all work the same way as with JSON sources.
+
+<Callout type="info">
+Protobuf (and Avro) format support is available in the Enterprise Edition only. JSON sources are available in both Open Source and Enterprise. [Get in touch](https://www.glassflow.dev/integrations#contact) to request access.
+</Callout>
+
+## How it works
+
+GlassFlow treats Protobuf as an **external format**: the binary Confluent-envelope payload is decoded into a flat field map at ingestion time, and the rest of the pipeline operates on those fields just as it would with a JSON source. There is no change to the internal wire format.
+
+Two schema sources are supported:
+
+| Mode | When to use |
+|------|-------------|
+| **Inline** | You own the `.proto` definition and want to embed it directly in the pipeline config. |
+| **Confluent Schema Registry** | Your producers register schemas with a Confluent-compatible SR; GlassFlow fetches the schema by the ID embedded in each message. |
+
+In both modes every Kafka message must use the **Confluent wire format**:
+
+```
+[0x00 magic byte][4-byte big-endian schema ID][varint message-index array][serialized proto payload]
+```
+
+The message-index array selects the root message within the `FileDescriptor`. A single-message `.proto` file encodes this as `[0]` (one varint with value 0).
+
+## Inline schema
+
+Provide the `.proto` source text directly under `schema.proto`. GlassFlow compiles it at pipeline-creation time and stores the resulting `FileDescriptorProto`.
+
+**Limitations for inline schemas:**
+- The compiled `FileDescriptorProto` must be ≤ 256 KB.
+- `import` statements are not resolved — all message types used must be defined in the same file.
+- Nested messages are mapped to ClickHouse `String` columns (JSON-serialized) unless you map their scalar sub-fields individually using dot notation.
+
+### Minimal example (ingest-only)
+
+<Tabs items={['JSON']} storageKey="config_format">
+  <Tabs.Tab>
+    ```json
+    {
+      "version": "v3",
+      "pipeline_id": "proto-ingest-1",
+      "name": "protobuf-ingest-only",
+      "sources": [
+        {
+          "type": "kafka",
+          "source_id": "events",
+          "connection_params": {
+            "brokers": ["kafka:9094"],
+            "mechanism": "PLAIN",
+            "protocol": "SASL_PLAINTEXT",
+            "username": "<user>",
+            "password": "<password>"
+          },
+          "topic": "proto_events",
+          "format": "protobuf",
+          "schema": {
+            "proto": "syntax = \"proto3\";\npackage example;\nmessage Event {\n  string id = 1;\n  string user_id = 2;\n  string action = 3;\n  int64 ts_ms = 4;\n}",
+            "name": "Event"
+          },
+          "consumer_group_initial_offset": "earliest"
+        }
+      ],
+      "sink": {
+        "type": "clickhouse",
+        "connection_params": {
+          "host": "clickhouse.example.com",
+          "port": "9000",
+          "database": "default",
+          "username": "default",
+          "password": "<password>",
+          "secure": false
+        },
+        "table": "proto_events",
+        "max_batch_size": 100,
+        "max_delay_time": "5s",
+        "mapping": [
+          {"name": "id",      "column_name": "id",      "column_type": "String"},
+          {"name": "user_id", "column_name": "user_id", "column_type": "String"},
+          {"name": "action",  "column_name": "action",  "column_type": "String"},
+          {"name": "ts_ms",   "column_name": "ts_ms",   "column_type": "Int64"}
+        ]
+      }
+    }
+    ```
+  </Tabs.Tab>
+</Tabs>
+
+### With deduplication and filter
+
+<Tabs items={['JSON']} storageKey="config_format">
+  <Tabs.Tab>
+    ```json
+    {
+      "version": "v3",
+      "pipeline_id": "proto-dedup-filter-1",
+      "name": "protobuf-dedup-filter",
+      "sources": [
+        {
+          "type": "kafka",
+          "source_id": "events",
+          "connection_params": {
+            "brokers": ["kafka:9094"],
+            "mechanism": "PLAIN",
+            "protocol": "SASL_PLAINTEXT",
+            "username": "<user>",
+            "password": "<password>"
+          },
+          "topic": "proto_events",
+          "format": "protobuf",
+          "schema": {
+            "proto": "syntax = \"proto3\";\npackage example;\nmessage Event {\n  string id = 1;\n  string user_id = 2;\n  string action = 3;\n  int64 ts_ms = 4;\n}",
+            "name": "Event"
+          },
+          "consumer_group_initial_offset": "earliest"
+        }
+      ],
+      "transforms": [
+        {
+          "type": "dedup",
+          "source_id": "events",
+          "config": {
+            "key": "id",
+            "time_window": "5m"
+          }
+        },
+        {
+          "type": "filter",
+          "source_id": "events",
+          "config": {
+            "expression": "action != \"skip\""
+          }
+        }
+      ],
+      "sink": {
+        "type": "clickhouse",
+        "connection_params": {
+          "host": "clickhouse.example.com",
+          "port": "9000",
+          "database": "default",
+          "username": "default",
+          "password": "<password>",
+          "secure": false
+        },
+        "table": "proto_events",
+        "max_batch_size": 100,
+        "max_delay_time": "5s",
+        "mapping": [
+          {"name": "id",      "column_name": "id",      "column_type": "String"},
+          {"name": "user_id", "column_name": "user_id", "column_type": "String"},
+          {"name": "action",  "column_name": "action",  "column_type": "String"},
+          {"name": "ts_ms",   "column_name": "ts_ms",   "column_type": "Int64"}
+        ]
+      }
+    }
+    ```
+  </Tabs.Tab>
+</Tabs>
+
+## Confluent Schema Registry
+
+Add a `schema_registry` object to the source. GlassFlow reads the schema ID from the Confluent wire-format envelope of each message, fetches the corresponding `FileDescriptorProto` from the registry, and decodes the payload.
+
+You may optionally include a `schema` object with a seed `.proto`. GlassFlow compiles the seed at pipeline-creation time so the sink mapping and any transforms can be validated before the first message arrives. The seed is overridden at runtime by whatever schema ID the producer embeds.
+
+<Callout type="info">
+**Schema evolution.** When a producer registers a new schema version the ID in the envelope changes. GlassFlow fetches and caches the new descriptor automatically — no pipeline restart needed, as long as the evolution is backward-compatible (i.e. existing field numbers are not reused with a different type).
+</Callout>
+
+### Registry example (with seed schema)
+
+<Tabs items={['JSON']} storageKey="config_format">
+  <Tabs.Tab>
+    ```json
+    {
+      "version": "v3",
+      "pipeline_id": "proto-sr-1",
+      "name": "protobuf-schema-registry",
+      "sources": [
+        {
+          "type": "kafka",
+          "source_id": "events",
+          "connection_params": {
+            "brokers": ["kafka:9094"],
+            "mechanism": "PLAIN",
+            "protocol": "SASL_PLAINTEXT",
+            "username": "<user>",
+            "password": "<password>"
+          },
+          "topic": "proto_events",
+          "schema_registry": {
+            "url": "https://<sr-host>",
+            "api_key": "<sr-api-key>",
+            "api_secret": "<sr-api-secret>"
+          },
+          "format": "protobuf",
+          "schema": {
+            "proto": "syntax = \"proto3\";\npackage example;\nmessage Event {\n  string id = 1;\n  string user_id = 2;\n  string action = 3;\n  int64 ts_ms = 4;\n}",
+            "name": "Event"
+          },
+          "consumer_group_initial_offset": "earliest"
+        }
+      ],
+      "sink": {
+        "type": "clickhouse",
+        "connection_params": {
+          "host": "clickhouse.example.com",
+          "port": "9000",
+          "database": "default",
+          "username": "default",
+          "password": "<password>",
+          "secure": false
+        },
+        "table": "proto_events",
+        "max_batch_size": 100,
+        "max_delay_time": "5s",
+        "mapping": [
+          {"name": "id",      "column_name": "id",      "column_type": "String"},
+          {"name": "user_id", "column_name": "user_id", "column_type": "String"},
+          {"name": "action",  "column_name": "action",  "column_type": "String"},
+          {"name": "ts_ms",   "column_name": "ts_ms",   "column_type": "Int64"}
+        ]
+      }
+    }
+    ```
+  </Tabs.Tab>
+</Tabs>
+
+## Source configuration reference
+
+The `format`, `schema`, and `schema_registry` fields are added to the standard Kafka source object. All other source, transform, and sink fields work as documented in the [Pipeline Configuration Reference](/configuration/pipeline-config-reference).
+
+### `format`
+
+```
+"format": "protobuf"
+```
+
+Sets the message decoding format. Omit or set to `"json"` for plain JSON sources (Open Source and Enterprise). `"avro"` is also supported in the Enterprise Edition.
+
+### `schema` (inline mode)
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `proto` | string | Yes (inline) | Full `.proto` IDL source text. All referenced types must be defined in the same file — `import` is not supported. |
+| `name` | string | No | Root message name. If omitted, the first message declared in the file is used. |
+
+### `schema_registry`
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `url` | string | Yes | Base URL of the Confluent-compatible Schema Registry. |
+| `api_key` | string | No | API key for basic authentication. |
+| `api_secret` | string | No | API secret for basic authentication. |
+
+## Field type mapping
+
+GlassFlow maps Protobuf scalar types to the same intermediate type system used by JSON sources. The mapping follows the standard Protobuf → Go type rules:
+
+| Protobuf type | GlassFlow intermediate type |
+|---------------|----------------------------|
+| `string` | `string` |
+| `int32`, `sint32`, `sfixed32` | `int32` |
+| `int64`, `sint64`, `sfixed64` | `int64` |
+| `uint32`, `fixed32` | `uint32` |
+| `uint64`, `fixed64` | `uint64` |
+| `float` | `float32` |
+| `double` | `float64` |
+| `bool` | `bool` |
+| `bytes` | `bytes` |
+| `enum` | `int32` (numeric value) |
+| Nested `message` | `object` (JSON-serialized) |
+| `repeated` scalar | `array` |
+
+For the full list of supported ClickHouse target types, see [Supported Data Formats](/configuration/data-format).
+
+## Troubleshooting
+
+### `proto compilation error`
+
+The inline `.proto` text contains a syntax error or references a type from another file via `import`. Fix the syntax or inline all type definitions into a single `.proto` string.
+
+### `compiled descriptor is N bytes, exceeds 256 KB limit`
+
+The compiled `FileDescriptorProto` exceeds the 256 KB inline limit. This is rare for typical event schemas. Use a Schema Registry instead to avoid the size cap.
+
+### `message "X" not found in proto schema`
+
+The `schema.name` field does not match any message declared in the `.proto` source. Check capitalisation — Protobuf message names are case-sensitive.
+
+### `invalid Confluent magic byte: 0xNN`
+
+The Kafka message does not start with the `0x00` Confluent magic byte. Your producer is not using the Confluent wire format. Update the producer to serialize with `confluent-kafka` or a compatible library that wraps the payload with the schema-ID envelope.
+
+### `message too short (N bytes) for Confluent wire format`
+
+The message is shorter than the minimum 5-byte Confluent header. The topic likely contains non-Protobuf messages. Check the topic and consumer group offset settings.
+
+### Decode errors after schema evolution
+
+If a producer registers a new schema version that is not backward-compatible (e.g. a field number is reused with a different type), in-flight messages encoded with the old schema may fail to decode. Use the [Dead-Letter Queue](/configuration/dlq) to inspect and reprocess failed messages.
