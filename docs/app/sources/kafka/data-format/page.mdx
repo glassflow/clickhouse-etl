@@ -1,0 +1,341 @@
+---
+title: 'Data Formats'
+description: 'Learn about the data formats GlassFlow supports for Kafka sources: JSON, Avro, and Protobuf, including nested handling and schema configuration.'
+---
+import { Callout, Tabs } from 'nextra/components'
+
+# Data Formats
+
+GlassFlow decodes each source message into a flat field map before it enters the processing pipeline, so deduplication, filtering, stateless transformations, joins, and the ClickHouse sink all behave the same way regardless of the wire format.
+
+| Format | Editions | Notes |
+|--------|----------|-------|
+| **JSON** | Open Source and Enterprise | Default format for all sources. Inline `schema_fields`, or Confluent Schema Registry <Tier badge="enterprise" inline />. |
+| **Avro** <Tier badge="enterprise" inline /> | Enterprise | Kafka sources only. Inline `.avsc` or Confluent Schema Registry. |
+| **Protobuf** <Tier badge="enterprise" inline /> | Enterprise | Kafka sources only. Inline `.proto` or Confluent Schema Registry. |
+
+The format is selected per Kafka source with the `format` field (`"json"`, `"avro"`, or `"protobuf"`). When omitted, GlassFlow defaults to JSON. For the source fields involved, see [Kafka Topic Configuration](/sources/kafka/topic-configuration).
+
+<Callout type="info">
+Avro and Protobuf are available in the Enterprise Edition only. JSON is available in both editions. [Get in touch](https://www.glassflow.dev/integrations#contact) to request access to the Enterprise formats.
+</Callout>
+
+## JSON Format
+
+JSON is GlassFlow's default source format. All messages consumed from a JSON source must be valid JSON objects. For Kafka sources, messages in the topic are parsed as JSON. For OTLP sources, the OTLP protobuf payload is automatically flattened to JSON by GlassFlow.
+
+Provide the schema in one of two modes:
+
+| Mode | When to use |
+|------|-------------|
+| **Inline** | Declare the fields to ingest directly on the source with `schema_fields`. The topic carries plain JSON, with no envelope. |
+| **Confluent Schema Registry** <Tier badge="enterprise" inline /> | Your producers register a JSON Schema with a Confluent-compatible registry. GlassFlow fetches the schema by the ID embedded in each message's Confluent envelope. |
+
+### Inline schema
+
+Declare each field you want to ingest in `schema_fields` on the source. The topic carries plain JSON objects with no wire envelope, so no `format` is required (`"json"` is the default).
+
+```json
+{
+  "type": "kafka",
+  "source_id": "events",
+  "connection_params": { "...": "..." },
+  "topic": "json_events",
+  "schema_fields": [
+    { "name": "event_id", "type": "string" },
+    { "name": "user_id",  "type": "string" },
+    { "name": "amount",   "type": "float64" }
+  ],
+  "consumer_group_initial_offset": "earliest"
+}
+```
+
+### Confluent Schema Registry
+
+<Tier badge="enterprise" />
+
+When your producers register a JSON Schema with a Confluent-compatible Schema Registry, add a `schema_registry` object to the source instead of relying on raw JSON. GlassFlow fetches the schema referenced by the ID in each message's Confluent envelope and uses it to validate the payload before the fields are extracted.
+
+In this mode every message must use the **Confluent wire format**:
+
+```
+[0x00 magic byte][4-byte big-endian schema ID][serialized JSON payload]
+```
+
+```json
+{
+  "type": "kafka",
+  "source_id": "events",
+  "connection_params": { "...": "..." },
+  "topic": "json_events",
+  "format": "json",
+  "schema_registry": {
+    "url": "https://<sr-host>",
+    "api_key": "<sr-api-key>",
+    "api_secret": "<sr-api-secret>"
+  },
+  "schema_version": "<schema-version-id>",
+  "schema_fields": [
+    { "name": "event_id", "type": "string" },
+    { "name": "user_id",  "type": "string" },
+    { "name": "amount",   "type": "float64" }
+  ],
+  "consumer_group_initial_offset": "earliest"
+}
+```
+
+Declare the fields you want to ingest in `schema_fields` as you would for a raw JSON source. The registry provides validation and schema-evolution handling; the field-to-column mapping in the sink works exactly the same way. Plain JSON sources without a registry are available in both editions, while Schema Registry support is Enterprise only (the same registry connection is used for Avro and Protobuf).
+
+### Nested record fields
+
+GlassFlow provides comprehensive support for nested JSON structures through **dot notation** field access. This allows you to extract data from deeply nested objects.
+
+Example event with nested fields:
+
+```json
+{
+  "user": {
+    "id": "user_123",
+    "profile": {
+      "name": "John Doe",
+      "email": "john@example.com"
+    },
+    "created_at": "2024-01-15T10:30:00Z"
+  }
+}
+```
+
+Map a nested value by referencing its path in `schema_fields`, then target a ClickHouse column for it in the sink mapping:
+
+```json
+{ "name": "user.profile.name", "type": "string" }
+```
+
+### Field type mappings
+
+Each field declared in `schema_fields` has a GlassFlow type (`field.type`) and is written to a ClickHouse column whose type is set in the sink mapping (`field.column_type`). The following table shows all supported conversions:
+
+| GlassFlow type | Supported ClickHouse types |
+|----------------|---------------------------|
+| `string`  | String, FixedString, DateTime, DateTime64, UUID, Enum8, Enum16, LowCardinality(String), LowCardinality(FixedString), LowCardinality(DateTime) |
+| `int`     | Int8, Int16, Int32, Int64, LowCardinality(Int8), LowCardinality(Int16), LowCardinality(Int32), LowCardinality(Int64) |
+| `int8`    | Int8, LowCardinality(Int8) |
+| `int16`   | Int16, LowCardinality(Int16) |
+| `int32`   | Int32, LowCardinality(Int32) |
+| `int64`   | Int64, DateTime, DateTime64, LowCardinality(Int64) |
+| `uint`    | UInt8, UInt16, UInt32, UInt64, LowCardinality(UInt8), LowCardinality(UInt16), LowCardinality(UInt32), LowCardinality(UInt64) |
+| `uint8`   | UInt8, LowCardinality(UInt8) |
+| `uint16`  | UInt16, LowCardinality(UInt16) |
+| `uint32`  | UInt32, LowCardinality(UInt32) |
+| `uint64`  | UInt64, LowCardinality(UInt64) |
+| `float`   | Float32, Float64, LowCardinality(Float32), LowCardinality(Float64) |
+| `float32` | Float32, LowCardinality(Float32) |
+| `float64` | Float64, DateTime, DateTime64, LowCardinality(Float64), LowCardinality(DateTime) |
+| `bool`    | Bool |
+| `bytes`   | String |
+| `array`   | Array(String), Array(Int8), Array(Int16), Array(Int32), Array(Int64), Array(UInt8), Array(UInt16), Array(UInt32), Array(UInt64), Array(Float32), Array(Float64), Array(Bool), Array(Map(...)), String |
+| `object`  | String, Map(String, String), Array(Map(String, String)) |
+
+Notes:
+- `object` represents a JSON object. Map it to a single column using any type above, or map nested fields to separate columns with dot notation (for example `payload.user.name`).
+- `array` and `object` values are written as JSON strings when the target column is `String`. `Map(String, String)` and `Array(Map(String, String))` values are converted to strings for ClickHouse compatibility.
+- DateTime columns can be sourced from `string` (ISO 8601), `int64` (Unix), or `float64` (Unix with fractional seconds).
+
+## Avro Format
+
+<Tier badge="enterprise" />
+
+GlassFlow supports [Apache Avro](https://avro.apache.org/) as a Kafka source format. The Confluent-envelope payload is decoded into a flat field map at ingestion time, and the rest of the pipeline operates on those fields just as it would with a JSON source.
+
+Set `"format": "avro"` on the Kafka source and provide the schema in one of two modes:
+
+| Mode | When to use |
+|------|-------------|
+| **Inline** | You own the `.avsc` definition and want to embed it directly in the pipeline config. |
+| **Confluent Schema Registry** | Your producers register schemas with a Confluent-compatible registry. GlassFlow fetches the schema by the ID embedded in each message. |
+
+In both modes every Kafka message must use the **Confluent wire format**:
+
+```
+[0x00 magic byte][4-byte big-endian schema ID][serialized Avro payload]
+```
+
+### Inline schema
+
+Provide the `.avsc` schema as an inline string in `schema.file`. GlassFlow parses and validates it at pipeline-creation time and derives the field list automatically, so `schema_fields` is not required.
+
+**Constraints for inline schemas:**
+- The schema text must be 64 KB or smaller.
+- The root type must be a `record`.
+
+```json
+{
+  "type": "kafka",
+  "source_id": "events",
+  "connection_params": { "...": "..." },
+  "topic": "avro_events",
+  "format": "avro",
+  "schema": {
+    "file": "{\"type\":\"record\",\"name\":\"Event\",\"namespace\":\"com.example\",\"fields\":[{\"name\":\"id\",\"type\":\"string\"},{\"name\":\"user_id\",\"type\":\"string\"},{\"name\":\"action\",\"type\":\"string\"},{\"name\":\"ts_ms\",\"type\":\"long\"}]}"
+  },
+  "consumer_group_initial_offset": "earliest"
+}
+```
+
+The `schema.file` value is the full `.avsc` document serialized as a JSON string. On reads (`GET /pipeline/{id}`), GlassFlow additionally returns the parsed field list under `schema.parsed_fields` for inspection. That field is read-only and is ignored on create and edit.
+
+### Confluent Schema Registry
+
+Add a `schema_registry` object to the source. GlassFlow fetches the schema for each message from the registry using the ID in the Confluent envelope. You must still provide `schema.file`: it is the seed schema GlassFlow stores as the base version at pipeline-creation time and uses to validate that schemas fetched from the registry are backward-compatible.
+
+```json
+{
+  "type": "kafka",
+  "source_id": "events",
+  "connection_params": { "...": "..." },
+  "topic": "avro_events",
+  "format": "avro",
+  "schema_registry": {
+    "url": "https://<sr-host>",
+    "api_key": "<sr-api-key>",
+    "api_secret": "<sr-api-secret>"
+  },
+  "schema_version": "<schema-version-id>",
+  "schema": {
+    "file": "{\"type\":\"record\",\"name\":\"Event\",\"namespace\":\"com.example\",\"fields\":[{\"name\":\"id\",\"type\":\"string\"},{\"name\":\"user_id\",\"type\":\"string\"},{\"name\":\"action\",\"type\":\"string\"},{\"name\":\"ts_ms\",\"type\":\"long\"}]}"
+  },
+  "consumer_group_initial_offset": "earliest"
+}
+```
+
+<Callout type="info">
+**Schema evolution.** When a producer registers a new backward-compatible schema version (for example, adding an optional field), GlassFlow fetches and caches the new schema automatically when the new ID first appears in an envelope. No pipeline restart is needed. Use additive evolution only: add new fields with defaults, and do not remove or rename existing ones.
+</Callout>
+
+### Union and nullable fields
+
+Avro nullable fields use a union of `["null", T]`. GlassFlow resolves the non-null branch and uses its type:
+
+```json
+{ "name": "country", "type": ["null", "string"], "default": null }
+```
+
+This field is registered as type `string` and can be mapped to a `String` ClickHouse column, or to `Nullable(String)` to preserve `null` values. Unions with more than two branches (for example, `["null", "string", "int"]`) resolve to the first non-null branch.
+
+### Nested record fields
+
+Avro nested records are supported. Map individual sub-fields with dot notation, or map the whole nested record to a single `String` column.
+
+```json
+{ "name": "metadata.source",  "column_name": "metadata_source",  "column_type": "String" },
+{ "name": "metadata.version", "column_name": "metadata_version", "column_type": "Int32"  }
+```
+
+### Field type mappings
+
+| Avro type | Decoded as | Supported ClickHouse types |
+|-----------|-----------|---------------------------|
+| `string`  | `string`  | String, UUID, FixedString, LowCardinality(String) |
+| `int`     | `int32`   | Int32, Int16, Int8 |
+| `long`    | `int64`   | Int64, DateTime, DateTime64 |
+| `float`   | `float32` | Float32 |
+| `double`  | `float64` | Float64, DateTime, DateTime64 |
+| `boolean` | `bool`    | Bool |
+| `bytes`   | `bytes`   | String |
+| `fixed`   | `bytes`   | String |
+| `enum`    | `string`  | String, LowCardinality(String) |
+| `array`   | `array`   | Array(String), Array(Int64), and other Array types |
+| `record`  | `object`  | String (as JSON), or map sub-fields with dot notation |
+
+Avro logical types are decoded to their native representation. Map them to the corresponding ClickHouse type, for example `timestamp-millis` to `DateTime64(3)`, `date` to `Date`, and `uuid` to `UUID`.
+
+## Protobuf Format
+
+<Tier badge="enterprise" />
+
+GlassFlow supports [Protocol Buffers](https://protobuf.dev/) as a Kafka source format. As with Avro, the binary Confluent-envelope payload is decoded into a flat field map at ingestion time.
+
+Set `"format": "protobuf"` on the Kafka source and provide the schema in one of two modes (inline or Confluent Schema Registry). In both modes every Kafka message must use the **Confluent wire format**:
+
+```
+[0x00 magic byte][4-byte big-endian schema ID][varint message-index array][serialized proto payload]
+```
+
+The message-index array selects the root message within the file descriptor. A single-message `.proto` file encodes this as `[0]`.
+
+### Inline schema
+
+Provide the `.proto` source text as an inline string in `schema.file`, and select the root message with `schema.message_type`. GlassFlow compiles the descriptor at pipeline-creation time.
+
+**Limitations for inline schemas:**
+- The compiled descriptor must be 256 KB or smaller.
+- `import` statements are not resolved. All message types must be defined in the same `.proto` string.
+
+```json
+{
+  "type": "kafka",
+  "source_id": "events",
+  "connection_params": { "...": "..." },
+  "topic": "proto_events",
+  "format": "protobuf",
+  "schema": {
+    "file": "syntax = \"proto3\";\npackage example;\nmessage Event {\n  string id = 1;\n  string user_id = 2;\n  string action = 3;\n  int64 ts_ms = 4;\n}",
+    "message_type": "Event"
+  },
+  "consumer_group_initial_offset": "earliest"
+}
+```
+
+As with Avro, `GET /pipeline/{id}` returns the parsed field list under `schema.parsed_fields` for inspection. That field is read-only and is ignored on create and edit.
+
+### Confluent Schema Registry
+
+Add a `schema_registry` object to the source. GlassFlow fetches the descriptor for each message from the registry using the ID in the Confluent envelope. You must still provide `schema.file` and `schema.message_type`: they are the seed GlassFlow stores as the base version at pipeline-creation time and uses to validate that descriptors fetched from the registry are backward-compatible.
+
+```json
+{
+  "type": "kafka",
+  "source_id": "events",
+  "connection_params": { "...": "..." },
+  "topic": "proto_events",
+  "format": "protobuf",
+  "schema_registry": {
+    "url": "https://<sr-host>",
+    "api_key": "<sr-api-key>",
+    "api_secret": "<sr-api-secret>"
+  },
+  "schema_version": "<schema-version-id>",
+  "schema": {
+    "file": "syntax = \"proto3\";\npackage example;\nmessage Event {\n  string id = 1;\n  string user_id = 2;\n  string action = 3;\n  int64 ts_ms = 4;\n}",
+    "message_type": "Event"
+  },
+  "consumer_group_initial_offset": "earliest"
+}
+```
+
+### Field type mappings
+
+| Protobuf type | Decoded as | Supported ClickHouse types |
+|---------------|-----------|---------------------------|
+| `string`      | `string`  | String, UUID, FixedString, LowCardinality(String) |
+| `int32`, `sint32`, `sfixed32` | `int32` | Int32, Int16, Int8 |
+| `int64`, `sint64`, `sfixed64` | `int64` | Int64, DateTime, DateTime64 |
+| `uint32`, `fixed32` | `uint32` | UInt32, UInt16, UInt8 |
+| `uint64`, `fixed64` | `uint64` | UInt64 |
+| `float`       | `float32` | Float32 |
+| `double`      | `float64` | Float64, DateTime, DateTime64 |
+| `bool`        | `bool`    | Bool |
+| `bytes`       | `bytes`   | String |
+| `enum`        | `string`  | String, LowCardinality(String) |
+| `repeated`    | `array`   | Array(String), Array(Int64), and other Array types |
+| `message`     | `object`  | String (as JSON), or map sub-fields with dot notation |
+
+## Troubleshooting
+
+When a message fails to decode at runtime (for example, a producer is not using the Confluent wire format, or a message was encoded with an incompatible schema), GlassFlow routes it to the [Dead-Letter Queue](/configuration/dlq) so you can inspect the failure without stopping the pipeline.
+
+Common configuration errors:
+- **Schema exceeds the size limit.** Inline Avro schemas must be 64 KB or smaller and compiled Protobuf descriptors 256 KB or smaller. Use a Schema Registry instead.
+- **Avro root is not a record.** The root `type` of the `.avsc` schema must be `record`.
+- **Protobuf message not found.** `schema.message_type` must name a message defined in the inline `.proto`.
+- **Schema not found after evolution.** A producer published a message with a schema ID that is not registered, or the registry credentials are incorrect. Confirm the registry URL, `api_key`, and `api_secret`.

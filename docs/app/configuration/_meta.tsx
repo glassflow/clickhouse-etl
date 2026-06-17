@@ -1,8 +1,6 @@
 export default {
     'pipeline-config-reference': '',
-    'data-format': '',
-    'avro': '',
-    'protobuf': '',
+    'pipeline-config-reference-enterprise': '',
     'metrics': '',
     'clickhouse-sink': '',
     'dlq': '',
