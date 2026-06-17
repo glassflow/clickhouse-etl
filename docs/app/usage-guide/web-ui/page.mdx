@@ -17,8 +17,8 @@ When running locally via the CLI, the web interface is available at `http://loca
 
 Click **Create** in the top navigation. The first step is to choose your data source:
 
-- **Apache Kafka** — consume messages from one or more Kafka topics, with support for deduplication, joins, filtering, and stateless transformations.
-- **OpenTelemetry (OTLP)** — receive OpenTelemetry logs, traces, or metrics directly via the OTLP protocol — no Kafka required.
+- **Apache Kafka**: consume messages from one or more Kafka topics, with support for deduplication, joins, filtering, and stateless transformations.
+- **OpenTelemetry (OTLP)**: receive OpenTelemetry logs, traces, or metrics directly via the OTLP protocol, no Kafka required.
 
 ![Create Pipeline](/assets/ui_home.png)
 
@@ -35,7 +35,7 @@ After deployment, every pipeline appears in the **Pipelines** list. From there y
 
 ![Pipelines list](/assets/ui_pipelines_list.png)
 
-Open a pipeline to see its live monitoring view — DLQ metrics, ClickHouse insert rate, and a visual representation of the source-to-sink topology.
+Open a pipeline to see its live monitoring view, DLQ metrics, ClickHouse insert rate, and a visual representation of the source-to-sink topology.
 
 ![Deployed pipeline page](/assets/ui_pipeline_page.png)
 
@@ -63,7 +63,7 @@ Every pipeline moves through a defined set of states. Understanding these states
 | `Terminating` | Transitional | A terminate has been requested. The pipeline is scaling down immediately, without waiting to drain the queue. |
 | `Failed` | Stable | A system-level failure has occurred that the pipeline cannot recover from automatically (for example, a Kubernetes workload crash or an unrecoverable NATS error). |
 
-**Transitional states** (`Stopping`, `Resuming`, `Terminating`) are temporary. The pipeline moves through them automatically; you cannot directly request a transitional state. While a pipeline is in a transitional state, most operations are blocked — the exception is that `Terminating` can always be requested from any non-terminal state.
+**Transitional states** (`Stopping`, `Resuming`, `Terminating`) are temporary. The pipeline moves through them automatically; you cannot directly request a transitional state. While a pipeline is in a transitional state, most operations are blocked, the exception is that `Terminating` can always be requested from any non-terminal state.
 
 ## Best Practices
 
@@ -71,7 +71,7 @@ Every pipeline moves through a defined set of states. Understanding these states
 
 - Use `SASL_SSL` or `SSL` for production Kafka clusters; reserve `PLAINTEXT` for local development.
 - Use the `Use SSL` toggle on the ClickHouse step when connecting to managed ClickHouse offerings (ClickHouse Cloud, Aiven, etc.).
-- Test connections before deploying — the wizard validates them at each step.
+- Test connections before deploying, the wizard validates them at each step.
 
 **2. Schema design**
 
@@ -95,7 +95,7 @@ Every pipeline moves through a defined set of states. Understanding these states
 ### Schema mismatches
 
 - The wizard infers field types from a sample event. If your topic has heterogeneous events, pick one as the canonical shape and define the schema manually in **Verify Field Types**.
-- ClickHouse column types must be compatible with the inferred type. The Mapping step shows the inferred type next to the destination column type — adjust the inferred type if needed.
+- ClickHouse column types must be compatible with the inferred type. The Mapping step shows the inferred type next to the destination column type, adjust the inferred type if needed.
 
 ### Pipeline failures
 
@@ -109,7 +109,7 @@ Every pipeline moves through a defined set of states. Understanding these states
 
 ## Next Steps
 
-- [Create a Kafka pipeline](/usage-guide/web-ui/kafka) — step-by-step wizard walkthrough for Kafka sources
-- [Create an OTLP pipeline](/usage-guide/web-ui/otlp) — step-by-step wizard walkthrough for OTLP sources
-- [Pipeline Configuration Reference](/configuration/pipeline-config-reference) — full JSON configuration documentation
-- [Monitoring and observability](/usage-guide#verifying-data-flow) — verify data is flowing end-to-end
+- [Create a Kafka pipeline](/usage-guide/web-ui/kafka), step-by-step wizard walkthrough for Kafka sources
+- [Create an OTLP pipeline](/usage-guide/web-ui/otlp), step-by-step wizard walkthrough for OTLP sources
+- [Pipeline Configuration Reference](/configuration/pipeline-config-reference), full JSON configuration documentation
+- [Monitoring and observability](/usage-guide#verifying-data-flow), verify data is flowing end-to-end

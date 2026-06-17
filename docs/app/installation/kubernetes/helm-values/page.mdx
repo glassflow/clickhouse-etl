@@ -666,7 +666,7 @@ Enable credential encryption for all production deployments. When `global.encryp
 
 ### How it works
 
-The encryption key is a 32-byte (256-bit) random value stored in a Kubernetes Secret that you create and manage. You must supply the Secret before enabling encryption — the chart does not generate one automatically. This keeps the key lifecycle outside of Helm and prevents accidental key rotation during upgrades.
+The encryption key is a 32-byte (256-bit) random value stored in a Kubernetes Secret that you create and manage. You must supply the Secret before enabling encryption, the chart does not generate one automatically. This keeps the key lifecycle outside of Helm and prevents accidental key rotation during upgrades.
 
 <Callout type="important">
 When `global.encryption.enabled` is `true`, `global.encryption.existingSecret.name` **must** be set. The chart will fail with a validation error if the field is empty.
@@ -682,7 +682,7 @@ global:
     enabled: false
 
     # Reference an existing Kubernetes Secret that contains the encryption key.
-    # Required when enabled=true — the chart does not generate this Secret.
+    # Required when enabled=true. The chart does not generate this Secret.
     existingSecret:
       # Name of the Kubernetes Secret in the same namespace as GlassFlow.
       name: ""

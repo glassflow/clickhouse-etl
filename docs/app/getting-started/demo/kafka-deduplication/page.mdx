@@ -12,7 +12,7 @@ This demo walks you through a **local installation using GlassFlow CLI**. The CL
 ## Prerequisites
 
 - **Docker** (or compatible runtime like Docker Desktop, OrbStack, Colima, or Podman)
-- **Helm** — install via [Helm docs](https://helm.sh/docs/intro/install/) or run: `brew install helm`
+- **Helm**: install via [Helm docs](https://helm.sh/docs/intro/install/) or run: `brew install helm`
 - **kubectl** (installed automatically via Homebrew if you use the recommended install)
 
 ## Install GlassFlow locally
@@ -205,7 +205,7 @@ Congratulations! You've completed the demo.
 **What you achieved:**
 
 - You created a GlassFlow pipeline via the UI running on your local Kubernetes cluster.
-- You sent events — including duplicates — to a Kafka topic.
+- You sent events, including duplicates, to a Kafka topic.
 - GlassFlow consumed from the topic, deduplicated by `event_id`, and wrote the result to a ClickHouse table.
 - You verified the deduplicated data in the ClickHouse table.
 

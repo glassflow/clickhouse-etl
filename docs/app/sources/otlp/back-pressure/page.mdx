@@ -16,25 +16,25 @@ The receiver has two independent backpressure gates:
 
 Each receiver pod enforces a maximum number of **concurrent in-flight requests**. When that limit is reached, any new request is rejected immediately with:
 
-- **HTTP** — `429 Too Many Requests` + `Retry-After: 1`
-- **gRPC** — `ResourceExhausted`
+- **HTTP**: `429 Too Many Requests` + `Retry-After: 1`
+- **gRPC**: `ResourceExhausted`
 
 OTel Collector exporters and SDK exporters treat both responses as retryable and will back off automatically.
 
 ### NATS Stream Full
 
-Each pipeline's internal NATS stream has a configurable capacity. When the stream is full — typically because the sink is writing to ClickHouse more slowly than the receiver is ingesting — publish retries will exhaust and the request is rejected with the same signals:
+Each pipeline's internal NATS stream has a configurable capacity. When the stream is full, typically because the sink is writing to ClickHouse more slowly than the receiver is ingesting, publish retries will exhaust and the request is rejected with the same signals:
 
-- **HTTP** — `429 Too Many Requests` + `Retry-After: 1`
-- **gRPC** — `ResourceExhausted`
+- **HTTP**: `429 Too Many Requests` + `Retry-After: 1`
+- **gRPC**: `ResourceExhausted`
 
 <Callout type="info">
-  Both backpressure conditions surface as the same protocol-level response (`429` / `ResourceExhausted`) so upstream exporters handle them identically. The distinction matters only for tuning — see [Configuration](#configuration) below.
+  Both backpressure conditions surface as the same protocol-level response (`429` / `ResourceExhausted`) so upstream exporters handle them identically. The distinction matters only for tuning, see [Configuration](#configuration) below.
 </Callout>
 
 ## What the Collector Sees
 
-Standard OTel Collector exporters (`otlphttp`, `otlp`) retry on both `429` and `ResourceExhausted` by default. You do not need to change your Collector config to handle backpressure — the Collector will queue and retry the failed batch automatically.
+Standard OTel Collector exporters (`otlphttp`, `otlp`) retry on both `429` and `ResourceExhausted` by default. You do not need to change your Collector config to handle backpressure, the Collector will queue and retry the failed batch automatically.
 
 If your Collector's retry queue is exhausted (e.g. the backpressure is sustained for longer than the Collector's configured `retry_on_failure.max_elapsed_time`), the Collector will drop the batch and log an error. Monitor your Collector's `otelcol_exporter_send_failed_spans` / `_logs` / `_metric_points` metrics to detect sustained backpressure.
 
@@ -55,7 +55,7 @@ sources:
 |---|---|---|
 | `GLASSFLOW_OTLP_MAX_CONCURRENT_REQUESTS` | `50` | Max concurrent in-flight batches per pod |
 
-**Sizing guidance** — At 50 concurrent slots with the default 4 MiB request body limit, peak memory per pod is roughly 200 MiB, which fits within the default pod limit of 512 MiB. If you increase `maxConcurrentRequests`, increase the pod memory limit proportionally:
+**Sizing guidance**: At 50 concurrent slots with the default 4 MiB request body limit, peak memory per pod is roughly 200 MiB, which fits within the default pod limit of 512 MiB. If you increase `maxConcurrentRequests`, increase the pod memory limit proportionally:
 
 ```
 peak_memory ≈ maxConcurrentRequests × maxBodyBytes
@@ -123,7 +123,7 @@ sources:
 ```
 
 <Callout type="warning">
-  Scaling out receiver pods increases total ingest throughput but does **not** help if the bottleneck is a full NATS stream — all pods share the same stream and will all hit backpressure at the same point. Fix the downstream sink first.
+  Scaling out receiver pods increases total ingest throughput but does **not** help if the bottleneck is a full NATS stream, all pods share the same stream and will all hit backpressure at the same point. Fix the downstream sink first.
 </Callout>
 
 ## Monitoring Backpressure
@@ -132,13 +132,13 @@ The following metrics help identify which gate is triggering backpressure. All a
 
 | Metric | Description |
 |---|---|
-| `gfm_receiver_request_count{status="error"}` | Requests that failed — includes both concurrency-limit and stream-full rejections |
+| `gfm_receiver_request_count{status="error"}` | Requests that failed, includes both concurrency-limit and stream-full rejections |
 | `gfm_receiver_request_duration_seconds` | Request latency; rising p99 often precedes sustained backpressure |
 
 <Callout type="info">
 The `gfm_ingestor_backpressure_*` and `gfm_stream_depth*` metrics are emitted by the **Kafka ingestor** component, which is not present in OTLP source pipelines. They do not apply here.
 </Callout>
 
-To distinguish concurrency-limit backpressure from stream-full backpressure, check the receiver pod logs — each rejection is logged with a `reason` field (`overloaded` or `stream_backpressure`).
+To distinguish concurrency-limit backpressure from stream-full backpressure, check the receiver pod logs, each rejection is logged with a `reason` field (`overloaded` or `stream_backpressure`).
 
 See the [Metrics Reference](/configuration/metrics) for the full list of available metrics and how to access them.

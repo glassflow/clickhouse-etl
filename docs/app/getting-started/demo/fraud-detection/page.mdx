@@ -89,8 +89,8 @@ glassflow down
 
 The pipeline configuration (`glassflow/fraud_detection_pipeline.json`) applies two transformations in order:
 
-1. [**Filter**](/transformations/filter) — keeps only events where `status == 'failed'`, dropping successful logins before they reach ClickHouse
-2. [**Deduplication**](/transformations/deduplication) — removes duplicate events by `event_id` within a 1-hour window, handling producer retries
+1. [**Filter**](/transformations/filter), keeps only events where `status == 'failed'`, dropping successful logins before they reach ClickHouse
+2. [**Deduplication**](/transformations/deduplication), removes duplicate events by `event_id` within a 1-hour window, handling producer retries
 
 After these transformations, only unique failed login attempts are written to ClickHouse. The fraud detection SQL queries in `sql/fraud_detection_queries.sql` then aggregate by IP address and time window to flag brute-force patterns.
 

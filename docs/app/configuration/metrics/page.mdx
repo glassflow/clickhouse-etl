@@ -89,7 +89,7 @@ In this example, `glassflow` is the namespace prefix. If you deploy in a differe
 - **Labels**:
   - `component`: Component type - *Added by GlassFlow*
   - `pipeline_id`: Unique pipeline identifier - *Added by GlassFlow*
-  - `stage`: *(Optional)* Processing stage — *Added by GlassFlow*. Values: `dedup_filter`, `dedup_write`, `schema_mapping`, `total_preparation`, `per_message`. Omitted when not applicable.
+  - `stage`: *(Optional)* Processing stage, *Added by GlassFlow*. Values: `dedup_filter`, `dedup_write`, `schema_mapping`, `total_preparation`, `per_message`. Omitted when not applicable.
   - `instance`: Instance identifier - *Added by Prometheus*
   - `job`: Job identifier - *Added by Prometheus*
   - `le`: Histogram bucket boundary - *Added by Prometheus*
@@ -141,7 +141,7 @@ In this example, `glassflow` is the namespace prefix. If you deploy in a differe
 | `otlp.logs` / `otlp.metrics` / `otlp.traces` | `out` |
 
 <Callout type="warning">
-The Kafka ingestor and ClickHouse sink **do not** emit this metric — queries like `processor_messages_total{component="ingestor"}` or `component="sink"` will return no series. For ingestor counts use `gfm_kafka_records_read_total`; for sink counts use `gfm_clickhouse_records_written_total`.
+The Kafka ingestor and ClickHouse sink **do not** emit this metric, queries like `processor_messages_total{component="ingestor"}` or `component="sink"` will return no series. For ingestor counts use `gfm_kafka_records_read_total`; for sink counts use `gfm_clickhouse_records_written_total`.
 </Callout>
 
 <Callout type="info">
@@ -156,7 +156,7 @@ There is no separate `gfm_records_filtered_total` metric. To track filtered reco
 - **Labels**:
   - `component`: Component type - *Added by GlassFlow*
   - `pipeline_id`: Unique pipeline identifier - *Added by GlassFlow*
-  - `direction`: Data flow direction - *Added by GlassFlow* — Values: `in`, `out`
+  - `direction`: Data flow direction - *Added by GlassFlow*, Values: `in`, `out`
   - `instance`: Instance identifier - *Added by Prometheus*
   - `job`: Job identifier - *Added by Prometheus*
 
@@ -302,8 +302,8 @@ HTTP server metrics do not include `component` or `pipeline_id` labels. They are
 - **Labels**:
   - `component`: Component type - *Added by GlassFlow*
   - `pipeline_id`: Unique pipeline identifier - *Added by GlassFlow*
-  - `transport`: Transport protocol - *Added by GlassFlow* — Values: `http`, `grpc`
-  - `status`: Request outcome - *Added by GlassFlow* — Values: `ok`, `error`
+  - `transport`: Transport protocol - *Added by GlassFlow*, Values: `http`, `grpc`
+  - `status`: Request outcome - *Added by GlassFlow*, Values: `ok`, `error`
   - `instance`: Instance identifier - *Added by Prometheus*
   - `job`: Job identifier - *Added by Prometheus*
 
@@ -315,8 +315,8 @@ HTTP server metrics do not include `component` or `pipeline_id` labels. They are
 - **Labels**:
   - `component`: Component type - *Added by GlassFlow*
   - `pipeline_id`: Unique pipeline identifier - *Added by GlassFlow*
-  - `transport`: Transport protocol - *Added by GlassFlow* — Values: `http`, `grpc`
-  - `status`: Request outcome - *Added by GlassFlow* — Values: `ok`, `error`
+  - `transport`: Transport protocol - *Added by GlassFlow*, Values: `http`, `grpc`
+  - `status`: Request outcome - *Added by GlassFlow*, Values: `ok`, `error`
   - `instance`: Instance identifier - *Added by Prometheus*
   - `job`: Job identifier - *Added by Prometheus*
   - `le`: Histogram bucket boundary - *Added by Prometheus*
@@ -330,7 +330,7 @@ These metrics are emitted by the ingestor component and the NATS stream sampler.
 #### `{namespace}_gfm_ingestor_backpressure_active`
 - **Type**: Gauge (Int64)
 - **Description**: Set to `1` while the ingestor is blocked waiting for NATS to drain; `0` otherwise
-- **Unit**: —
+- **Unit**: N/A
 - **Components**: Ingestor
 - **Labels**:
   - `pipeline_id`: Unique pipeline identifier - *Added by GlassFlow*
@@ -363,7 +363,7 @@ These metrics are emitted by the ingestor component and the NATS stream sampler.
 #### `{namespace}_gfm_component_backpressure_active`
 - **Type**: Gauge (Int64)
 - **Description**: Set to `1` while a component is in a backpressure episode; `0` otherwise. Per-component variant of `gfm_ingestor_backpressure_active`, covering dedup, transform, filter, join, and the OTLP receiver.
-- **Unit**: —
+- **Unit**: N/A
 - **Components**: Dedup, Transform, Filter, Join, OTLP Receiver
 - **Labels**:
   - `pipeline_id`: Unique pipeline identifier - *Added by GlassFlow*
