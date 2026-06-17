@@ -34,9 +34,11 @@ Confluent Cloud is Kafka API-compatible. Connect with the GlassFlow [Kafka sourc
 
 The API key and secret are created in the Confluent Cloud console under *Cluster → API Keys*. Confluent Cloud requires TLS, so always use `SASL_SSL` rather than `SASL_PLAINTEXT`.
 
-## Schema Registry
+## Schema Registry <Tier badge="enterprise" inline />
 
-GlassFlow does not currently read schemas from Confluent Schema Registry. Define your fields explicitly in `schema_fields` on the source.
+GlassFlow can read schemas from a Confluent-compatible Schema Registry in the Enterprise Edition. Add a `schema_registry` object to the source and GlassFlow fetches the schema referenced by the ID in each message's Confluent envelope. This works for JSON, Avro, and Protobuf sources. See [Data Formats](/sources/kafka/data-format#confluent-schema-registry) for the full configuration.
+
+On the Open Source Edition, define your fields explicitly with `schema_fields` on the source, as shown above.
 
 ## Related
 

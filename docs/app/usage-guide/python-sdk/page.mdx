@@ -15,7 +15,13 @@ Install the GlassFlow Python SDK using pip:
 pip install glassflow>=4.0.0
 ```
 
-> **Pipeline version notice**: The default and only supported pipeline version is `v3`. Pipeline version `v2` has been **removed** in `glassflow` 4.0.0. If you have existing `v2` configurations, use the `migrate_pipeline_v2_to_v3()` helper — see [Migrating from V2 to V3](#migrating-from-v2-to-v3) below.
+> **Pipeline version notice**: The default and only supported pipeline version is `v3`. Pipeline version `v2` has been **removed** in `glassflow` 4.0.0. If you have existing `v2` configurations, use the `migrate_pipeline_v2_to_v3()` helper, see [Migrating from V2 to V3](#migrating-from-v2-to-v3) below.
+
+## Open Source and Enterprise clients
+
+The package ships two clients. The Open Source client is `from glassflow.etl import Client`. The Enterprise Edition adds `from glassflow.ee import Client`, which extends the Open Source client with DLQ reprocessing, pipeline stream inspection (`get_streams`), and the Avro and Protobuf source formats. The examples below use the Open Source client, and Enterprise-only capabilities are called out where they apply.
+
+Kafka sources declare their fields with `schema_fields` (JSON). Avro and Protobuf sources (Enterprise) carry their schema in the `schema` object instead. See [Data Formats](/sources/kafka/data-format) for the full schema reference.
 
 ## Basic Usage
 
@@ -153,7 +159,7 @@ pipeline.update(config_patch=<pipeline config patch>)
 Example:
 
 ```python
-pipeline.update(config_patch={"join": {"type": "join", "enabled": true}})
+pipeline.update(config_patch={"join": {"type": "join", "enabled": True}})
 ```
 
 or update the full pipeline config:
@@ -164,7 +170,7 @@ pipeline.update(config_patch=<new pipeline config>)
 
 ### Rename a Pipeline
 
-Rename a pipeline without stopping it — the new name is reflected in the UI and API immediately.
+Rename a pipeline without stopping it, the new name is reflected in the UI and API immediately.
 
 ```python
 pipeline.rename("My renamed pipeline")
@@ -180,7 +186,7 @@ pipeline.dlq.consume(batch_size=50)   # read a batch of messages
 pipeline.dlq.purge()                  # remove every message
 ```
 
-With the Enterprise client (`from glassflow.ee import Client`), `pipeline.dlq` also exposes a non-destructive `list()`, plus `reprocess()` / `reprocess_all()` and `discard()` / `discard_all()`.
+With the Enterprise client (`from glassflow.ee import Client`), `pipeline.dlq` adds non-destructive, paginated reading and reprocessing: `list()` and the `list_iter()` generator (both accept a `component` filter, one of `ingestor`, `join`, `sink`, `dedup`, `otlp-receiver`), plus `reprocess()` / `reprocess_all()` and `discard()` / `discard_all()`.
 
 For the full reference, including request and response shapes and the matching REST endpoints, see [Dead-Letter Queue (DLQ)](/configuration/dlq).
 
@@ -213,7 +219,7 @@ pipeline.to_yaml(yaml_path="<my-pipeline-config.yaml>")
 
 ## OTLP Source Pipelines
 
-GlassFlow can ingest OpenTelemetry signals directly without a Kafka cluster. Add an OTLP source to the `sources` array — no `schema_fields` or `connection_params` needed. GlassFlow manages the OTLP receiver endpoint.
+GlassFlow can ingest OpenTelemetry signals directly without a Kafka cluster. Add an OTLP source to the `sources` array, no `schema_fields` or `connection_params` needed. GlassFlow manages the OTLP receiver endpoint.
 
 Join is not supported for OTLP source pipelines. Deduplication, filter, and stateless transforms are configured through the `transforms` array.
 
@@ -264,7 +270,7 @@ For complete examples with full column mappings for logs, traces, and metrics, s
 
 ## Pipeline Resources
 
-Use `resources` to set CPU, memory, replica counts, and storage limits per component. This is optional — omit it to use GlassFlow's defaults.
+Use `resources` to set CPU, memory, replica counts, and storage limits per component. This is optional, omit it to use GlassFlow's defaults.
 
 ```python
 pipeline_config = {
@@ -304,7 +310,7 @@ pipeline_config = {
 }
 ```
 
-The following resource fields are **immutable** — they must be set at creation time and cannot be changed by `pipeline.update()`:
+The following resource fields are **immutable**: they must be set at creation time and cannot be changed by `pipeline.update()`:
 
 | Field | Reason |
 |-------|--------|
@@ -316,7 +322,7 @@ The following resource fields are **immutable** — they must be set at creation
 
 Pipeline version `v2` has been **removed** in `glassflow` 4.0.0. Existing v2 configurations must be migrated to v3 before they can be deployed.
 
-The SDK ships a `migrate_pipeline_v2_to_v3()` helper that does the migration server-side and returns a validated v3 configuration. It calls the GlassFlow API's `POST /api/v1/pipeline/migrate-preview` endpoint — no pipeline is created and no state is touched, so it's safe to call repeatedly.
+The SDK ships a `migrate_pipeline_v2_to_v3()` helper that does the migration server-side and returns a validated v3 configuration. It calls the GlassFlow API's `POST /api/v1/pipeline/migrate-preview` endpoint, no pipeline is created and no state is touched, so it's safe to call repeatedly.
 
 ```python
 from glassflow.etl import Client

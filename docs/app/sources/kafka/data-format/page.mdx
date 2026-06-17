@@ -24,6 +24,10 @@ Avro and Protobuf are available in the Enterprise Edition only. JSON is availabl
 
 JSON is GlassFlow's default source format. All messages consumed from a JSON source must be valid JSON objects. For Kafka sources, messages in the topic are parsed as JSON. For OTLP sources, the OTLP protobuf payload is automatically flattened to JSON by GlassFlow.
 
+<Callout type="info">
+JSON sources declare their fields with the top-level `schema_fields` array, which is the standard form across GlassFlow (Open Source and Enterprise). Avro and Protobuf instead carry their schema inside the `schema` object (`schema.file`, and `schema.message_type` for Protobuf), because GlassFlow derives the field list from the encoded schema rather than from an explicit declaration.
+</Callout>
+
 Provide the schema in one of two modes:
 
 | Mode | When to use |

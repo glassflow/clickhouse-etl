@@ -100,7 +100,7 @@ Response:
 
 `list` is a non-destructive, paginated read. It leaves messages in place and assigns each a stable `message_id` (the value you pass to reprocess and discard), alongside `component`, `error`, `original_message`, and `received_at`.
 
-The response is a page object: `messages` plus `has_more`, and a `next_cursor` when more pages remain. Pass `next_cursor` back as the `cursor` parameter to fetch the next page. Filter to a single component with the `component` parameter, one of `ingestor`, `join`, `sink`, `dedup`, `oltp-receiver`.
+The response is a page object: `messages` plus `has_more`, and a `next_cursor` when more pages remain. Pass `next_cursor` back as the `cursor` parameter to fetch the next page. Filter to a single component with the `component` parameter, one of `ingestor`, `join`, `sink`, `dedup`, `otlp-receiver`.
 
 <Tabs items={['Python SDK', 'API']} storageKey="dlq_interface">
   <Tabs.Tab>
