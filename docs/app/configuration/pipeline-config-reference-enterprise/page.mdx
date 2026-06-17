@@ -581,6 +581,28 @@ To fetch schemas from a Confluent-compatible Schema Registry, add a `schema_regi
 | `api_key` | string | No | API key for authentication. |
 | `api_secret` | string | No | API secret for authentication. |
 
+A complete registry-backed Avro source, showing where `schema_registry`, the seed `schema`, and the top-level `schema_version` sit relative to each other:
+
+```json
+{
+  "type": "kafka",
+  "source_id": "events",
+  "connection_params": { "brokers": ["kafka:9092"], "protocol": "PLAINTEXT" },
+  "topic": "avro_events",
+  "format": "avro",
+  "schema_registry": {
+    "url": "https://<sr-host>",
+    "api_key": "<sr-api-key>",
+    "api_secret": "<sr-api-secret>"
+  },
+  "schema_version": "<registry-version-id>",
+  "schema": {
+    "file": "{\"type\":\"record\",\"name\":\"Event\",\"fields\":[{\"name\":\"id\",\"type\":\"string\"}]}"
+  },
+  "consumer_group_initial_offset": "earliest"
+}
+```
+
 ## Transforms Configuration
 
 The `transforms` array defines processing steps applied to source data before it reaches the sink. Each transform targets a specific source via `source_id`. You can apply multiple transforms to the same source -- they run in the order they appear.

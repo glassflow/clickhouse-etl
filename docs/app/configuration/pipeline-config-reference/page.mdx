@@ -2,13 +2,17 @@
 title: 'Pipeline Configuration Reference'
 description: 'Complete reference for the V3 GlassFlow pipeline configuration format'
 ---
-import { Tabs } from 'nextra/components'
+import { Callout, Tabs } from 'nextra/components'
 
 # Pipeline Configuration Reference
 
 The pipeline configuration defines how data flows from sources through optional transforms and joins into ClickHouse. Both JSON and YAML formats are supported. The current format is **V3**, a structural redesign that introduces per-source configuration, an explicit transforms array, and sink-level column mapping.
 
 While the web interface generates this configuration automatically, understanding its structure is essential for advanced use cases, CI/CD pipelines, and the [Python SDK](/usage-guide/python-sdk).
+
+<Callout type="info">
+Running the Enterprise Edition? Avro and Protobuf source formats, Confluent Schema Registry, and the unified `schema` object are documented in the [Pipeline Configuration Reference (Enterprise)](/configuration/pipeline-config-reference-enterprise).
+</Callout>
 
 <details>
 <summary>Full pipeline example (join pipeline with two Kafka sources)</summary>

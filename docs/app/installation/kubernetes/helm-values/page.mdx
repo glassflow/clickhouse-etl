@@ -381,7 +381,7 @@ When the receiver reaches `maxConcurrentRequests` it returns `429 Too Many Reque
 ## NATS Configuration
 
 NATS is the messaging system used for internal communication between GlassFlow components. 
-Nats is deployed as a dependency chart using the [official nats charts repo](https://nats-io.github.io/k8s/helm/charts/)
+NATS is deployed as a dependency chart using the [official nats charts repo](https://nats-io.github.io/k8s/helm/charts/)
 
 ```yaml
 nats:
@@ -437,7 +437,7 @@ nats:
 
 ### NATS Prometheus Exporter
 
-Nats Prometheus exporter collects all NATS related metrics. These metrics are provdied together with GlassFlow metrics on the `/metrics` endpoint. 
+NATS Prometheus exporter collects all NATS related metrics. These metrics are provided together with GlassFlow metrics on the `/metrics` endpoint. 
 Details on accessing GlassFlow metrics can be found [here](/installation/kubernetes/observability#accessing-metrics)
 
 ```yaml

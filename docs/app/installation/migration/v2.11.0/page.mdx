@@ -89,6 +89,12 @@ echo "SUCCESS: ${TARGET_FILE} applied and verified."
 
 The script will download the existing encryption secret from your GlassFlow namespace and create a new secret without annotations and labels and in the same namespace.
 
+Save the script above as `create-target-secret.sh` and make it executable:
+
+```bash
+chmod +x create-target-secret.sh
+```
+
 Run the script with your release name and namespace:
 ```bash
 RELEASE_NAME=<release_name> NAMESPACE=<namespace> ./create-target-secret.sh
