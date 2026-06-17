@@ -13,7 +13,7 @@ GlassFlow connects to a growing list of data sources and streams them into Click
 Sources marked 'Enterprise' are delivered as part of GlassFlow's Enterprise Edition. To get access to our managed connectors or request a new connector, get in touch with our team [here](https://www.glassflow.dev/integrations#contact)
 
 export const sources = [
-  // Open Source — alphabetical by Source
+  // Open Source, alphabetical by Source
   { name: 'Apache Kafka®',           slug: 'kafka',             category: 'Streaming',                         version: 'Open Source' },
   { name: 'AWS CloudWatch',          slug: 'cloudwatch',        category: 'Telemetry',                         version: 'Open Source' },
   { name: 'AWS MSK',                 slug: 'aws-msk',           category: 'Streaming (Kafka-compatible)',      version: 'Open Source' },
@@ -25,7 +25,7 @@ export const sources = [
   { name: 'OpenTelemetry (OTLP)',    slug: 'otlp',              category: 'Telemetry',                         version: 'Open Source' },
   { name: 'Redpanda',                slug: 'redpanda',          category: 'Streaming (Kafka-compatible)',      version: 'Open Source' },
   { name: 'WarpStream',              slug: 'warpstream',        category: 'Streaming (Kafka-compatible)',      version: 'Open Source' },
-  // Enterprise — alphabetical by Source
+  // Enterprise, alphabetical by Source
   { name: 'Airbyte',                 slug: 'airbyte',           category: 'Data integration',                  version: 'Enterprise' },
   { name: 'Amazon S3',               slug: 's3',                category: 'Object storage',                    version: 'Enterprise' },
   { name: 'Apache Cassandra®',       slug: 'cassandra',         category: 'Database',                          version: 'Enterprise' },
@@ -51,22 +51,22 @@ export const sources = [
 export const sourceColumns = [
   { key: 'name',     label: 'Source',   type: 'link', hrefField: 'slug', hrefPrefix: '/sources/' },
   { key: 'category', label: 'Category' },
-  { key: 'version',  label: 'Version' },
+  { key: 'version',  label: 'Edition', type: 'tier' },
 ]
 
 <SortableTable columns={sourceColumns} rows={sources} />
 
 <Callout type="info">
-**Missing an integration?** Let us know which source you need and we'll deliver it within a few weeks. [Contact us](https://www.glassflow.dev/integrations#contact) with your use case, expected volumes, and timeline—or [join our GlassFlow Slack community](https://glassflowhub.slack.com/join/shared_invite/zt-349m7lenp-IFeKSGfQwpJfIiQ7oyFFKg) to chat with us directly!
+**Missing an integration?** Let us know which source you need and we'll deliver it within a few weeks. [Contact us](https://www.glassflow.dev/integrations#contact) with your use case, expected volumes, and timeline, or [join our GlassFlow Slack community](https://glassflowhub.slack.com/join/shared_invite/zt-349m7lenp-IFeKSGfQwpJfIiQ7oyFFKg) to chat with us directly!
 </Callout>
 
 ## How sources work
 
 All source types feed into the same pipeline runtime. Once data is ingested, every source supports:
 
-- **Deduplication** — drop duplicate records based on a key and time window
-- **Filtering** — keep only records matching an expression
-- **Stateless transformations** — map fields, derive values, reshape records
-- **Joins** — combine related streams (Kafka sources only)
+- **Deduplication**: drop duplicate records based on a key and time window
+- **Filtering**: keep only records matching an expression
+- **Stateless transformations**: map fields, derive values, reshape records
+- **Joins**: combine related streams (Kafka sources only)
 
-Output is always written to ClickHouse via the same [sink configuration](/configuration/sink).
+Output is always written to ClickHouse via the same [sink configuration](/configuration/clickhouse-sink).

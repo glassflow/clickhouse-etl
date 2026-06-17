@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import styles from './SortableTable.module.css'
+import tierStyles from './Tier.module.css'
 
 export type SortDirection = 'asc' | 'desc'
 
@@ -22,7 +23,12 @@ type LinkColumn = BaseColumn & {
   hrefPrefix?: string
 }
 
-export type SortableTableColumn = TextColumn | LinkColumn
+// Renders the cell value as an edition pill, reusing the Tier badge tokens:
+// "Enterprise" gets the brand-orange badge, anything else (e.g. "Open Source")
+// a muted neutral pill, so the whole table reads as one design system.
+type TierColumn = BaseColumn & { type: 'tier' }
+
+export type SortableTableColumn = TextColumn | LinkColumn | TierColumn
 
 interface SortableTableProps {
   columns: SortableTableColumn[]
@@ -147,6 +153,11 @@ export function SortableTable({ columns, rows, initialSort, ariaLabel }: Sortabl
           {text}
         </a>
       )
+    }
+    if (col.type === 'tier') {
+      if (!text) return null
+      const variant = text === 'Enterprise' ? tierStyles.enterprise : tierStyles.both
+      return <span className={`${tierStyles.tier} ${variant}`}>{text}</span>
     }
     return text
   }

@@ -76,7 +76,7 @@
 .headerCell {
   text-align: left;
   font-weight: 600;
-  font-size: 0.8125rem;             /* 13px — caption-y for hierarchy */
+  font-size: 0.9375rem;             /* 15px — match the row text */
   letter-spacing: 0.01em;
   color: var(--st-fg-muted);
   padding: 0.625rem 0.875rem;
