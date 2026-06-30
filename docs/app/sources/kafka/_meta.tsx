@@ -1,5 +1,6 @@
 export default {
-    'examples': '',
     'connections': '',
-    'topic-configuration': ''
+    'topic-configuration': '',
+    'data-format': '',
+    'examples': ''
 }

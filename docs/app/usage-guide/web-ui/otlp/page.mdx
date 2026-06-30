@@ -6,7 +6,7 @@ import { Callout, Steps } from 'nextra/components'
 
 # Creating an OTLP Pipeline
 
-This guide walks through the OTLP pipeline wizard step by step — picking the OpenTelemetry signal type, configuring optional dedup/filter/transform, mapping to ClickHouse, and deploying.
+This guide walks through the OTLP pipeline wizard step by step, picking the OpenTelemetry signal type, configuring optional dedup/filter/transform, mapping to ClickHouse, and deploying.
 
 Unlike the Kafka wizard, the OTLP source has no connection step. GlassFlow runs its own OTLP receiver inside the cluster. Once the pipeline is deployed, you point your OpenTelemetry Collector or SDK at the receiver and tag every request with the pipeline's ID. See [Sending data](/sources/otlp/sending-data) for collector configs and SDK examples.
 
@@ -80,11 +80,11 @@ Configure the connection to your destination ClickHouse cluster. The form is ide
 | Field | Description |
 |-------|-------------|
 | **Host** | Hostname or IP, without `http://` or `https://` prefix |
-| **HTTP(S) Port** | HTTP port — `8123` for plain, `8443` for TLS |
+| **HTTP(S) Port** | HTTP port, `8123` for plain, `8443` for TLS |
 | **Username / Password** | ClickHouse user credentials |
-| **Native Port** | TCP/native port — `9000` for plain, `9440` for TLS |
+| **Native Port** | TCP/native port, `9000` for plain, `9440` for TLS |
 | **Use SSL** | Enable for managed ClickHouse offerings (ClickHouse Cloud, Aiven, Altinity.Cloud) that require TLS |
-| **Skip Certificate Verification** | Skip TLS certificate validation — useful for self-signed certs during development |
+| **Skip Certificate Verification** | Skip TLS certificate validation, useful for self-signed certs during development |
 
 Click **Continue**. The wizard validates the connection.
 
@@ -98,7 +98,7 @@ For Logs, the wizard pre-fills the mapping with all 14 OTLP log fields → match
 
 - Adjust the destination column name or type (e.g. cast `timestamp` from `String` to `DateTime64(9)`)
 - Remove fields you don't want in the table (e.g. drop `scope_attributes` if you only care about `attributes`)
-- Pick a different **Order by** field — `timestamp` is a sensible default for log tables
+- Pick a different **Order by** field, `timestamp` is a sensible default for log tables
 
 <Callout type="info">
 Many users target a [ClickStack](https://clickhouse.com/use-cases/observability)-compatible schema (specific column names and types that the ClickStack observability UI expects). See [OTLP examples](/sources/otlp/examples) for ready-to-use table definitions.
@@ -134,16 +134,16 @@ See [Sending data](/sources/otlp/sending-data) for ready-to-use OTel Collector c
 
 ## Pipeline Stop / Terminate Behavior
 
-Because the OTLP receiver is a shared component, it continues accepting incoming data for stopped or terminated pipelines. The events are buffered in NATS JetStream until the pipeline is resumed. See [OTLP source — Pipeline Stop and Terminate behavior](/sources/otlp#pipeline-stop-and-terminate-behaviour) for details and the implications for `max_bytes` / `max_age` retention.
+Because the OTLP receiver is a shared component, it continues accepting incoming data for stopped or terminated pipelines. The events are buffered in NATS JetStream until the pipeline is resumed. See [OTLP source, Pipeline Stop and Terminate behavior](/sources/otlp#pipeline-stop-and-terminate-behaviour) for details and the implications for `max_bytes` / `max_age` retention.
 
 ## Backpressure
 
-The OTLP receiver signals backpressure to upstream OTel Collectors and SDKs when the pipeline can't keep up — returning `429 Too Many Requests` (HTTP) or `ResourceExhausted` (gRPC). Standard OTel exporters retry these responses automatically. See [Backpressure](/sources/otlp/back-pressure) for tuning the two backpressure gates.
+The OTLP receiver signals backpressure to upstream OTel Collectors and SDKs when the pipeline can't keep up, returning `429 Too Many Requests` (HTTP) or `ResourceExhausted` (gRPC). Standard OTel exporters retry these responses automatically. See [Backpressure](/sources/otlp/back-pressure) for tuning the two backpressure gates.
 
 ## Next Steps
 
-- [Kafka pipeline guide](/usage-guide/web-ui/kafka) — same wizard pattern for Kafka sources
-- [OTLP source documentation](/sources/otlp) — protocol, ports, predefined schemas
-- [Sending data](/sources/otlp/sending-data) — OTel Collector configs and SDK examples
-- [OTLP examples](/sources/otlp/examples) — ClickStack-compatible table definitions and end-to-end demos
-- [Pipeline Configuration Reference](/configuration/pipeline-config-reference) — JSON schema each wizard step produces
+- [Kafka pipeline guide](/usage-guide/web-ui/kafka), same wizard pattern for Kafka sources
+- [OTLP source documentation](/sources/otlp), protocol, ports, predefined schemas
+- [Sending data](/sources/otlp/sending-data), OTel Collector configs and SDK examples
+- [OTLP examples](/sources/otlp/examples), ClickStack-compatible table definitions and end-to-end demos
+- [Pipeline Configuration Reference](/configuration/pipeline-config-reference), JSON schema each wizard step produces

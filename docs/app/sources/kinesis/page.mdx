@@ -1,16 +1,19 @@
 ---
 title: 'AWS Kinesis'
 description: 'Stream events from AWS Kinesis Data Streams into ClickHouse with GlassFlow'
+tier: 'enterprise'
 ---
 import { Callout } from 'nextra/components'
 
 # AWS Kinesis
 
+<Tier badge="enterprise" />
+
 Kinesis is a real-time data streaming service that collects, processes, and analyzes large volumes of data. It is commonly used for log ingestion, metrics, and event pipelines at scale.
 
 ## Using AWS Kinesis with GlassFlow
 
-GlassFlow can ingest data from AWS Kinesis Data Streams into ClickHouse with the same pipeline capabilities available to all GlassFlow sources — deduplication, joins, filtering, and stateless transformations.
+GlassFlow can ingest data from AWS Kinesis Data Streams into ClickHouse with the same pipeline capabilities available to all GlassFlow sources, including deduplication, joins, filtering, and stateless transformations.
 
 <Callout type="info">
 **Available on request.** AWS Kinesis connectors are natively supported in GlassFlow Enterprise Edition. To get started, [join our GlassFlow Slack community](https://glassflowhub.slack.com/join/shared_invite/zt-349m7lenp-IFeKSGfQwpJfIiQ7oyFFKg) to chat directly with our team, or [reach out](https://www.glassflow.dev/integrations#contact) to us with your use case, expected volumes, and timeline.

@@ -1,18 +1,19 @@
 ---
-title: 'Pipeline Configuration Reference'
-description: 'Complete reference for the V3 GlassFlow pipeline configuration format'
+title: 'Pipeline Configuration Reference (Enterprise)'
+description: 'Complete reference for the V3 GlassFlow pipeline configuration format, including Enterprise-only fields such as Avro and Protobuf formats and Confluent Schema Registry.'
+tier: 'enterprise'
 ---
-import { Callout, Tabs } from 'nextra/components'
+import { Tabs } from 'nextra/components'
 
-# Pipeline Configuration Reference
+# Pipeline Configuration Reference (Enterprise)
+
+<Tier badge="enterprise" />
 
 The pipeline configuration defines how data flows from sources through optional transforms and joins into ClickHouse. Both JSON and YAML formats are supported. The current format is **V3**, a structural redesign that introduces per-source configuration, an explicit transforms array, and sink-level column mapping.
 
-While the web interface generates this configuration automatically, understanding its structure is essential for advanced use cases, CI/CD pipelines, and the [Python SDK](/usage-guide/python-sdk).
+This page is the complete configuration reference for the Enterprise Edition. Fields available only in Enterprise are marked with the <Tier badge="enterprise" inline /> badge; everything else is shared with the Open Source Edition. If you run Open Source, use the [Pipeline Configuration Reference](/configuration/pipeline-config-reference) instead.
 
-<Callout type="info">
-Running the Enterprise Edition? Avro and Protobuf source formats, Confluent Schema Registry, and the unified `schema` object are documented in the [Pipeline Configuration Reference (Enterprise)](/configuration/pipeline-config-reference-enterprise).
-</Callout>
+While the web interface generates this configuration automatically, understanding its structure is essential for advanced use cases, CI/CD pipelines, and the [Python SDK](/usage-guide/python-sdk).
 
 <details>
 <summary>Full pipeline example (join pipeline with two Kafka sources)</summary>
@@ -35,15 +36,16 @@ Running the Enterprise Edition? Avro and Protobuf source formats, Confluent Sche
           password: "<password>"
         topic: orders
         consumer_group_initial_offset: earliest
-        schema_fields:
-          - name: order_id
-            type: string
-          - name: customer_id
-            type: string
-          - name: amount
-            type: float
-          - name: timestamp
-            type: datetime
+        schema:
+          fields:
+            - name: order_id
+              type: string
+            - name: customer_id
+              type: string
+            - name: amount
+              type: float
+            - name: timestamp
+              type: datetime
       - type: kafka
         source_id: users
         connection_params:
@@ -55,11 +57,12 @@ Running the Enterprise Edition? Avro and Protobuf source formats, Confluent Sche
           password: "<password>"
         topic: users
         consumer_group_initial_offset: earliest
-        schema_fields:
-          - name: user_id
-            type: string
-          - name: email
-            type: string
+        schema:
+          fields:
+            - name: user_id
+              type: string
+            - name: email
+              type: string
     transforms:
       - type: dedup
         source_id: orders
@@ -200,12 +203,14 @@ Running the Enterprise Edition? Avro and Protobuf source formats, Confluent Sche
           },
           "topic": "orders",
           "consumer_group_initial_offset": "earliest",
-          "schema_fields": [
-            {"name": "order_id", "type": "string"},
-            {"name": "customer_id", "type": "string"},
-            {"name": "amount", "type": "float"},
-            {"name": "timestamp", "type": "datetime"}
-          ]
+          "schema": {
+            "fields": [
+              {"name": "order_id", "type": "string"},
+              {"name": "customer_id", "type": "string"},
+              {"name": "amount", "type": "float"},
+              {"name": "timestamp", "type": "datetime"}
+            ]
+          }
         },
         {
           "type": "kafka",
@@ -219,10 +224,12 @@ Running the Enterprise Edition? Avro and Protobuf source formats, Confluent Sche
           },
           "topic": "users",
           "consumer_group_initial_offset": "earliest",
-          "schema_fields": [
-            {"name": "user_id", "type": "string"},
-            {"name": "email", "type": "string"}
-          ]
+          "schema": {
+            "fields": [
+              {"name": "user_id", "type": "string"},
+              {"name": "email", "type": "string"}
+            ]
+          }
         }
       ],
       "transforms": [
@@ -408,13 +415,14 @@ The `sources` array defines one or more data sources. Each entry has its own `so
       mechanism: NO_AUTH
     topic: orders
     consumer_group_initial_offset: earliest
-    schema_fields:
-      - name: order_id
-        type: string
-      - name: amount
-        type: float
-      - name: timestamp
-        type: datetime
+    schema:
+      fields:
+        - name: order_id
+          type: string
+        - name: amount
+          type: float
+        - name: timestamp
+          type: datetime
     ```
   </Tabs.Tab>
   <Tabs.Tab>
@@ -429,11 +437,13 @@ The `sources` array defines one or more data sources. Each entry has its own `so
       },
       "topic": "orders",
       "consumer_group_initial_offset": "earliest",
-      "schema_fields": [
-        {"name": "order_id", "type": "string"},
-        {"name": "amount", "type": "float"},
-        {"name": "timestamp", "type": "datetime"}
-      ]
+      "schema": {
+        "fields": [
+          {"name": "order_id", "type": "string"},
+          {"name": "amount", "type": "float"},
+          {"name": "timestamp", "type": "datetime"}
+        ]
+      }
     }
     ```
   </Tabs.Tab>
@@ -467,7 +477,10 @@ The `sources` array defines one or more data sources. Each entry has its own `so
 | [`connection_params`](#kafka-connection-parameters) | object | Yes (Kafka) | Kafka connection parameters. See [Connections](/sources/kafka/connections). |
 | `topic` | string | Yes (Kafka) | Kafka topic name. |
 | `consumer_group_initial_offset` | string | No | Initial offset for the consumer group: `"earliest"` or `"latest"`. Default: `"latest"`. Kafka only. |
-| [`schema_fields`](#schema-fields) | array | Conditional | Field definitions for this source. Required for Kafka sources. Not needed for OTLP sources (schema is predefined). |
+| `format` | string | No | Wire format of Kafka messages: `"json"` (default), `"avro"`, or `"protobuf"`. Avro and Protobuf are Enterprise only <Tier badge="enterprise" inline />. See [Data Formats](/sources/kafka/data-format). |
+| [`schema`](#source-schema) | object | Yes (Kafka) | Source schema. For JSON, `fields` declares the fields to ingest. For Avro and Protobuf <Tier badge="enterprise" inline />, `file` (and `message_type` for Protobuf). Not needed for OTLP sources (schema is predefined). |
+| [`schema_registry`](#source-schema) | object | No | Confluent Schema Registry connection <Tier badge="enterprise" inline />. |
+| `schema_version` | string | Conditional | Identifier of the registry schema version used as the base version. Required when `schema_registry` is provided <Tier badge="enterprise" inline />. |
 
 ### Kafka Connection Parameters
 
@@ -487,14 +500,108 @@ The `sources` array defines one or more data sources. Each entry has its own `so
 
 For detailed connection examples and supported protocol/mechanism combinations, see [Supported Kafka Connections](/sources/kafka/connections).
 
-### Schema Fields
+### Source Schema
 
-Each entry in the `schema_fields` array defines a field from the source data.
+Every Kafka source declares its schema in the `schema` object. For JSON, list the fields to ingest under `schema.fields`. For Avro and Protobuf <Tier badge="enterprise" inline />, provide the schema text in `schema.file` (and the root message in `schema.message_type` for Protobuf) and GlassFlow derives the field list automatically. For the full format guide (field type mappings, nested records, schema evolution, and troubleshooting), see [Data Formats](/sources/kafka/data-format).
+
+**JSON source:**
+
+```json
+{
+  "type": "kafka",
+  "source_id": "events",
+  "connection_params": { "brokers": ["kafka:9092"], "protocol": "PLAINTEXT" },
+  "topic": "json_events",
+  "schema": {
+    "fields": [
+      { "name": "event_id", "type": "string" },
+      { "name": "amount", "type": "float64" }
+    ]
+  },
+  "consumer_group_initial_offset": "earliest"
+}
+```
+
+**Avro source:** <Tier badge="enterprise" inline />
+
+```json
+{
+  "type": "kafka",
+  "source_id": "events",
+  "connection_params": { "brokers": ["kafka:9092"], "protocol": "PLAINTEXT" },
+  "topic": "avro_events",
+  "format": "avro",
+  "schema": {
+    "file": "{\"type\":\"record\",\"name\":\"Event\",\"fields\":[{\"name\":\"id\",\"type\":\"string\"}]}"
+  },
+  "consumer_group_initial_offset": "earliest"
+}
+```
+
+**Protobuf source:** <Tier badge="enterprise" inline />
+
+```json
+{
+  "type": "kafka",
+  "source_id": "events",
+  "connection_params": { "brokers": ["kafka:9092"], "protocol": "PLAINTEXT" },
+  "topic": "proto_events",
+  "format": "protobuf",
+  "schema": {
+    "file": "syntax = \"proto3\";\nmessage Event { string id = 1; }",
+    "message_type": "Event"
+  },
+  "consumer_group_initial_offset": "earliest"
+}
+```
+
+**`schema` object:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `file` | string | Conditional | Inline schema text: the `.avsc` document (Avro) or `.proto` source (Protobuf), serialized as a string. Required for `avro` and `protobuf`. |
+| `message_type` | string | Conditional | Protobuf root message to decode. Required for `protobuf`. |
+| `fields` | array | Conditional | Field declarations for the source, each `{ "name": ..., "type": ... }` (see below). Required for JSON; not used for Avro or Protobuf. |
+| `parsed_fields` | array | No | Read-only. The field list GlassFlow parsed from `file`, returned on `GET /pipeline/{id}`. Ignored on create and edit. |
+
+Each entry in `fields` defines a source field:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `name` | string | Yes | Source field name. Dot notation is supported for nested fields (e.g., `data.name`). |
 | `type` | string | Yes | Field data type. See [Data Formats](/sources/kafka/data-format). |
+
+**`schema_registry` object:**
+
+To fetch schemas from a Confluent-compatible Schema Registry, add a `schema_registry` object. You must still provide `schema` as the seed (base) version and set the top-level `schema_version` to the registry version that seed corresponds to. The same registry connection works for JSON, Avro, and Protobuf sources.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `url` | string | Yes | Base URL of the Confluent-compatible Schema Registry. |
+| `api_key` | string | No | API key for authentication. |
+| `api_secret` | string | No | API secret for authentication. |
+
+A complete registry-backed Avro source, showing where `schema_registry`, the seed `schema`, and the top-level `schema_version` sit relative to each other:
+
+```json
+{
+  "type": "kafka",
+  "source_id": "events",
+  "connection_params": { "brokers": ["kafka:9092"], "protocol": "PLAINTEXT" },
+  "topic": "avro_events",
+  "format": "avro",
+  "schema_registry": {
+    "url": "https://<sr-host>",
+    "api_key": "<sr-api-key>",
+    "api_secret": "<sr-api-secret>"
+  },
+  "schema_version": "<registry-version-id>",
+  "schema": {
+    "file": "{\"type\":\"record\",\"name\":\"Event\",\"fields\":[{\"name\":\"id\",\"type\":\"string\"}]}"
+  },
+  "consumer_group_initial_offset": "earliest"
+}
+```
 
 ## Transforms Configuration
 
@@ -944,180 +1051,3 @@ Time windows use a string format combining a number and a unit suffix:
 - `"12h"` -- 12 hours
 - `"24h"` -- 24 hours
 
----
-
-## V2 Reference (Deprecated)
-
-<details>
-<summary>V2 is deprecated from version 3.0.0. Click to expand the V2 reference.</summary>
-
-Pipeline version `v2` is deprecated and will be removed in a future release. See the [Python SDK migration guide](/usage-guide/python-sdk#migrating-from-v2-to-v3) for instructions on updating your configurations.
-
-### V2 Example
-
-```json
-{
-  "version": "v2",
-  "pipeline_id": "kafka-to-clickhouse-pipeline",
-  "source": {
-    "type": "kafka",
-    "connection_params": {
-      "brokers": [
-        "kafka-broker-0:9092",
-        "kafka-broker-1:9092"
-      ],
-      "protocol": "SASL_SSL",
-      "mechanism": "SCRAM-SHA-256",
-      "username": "<user>",
-      "password": "<password>",
-      "root_ca": "<base64 encoded ca>"
-    },
-    "topics": [
-      {
-        "consumer_group_initial_offset": "earliest",
-        "name": "user_logins",
-        "deduplication": {
-          "enabled": true,
-          "id_field": "session_id",
-          "id_field_type": "string",
-          "time_window": "12h"
-        }
-      },
-      {
-        "consumer_group_initial_offset": "earliest",
-        "name": "orders",
-        "deduplication": {
-          "enabled": true,
-          "id_field": "order_id",
-          "id_field_type": "string",
-          "time_window": "12h"
-        }
-      }
-    ]
-  },
-  "join": {
-    "enabled": false,
-    "type": "temporal",
-    "sources": [
-      {
-        "source_id": "user_logins",
-        "join_key": "user_id",
-        "time_window": "1h",
-        "orientation": "left"
-      },
-      {
-        "source_id": "orders",
-        "join_key": "user_id",
-        "time_window": "1h",
-        "orientation": "right"
-      }
-    ]
-  },
-  "sink": {
-    "type": "clickhouse",
-    "host": "<host>",
-    "port": "12753",
-    "database": "default",
-    "username": "<user>",
-    "password": "<password>",
-    "secure": true,
-    "max_batch_size": 1000,
-    "max_delay_time": "10m",
-    "table": "user_orders"
-  },
-  "schema": {
-    "fields": [
-      {
-        "source_id": "user_logins",
-        "name": "session_id",
-        "type": "string",
-        "column_name": "session_id",
-        "column_type": "UUID"
-      },
-      {
-        "source_id": "user_logins",
-        "name": "user_id",
-        "type": "string",
-        "column_name": "user_id",
-        "column_type": "UUID"
-      },
-      {
-        "source_id": "orders",
-        "name": "user_id",
-        "type": "string"
-      },
-      {
-        "source_id": "orders",
-        "name": "order_id",
-        "type": "string",
-        "column_name": "order_id",
-        "column_type": "UUID"
-      },
-      {
-        "source_id": "user_logins",
-        "name": "timestamp",
-        "type": "datetime",
-        "column_name": "login_at",
-        "column_type": "DateTime"
-      },
-      {
-        "source_id": "orders",
-        "name": "timestamp",
-        "type": "datetime",
-        "column_name": "order_placed_at",
-        "column_type": "DateTime"
-      }
-    ]
-  },
-  "pipeline_resources": {
-    "ingestor": {
-      "left": {
-        "replicas": 5,
-        "requests": {
-          "cpu": "1000m",
-          "memory": "1Gi"
-        },
-        "limits": {
-          "cpu": "1500m",
-          "memory": "1.5Gi"
-        }
-      },
-      "right": {
-        "replicas": 2,
-        "requests": {
-          "cpu": "1000m",
-          "memory": "1Gi"
-        },
-        "limits": {
-          "cpu": "1500m",
-          "memory": "1.5Gi"
-        }
-      }
-    }
-  }
-}
-```
-
-### V2 to V3 Migration
-
-| V2 | V3 | Notes |
-|----|-----|-------|
-| `source` (singular object) | `sources[]` (array) | Each source has its own `source_id`. |
-| `source.topics[]` with `name` | `sources[].topic` (singular) | One topic per source entry. |
-| Dedup nested in topic | `transforms[]` with `type: "dedup"` | Separate transform entry per source. |
-| Top-level `filter` | `transforms[]` with `type: "filter"` | Filter is now a transform step. |
-| Top-level `stateless_transformation` | `transforms[]` with `type: "stateless"` | Stateless transforms are now a transform step. |
-| `join.sources[]` with `orientation` | `join.left_source` / `join.right_source` | Explicit left and right sides instead of an array with orientation. |
-| `join.sources[].join_key` | `join.left_source.key` / `join.right_source.key` | Renamed from `join_key` to `key`. |
-| `schema.fields[]` with `source_id` | `sink.mapping[]` | Column mapping moves to the sink. |
-| `schema.fields[].column_name` / `column_type` | `sink.mapping[].column_name` / `column_type` | Same fields, new location. |
-| Source schema inferred | `sources[].schema_fields[]` | Explicit per-source schema definition. |
-| `pipeline_resources.ingestor.left` / `right` / `base` | `resources.sources[]` per `source_id` | Resources are keyed by `source_id` instead of orientation. |
-| `pipeline_resources.transform` | `resources.transform[]` per `source_id` | Now an array, keyed by `source_id`. |
-| `pipeline_resources.sink` | `resources.sink` | Same shape. |
-| `pipeline_resources.nats` | `resources.nats` | Same shape. |
-| Sink password base64-encoded | Sink password plain text | Password encoding changed. |
-
-See the [Python SDK migration guide](/usage-guide/python-sdk#migrating-from-v2-to-v3) for step-by-step upgrade instructions.
-
-</details>

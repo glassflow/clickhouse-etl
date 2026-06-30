@@ -6,7 +6,7 @@ import { Callout, Steps } from 'nextra/components'
 
 # Creating a Kafka Pipeline
 
-This guide walks through the complete Kafka pipeline wizard step by step — connecting to a Kafka cluster, picking a topic, defining a schema, configuring optional dedup/filter/transform, mapping to ClickHouse, and deploying.
+This guide walks through the complete Kafka pipeline wizard step by step, connecting to a Kafka cluster, picking a topic, defining a schema, configuring optional dedup/filter/transform, mapping to ClickHouse, and deploying.
 
 ## Choose pipeline type
 
@@ -14,8 +14,8 @@ From the **Create Pipeline** page, click **Kafka** as your data source. The page
 
 ![Choose Kafka source](/assets/ui_home_kafka_expanded.png)
 
-- **Single-Topic Pipeline** — consume from one Kafka topic, optionally deduplicate, filter, and transform before writing to ClickHouse. This guide covers this shape.
-- **Multi-Topic Pipeline** — consume from two topics and join them temporally before writing to ClickHouse.
+- **Single-Topic Pipeline**: consume from one Kafka topic, optionally deduplicate, filter, and transform before writing to ClickHouse. This guide covers this shape.
+- **Multi-Topic Pipeline**: consume from two topics and join them temporally before writing to ClickHouse.
 
 Click **Single-Topic Pipeline**, give the pipeline a name, and click **Create Pipeline** to enter the wizard.
 
@@ -34,7 +34,7 @@ Configure the connection to your Kafka cluster:
 | **Bootstrap Servers** | Comma-separated broker addresses (e.g. `kafka-1:9092,kafka-2:9092`) |
 | **Username / Password** | Required when an authentication method is selected |
 
-For unsecured local development, switch **Authentication Method** to **No authentication** — the username/password fields disappear:
+For unsecured local development, switch **Authentication Method** to **No authentication**: the username/password fields disappear:
 
 ![No-auth Kafka connection](/assets/ui_kafka_connection_plaintext_no_auth.png)
 
@@ -55,7 +55,7 @@ Pick the Kafka topic this pipeline will consume from. The wizard loads a sample 
 | **Sample event** | An auto-loaded sample message used to infer the schema. You can edit this manually if the topic is empty or has heterogeneous events. |
 
 <Callout type="info">
-If the topic is empty, the wizard shows "Unable to fetch event from topic — enter event schema manually to proceed". Paste a representative JSON event into the Sample event editor to continue.
+If the topic is empty, the wizard shows "Unable to fetch event from topic, enter event schema manually to proceed". Paste a representative JSON event into the Sample event editor to continue.
 </Callout>
 
 ### Verify Field Types
@@ -103,17 +103,17 @@ Click **Save Filter** to apply the rule, or **Skip Filter** to leave all records
 
 ### Configure Transform (optional)
 
-Transformation lets you reshape each record before it reaches ClickHouse — rename fields, derive new ones, drop fields you don't need.
+Transformation lets you reshape each record before it reaches ClickHouse, rename fields, derive new ones, drop fields you don't need.
 
 ![Define Transformations](/assets/ui_transform_config.png)
 
 By default the wizard adds every schema field as a **pass-through** (no rename, no change). From here you can:
 
-- **Rename** a field — type a new name into the field-name input
-- **Remove** a field — click the trash icon
-- **Add a new computed field** — click **+ Add Field** at the bottom and define an expression
-- **Restore Source Fields** — undo all changes back to the pass-through baseline
-- **Clear All** — start from an empty mapping
+- **Rename** a field, type a new name into the field-name input
+- **Remove** a field, click the trash icon
+- **Add a new computed field**: click **+ Add Field** at the bottom and define an expression
+- **Restore Source Fields**: undo all changes back to the pass-through baseline
+- **Clear All**: start from an empty mapping
 
 Click **Skip Transformation** to pass all fields through unchanged, or **Continue** when your transformations are ready.
 
@@ -126,11 +126,11 @@ Configure the connection to your destination ClickHouse cluster:
 | Field | Description |
 |-------|-------------|
 | **Host** | Hostname or IP, without `http://` or `https://` prefix |
-| **HTTP(S) Port** | HTTP port — `8123` for plain, `8443` for TLS |
+| **HTTP(S) Port** | HTTP port, `8123` for plain, `8443` for TLS |
 | **Username / Password** | ClickHouse user credentials |
-| **Native Port** | TCP/native port — `9000` for plain, `9440` for TLS |
+| **Native Port** | TCP/native port, `9000` for plain, `9440` for TLS |
 | **Use SSL** | Enable for managed ClickHouse offerings (ClickHouse Cloud, Aiven, Altinity.Cloud) that require TLS |
-| **Skip Certificate Verification** | Skip TLS certificate validation — useful for self-signed certs during development |
+| **Skip Certificate Verification** | Skip TLS certificate validation, useful for self-signed certs during development |
 
 Click **Continue**. The wizard validates the connection by issuing a test query.
 
@@ -159,7 +159,7 @@ Set the replica counts and CPU/memory limits for each pipeline component. The de
 
 ![Pipeline Resources](/assets/ui_pipeline_resources.png)
 
-For each component — **Ingestor**, **Sink**, **Transform/Dedup** — you can configure:
+For each component, **Ingestor**, **Sink**, **Transform/Dedup**: you can configure:
 
 | Field | Description |
 |-------|-------------|
@@ -188,10 +188,10 @@ The wizard validates the full configuration, generates the pipeline JSON, sends 
 
 The pipeline detail page shows:
 
-- **Status** — `Active`, `Stopped`, `Failed`, etc. (see [Pipeline States](/usage-guide/web-ui#pipeline-states))
-- **Dead Letter Queue** — count of records the sink couldn't write
-- **ClickHouse Table Metrics** — total rows written and current insert rate
-- **Visual flow** — source-to-sink topology with the current configuration inline
+- **Status**: `Active`, `Stopped`, `Failed`, etc. (see [Pipeline States](/usage-guide/web-ui#pipeline-states))
+- **Dead Letter Queue**: count of records the sink couldn't write
+- **ClickHouse Table Metrics**: total rows written and current insert rate
+- **Visual flow**: source-to-sink topology with the current configuration inline
 - **Stop / Edit / Delete** controls in the top-right menu
 
 </Steps>
@@ -201,15 +201,15 @@ The pipeline detail page shows:
 Multi-topic pipelines combine data from two Kafka topics with a temporal join. Instead of **Single-Topic Pipeline**, click **Multi-Topic Pipeline** on the source-selection page. The wizard then asks for:
 
 1. **Left Kafka connection + topic + schema**
-2. **Right Kafka connection + topic + schema** — these can be the same cluster as the left, or a different cluster entirely
-3. **Join configuration** — choose the **Join Type** (`temporal`), the **Join Key** field that appears in both topics, and the **Time Window** within which records from the two topics are considered a match
-4. The rest of the wizard — Filter, Transform, ClickHouse Connection, Mapping, Pipeline Resources — works identically to the single-topic flow
+2. **Right Kafka connection + topic + schema**: these can be the same cluster as the left, or a different cluster entirely
+3. **Join configuration**: choose the **Join Type** (`temporal`), the **Join Key** field that appears in both topics, and the **Time Window** within which records from the two topics are considered a match
+4. The rest of the wizard, Filter, Transform, ClickHouse Connection, Mapping, Pipeline Resources, works identically to the single-topic flow
 
 The joined record carries fields from both topics; the Mapping step lets you map fields from either side to ClickHouse columns.
 
 ## Next Steps
 
-- [OTLP pipeline guide](/usage-guide/web-ui/otlp) — same wizard pattern for OpenTelemetry sources
-- [Pipeline Configuration Reference](/configuration/pipeline-config-reference) — JSON schema each wizard step produces
-- [Kafka Connections reference](/sources/kafka/connections) — detailed protocol and auth examples
-- [Scaling Guide](/installation/kubernetes/scaling) — replica and resource recommendations
+- [OTLP pipeline guide](/usage-guide/web-ui/otlp), same wizard pattern for OpenTelemetry sources
+- [Pipeline Configuration Reference](/configuration/pipeline-config-reference), JSON schema each wizard step produces
+- [Kafka Connections reference](/sources/kafka/connections), detailed protocol and auth examples
+- [Scaling Guide](/installation/kubernetes/scaling), replica and resource recommendations

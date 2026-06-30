@@ -44,9 +44,8 @@ GlassFlow is an open-source stream processing engine designed for data ingestion
 
 To get started with GlassFlow, you can:
 
-1. **Try the Live Demo**: Experience GlassFlow running on a live cluster at [demo.glassflow.dev](https://demo.glassflow.dev)
-2. **Install on Kubernetes**: Follow our [Kubernetes Installation Guide](https://docs.glassflow.dev/installation/kubernetes) for any production deployment
-3. **Learn More**: Explore our [Usage Guide](https://docs.glassflow.dev/usage-guide) to start creating data pipelines
+1. **Install on Kubernetes**: Follow our [Kubernetes Installation Guide](https://docs.glassflow.dev/installation/kubernetes) for any production deployment
+2. **Learn More**: Explore our [Usage Guide](https://docs.glassflow.dev/usage-guide) to start creating data pipelines
 
 
 ## 🧭 Installation Options
@@ -60,9 +59,6 @@ GlassFlow is open source and can be self-hosted on Kubernetes. GlassFlow works w
 
 ## 🎥 Demo
 
-### Live Preview
-Log in and see a working demo of GlassFlow running on a GPC cluster at [demo.glassflow.dev](https://demo.glassflow.dev). You will see a Grafana dashboard and the setup that we used.
-
 ### Demo Video
 
 [![GlassFlow Overview Video](https://raw.githubusercontent.com/glassflow/clickhouse-etl/main/docs/public/assets/video-banner.png)](https://docs.glassflow.dev/getting-started#demo-video)
@@ -75,7 +71,6 @@ For detailed documentation, visit [docs.glassflow.dev](https://docs.glassflow.de
 - [Installation Guide](https://docs.glassflow.dev/installation)
 - [Usage Guide](https://docs.glassflow.dev/usage-guide)
 - [Pipeline JSON Reference](https://docs.glassflow.dev/configuration/pipeline-config-reference)
-- [Live Preview](https://docs.glassflow.dev/getting-started/live-preview)
 - [Architecture](https://docs.glassflow.dev/architecture)
 
 ## 🆘 Support

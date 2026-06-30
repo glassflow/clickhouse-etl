@@ -9,7 +9,9 @@ import { SlackIcon } from './components/SlackIcon'
 # GlassFlow for ClickHouse ETL Documentation
 
 
-GlassFlow is an open-source streaming ETL for multiple data sources to ClickHouse. It has built-in deduplication, temporal joins, handles late-arriving events with exactly-once guarantees, and scales for high-throughput low-latency workloads on ClickHouse. It reduces the need to use ReplacingMergeTree, FINAL and Joins on ClickHouse.
+GlassFlow is a streaming ETL for multiple data sources to ClickHouse. It has built-in deduplication, temporal joins, handles late-arriving events with exactly-once guarantees, and scales for high-throughput low-latency workloads on ClickHouse. It reduces the need to use ReplacingMergeTree, FINAL and Joins on ClickHouse.
+
+GlassFlow is open source at its core. The [Enterprise Edition](/enterprise) builds on the same engine and adds more connectors, additional data formats such as Avro and Protobuf, and operational controls for teams running GlassFlow as shared infrastructure.
 <br />
 <img src="/assets/clickhouse-etl-introduction.jpg" alt="GlassFlow ClickHouse ETL Introduction" width="800"/>
 
@@ -45,7 +47,7 @@ GlassFlow is an open-source streaming ETL for multiple data sources to ClickHous
 ### Stateless Transformations
 - Reshape event payloads with expression-based field mappings ([Stateless transformations](/transformations/stateless-transformation))
 - Normalize fields, derive new fields, and map nested JSON to a flat schema
-- Each event transformed independently—no stored state; rich expression language with built-in helpers
+- Each event transformed independently, no stored state; rich expression language with built-in helpers
 
 ### Kubernetes Native Architecture
 - Robust and scalable architecture natively built for Kubernetes ([Architecture](/architecture))
@@ -84,6 +86,7 @@ GlassFlow is an open-source streaming ETL for multiple data sources to ClickHous
 - **SDK Support**: Python SDK for programmatic management of pipelines
 - **Local Development**: Includes demo setup with local Kafka and ClickHouse instances
 - **Self-Hosted**: Open-source solution that can be self-hosted in your infrastructure
+- **Editions**: Open Source plus an [Enterprise Edition](/enterprise) with managed connectors, additional data formats, and operational controls
 </div>
 
 ## Support

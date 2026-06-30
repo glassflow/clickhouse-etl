@@ -10,11 +10,11 @@ GlassFlow comes with ready-to-run demos that showcase different pipeline capabil
 
 ## Available Demos
 
-- [**Kafka Deduplication**](/getting-started/demo/kafka-deduplication) — Create a pipeline via the UI that deduplicates Kafka events before writing to ClickHouse. A good starting point to understand the core GlassFlow workflow.
+- [**Kafka Deduplication**](/getting-started/demo/kafka-deduplication): Create a pipeline via the UI that deduplicates Kafka events before writing to ClickHouse. A good starting point to understand the core GlassFlow workflow.
 
-- [**Fraud Detection**](/getting-started/demo/fraud-detection) — Detect brute-force login attacks by combining **Filter** and **Deduplication** in a single pipeline. Uses synthetic login events and SQL-based fraud queries on clean data in ClickHouse.
+- [**Fraud Detection**](/getting-started/demo/fraud-detection): Detect brute-force login attacks by combining **Filter** and **Deduplication** in a single pipeline. Uses synthetic login events and SQL-based fraud queries on clean data in ClickHouse.
 
-- [**OpenTelemetry Traces**](/getting-started/demo/observability) — Ingest OpenTelemetry traces into ClickHouse with deduplication and PII masking. Uses the **OTLP source**, **Deduplication** on a composite `trace_id` + `span_id` key, and a **stateless transformation** for PII redaction, then visualizes traces in HyperDX.
+- [**OpenTelemetry Traces**](/getting-started/demo/observability): Ingest OpenTelemetry traces into ClickHouse with deduplication and PII masking. Uses the **OTLP source**, **Deduplication** on a composite `trace_id` + `span_id` key, and a **stateless transformation** for PII redaction, then visualizes traces in HyperDX.
 
 - [**5G Telemetry**](/getting-started/demo/5g-telemetry): Replay real 5G RAN signal traces as OpenTelemetry metrics from a redundant collector pair. Uses the **OTLP source**, **Filter**, **Deduplication**, and a **Stateless Transformation** to remove duplicates and normalize cell IDs before being ingested to ClickHouse, and visualized in Grafana.
 
@@ -23,5 +23,5 @@ GlassFlow comes with ready-to-run demos that showcase different pipeline capabil
 All demos require:
 
 - **Docker** (or compatible runtime like Docker Desktop, OrbStack, Colima, or Podman)
-- **Helm** — install via [Helm docs](https://helm.sh/docs/intro/install/) or run: `brew install helm`
-- **GlassFlow CLI** — see [Install with CLI](/installation/cli)
+- **Helm**: install via [Helm docs](https://helm.sh/docs/intro/install/) or run: `brew install helm`
+- **GlassFlow CLI**: see [Install with CLI](/installation/cli)

@@ -7,7 +7,7 @@ import { Callout } from 'nextra/components'
 
 # Fraud Detection Demo
 
-Detect brute-force login attacks using Kafka, GlassFlow, and ClickHouse. GlassFlow sits between Kafka and ClickHouse: it filters out successful logins, deduplicates retried events by `event_id` (1 h window), and delivers only unique failed logins to ClickHouse. Fraud queries then run directly on clean data.
+Detect brute-force login attacks using Kafka, GlassFlow, and ClickHouse. GlassFlow sits between Kafka and ClickHouse: it filters out successful logins, deduplicates retried events by `event_id` (1-hour window), and delivers only unique failed logins to ClickHouse. Fraud queries then run directly on clean data.
 
 This demo uses the **Filter** and **Deduplication** transformations together in a single pipeline.
 
@@ -75,7 +75,7 @@ Wait ~15 seconds for GlassFlow to flush, then run the fraud detection queries:
 ./scripts/run_fraud_queries.sh
 ```
 
-The queries detect IPs with a high number of failed login attempts within short time windows (30 s, 5 min, 1 h).
+The queries detect IPs with a high number of failed login attempts within short time windows (30 seconds, 5 minutes, and 1 hour).
 
 ### Clean up
 
@@ -89,8 +89,8 @@ glassflow down
 
 The pipeline configuration (`glassflow/fraud_detection_pipeline.json`) applies two transformations in order:
 
-1. [**Filter**](/transformations/filter) — keeps only events where `status == 'failed'`, dropping successful logins before they reach ClickHouse
-2. [**Deduplication**](/transformations/deduplication) — removes duplicate events by `event_id` within a 1-hour window, handling producer retries
+1. [**Filter**](/transformations/filter), keeps only events where `status == 'failed'`, dropping successful logins before they reach ClickHouse
+2. [**Deduplication**](/transformations/deduplication), removes duplicate events by `event_id` within a 1-hour window, handling producer retries
 
 After these transformations, only unique failed login attempts are written to ClickHouse. The fraud detection SQL queries in `sql/fraud_detection_queries.sql` then aggregate by IP address and time window to flag brute-force patterns.
 

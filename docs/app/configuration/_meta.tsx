@@ -1,6 +1,7 @@
 export default {
     'pipeline-config-reference': '',
-    'data-format': '',
+    'pipeline-config-reference-enterprise': '',
     'metrics': '',
     'clickhouse-sink': '',
+    'dlq': '',
 }

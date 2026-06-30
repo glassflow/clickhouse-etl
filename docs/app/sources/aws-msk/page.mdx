@@ -36,7 +36,7 @@ MSK is a standard Kafka cluster, so the GlassFlow [Kafka source](/sources/kafka)
 }
 ```
 
-MSK SCRAM credentials are stored in AWS Secrets Manager and associated with the cluster — see the AWS MSK documentation for setup.
+MSK SCRAM credentials are stored in AWS Secrets Manager and associated with the cluster, see the AWS MSK documentation for setup.
 
 <Callout type="info">
 **AWS IAM authentication is not currently supported** by the GlassFlow Kafka source. If your MSK cluster is configured for IAM auth, you can either enable SASL/SCRAM on the cluster as an alternative, or [contact us](/support) so we can prioritize IAM auth support.

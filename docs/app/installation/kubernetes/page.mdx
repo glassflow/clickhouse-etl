@@ -28,12 +28,12 @@ This guide will walk you through the process of installing GlassFlow on Kubernet
 ## Installation
 
 <Steps>
-### Add the GlassFlow Helm repository:
+### Add the GlassFlow Helm repository
 ```bash
 helm repo add glassflow https://glassflow.github.io/charts
 ```
 
-### Update the Helm repository:
+### Update the Helm repository
 ```bash
 helm repo update
 ```
@@ -46,7 +46,7 @@ This installs the GlassFlow Helm chart into the `glassflow` namespace. The `--cr
 
 <Callout type="info" emoji="💡">
 By default, the deployment is **not publicly accessible**. To expose it, you must configure ingress settings in your `values.yaml`. You can use the default template as a starting point:  
-[glassflow-etl values.yaml](https://github.com/glassflow/charts/blob/main/charts/glassflow-etl/values.ingress.yaml)
+[glassflow-etl values.ingress.yaml](https://github.com/glassflow/charts/blob/main/charts/glassflow-etl/values.ingress.yaml)
 </Callout>
 
 
@@ -57,7 +57,7 @@ helm list -n glassflow
 The output should look like this:
 ```bash
 NAME     	NAMESPACE	REVISION	UPDATED                              	STATUS  	CHART              	APP VERSION
-glassflow	glassflow	1       	2025-09-03 15:07:47.125128 +0200 CEST	deployed	glassflow-etl-0.2.0	2.0.0      
+glassflow	glassflow	1       	2025-09-03 15:07:47.125128 +0200 CEST	deployed	glassflow-etl-0.5.18	3.1.0      
 ```
 
 To check the services that were deployed:

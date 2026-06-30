@@ -1,0 +1,73 @@
+---
+title: 'GlassFlow Enterprise Edition'
+description: 'What the GlassFlow Enterprise Edition adds on top of Open Source, who it is for, and how to get access.'
+tier: 'enterprise'
+---
+import { FeatureMatrix } from '../components/FeatureMatrix'
+
+# Enterprise Edition
+
+GlassFlow is open source at its core: the streaming processing engine, Kafka and OTLP sources, the ClickHouse sink, deduplication, joins, filtering, and stateless transformations are all free to self-host. The Enterprise Edition builds on that same engine and adds the connectors, data formats, and operational controls that larger teams need to run GlassFlow as shared infrastructure.
+
+Enterprise features are documented alongside the Open Source ones throughout these docs. Pages and sections that require the Enterprise Edition carry an <Tier badge="enterprise" inline /> badge so you always know which edition a capability belongs to.
+
+## Who it is for
+
+The Enterprise Edition is aimed at teams that need one or more of the following:
+
+- Sources beyond Kafka and OTLP, such as cloud streaming services, databases, and object storage, including but not limited to: PostgreSQL, MySQL, MongoDB, Airbyte, Amazon CloudWatch and more.
+- Non-JSON wire formats such as Avro and Protobuf.
+- Built-in observability, including dashboards and real-time logs in the web UI.
+- Operational guarantees such as high-availability deployment, dead-letter queue reprocessing, and SLA-backed support.
+
+## Open Source vs Enterprise
+
+Both editions run the same stream processing engine. The Enterprise Edition extends it with more connectors, more data formats, and the security and operational controls teams need at scale. Each Enterprise capability below links to the page where its badge confirms the same fact.
+
+<FeatureMatrix
+  groups={[
+    {
+      category: 'Sources',
+      features: [
+        { label: 'Kafka and Kafka-compatible streaming', href: '/sources/kafka', oss: true, enterprise: true },
+        { label: 'OpenTelemetry (OTLP) and telemetry collectors', href: '/sources/otlp', oss: true, enterprise: true },
+        { label: 'Cloud streaming, databases, and object storage', href: '/sources', oss: false, enterprise: true },
+      ],
+    },
+    {
+      category: 'Data formats',
+      features: [
+        { label: 'JSON', href: '/sources/kafka/data-format#json-format', oss: true, enterprise: true },
+        { label: 'Avro', href: '/sources/kafka/data-format#avro-format', oss: false, enterprise: true },
+        { label: 'Protobuf', href: '/sources/kafka/data-format#protobuf-format', oss: false, enterprise: true },
+      ],
+    },
+    {
+      category: 'Sinks',
+      features: [
+        { label: 'ClickHouse', href: '/configuration/clickhouse-sink', oss: true, enterprise: true },
+        { label: 'Additional managed sinks', href: 'https://www.glassflow.dev/integrations#contact', oss: false, enterprise: true },
+      ],
+    },
+    {
+      category: 'Operations',
+      features: [
+        { label: 'Metrics and monitoring', href: '/configuration/metrics', oss: true, enterprise: true },
+        { label: 'Built-in dashboards and real-time logs in the UI', oss: false, enterprise: true },
+        { label: 'Dead-letter queue reprocessing', href: '/configuration/dlq', oss: false, enterprise: true },
+        { label: 'High-availability deployment', href: 'https://www.glassflow.dev/integrations#contact', oss: false, enterprise: true },
+      ],
+    },
+    {
+      category: 'Support',
+      features: [
+        { label: 'Community support', oss: true, enterprise: true },
+        { label: 'SLA-backed support', href: 'https://www.glassflow.dev/integrations#contact', oss: false, enterprise: true },
+      ],
+    },
+  ]}
+/>
+
+## How to get access
+
+Enterprise features are delivered as part of a commercial subscription. To request access, see a demo, or ask about a specific connector, [get in touch with our team](https://www.glassflow.dev/integrations#contact).

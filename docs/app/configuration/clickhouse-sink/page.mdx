@@ -12,8 +12,8 @@ When the sink fails to write a batch to ClickHouse, it classifies the error befo
 
 | Classification | Sink action | When |
 |----------------|-------------|------|
-| **Retryable** | NACK — NATS redelivers after a delay | Transient condition; same data would succeed once CH recovers |
-| **Permanent** | DLQ — batch written to Dead Letter Queue | Data or schema problem; same message will fail again on retry |
+| **Retryable** | NACK, NATS redelivers after a delay | Transient condition; same data would succeed once CH recovers |
+| **Permanent** | DLQ, batch written to Dead Letter Queue | Data or schema problem; same message will fail again on retry |
 | **Unknown** | DLQ (conservative) | Not yet classified; logged with `needs_classification` so gaps surface from real traffic |
 
 <Callout type="info">
@@ -30,7 +30,7 @@ Transient conditions where the same message is expected to succeed once ClickHou
 |------|------|--------|
 | 159 | `TIMEOUT_EXCEEDED` | Query timeout |
 | 198 | `DNS_ERROR` | DNS resolution failure |
-| 201 | `QUOTA_EXPIRED` | Quota exhausted — resets on schedule |
+| 201 | `QUOTA_EXPIRED` | Quota exhausted, resets on schedule |
 | 202 | `TOO_MANY_SIMULTANEOUS_QUERIES` | Server overloaded |
 | 203 | `NO_FREE_CONNECTION` | Connection pool exhausted |
 | 209 | `SOCKET_TIMEOUT` | Network timeout |
@@ -52,7 +52,7 @@ Transient conditions where the same message is expected to succeed once ClickHou
 | 384 | `PART_IS_TEMPORARILY_LOCKED` | Merge in progress, temporary lock |
 | 999 | `KEEPER_EXCEPTION` | ClickHouse Keeper (ZooKeeper) exception |
 | 1000 | `POCO_EXCEPTION` | Poco network/IO library exception |
-| — | Network/IO | `io.EOF`, `io.ErrUnexpectedEOF`, `ECONNREFUSED`, `ECONNRESET`, `EPIPE`, net timeout |
+| N/A | Network/IO | `io.EOF`, `io.ErrUnexpectedEOF`, `ECONNREFUSED`, `ECONNRESET`, `EPIPE`, net timeout |
 
 ---
 
@@ -100,11 +100,11 @@ Data or schema problems where retrying the same message will produce the same fa
 
 ### Unknown errors
 
-Any error code not in the lists above is classified as `unknown` and treated conservatively as permanent — the batch is written to the DLQ. The sink logs these with a `needs_classification` attribute so they can be identified from metrics or logs and added to the appropriate list.
+Any error code not in the lists above is classified as `unknown` and treated conservatively as permanent, the batch is written to the DLQ. The sink logs these with a `needs_classification` attribute so they can be identified from metrics or logs and added to the appropriate list.
 
 To add a new code, add one line to `internal/sink/errors/classification.go`:
 
 ```go
 // in retryableCodes or permanentCodes map
-int32(chproto.ErrNewCode): {}, // NNN — reason
+int32(chproto.ErrNewCode): {}, // NNN, reason
 ```

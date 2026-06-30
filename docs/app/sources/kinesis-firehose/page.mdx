@@ -1,16 +1,19 @@
 ---
 title: 'Kinesis Firehose'
 description: 'Ingest streaming data from Amazon Kinesis Firehose into ClickHouse with GlassFlow'
+tier: 'enterprise'
 ---
 import { Callout } from 'nextra/components'
 
 # Kinesis Firehose
 
+<Tier badge="enterprise" />
+
 Firehose is a fully managed delivery service that streams data directly into destinations like S3, Redshift, or OpenSearch. It simplifies ingestion pipelines by handling buffering, batching, and scaling automatically.
 
 ## Using Kinesis Firehose with GlassFlow
 
-GlassFlow can ingest data from Kinesis Firehose into ClickHouse with the same pipeline capabilities available to all GlassFlow sources — deduplication, joins, filtering, and stateless transformations.
+GlassFlow can ingest data from Kinesis Firehose into ClickHouse with the same pipeline capabilities available to all GlassFlow sources, including deduplication, joins, filtering, and stateless transformations.
 
 <Callout type="info">
 **Available on request.** Kinesis Firehose connectors are natively supported in GlassFlow Enterprise Edition. To get started, [join our GlassFlow Slack community](https://glassflowhub.slack.com/join/shared_invite/zt-349m7lenp-IFeKSGfQwpJfIiQ7oyFFKg) to chat directly with our team, or [reach out](https://www.glassflow.dev/integrations#contact) to us with your use case, expected volumes, and timeline.

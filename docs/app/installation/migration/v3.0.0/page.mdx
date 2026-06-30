@@ -11,7 +11,7 @@ import { SlackIcon } from '../../../components/SlackIcon'
 
 # Migration Guide: v2.11.x to v3.0.0
 
-This guide walks through upgrading to GlassFlow v3.0.0 (Helm chart **v0.5.16**). v3.0.0 introduces the Pipeline Config V3 format — existing v2 pipeline JSONs are **not** loaded automatically and must be converted before they can run. It also inverts filter expression semantics and renames a few metrics; ignoring those two steps will silently corrupt your output data or break dashboards. The full v3 schema is documented in the [Pipeline Configuration Reference](/configuration/pipeline-config-reference).
+This guide walks through upgrading to GlassFlow v3.0.0 (Helm chart **v0.5.16**). v3.0.0 introduces the Pipeline Config V3 format, existing v2 pipeline JSONs are **not** loaded automatically and must be converted before they can run. It also inverts filter expression semantics and renames a few metrics; ignoring those two steps will silently corrupt your output data or break dashboards. The full v3 schema is documented in the [Pipeline Configuration Reference](/configuration/pipeline-config-reference).
 
 ## When This Migration Applies
 
@@ -25,14 +25,14 @@ This guide walks through upgrading to GlassFlow v3.0.0 (Helm chart **v0.5.16**).
 
 Two product-level breaking changes and one observability-level one:
 
-1. **Pipeline Config V3** — the pipeline JSON has been restructured. v2 configs will not load.
-2. **Filter semantics inverted** — a filter expression now **keeps** messages where it evaluates to `true` (previously: dropped them).
-3. **Metrics removed / unified** — `gfm_records_processed_per_second`, `gfm_records_filtered_total`, and `gfm_processor_duration_seconds` are gone or merged. Grafana dashboards that reference them by name will render empty panels.
+1. **Pipeline Config V3**: the pipeline JSON has been restructured. v2 configs will not load.
+2. **Filter semantics inverted**: a filter expression now **keeps** messages where it evaluates to `true` (previously: dropped them).
+3. **Metrics removed / unified**: `gfm_records_processed_per_second`, `gfm_records_filtered_total`, and `gfm_processor_duration_seconds` are gone or merged. Grafana dashboards that reference them by name will render empty panels.
 
 ## Before You Start
 
 - Take a backup of your PostgreSQL database.
-- Export the current pipeline configs (see Step 1 below) — you will need them to recreate the pipelines on v3.
+- Export the current pipeline configs (see Step 1 below), you will need them to recreate the pipelines on v3.
 - If you maintain Grafana dashboards over GlassFlow metrics, identify panels that reference the removed metrics (`gfm_records_processed_per_second`, `gfm_records_filtered_total`, `gfm_processor_duration_seconds`).
 
 ## Migration Steps
@@ -84,11 +84,11 @@ helm upgrade glassflow glassflow/glassflow-etl -n glassflow --version 0.5.16 \
   -f values.yaml
 ```
 
-Watch the `glassflow-api` pod logs during startup — the database migration runs on first boot and should complete within a few seconds. If it fails, do not proceed; see [Rollback](#rollback) below.
+Watch the `glassflow-api` pod logs during startup, the database migration runs on first boot and should complete within a few seconds. If it fails, do not proceed; see [Rollback](#rollback) below.
 
 ### 4. Convert v2 configs to v3 using the migrate-preview API
 
-With the upgraded API up, convert each saved v2 config to v3 using the new `migrate-preview` endpoint. This is a pure transformation — no pipeline is created and no database state is touched:
+With the upgraded API up, convert each saved v2 config to v3 using the new `migrate-preview` endpoint. This is a pure transformation, no pipeline is created and no database state is touched:
 
 ```bash
 mkdir -p v3-configs
@@ -149,8 +149,8 @@ Three metrics have changed in this release. Update dashboards and alerting rules
 
 Two new metrics are also available and worth adding to dashboards:
 
-- `gfm_bytes_processed_total{component, direction}` — byte-level throughput per component.
-- `gfm_receiver_request_count` / `gfm_receiver_request_duration_seconds` — OTLP receiver request rate and latency, labeled by `transport` and `status`.
+- `gfm_bytes_processed_total{component, direction}`, byte-level throughput per component.
+- `gfm_receiver_request_count` / `gfm_receiver_request_duration_seconds`, OTLP receiver request rate and latency, labeled by `transport` and `status`.
 
 See the [Prometheus Metrics](/configuration/metrics) reference for the full metric set.
 
@@ -193,10 +193,10 @@ done < pipelines.txt
 
 ## After Migration
 
-- **Open the UI** — Confirm you can list, view, and edit pipelines. Edit mode should hydrate existing Kafka and (if used) OTLP configs correctly.
-- **Check ClickHouse row counts** — Confirm each pipeline is writing rows at the expected rate. A silent zero-row regression usually indicates a filter expression that was not inverted correctly.
-- **Check DLQ rates** — Use `gfm_dlq_records_written_total` or the DLQ consume API to confirm no unexpected DLQ traffic. Dedup or filter misconfigurations typically surface here.
-- **Sanity-check dashboards** — Confirm your updated Grafana panels are rendering data; empty panels usually mean a metric name was not updated (step 7).
+- **Open the UI**: Confirm you can list, view, and edit pipelines. Edit mode should hydrate existing Kafka and (if used) OTLP configs correctly.
+- **Check ClickHouse row counts**: Confirm each pipeline is writing rows at the expected rate. A silent zero-row regression usually indicates a filter expression that was not inverted correctly.
+- **Check DLQ rates**: Use `gfm_dlq_records_written_total` or the DLQ consume API to confirm no unexpected DLQ traffic. Dedup or filter misconfigurations typically surface here.
+- **Sanity-check dashboards**: Confirm your updated Grafana panels are rendering data; empty panels usually mean a metric name was not updated (step 7).
 
 ## Rollback
 
@@ -206,7 +206,7 @@ If the helm upgrade or database migration fails:
 - Restore the PostgreSQL backup you took in [Before You Start](#before-you-start).
 - Start the pipelines again using the v2 configs.
 
-The DB migration is additive (creates new tables; does not modify existing v2 tables), so data loss on rollback is unlikely — but the PG backup is the safe default.
+The DB migration is additive (creates new tables; does not modify existing v2 tables), so data loss on rollback is unlikely, but the PG backup is the safe default.
 
 ## Getting Help
 

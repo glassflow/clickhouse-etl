@@ -1,10 +1,10 @@
 ---
-title: 'Stateless Transformations'
+title: 'Stateless Transformation'
 description: 'Learn how stateless JSON transformations work in GlassFlow and how to configure them'
 ---
 import { Callout, Tabs } from 'nextra/components'
 
-# Stateless Transformations
+# Stateless Transformation
 
 The **Stateless Transformation** feature lets you reshape event payloads on the fly using expression-based mappings.  
 It is called *stateless* because each event is transformed independently, without relying on any stored state or history.
@@ -31,7 +31,7 @@ Each transformation defines:
 2. **Expression Evaluation**:  
    For each configured transformation, GlassFlow evaluates the `expression` against the input object.
 3. **Type Conversion**:  
-   The result of the expression is converted to the configured `output_type` (string, int, float64, bool, or `[]string`).
+   The result of the expression is converted to the configured `output_type` (string, int, uint, float64, bool, or `[]string`).
 4. **Output Assembly**:  
    All transformed fields are collected into a new JSON object keyed by `output_name`.
 5. **Downstream Processing**:  
@@ -50,7 +50,7 @@ The expression engine is type-aware and supports arithmetic, string operations, 
 
 ## Transformation Expressions
 
-Stateless transformations are evaluated using the [expr](https://expr-lang.org/docs/language-definition) expression language. Expr is a simple, type-aware expression engine that supports literals, variables, operators, and a rich set of built-in functions. Your transformation expressions run on this engine, so you can use the full expr syntax—including arithmetic, comparison, logical and string operators, optional chaining, and predicates—in addition to the GlassFlow-specific helpers described below.
+Stateless transformations are evaluated using the [expr](https://expr-lang.org/docs/language-definition) expression language. Expr is a simple, type-aware expression engine that supports literals, variables, operators, and a rich set of built-in functions. Your transformation expressions run on this engine, so you can use the full expr syntax, including arithmetic, comparison, logical and string operators, optional chaining, and predicates, in addition to the GlassFlow-specific helpers described below.
 
 ### Expression Operators
 
@@ -390,7 +390,7 @@ They are typically surfaced through the UI as *derived fields* or *expression-ba
 
 <Tabs items={['YAML', 'JSON', 'Web UI']} defaultIndex="2" storageKey="config_format">
   <Tabs.Tab>
-    Stateless transformations use the following structure. The `transforms` array lists every field that appears in the output—both derived fields (with expressions) and passthrough fields (e.g. `expression: "user_id"` to pass `user_id` through unchanged).
+    Stateless transformations use the following structure. The `transforms` array lists every field that appears in the output, both derived fields (with expressions) and passthrough fields (e.g. `expression: "user_id"` to pass `user_id` through unchanged).
 
     ```yaml
     transforms:
@@ -425,10 +425,10 @@ They are typically surfaced through the UI as *derived fields* or *expression-ba
           column_type: String
     ```
 
-    For the full field reference, see the [Pipeline Configuration Reference](/configuration/pipeline-config-reference#stateless-transformation-configuration).
+    For the full field reference, see the [Pipeline Configuration Reference](/configuration/pipeline-config-reference#stateless-transformation).
   </Tabs.Tab>
   <Tabs.Tab>
-    Stateless transformations use the following structure. The `transforms` array lists every field that appears in the output—both derived fields (with expressions) and passthrough fields (e.g. `expression: "user_id"` to pass `user_id` through unchanged).
+    Stateless transformations use the following structure. The `transforms` array lists every field that appears in the output, both derived fields (with expressions) and passthrough fields (e.g. `expression: "user_id"` to pass `user_id` through unchanged).
 
     ```json
     {
@@ -474,10 +474,10 @@ They are typically surfaced through the UI as *derived fields* or *expression-ba
     }
     ```
 
-    For the full field reference, see the [Pipeline Configuration Reference](/configuration/pipeline-config-reference#stateless-transformation-configuration).
+    For the full field reference, see the [Pipeline Configuration Reference](/configuration/pipeline-config-reference#stateless-transformation).
   </Tabs.Tab>
   <Tabs.Tab>
-    In the pipeline wizard, open the **Transformation** step. By default, all input fields from your topic are listed as **passthrough**—they are forwarded to the output unchanged. You can edit a passthrough field to add a transformation, or click **Add Field** to define a new derived field.
+    In the pipeline wizard, open the **Transformation** step. By default, all input fields from your topic are listed as **passthrough**: they are forwarded to the output unchanged. You can edit a passthrough field to add a transformation, or click **Add Field** to define a new derived field.
 
     <img alt="Stateless Transformation Configuration Passthrough" src="/assets/ui_stateless_transformation_configuration_passthrough.png" />
 
@@ -636,9 +636,9 @@ Here's a complete example of a pipeline with stateless transformation enabled.
   </Tabs.Tab>
 </Tabs>
 
-- **event_date** — Custom helpers `parseISO8601` and `toDate` turn an ISO-8601 `timestamp` into a `YYYY-MM-DD` string; `timestamp ?? ''` avoids errors when the field is missing (expr [nil coalescing](https://expr-lang.org/docs/language-definition#nil-coalescing)).
-- **event_category** — `extractPathType` plus expr [ternary](https://expr-lang.org/docs/language-definition#operators): paths like `/g/collect` become `"event"`, everything else `"other"`.
-- **request_time_usec** — `toFloat` converts `request_time` to a float, then multiplies by 1,000,000 to get microseconds; `toInt` converts the result to an integer.
+- **event_date**: Custom helpers `parseISO8601` and `toDate` turn an ISO-8601 `timestamp` into a `YYYY-MM-DD` string; `timestamp ?? ''` avoids errors when the field is missing (expr [nil coalescing](https://expr-lang.org/docs/language-definition#nil-coalescing)).
+- **event_category**: `extractPathType` plus expr [ternary](https://expr-lang.org/docs/language-definition#operators): paths like `/g/collect` become `"event"`, everything else `"other"`.
+- **request_time_usec**: `toFloat` converts `request_time` to a float, then multiplies by 1,000,000 to get microseconds; `toInt` converts the result to an integer.
 
 ## Best Practices
 

@@ -1,7 +1,7 @@
 ---
 title: 'OpenTelemetry (OTLP)'
 asIndexPage: true
-description: 'Ingest OpenTelemetry logs, traces, and metrics into ClickHouse via the native OTLP receiver — no Kafka cluster required'
+description: 'Ingest OpenTelemetry logs, traces, and metrics into ClickHouse via the native OTLP receiver, no Kafka cluster required'
 ---
 import { Callout } from 'nextra/components'
 
@@ -21,7 +21,7 @@ The OTLP receiver must be enabled in your GlassFlow Helm installation. If it is 
 
 ```bash
 helm upgrade glassflow glassflow/glassflow-etl \
-  --set otlpReceiver.enabled=true
+  --set sources.otlpReceiver.enabled=true
 ```
 
 Verify the receiver pod is running:
@@ -32,7 +32,7 @@ kubectl get pods -n glassflow -l app=glassflow-otlp-receiver
 
 ## Configuration
 
-Each OTLP source is an entry in the `sources` array. OTLP sources do not need `schema_fields` — the schema is predefined per signal type.
+Each OTLP source is an entry in the `sources` array. OTLP sources do not need `schema_fields`, the schema is predefined per signal type.
 
 ```json
 "sources": [
@@ -95,7 +95,7 @@ For OpenTelemetry SDKs and the OpenTelemetry Collector directly, see [Sending Da
 
 Because the OTLP receiver is a shared component that stays running across all pipelines, it is important to understand what happens to in-flight data when you stop or terminate an OTLP pipeline.
 
-- **Stop and Terminate**: In both cases, pipeline components scale to zero but NATS JetStream streams are **preserved**. Any data already ingested but not yet written to ClickHouse remains in the streams and will be processed when the pipeline is resumed. Because the OTLP receiver is a shared component, it **continues accepting incoming data** for the stopped/terminated pipeline — new events are published to NATS JetStream and buffered until the pipeline is resumed. The difference between stop and terminate is that stop drains in-flight messages before scaling down, while terminate scales down immediately.
+- **Stop and Terminate**: In both cases, pipeline components scale to zero but NATS JetStream streams are **preserved**. Any data already ingested but not yet written to ClickHouse remains in the streams and will be processed when the pipeline is resumed. Because the OTLP receiver is a shared component, it **continues accepting incoming data** for the stopped/terminated pipeline, new events are published to NATS JetStream and buffered until the pipeline is resumed. The difference between stop and terminate is that stop drains in-flight messages before scaling down, while terminate scales down immediately.
 - **Delete**: NATS JetStream streams are only **deleted** when the pipeline itself is deleted. This is the only operation that permanently removes buffered data.
 
 <Callout type="info">
@@ -104,7 +104,7 @@ Because the OTLP receiver is a shared component that stays running across all pi
 
 ## Backpressure
 
-When the receiver cannot keep up with incoming data it signals backpressure to the upstream OTel Collector or SDK — returning `429 Too Many Requests` (HTTP) or `ResourceExhausted` (gRPC) — instead of silently dropping events. Standard OTel exporters retry these responses automatically.
+When the receiver cannot keep up with incoming data it signals backpressure to the upstream OTel Collector or SDK, returning `429 Too Many Requests` (HTTP) or `ResourceExhausted` (gRPC), instead of silently dropping events. Standard OTel exporters retry these responses automatically.
 
 See [Backpressure](/sources/otlp/back-pressure) for how the two backpressure gates work, how to tune them, and how to resolve sustained backpressure.
 
