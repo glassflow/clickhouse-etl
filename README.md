@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/public/assets/Readme Banner.png" alt="GlassFlow Banner" />
+  <img width="1520" height="870" alt="Image" src="docs/public/assets/Readme Banner.png"/>
 </p>
 <p align="center">
       <a href="https://docs.glassflow.dev"><strong>Docs</strong></a> ·     
@@ -27,9 +27,11 @@
   </a>
 </div>
 
-# Run any data transformation at TB scale for ClickHouse
+# Ingest your data into ClickHouse from day one
 
-GlassFlow is an open-source stream processing engine designed for high-volume data ingestion and transformation from multiple sources into ClickHouse. GlassFlow comes with the following core functionalities:
+Backfill historical data, keep CDC in sync, handle schema changes, normalize messy data, and keep ClickHouse queries correct.
+
+GlassFlow is an open-source stream processing engine designed for data ingestion and transformation from multiple sources into ClickHouse. GlassFlow comes with the following core functionalities:
 
 - **Stateless transformations**: Powered by the expr expression engine, enabling flexible data transformations using helper functions and standard operators (e.g., removing null values or replacing missing timestamps).
 - **Stateful transformations**: A built-in state store allows deduplication logic and temporal joins over configurable time windows.

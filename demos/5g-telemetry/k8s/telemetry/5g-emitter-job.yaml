@@ -1,0 +1,58 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: 5g-emitter
+  namespace: otel
+  labels:
+    app: 5g-emitter
+spec:
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        app: 5g-emitter
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: emitter
+          image: 5g-emitter:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: DATASET_DIR
+              value: /data/5Gdataset
+            - name: OTEL_ENDPOINT_A
+              value: http://otel-collector-a.otel.svc.cluster.local:4318/v1/metrics
+            - name: OTEL_ENDPOINT_B
+              value: http://otel-collector-b.otel.svc.cluster.local:4318/v1/metrics
+            - name: REPLAY_BATCH_SIZE
+              value: "100"
+            - name: REPLAY_DELAY_MS
+              value: "50"
+            - name: HEALTHCHECK_RATIO
+              value: "0.05"
+            # Deterministic replay: a fixed RNG seed plus zero jitter means both
+            # collectors emit identical timestamps, so the deduplicated rows in
+            # ClickHouse — and the verification query results — are the same on
+            # every run.
+            - name: RANDOM_SEED
+              value: "42"
+            - name: JITTER_MAX_MS
+              value: "0"
+            # MAX_ROWS empty -> replay every row of the curated REPLAY_FILES set.
+            - name: MAX_ROWS
+              value: ""
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          volumeMounts:
+            - name: dataset-cache
+              mountPath: /data
+      volumes:
+        - name: dataset-cache
+          emptyDir:
+            sizeLimit: 1Gi
