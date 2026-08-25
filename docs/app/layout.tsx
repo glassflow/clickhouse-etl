@@ -10,11 +10,20 @@ import { Logo } from './components/Logo'
 import { SearchWithTracking } from './components/SearchWithTracking'
 
 export const metadata = {
-  // ... your metadata API
-  // https://nextjs.org/docs/app/building-your-application/optimizing/metadata
+  metadataBase: new URL('https://glassflow-etl.com'),
+  alternates: {
+    canonical: './'
+  }
 }
 
-const banner = <Banner storageKey="some-key">GlassFlow ClickHouse ETL is released 🎉</Banner>
+const banner = (
+  <Banner storageKey="glassflow-ai-notice">
+    Open-source ClickHouse ETL by GlassFlow — looking for our current product?{' '}
+    <a href="https://glassflow.ai" style={{ textDecoration: 'underline' }}>
+      Visit glassflow.ai →
+    </a>
+  </Banner>
+)
 const navbar = <Navbar logo={<Logo />} projectLink="https://github.com/glassflow/clickhouse-etl" />
 const footer = (
   <Footer className="flex-col items-center md:items-start">
@@ -53,7 +62,7 @@ export default async function RootLayout({ children }) {
       </Head>
       <body>
         <Layout
-          // banner={banner}
+          banner={banner}
           navbar={navbar}
           search={<SearchWithTracking />}
           pageMap={await getPageMap()}
