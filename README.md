@@ -2,17 +2,15 @@
   <img width="1520" height="870" alt="Image" src="docs/public/assets/Readme Banner.png"/>
 </p>
 <p align="center">
-      <a href="https://docs.glassflow.dev"><strong>Docs</strong></a> ·     
+      <a href="https://glassflow-etl.com"><strong>Docs</strong></a> ·     
       <a href="https://github.com/glassflow/clickhouse-etl/issues"><strong>Report Bug</strong></a> ·
-      <a href="https://glassflow.dev/roadmap"><strong>Roadmap</strong></a> ·
       <a href="https://github.com/orgs/glassflow/discussions/categories/support"><strong>Get Help</strong></a> ·
-      <a href="https://docs.glassflow.dev/getting-started#demo-video"><strong>Watch Demo</strong></a> ·
-      <a href="https://docs.glassflow.dev/free-swag"><strong>Free Swag</strong></a>
+      <a href="https://glassflow-etl.com/getting-started#demo-video"><strong>Watch Demo</strong></a> ·
+      <a href="https://glassflow-etl.com/free-swag"><strong>Free Swag</strong></a>
 </p>
 
 <div align="center">
 
-[![Join Next Office Hour](https://img.shields.io/badge/Join%20Next%20Office%20Hour-Schedule%20Now-blue?logo=calendar)](https://www.glassflow.dev/office-hours)
 [![Email Support](https://img.shields.io/badge/Email%20Support-help%40glassflow.dev-blue?logo=gmail)](mailto:help@glassflow.dev)
 <br>
 [![Slack](https://img.shields.io/badge/Join%20Slack-GlassFlow%20Hub-blueviolet?logo=slack)](https://join.slack.com/t/glassflowhub/shared_invite/zt-349m7lenp-IFeKSGfQwpJfIiQ7oyFFKg)
@@ -26,6 +24,9 @@
     <img alt="Artifact Hub" src="https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/glassflow">
   </a>
 </div>
+
+> [!NOTE]
+> **GlassFlow ClickHouse ETL** is an open-source project by [GlassFlow](https://glassflow.ai). Its documentation lives at [glassflow-etl.com](https://glassflow-etl.com). Looking for GlassFlow's current product? Visit [glassflow.ai](https://glassflow.ai).
 
 # Ingest your data into ClickHouse from day one
 
@@ -44,8 +45,8 @@ GlassFlow is an open-source stream processing engine designed for data ingestion
 
 To get started with GlassFlow, you can:
 
-1. **Install on Kubernetes**: Follow our [Kubernetes Installation Guide](https://docs.glassflow.dev/installation/kubernetes) for any production deployment
-2. **Learn More**: Explore our [Usage Guide](https://docs.glassflow.dev/usage-guide) to start creating data pipelines
+1. **Install on Kubernetes**: Follow our [Kubernetes Installation Guide](https://glassflow-etl.com/installation/kubernetes) for any production deployment
+2. **Learn More**: Explore our [Usage Guide](https://glassflow-etl.com/usage-guide) to start creating data pipelines
 
 
 ## 🧭 Installation Options
@@ -54,28 +55,28 @@ GlassFlow is open source and can be self-hosted on Kubernetes. GlassFlow works w
 
 | Method                         | Use Case                                | Docs Link                                                                 |
 |-------------------------------|------------------------------------------|---------------------------------------------------------------------------|
-| ☸️ **Kubernetes with Helm**         | Production and development deployment    | [Kubernetes Helm Guide](https://docs.glassflow.dev/installation/kubernetes) |
+| ☸️ **Kubernetes with Helm**         | Production and development deployment    | [Kubernetes Helm Guide](https://glassflow-etl.com/installation/kubernetes) |
 
 
 ## 🎥 Demo
 
 ### Demo Video
 
-[![GlassFlow Overview Video](https://raw.githubusercontent.com/glassflow/clickhouse-etl/main/docs/public/assets/video-banner.png)](https://docs.glassflow.dev/getting-started#demo-video)
+[![GlassFlow Overview Video](https://raw.githubusercontent.com/glassflow/clickhouse-etl/main/docs/public/assets/video-banner.png)](https://glassflow-etl.com/getting-started#demo-video)
 
 
 ## 📚 Documentation
 
-For detailed documentation, visit [docs.glassflow.dev](https://docs.glassflow.dev). The documentation includes:
+For detailed documentation, visit [glassflow-etl.com](https://glassflow-etl.com). The documentation includes:
 
-- [Installation Guide](https://docs.glassflow.dev/installation)
-- [Usage Guide](https://docs.glassflow.dev/usage-guide)
-- [Pipeline JSON Reference](https://docs.glassflow.dev/configuration/pipeline-config-reference)
-- [Architecture](https://docs.glassflow.dev/architecture)
+- [Installation Guide](https://glassflow-etl.com/installation)
+- [Usage Guide](https://glassflow-etl.com/usage-guide)
+- [Pipeline JSON Reference](https://glassflow-etl.com/configuration/pipeline-config-reference)
+- [Architecture](https://glassflow-etl.com/architecture)
 
 ## 🆘 Support
 
-- [Documentation](https://docs.glassflow.dev)
+- [Documentation](https://glassflow-etl.com)
 - [GitHub Issues](https://github.com/glassflow/clickhouse-etl/issues)
 - [Slack Community](https://join.slack.com/t/glassflowhub/shared_invite/zt-349m7lenp-IFeKSGfQwpJfIiQ7oyFFKg)
 - [Email Support](mailto:help@glassflow.dev)
