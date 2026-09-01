@@ -71,6 +71,39 @@ func (d *LocalOrchestrator) GetType() string {
 	return "local"
 }
 
+// GetStreamNames implements Orchestrator. Local-mode pipelines use the legacy
+// per-topic-sanitization helpers in the models package — these names are
+// internally consistent for the local docker-based runtime, even though they
+// diverge from what the K8s operator produces. See ETL-1066 / T13 S-10.
+func (d *LocalOrchestrator) GetStreamNames(_ context.Context, cfg models.PipelineConfig) (models.PipelineStreamNames, error) {
+	names := models.PipelineStreamNames{
+		DLQStream: models.GetDLQStreamName(cfg.ID),
+	}
+
+	if !cfg.SourceType.IsOTLP() {
+		for i, topic := range cfg.Ingestor.KafkaTopics {
+			streamName := ""
+			if topic.Name != "" {
+				streamName = models.GetIngestorStreamName(cfg.ID, topic.Name)
+			}
+			names.IngestorStreams = append(names.IngestorStreams, streamName)
+
+			if topic.Deduplication.Enabled {
+				names.DedupStreams = append(names.DedupStreams, models.DedupStreamName{
+					TopicIndex: i,
+					StreamName: models.GetDedupOutputStreamName(cfg.ID, topic.Name),
+				})
+			}
+		}
+	}
+
+	if cfg.Join.Enabled {
+		names.JoinStream = models.GetJoinedStreamName(cfg.ID)
+	}
+
+	return names, nil
+}
+
 // SetupPipeline implements Orchestrator.
 func (d *LocalOrchestrator) SetupPipeline(ctx context.Context, pi *models.PipelineConfig) error {
 	d.m.Lock()

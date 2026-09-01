@@ -19,6 +19,7 @@ func TestUsageStatsCollector_ProcessAPIEvent(t *testing.T) {
 		nil, // NATS client can be nil for this test
 		nil, // DLQ client can be nil for this test
 		usageStatsClient,
+		&mockOrchestrator{}, // orchestrator unused in these event-channel tests
 		slog.Default(),
 	)
 
@@ -45,6 +46,7 @@ func TestUsageStatsCollector_Start_DisabledClient(t *testing.T) {
 		nil,
 		nil, // DLQ client can be nil for this test
 		usageStatsClient,
+		&mockOrchestrator{}, // orchestrator unused in these event-channel tests
 		slog.Default(),
 	)
 
@@ -73,6 +75,7 @@ func TestUsageStatsCollector_Start_NilClient(t *testing.T) {
 		nil,
 		nil, // DLQ client can be nil for this test
 		nil,
+		&mockOrchestrator{},
 		slog.Default(),
 	)
 
@@ -102,6 +105,7 @@ func TestUsageStatsCollector_NewUsageStatsCollector(t *testing.T) {
 		nil,
 		nil, // DLQ client can be nil for this test
 		usageStatsClient,
+		&mockOrchestrator{}, // orchestrator unused in these event-channel tests
 		slog.Default(),
 	)
 
